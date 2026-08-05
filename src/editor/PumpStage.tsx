@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type Konva from 'konva'
 import { Layer, Rect, Stage, Transformer } from 'react-konva'
-import { PumpNode } from '../components/PumpNode'
+import {
+  PUMP_MIN_HEIGHT,
+  PUMP_MIN_WIDTH,
+  PumpNode,
+} from '../components/PumpNode'
 import type { PumpState } from '../assets/pump'
 
 export type EditorMode = 'editor' | 'preview'
@@ -27,6 +31,13 @@ const INITIAL_TRANSFORM: PumpTransform = {
   height: 360,
   rotation: 0,
 }
+
+const CORNER_ANCHORS = [
+  'top-left',
+  'top-right',
+  'bottom-left',
+  'bottom-right',
+] as const
 
 export function PumpStage({ mode, pumpState, resetToken }: PumpStageProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -120,9 +131,11 @@ export function PumpStage({ mode, pumpState, resetToken }: PumpStageProps) {
 
           <Transformer
             ref={transformerRef}
+            enabledAnchors={[...CORNER_ANCHORS]}
             rotateEnabled
             flipEnabled={false}
             keepRatio
+            shiftBehavior="none"
             borderStroke="#38bdf8"
             borderStrokeWidth={1.5}
             anchorFill="#38bdf8"
@@ -130,7 +143,10 @@ export function PumpStage({ mode, pumpState, resetToken }: PumpStageProps) {
             anchorSize={9}
             rotateAnchorOffset={24}
             boundBoxFunc={(oldBox, newBox) => {
-              if (newBox.width < 96 || newBox.height < 128) {
+              if (
+                Math.abs(newBox.width) < PUMP_MIN_WIDTH ||
+                Math.abs(newBox.height) < PUMP_MIN_HEIGHT
+              ) {
                 return oldBox
               }
 
