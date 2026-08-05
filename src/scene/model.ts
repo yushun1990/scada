@@ -16,6 +16,8 @@ export type PumpSceneNode = {
   id: string
   type: typeof PUMP_NODE_TYPE
   name: string
+  visible: boolean
+  locked: boolean
   transform: NodeTransform
   props: {
     state: PumpState
@@ -48,6 +50,8 @@ export function createPumpNode(index: number, offset = 0): PumpSceneNode {
     id: createId('pump'),
     type: PUMP_NODE_TYPE,
     name: `潜水泵 ${index}`,
+    visible: true,
+    locked: false,
     transform: {
       x: 220 + offset,
       y: 48 + offset,
