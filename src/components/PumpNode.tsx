@@ -1,6 +1,6 @@
 import { forwardRef } from 'react'
 import type Konva from 'konva'
-import { Group, Image as KonvaImage, Rect } from 'react-konva'
+import { Group, Image as KonvaImage } from 'react-konva'
 import { pumpStateSources, type PumpState } from '../assets/pump'
 import { useCachedImage } from './image-cache'
 
@@ -67,6 +67,7 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
         draggable={draggable}
         onMouseDown={onSelect}
         onTouchStart={onSelect}
+        onDragStart={onSelect}
         onDragEnd={(event) => {
           onDragEnd(event.target.x(), event.target.y())
         }}
@@ -87,29 +88,21 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
           })
         }}
       >
-        {/*
-          状态图片不参与事件命中，避免五层图片分别响应。
-          这个近乎透明的矩形为整个组件提供一个稳定的编辑命中区域。
-        */}
-        <Rect
-          width={width}
-          height={height}
-          fill="rgba(0, 0, 0, 0.001)"
-          strokeEnabled={false}
-          listening
-        />
+        {(Object.keys(images) as PumpState[]).map((imageState) => {
+          const active = state === imageState
 
-        {(Object.keys(images) as PumpState[]).map((imageState) => (
-          <KonvaImage
-            key={imageState}
-            image={images[imageState] ?? undefined}
-            width={width}
-            height={height}
-            opacity={state === imageState ? 1 : 0}
-            listening={false}
-            perfectDrawEnabled={false}
-          />
-        ))}
+          return (
+            <KonvaImage
+              key={imageState}
+              image={images[imageState] ?? undefined}
+              width={width}
+              height={height}
+              opacity={active ? 1 : 0}
+              listening={active}
+              perfectDrawEnabled={false}
+            />
+          )
+        })}
       </Group>
     )
   },
