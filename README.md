@@ -11,7 +11,7 @@
 
 ## 本地开发
 
-要求 Node.js 20.19 或更高版本。
+要求 Node.js 20.19+ 或 22.12+。
 
 ```bash
 npm install
