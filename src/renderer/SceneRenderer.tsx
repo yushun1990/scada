@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import type Konva from 'konva'
-import { Layer, Rect, Stage, Transformer } from 'react-konva'
+import { Layer, Line, Rect, Stage, Transformer } from 'react-konva'
 import {
   PUMP_MIN_HEIGHT,
   PUMP_MIN_WIDTH,
 } from '../components/PumpNode'
-import type { NodeTransform, SceneDocument } from '../scene/model'
+import {
+  boundsIntersect,
+  computeSnap,
+  getNodeBounds,
+  getSelectionBounds,
+  type AlignmentGuide,
+  type Bounds,
+  type SnapSettings,
+  type TransformUpdates,
+} from '../scene/geometry'
+import type { SceneDocument } from '../scene/model'
 import { SceneNodeRenderer } from './SceneNodeRenderer'
 
 export type RendererMode = 'editor' | 'preview'
@@ -13,9 +23,28 @@ export type RendererMode = 'editor' | 'preview'
 export type SceneRendererProps = {
   scene: SceneDocument
   mode: RendererMode
-  selectedNodeId: string | null
-  onSelectNode: (nodeId: string | null) => void
-  onTransformNode: (nodeId: string, transform: NodeTransform) => void
+  selectedNodeIds: string[]
+  snapSettings: SnapSettings
+  onSelectionChange: (nodeIds: string[]) => void
+  onTransformNodes: (updates: TransformUpdates) => void
+}
+
+type Point = {
+  x: number
+  y: number
+}
+
+type MarqueeState = {
+  start: Point
+  current: Point
+  additive: boolean
+}
+
+type DragSession = {
+  nodeId: string
+  nodeIds: string[]
+  initialBounds: Bounds
+  initialTransforms: TransformUpdates
 }
 
 const CORNER_ANCHORS = [
@@ -25,20 +54,113 @@ const CORNER_ANCHORS = [
   'bottom-right',
 ] as const
 
+function hasSelectionModifier(event: Event) {
+  const keyboardEvent = event as MouseEvent
+  return Boolean(
+    keyboardEvent.shiftKey ||
+    keyboardEvent.ctrlKey ||
+    keyboardEvent.metaKey,
+  )
+}
+
+function findSceneNodeId(target: Konva.Node) {
+  let current: Konva.Node | null = target
+
+  while (current) {
+    if (current.hasName('scene-node')) {
+      return current.id()
+    }
+
+    current = current.getParent()
+  }
+
+  return null
+}
+
+function isInsideTransformer(
+  target: Konva.Node,
+  transformer: Konva.Transformer | null,
+) {
+  let current: Konva.Node | null = target
+
+  while (current) {
+    if (current === transformer) {
+      return true
+    }
+
+    current = current.getParent()
+  }
+
+  return false
+}
+
+function normalizeMarquee(marquee: MarqueeState): Bounds {
+  const left = Math.min(marquee.start.x, marquee.current.x)
+  const top = Math.min(marquee.start.y, marquee.current.y)
+  const right = Math.max(marquee.start.x, marquee.current.x)
+  const bottom = Math.max(marquee.start.y, marquee.current.y)
+
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: right - left,
+    height: bottom - top,
+    centerX: (left + right) / 2,
+    centerY: (top + bottom) / 2,
+  }
+}
+
+function nextPointerSelection(
+  selectedNodeIds: readonly string[],
+  nodeId: string,
+  additive: boolean,
+) {
+  const alreadySelected = selectedNodeIds.includes(nodeId)
+
+  if (additive) {
+    return alreadySelected
+      ? selectedNodeIds.filter((id) => id !== nodeId)
+      : [...selectedNodeIds, nodeId]
+  }
+
+  if (alreadySelected) {
+    return [
+      ...selectedNodeIds.filter((id) => id !== nodeId),
+      nodeId,
+    ]
+  }
+
+  return [nodeId]
+}
+
 export function SceneRenderer({
   scene,
   mode,
-  selectedNodeId,
-  onSelectNode,
-  onTransformNode,
+  selectedNodeIds,
+  snapSettings,
+  onSelectionChange,
+  onTransformNodes,
 }: SceneRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const nodeRefs = useRef(new Map<string, Konva.Group>())
+  const pendingSelectionRef = useRef<string[] | null>(null)
+  const dragSessionRef = useRef<DragSession | null>(null)
+  const dragPreviewRef = useRef<TransformUpdates>({})
+  const marqueeRef = useRef<MarqueeState | null>(null)
   const [viewport, setViewport] = useState({ width: 960, height: 640 })
+  const [guides, setGuides] = useState<AlignmentGuide[]>([])
+  const [dragPreview, setDragPreview] = useState<TransformUpdates>({})
+  const [marquee, setMarquee] = useState<MarqueeState | null>(null)
 
-  const selectedNode =
-    scene.nodes.find((node) => node.id === selectedNodeId) ?? null
+  const selectedNodes = scene.nodes.filter((node) =>
+    selectedNodeIds.includes(node.id),
+  )
+  const primaryNode = selectedNodes.find(
+    (node) => node.id === selectedNodeIds[selectedNodeIds.length - 1],
+  ) ?? null
 
   useEffect(() => {
     const container = containerRef.current
@@ -69,31 +191,337 @@ export function SceneRenderer({
       return
     }
 
-    const selectedNodeRef = selectedNodeId
-      ? nodeRefs.current.get(selectedNodeId)
+    const nodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null
+    const selectedNode = nodeId
+      ? scene.nodes.find((node) => node.id === nodeId)
+      : null
+    const selectedNodeRef = nodeId
+      ? nodeRefs.current.get(nodeId)
       : undefined
 
     transformer.nodes(
-      mode === 'editor' && selectedNodeRef ? [selectedNodeRef] : [],
+      mode === 'editor' &&
+        selectedNode &&
+        !selectedNode.locked &&
+        selectedNodeRef
+        ? [selectedNodeRef]
+        : [],
     )
     transformer.getLayer()?.batchDraw()
-  }, [mode, selectedNodeId, scene.nodes])
+  }, [mode, selectedNodeIds, scene.nodes])
+
+  function applyPreview(updates: TransformUpdates) {
+    for (const [nodeId, transform] of Object.entries(updates)) {
+      nodeRefs.current.get(nodeId)?.position({
+        x: transform.x,
+        y: transform.y,
+      })
+    }
+
+    dragPreviewRef.current = updates
+    setDragPreview(updates)
+  }
+
+  function handleNodePointerDown(target: Konva.Node, nativeEvent: Event) {
+    if (mode !== 'editor') {
+      return
+    }
+
+    const nodeId = findSceneNodeId(target)
+
+    if (!nodeId) {
+      return
+    }
+
+    const nextSelection = nextPointerSelection(
+      selectedNodeIds,
+      nodeId,
+      hasSelectionModifier(nativeEvent),
+    )
+    pendingSelectionRef.current = nextSelection
+    onSelectionChange(nextSelection)
+  }
+
+  function handleDragStart(target: Konva.Node) {
+    if (mode !== 'editor') {
+      return
+    }
+
+    const nodeId = findSceneNodeId(target)
+
+    if (!nodeId) {
+      return
+    }
+
+    let nodeIds = pendingSelectionRef.current ?? selectedNodeIds
+
+    if (!nodeIds.includes(nodeId)) {
+      nodeIds = [nodeId]
+      onSelectionChange(nodeIds)
+    }
+
+    nodeIds = nodeIds.filter((id) => {
+      const node = scene.nodes.find((candidate) => candidate.id === id)
+      return node && !node.locked
+    })
+
+    const initialBounds = getSelectionBounds(scene, nodeIds)
+
+    if (!initialBounds) {
+      return
+    }
+
+    const initialTransforms: TransformUpdates = {}
+
+    for (const id of nodeIds) {
+      const node = scene.nodes.find((candidate) => candidate.id === id)
+
+      if (node) {
+        initialTransforms[id] = { ...node.transform }
+      }
+    }
+
+    dragSessionRef.current = {
+      nodeId,
+      nodeIds,
+      initialBounds,
+      initialTransforms,
+    }
+    pendingSelectionRef.current = null
+    dragPreviewRef.current = {}
+    setDragPreview({})
+    setGuides([])
+  }
+
+  function handleDragMove(target: Konva.Node) {
+    const session = dragSessionRef.current
+
+    if (!session) {
+      return
+    }
+
+    const draggedTransform = session.initialTransforms[session.nodeId]
+
+    if (!draggedTransform) {
+      return
+    }
+
+    const rawDelta = {
+      x: target.x() - draggedTransform.x,
+      y: target.y() - draggedTransform.y,
+    }
+    const snapResult = computeSnap(
+      scene,
+      session.nodeIds,
+      session.initialBounds,
+      rawDelta,
+      snapSettings,
+    )
+    const updates: TransformUpdates = {}
+
+    for (const nodeId of session.nodeIds) {
+      const transform = session.initialTransforms[nodeId]
+
+      if (!transform) {
+        continue
+      }
+
+      updates[nodeId] = {
+        ...transform,
+        x: transform.x + snapResult.delta.x,
+        y: transform.y + snapResult.delta.y,
+      }
+    }
+
+    applyPreview(updates)
+    setGuides(snapResult.guides)
+  }
+
+  function handleDragEnd() {
+    const updates = dragPreviewRef.current
+
+    if (Object.keys(updates).length > 0) {
+      onTransformNodes(updates)
+    }
+
+    dragSessionRef.current = null
+    dragPreviewRef.current = {}
+    setDragPreview({})
+    setGuides([])
+  }
+
+  function handleTransformEnd() {
+    if (selectedNodeIds.length !== 1) {
+      return
+    }
+
+    const nodeId = selectedNodeIds[0]
+    const node = scene.nodes.find((candidate) => candidate.id === nodeId)
+    const group = nodeId ? nodeRefs.current.get(nodeId) : undefined
+
+    if (!node || !group || node.locked) {
+      return
+    }
+
+    const uniformScale = Math.max(
+      Math.abs(group.scaleX()),
+      Math.abs(group.scaleY()),
+    )
+    const aspectRatio = node.transform.width / node.transform.height
+    const nextWidth = Math.max(PUMP_MIN_WIDTH, group.width() * uniformScale)
+    const nextHeight = nextWidth / aspectRatio
+
+    group.scaleX(1)
+    group.scaleY(1)
+
+    onTransformNodes({
+      [node.id]: {
+        x: group.x(),
+        y: group.y(),
+        width: nextWidth,
+        height: nextHeight,
+        rotation: group.rotation(),
+      },
+    })
+  }
+
+  function beginMarquee(stage: Konva.Stage, nativeEvent: Event) {
+    if (mode !== 'editor') {
+      return
+    }
+
+    const mouseEvent = nativeEvent as MouseEvent
+
+    if (mouseEvent.button !== undefined && mouseEvent.button !== 0) {
+      return
+    }
+
+    const pointer = stage.getPointerPosition()
+
+    if (!pointer) {
+      return
+    }
+
+    const nextMarquee: MarqueeState = {
+      start: pointer,
+      current: pointer,
+      additive: hasSelectionModifier(nativeEvent),
+    }
+    marqueeRef.current = nextMarquee
+    setMarquee(nextMarquee)
+  }
+
+  function updateMarquee(stage: Konva.Stage) {
+    const currentMarquee = marqueeRef.current
+    const pointer = stage.getPointerPosition()
+
+    if (!currentMarquee || !pointer) {
+      return
+    }
+
+    const nextMarquee = {
+      ...currentMarquee,
+      current: pointer,
+    }
+    marqueeRef.current = nextMarquee
+    setMarquee(nextMarquee)
+  }
+
+  function finishMarquee() {
+    const currentMarquee = marqueeRef.current
+
+    if (!currentMarquee) {
+      return
+    }
+
+    const bounds = normalizeMarquee(currentMarquee)
+
+    if (bounds.width < 4 && bounds.height < 4) {
+      if (!currentMarquee.additive) {
+        onSelectionChange([])
+      }
+    } else {
+      const matchedIds = scene.nodes
+        .filter(
+          (node) =>
+            node.visible &&
+            !node.locked &&
+            boundsIntersect(bounds, getNodeBounds(node)),
+        )
+        .map((node) => node.id)
+
+      onSelectionChange(
+        currentMarquee.additive
+          ? Array.from(new Set([...selectedNodeIds, ...matchedIds]))
+          : matchedIds,
+      )
+    }
+
+    marqueeRef.current = null
+    setMarquee(null)
+  }
+
+  const selectionBounds = selectedNodeIds.length > 1
+    ? getSelectionBounds(scene, selectedNodeIds, dragPreview)
+    : null
+  const marqueeBounds = marquee ? normalizeMarquee(marquee) : null
 
   return (
-    <div ref={containerRef} className="konva-host">
+    <div
+      ref={containerRef}
+      className="konva-host"
+      style={{
+        backgroundImage: snapSettings.gridEnabled
+          ? undefined
+          : 'none',
+        backgroundSize: `${snapSettings.gridSize}px ${snapSettings.gridSize}px`,
+      }}
+    >
       <Stage
         width={viewport.width}
         height={viewport.height}
         onMouseDown={(event) => {
-          if (event.target === event.target.getStage()) {
-            onSelectNode(null)
+          if (isInsideTransformer(event.target, transformerRef.current)) {
+            return
+          }
+
+          const nodeId = findSceneNodeId(event.target)
+
+          if (nodeId) {
+            handleNodePointerDown(event.target, event.evt)
+          } else {
+            const stage = event.target.getStage()
+
+            if (stage) {
+              beginMarquee(stage, event.evt)
+            }
           }
         }}
         onTouchStart={(event) => {
-          if (event.target === event.target.getStage()) {
-            onSelectNode(null)
+          const nodeId = findSceneNodeId(event.target)
+
+          if (nodeId) {
+            handleNodePointerDown(event.target, event.evt)
+          } else if (mode === 'editor') {
+            onSelectionChange([])
           }
         }}
+        onMouseMove={(event) => {
+          const stage = event.target.getStage()
+
+          if (stage) {
+            updateMarquee(stage)
+          }
+        }}
+        onMouseUp={finishMarquee}
+        onMouseLeave={finishMarquee}
+        onDragStart={(event) => {
+          handleDragStart(event.target)
+        }}
+        onDragMove={(event) => {
+          handleDragMove(event.target)
+        }}
+        onDragEnd={handleDragEnd}
       >
         <Layer listening={false}>
           <Rect
@@ -115,15 +543,8 @@ export function SceneRenderer({
                 }
               }}
               node={node}
-              editable={mode === 'editor'}
-              onSelect={() => {
-                if (mode === 'editor') {
-                  onSelectNode(node.id)
-                }
-              }}
-              onTransformChange={(transform) => {
-                onTransformNode(node.id, transform)
-              }}
+              transform={dragPreview[node.id] ?? node.transform}
+              editorMode={mode === 'editor'}
             />
           ))}
 
@@ -150,17 +571,82 @@ export function SceneRenderer({
 
               return newBox
             }}
+            onTransformEnd={handleTransformEnd}
           />
+        </Layer>
+
+        <Layer listening={false}>
+          {selectedNodeIds.length > 1 &&
+            selectedNodes.map((node) => {
+              const bounds = getNodeBounds(
+                node,
+                dragPreview[node.id] ?? node.transform,
+              )
+
+              return (
+                <Rect
+                  key={node.id}
+                  x={bounds.left}
+                  y={bounds.top}
+                  width={bounds.width}
+                  height={bounds.height}
+                  stroke="#38bdf8"
+                  strokeWidth={1}
+                  dash={[5, 4]}
+                />
+              )
+            })}
+
+          {selectionBounds && (
+            <Rect
+              x={selectionBounds.left}
+              y={selectionBounds.top}
+              width={selectionBounds.width}
+              height={selectionBounds.height}
+              stroke="#7dd3fc"
+              strokeWidth={1.5}
+              dash={[9, 5]}
+            />
+          )}
+
+          {guides.map((guide, index) => (
+            <Line
+              key={`${guide.orientation}-${guide.position}-${index}`}
+              points={
+                guide.orientation === 'vertical'
+                  ? [guide.position, 0, guide.position, viewport.height]
+                  : [0, guide.position, viewport.width, guide.position]
+              }
+              stroke={guide.source === 'object' ? '#f472b6' : '#22d3ee'}
+              strokeWidth={1}
+              dash={guide.source === 'grid' ? [5, 4] : undefined}
+            />
+          ))}
+
+          {marqueeBounds && (
+            <Rect
+              x={marqueeBounds.left}
+              y={marqueeBounds.top}
+              width={marqueeBounds.width}
+              height={marqueeBounds.height}
+              fill="rgba(56, 189, 248, 0.12)"
+              stroke="#38bdf8"
+              strokeWidth={1}
+              dash={[6, 4]}
+            />
+          )}
         </Layer>
       </Stage>
 
       <div className="canvas-status">
         <span>{mode === 'editor' ? '编辑模式' : '预览模式'}</span>
-        {selectedNode ? (
+        {selectedNodeIds.length > 1 ? (
+          <code>{selectedNodeIds.length} selected</code>
+        ) : primaryNode ? (
           <code>
-            {Math.round(selectedNode.transform.width)} ×{' '}
-            {Math.round(selectedNode.transform.height)} /{' '}
-            {Math.round(selectedNode.transform.rotation)}°
+            {Math.round(primaryNode.transform.width)} ×{' '}
+            {Math.round(primaryNode.transform.height)} /{' '}
+            {Math.round(primaryNode.transform.rotation)}°
           </code>
         ) : (
           <code>{scene.nodes.length} nodes</code>
