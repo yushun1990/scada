@@ -1,44 +1,59 @@
-import { useState, type CSSProperties } from 'react'
-import pumpSvg from './assets/water-pump'
+import { useState } from 'react'
+import type { PumpState } from './assets/pump'
+import { PumpStage, type EditorMode } from './editor/PumpStage'
 
-type Palette = {
-  id: string
+const pumpStates: Array<{
+  id: PumpState
   name: string
-  light: string
-  dark: string
-}
-
-const palettes: Palette[] = [
-  { id: 'gray', name: '灰色', light: '#cbd5e1', dark: '#64748b' },
-  { id: 'green', name: '绿色', light: '#86efac', dark: '#16a34a' },
-  { id: 'blue', name: '蓝色', light: '#7dd3fc', dark: '#0284c7' },
-  { id: 'orange', name: '橙色', light: '#fdba74', dark: '#ea580c' },
-  { id: 'red', name: '红色', light: '#fca5a5', dark: '#dc2626' },
+  description: string
+  swatch: string
+}> = [
+  { id: 'gray', name: '停止', description: '设备未运行', swatch: '#b8c4c0' },
+  { id: 'green', name: '运行', description: '设备运行正常', swatch: '#35e625' },
+  { id: 'blue', name: '手动', description: '人工控制状态', swatch: '#0788d4' },
+  { id: 'orange', name: '警告', description: '需要关注', swatch: '#f47a08' },
+  { id: 'red', name: '报警', description: '设备故障或报警', swatch: '#e80e17' },
 ]
 
-type PumpColorStyle = CSSProperties & {
-  '--pump-color1': string
-  '--pump-color2': string
-}
-
 function App() {
-  const [activePaletteId, setActivePaletteId] = useState(palettes[0].id)
-  const activePalette =
-    palettes.find((palette) => palette.id === activePaletteId) ?? palettes[0]
-
-  const pumpStyle: PumpColorStyle = {
-    '--pump-color1': activePalette.light,
-    '--pump-color2': activePalette.dark,
-  }
+  const [mode, setMode] = useState<EditorMode>('editor')
+  const [pumpState, setPumpState] = useState<PumpState>('green')
+  const [resetToken, setResetToken] = useState(0)
 
   return (
     <div className="editor-shell">
       <header className="editor-header">
-        <div>
+        <div className="brand-block">
           <strong>SCADA Editor Lab</strong>
-          <span>SVG 颜色绑定实验</span>
+          <span>M1 · Konva 多状态图片组件</span>
         </div>
-        <div className="document-name">water-pump.svg</div>
+
+        <div className="header-actions">
+          <div className="mode-switch" role="group" aria-label="编辑器模式">
+            <button
+              type="button"
+              className={mode === 'editor' ? 'active' : ''}
+              onClick={() => setMode('editor')}
+            >
+              编辑
+            </button>
+            <button
+              type="button"
+              className={mode === 'preview' ? 'active' : ''}
+              onClick={() => setMode('preview')}
+            >
+              预览
+            </button>
+          </div>
+
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setResetToken((value) => value + 1)}
+          >
+            重置位置
+          </button>
+        </div>
       </header>
 
       <main className="editor-main">
@@ -47,73 +62,68 @@ function App() {
           <button className="component-item active" type="button">
             <span className="component-icon">P</span>
             <span>
-              <strong>水泵</strong>
-              <small>SVG Component</small>
+              <strong>潜水泵</strong>
+              <small>Konva Image Group</small>
             </span>
           </button>
+
+          <div className="milestone-card">
+            <strong>M1 验证范围</strong>
+            <span>Group 整体选择</span>
+            <span>拖动、缩放、旋转</span>
+            <span>五种状态图片切换</span>
+            <span>编辑与预览隔离</span>
+          </div>
         </aside>
 
         <section className="canvas-area" aria-label="SCADA 编辑画布">
           <div className="canvas-toolbar">
-            <span>画布</span>
-            <span>100%</span>
+            <span>设备场景 / pump-lab</span>
+            <span>拖动组件，使用控制点缩放或旋转</span>
           </div>
-
-          <div className="canvas-grid">
-            <div className="selection-box" style={pumpStyle}>
-              <span className="selection-label">pump-01</span>
-              <span className="resize-handle top-left" />
-              <span className="resize-handle top-right" />
-              <span className="resize-handle bottom-left" />
-              <span className="resize-handle bottom-right" />
-              <div
-                className="pump-svg"
-                role="img"
-                aria-label={`当前水泵颜色：${activePalette.name}`}
-                dangerouslySetInnerHTML={{ __html: pumpSvg }}
-              />
-            </div>
-          </div>
+          <PumpStage mode={mode} pumpState={pumpState} resetToken={resetToken} />
         </section>
 
         <aside className="property-panel">
-          <div className="panel-title">颜色切换</div>
+          <div className="panel-title">模拟状态</div>
           <p className="panel-description">
-            点击按钮，同时修改 SVG 中的浅色标签和深色标签。
+            当前使用五个图片源作为同一个组件的互斥状态层。切换状态不会改变组件的位置和变换。
           </p>
 
-          <div className="palette-list">
-            {palettes.map((palette) => (
+          <div className="state-list">
+            {pumpStates.map((item) => (
               <button
-                className={`palette-button${palette.id === activePaletteId ? ' active' : ''}`}
-                key={palette.id}
+                key={item.id}
                 type="button"
-                aria-pressed={palette.id === activePaletteId}
-                onClick={() => setActivePaletteId(palette.id)}
+                className={`state-button${pumpState === item.id ? ' active' : ''}`}
+                aria-pressed={pumpState === item.id}
+                onClick={() => setPumpState(item.id)}
               >
-                <span className="palette-preview" aria-hidden="true">
-                  <i style={{ backgroundColor: palette.light }} />
-                  <i style={{ backgroundColor: palette.dark }} />
+                <span
+                  className="state-swatch"
+                  style={{ backgroundColor: item.swatch }}
+                  aria-hidden="true"
+                />
+                <span>
+                  <strong>{item.name}</strong>
+                  <small>{item.description}</small>
                 </span>
-                <span>{palette.name}</span>
               </button>
             ))}
           </div>
 
-          <div className="binding-list">
+          <div className="property-summary">
             <div>
-              <span className="binding-color" style={{ backgroundColor: activePalette.light }} />
-              <span>
-                <code>pump-color1</code>
-                <small>{activePalette.light}</small>
-              </span>
+              <span>组件类型</span>
+              <code>pump.submersible</code>
             </div>
             <div>
-              <span className="binding-color" style={{ backgroundColor: activePalette.dark }} />
-              <span>
-                <code>pump-color2</code>
-                <small>{activePalette.dark}</small>
-              </span>
+              <span>运行状态</span>
+              <code>{pumpState}</code>
+            </div>
+            <div>
+              <span>资源策略</span>
+              <code>cached image layers</code>
             </div>
           </div>
         </aside>
