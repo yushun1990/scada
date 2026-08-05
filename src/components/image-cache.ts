@@ -19,7 +19,7 @@ function loadImage(source: string): CachedImage {
 
   const promise = new Promise<HTMLImageElement>((resolve, reject) => {
     image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error('Image failed to load'))
+    image.onerror = () => reject(new Error(`Image failed to load: ${source}`))
   })
 
   image.src = source
@@ -29,39 +29,52 @@ function loadImage(source: string): CachedImage {
   return entry
 }
 
-export function useCachedImage(source: string) {
+function getLoadedImage(sources: readonly string[]) {
+  for (const source of sources) {
+    const image = cache.get(source)?.image
+
+    if (image?.complete && image.naturalWidth > 0) {
+      return image
+    }
+  }
+
+  return null
+}
+
+export function useCachedImage(sources: readonly string[]) {
+  const sourceKey = sources.join('\u0000')
   const [image, setImage] = useState<HTMLImageElement | null>(() => {
-    const cached = cache.get(source)?.image
-    return cached?.complete && cached.naturalWidth > 0 ? cached : null
+    return getLoadedImage(sources)
   })
 
   useEffect(() => {
     let active = true
-    const entry = loadImage(source)
 
-    if (entry.image.complete && entry.image.naturalWidth > 0) {
-      setImage(entry.image)
-      return () => {
-        active = false
+    async function resolveImage() {
+      for (const source of sources) {
+        try {
+          const loadedImage = await loadImage(source).promise
+
+          if (active) {
+            setImage(loadedImage)
+          }
+          return
+        } catch {
+          // Try the next source. State PNGs fall back to the generated SVG image.
+        }
+      }
+
+      if (active) {
+        setImage(null)
       }
     }
 
-    entry.promise
-      .then((loadedImage) => {
-        if (active) {
-          setImage(loadedImage)
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setImage(null)
-        }
-      })
+    void resolveImage()
 
     return () => {
       active = false
     }
-  }, [source])
+  }, [sourceKey, sources])
 
   return image
 }
