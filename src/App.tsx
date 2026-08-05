@@ -1,3 +1,6 @@
+import { useState, type CSSProperties } from 'react'
+import pumpSvg from './assets/water-pump'
+
 const navigation = [
   { label: '运行监控', icon: '◉', active: true },
   { label: '组态编辑', icon: '◇' },
@@ -19,7 +22,33 @@ const stations = [
   { name: '北区泵房', status: '需关注', pressure: '0.31 MPa', flow: '52.8 m³/h' },
 ]
 
+const pumpPalettes = {
+  stopped: {
+    light: '#8a9699',
+    dark: '#566366',
+  },
+  running: {
+    light: '#4be127',
+    dark: '#2ea110',
+  },
+} as const
+
+type PumpState = keyof typeof pumpPalettes
+
+type PumpColorStyle = CSSProperties & {
+  '--pump-color1': string
+  '--pump-color2': string
+}
+
 function App() {
+  const [pumpState, setPumpState] = useState<PumpState>('stopped')
+  const pumpIsRunning = pumpState === 'running'
+  const pumpColors = pumpPalettes[pumpState]
+  const pumpColorStyle: PumpColorStyle = {
+    '--pump-color1': pumpColors.light,
+    '--pump-color2': pumpColors.dark,
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -79,29 +108,90 @@ function App() {
         </section>
 
         <section className="workspace-grid">
-          <article className="panel process-panel">
+          <article className="panel pump-demo-panel">
             <div className="panel-header">
               <div>
-                <p className="eyebrow">PROCESS OVERVIEW</p>
-                <h2>供水工艺流程</h2>
+                <p className="eyebrow">PUMP COLOR DEMO</p>
+                <h2>水泵状态控制</h2>
               </div>
-              <button type="button">进入组态</button>
+              <span className={`pump-state-badge ${pumpState}`}>
+                <i />
+                {pumpIsRunning ? '运行中' : '已停止'}
+              </span>
             </div>
 
-            <div className="process-canvas" role="img" aria-label="供水工艺流程占位示意图">
-              <div className="process-node source">
-                <span>原水池</span>
-                <strong>72%</strong>
+            <div className="pump-demo">
+              <div
+                className={`pump-stage ${pumpState}`}
+                style={pumpColorStyle}
+                role="img"
+                aria-label={`水泵当前状态：${pumpIsRunning ? '运行中' : '已停止'}`}
+              >
+                <div
+                  className="pump-svg"
+                  aria-hidden="true"
+                  dangerouslySetInnerHTML={{ __html: pumpSvg }}
+                />
+                <span className="pump-stage-label">P-101 潜水泵</span>
               </div>
-              <div className="pipeline first" />
-              <div className="process-node pump">
-                <span>提升泵组</span>
-                <strong>2 / 3</strong>
-              </div>
-              <div className="pipeline second" />
-              <div className="process-node output">
-                <span>出水总管</span>
-                <strong>0.42 MPa</strong>
+
+              <div className="pump-controls">
+                <div>
+                  <p className="control-kicker">SVG 标签驱动</p>
+                  <h3>{pumpIsRunning ? '水泵正在运行' : '水泵处于停止状态'}</h3>
+                  <p className="control-description">
+                    启停操作通过 CSS 变量修改 SVG 中的两个颜色路径，其他结构与阴影保持不变。
+                  </p>
+                </div>
+
+                <div className="pump-readings" aria-label="水泵实时数据">
+                  <div>
+                    <small>运行频率</small>
+                    <strong>{pumpIsRunning ? '48.5 Hz' : '0.0 Hz'}</strong>
+                  </div>
+                  <div>
+                    <small>出口压力</small>
+                    <strong>{pumpIsRunning ? '0.42 MPa' : '0.00 MPa'}</strong>
+                  </div>
+                </div>
+
+                <div className="color-bindings" aria-label="SVG 颜色标签">
+                  <div>
+                    <span className="color-swatch light" style={{ background: pumpColors.light }} />
+                    <span>
+                      <strong>pump-color1</strong>
+                      <small>浅颜色 {pumpColors.light}</small>
+                    </span>
+                  </div>
+                  <div>
+                    <span className="color-swatch dark" style={{ background: pumpColors.dark }} />
+                    <span>
+                      <strong>pump-color2</strong>
+                      <small>深颜色 {pumpColors.dark}</small>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pump-actions" aria-label="水泵控制">
+                  <button
+                    className="start-button"
+                    type="button"
+                    aria-pressed={pumpIsRunning}
+                    disabled={pumpIsRunning}
+                    onClick={() => setPumpState('running')}
+                  >
+                    启动水泵
+                  </button>
+                  <button
+                    className="stop-button"
+                    type="button"
+                    aria-pressed={!pumpIsRunning}
+                    disabled={!pumpIsRunning}
+                    onClick={() => setPumpState('stopped')}
+                  >
+                    停止水泵
+                  </button>
+                </div>
               </div>
             </div>
           </article>
