@@ -1,39 +1,20 @@
 import { useState, type CSSProperties } from 'react'
 import pumpSvg from './assets/water-pump'
 
-const navigation = [
-  { label: '运行监控', icon: '◉', active: true },
-  { label: '组态编辑', icon: '◇' },
-  { label: '设备管理', icon: '▣' },
-  { label: '告警中心', icon: '△' },
-  { label: '历史趋势', icon: '⌁' },
+type Palette = {
+  id: string
+  name: string
+  light: string
+  dark: string
+}
+
+const palettes: Palette[] = [
+  { id: 'gray', name: '灰色', light: '#cbd5e1', dark: '#64748b' },
+  { id: 'green', name: '绿色', light: '#86efac', dark: '#16a34a' },
+  { id: 'blue', name: '蓝色', light: '#7dd3fc', dark: '#0284c7' },
+  { id: 'orange', name: '橙色', light: '#fdba74', dark: '#ea580c' },
+  { id: 'red', name: '红色', light: '#fca5a5', dark: '#dc2626' },
 ]
-
-const metrics = [
-  { label: '在线设备', value: '128', detail: '总计 132 台', tone: 'healthy' },
-  { label: '实时告警', value: '3', detail: '1 条需要处理', tone: 'warning' },
-  { label: '今日数据点', value: '2.4M', detail: '较昨日 +8.2%', tone: 'neutral' },
-  { label: '系统可用率', value: '99.98%', detail: '过去 30 天', tone: 'healthy' },
-]
-
-const stations = [
-  { name: '一号供水站', status: '运行中', pressure: '0.42 MPa', flow: '86.5 m³/h' },
-  { name: '二号加压站', status: '运行中', pressure: '0.38 MPa', flow: '74.2 m³/h' },
-  { name: '北区泵房', status: '需关注', pressure: '0.31 MPa', flow: '52.8 m³/h' },
-]
-
-const pumpPalettes = {
-  stopped: {
-    light: '#8a9699',
-    dark: '#566366',
-  },
-  running: {
-    light: '#4be127',
-    dark: '#2ea110',
-  },
-} as const
-
-type PumpState = keyof typeof pumpPalettes
 
 type PumpColorStyle = CSSProperties & {
   '--pump-color1': string
@@ -41,193 +22,101 @@ type PumpColorStyle = CSSProperties & {
 }
 
 function App() {
-  const [pumpState, setPumpState] = useState<PumpState>('stopped')
-  const pumpIsRunning = pumpState === 'running'
-  const pumpColors = pumpPalettes[pumpState]
-  const pumpColorStyle: PumpColorStyle = {
-    '--pump-color1': pumpColors.light,
-    '--pump-color2': pumpColors.dark,
+  const [activePaletteId, setActivePaletteId] = useState(palettes[0].id)
+  const activePalette =
+    palettes.find((palette) => palette.id === activePaletteId) ?? palettes[0]
+
+  const pumpStyle: PumpColorStyle = {
+    '--pump-color1': activePalette.light,
+    '--pump-color2': activePalette.dark,
   }
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">S</span>
-          <span>
-            <strong>SCADA</strong>
-            <small>Industrial Console</small>
-          </span>
+    <div className="editor-shell">
+      <header className="editor-header">
+        <div>
+          <strong>SCADA Editor Lab</strong>
+          <span>SVG 颜色绑定实验</span>
         </div>
+        <div className="document-name">water-pump.svg</div>
+      </header>
 
-        <nav aria-label="主导航">
-          {navigation.map((item) => (
-            <button
-              className={`nav-item${item.active ? ' active' : ''}`}
-              key={item.label}
-              type="button"
-            >
-              <span aria-hidden="true">{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </nav>
+      <main className="editor-main">
+        <aside className="component-panel">
+          <div className="panel-title">组件</div>
+          <button className="component-item active" type="button">
+            <span className="component-icon">P</span>
+            <span>
+              <strong>水泵</strong>
+              <small>SVG Component</small>
+            </span>
+          </button>
+        </aside>
 
-        <div className="system-card">
-          <span className="status-dot" />
-          <div>
-            <strong>系统运行正常</strong>
-            <small>最后检查：刚刚</small>
+        <section className="canvas-area" aria-label="SCADA 编辑画布">
+          <div className="canvas-toolbar">
+            <span>画布</span>
+            <span>100%</span>
           </div>
-        </div>
-      </aside>
 
-      <main className="main-content">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">实时运行中心</p>
-            <h1>工业监控总览</h1>
+          <div className="canvas-grid">
+            <div className="selection-box" style={pumpStyle}>
+              <span className="selection-label">pump-01</span>
+              <span className="resize-handle top-left" />
+              <span className="resize-handle top-right" />
+              <span className="resize-handle bottom-left" />
+              <span className="resize-handle bottom-right" />
+              <div
+                className="pump-svg"
+                role="img"
+                aria-label={`当前水泵颜色：${activePalette.name}`}
+                dangerouslySetInnerHTML={{ __html: pumpSvg }}
+              />
+            </div>
           </div>
-          <div className="topbar-actions">
-            <span className="connection"><i /> 实时连接</span>
-            <button type="button">管理员</button>
-          </div>
-        </header>
-
-        <section className="metrics-grid" aria-label="关键指标">
-          {metrics.map((metric) => (
-            <article className="metric-card" key={metric.label}>
-              <div className="metric-heading">
-                <span>{metric.label}</span>
-                <i className={`metric-indicator ${metric.tone}`} />
-              </div>
-              <strong>{metric.value}</strong>
-              <small>{metric.detail}</small>
-            </article>
-          ))}
         </section>
 
-        <section className="workspace-grid">
-          <article className="panel pump-demo-panel">
-            <div className="panel-header">
-              <div>
-                <p className="eyebrow">PUMP COLOR DEMO</p>
-                <h2>水泵状态控制</h2>
-              </div>
-              <span className={`pump-state-badge ${pumpState}`}>
-                <i />
-                {pumpIsRunning ? '运行中' : '已停止'}
+        <aside className="property-panel">
+          <div className="panel-title">颜色切换</div>
+          <p className="panel-description">
+            点击按钮，同时修改 SVG 中的浅色标签和深色标签。
+          </p>
+
+          <div className="palette-list">
+            {palettes.map((palette) => (
+              <button
+                className={`palette-button${palette.id === activePaletteId ? ' active' : ''}`}
+                key={palette.id}
+                type="button"
+                aria-pressed={palette.id === activePaletteId}
+                onClick={() => setActivePaletteId(palette.id)}
+              >
+                <span className="palette-preview" aria-hidden="true">
+                  <i style={{ backgroundColor: palette.light }} />
+                  <i style={{ backgroundColor: palette.dark }} />
+                </span>
+                <span>{palette.name}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="binding-list">
+            <div>
+              <span className="binding-color" style={{ backgroundColor: activePalette.light }} />
+              <span>
+                <code>pump-color1</code>
+                <small>{activePalette.light}</small>
               </span>
             </div>
-
-            <div className="pump-demo">
-              <div
-                className={`pump-stage ${pumpState}`}
-                style={pumpColorStyle}
-                role="img"
-                aria-label={`水泵当前状态：${pumpIsRunning ? '运行中' : '已停止'}`}
-              >
-                <div
-                  className="pump-svg"
-                  aria-hidden="true"
-                  dangerouslySetInnerHTML={{ __html: pumpSvg }}
-                />
-                <span className="pump-stage-label">P-101 潜水泵</span>
-              </div>
-
-              <div className="pump-controls">
-                <div>
-                  <p className="control-kicker">SVG 标签驱动</p>
-                  <h3>{pumpIsRunning ? '水泵正在运行' : '水泵处于停止状态'}</h3>
-                  <p className="control-description">
-                    启停操作通过 CSS 变量修改 SVG 中的两个颜色路径，其他结构与阴影保持不变。
-                  </p>
-                </div>
-
-                <div className="pump-readings" aria-label="水泵实时数据">
-                  <div>
-                    <small>运行频率</small>
-                    <strong>{pumpIsRunning ? '48.5 Hz' : '0.0 Hz'}</strong>
-                  </div>
-                  <div>
-                    <small>出口压力</small>
-                    <strong>{pumpIsRunning ? '0.42 MPa' : '0.00 MPa'}</strong>
-                  </div>
-                </div>
-
-                <div className="color-bindings" aria-label="SVG 颜色标签">
-                  <div>
-                    <span className="color-swatch light" style={{ background: pumpColors.light }} />
-                    <span>
-                      <strong>pump-color1</strong>
-                      <small>浅颜色 {pumpColors.light}</small>
-                    </span>
-                  </div>
-                  <div>
-                    <span className="color-swatch dark" style={{ background: pumpColors.dark }} />
-                    <span>
-                      <strong>pump-color2</strong>
-                      <small>深颜色 {pumpColors.dark}</small>
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pump-actions" aria-label="水泵控制">
-                  <button
-                    className="start-button"
-                    type="button"
-                    aria-pressed={pumpIsRunning}
-                    disabled={pumpIsRunning}
-                    onClick={() => setPumpState('running')}
-                  >
-                    启动水泵
-                  </button>
-                  <button
-                    className="stop-button"
-                    type="button"
-                    aria-pressed={!pumpIsRunning}
-                    disabled={!pumpIsRunning}
-                    onClick={() => setPumpState('stopped')}
-                  >
-                    停止水泵
-                  </button>
-                </div>
-              </div>
+            <div>
+              <span className="binding-color" style={{ backgroundColor: activePalette.dark }} />
+              <span>
+                <code>pump-color2</code>
+                <small>{activePalette.dark}</small>
+              </span>
             </div>
-          </article>
-
-          <article className="panel station-panel">
-            <div className="panel-header">
-              <div>
-                <p className="eyebrow">LIVE STATIONS</p>
-                <h2>站点状态</h2>
-              </div>
-              <button type="button" className="text-button">查看全部</button>
-            </div>
-
-            <div className="station-list">
-              {stations.map((station) => (
-                <div className="station-row" key={station.name}>
-                  <div className="station-name">
-                    <span className={station.status === '需关注' ? 'status-dot warning' : 'status-dot'} />
-                    <div>
-                      <strong>{station.name}</strong>
-                      <small>{station.status}</small>
-                    </div>
-                  </div>
-                  <div>
-                    <small>压力</small>
-                    <strong>{station.pressure}</strong>
-                  </div>
-                  <div>
-                    <small>流量</small>
-                    <strong>{station.flow}</strong>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </article>
-        </section>
+          </div>
+        </aside>
       </main>
     </div>
   )
