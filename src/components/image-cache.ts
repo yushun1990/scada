@@ -19,7 +19,7 @@ function loadImage(source: string): CachedImage {
 
   const promise = new Promise<HTMLImageElement>((resolve, reject) => {
     image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error('Pump image failed to load'))
+    image.onerror = () => reject(new Error('Image failed to load'))
   })
 
   image.src = source
@@ -32,7 +32,7 @@ function loadImage(source: string): CachedImage {
 export function useCachedImage(source: string) {
   const [image, setImage] = useState<HTMLImageElement | null>(() => {
     const cached = cache.get(source)?.image
-    return cached?.complete ? cached : null
+    return cached?.complete && cached.naturalWidth > 0 ? cached : null
   })
 
   useEffect(() => {
