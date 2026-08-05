@@ -14,6 +14,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow: hidden;
   background: #0a0f17;
 }
 
@@ -29,7 +30,7 @@ button:focus-visible {
 
 .editor-shell {
   display: grid;
-  grid-template-rows: 56px minmax(0, 1fr);
+  grid-template-rows: 58px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -37,44 +38,87 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  gap: 24px;
+  padding: 0 18px;
   border-bottom: 1px solid #243041;
   background: #111823;
 }
 
-.editor-header > div:first-child {
+.brand-block {
   display: flex;
   align-items: baseline;
   gap: 12px;
 }
 
-.editor-header strong {
+.brand-block strong {
   font-size: 15px;
 }
 
-.editor-header span,
-.document-name {
+.brand-block span {
   color: #7f91a6;
   font-size: 12px;
 }
 
-.document-name {
-  padding: 7px 10px;
-  border: 1px solid #2a3749;
+.header-actions,
+.mode-switch {
+  display: flex;
+  align-items: center;
+}
+
+.header-actions {
+  gap: 10px;
+}
+
+.mode-switch {
+  padding: 3px;
+  border: 1px solid #29384b;
+  border-radius: 8px;
+  background: #0b121c;
+}
+
+.mode-switch button,
+.secondary-button {
+  border: 0;
   border-radius: 6px;
-  background: #0d141e;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.mode-switch button {
+  padding: 7px 14px;
+  color: #7f91a6;
+  background: transparent;
+}
+
+.mode-switch button.active {
+  color: #06212e;
+  background: #38bdf8;
+  font-weight: 700;
+}
+
+.secondary-button {
+  padding: 9px 12px;
+  border: 1px solid #2b3a4e;
+  color: #9eb0c2;
+  background: #121c29;
+}
+
+.secondary-button:hover {
+  border-color: #4a647f;
+  color: #e6f3ff;
 }
 
 .editor-main {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr) 260px;
+  grid-template-columns: 210px minmax(0, 1fr) 292px;
   min-height: 0;
 }
 
 .component-panel,
 .property-panel {
+  min-height: 0;
   padding: 16px;
+  overflow: auto;
   background: #111823;
 }
 
@@ -103,15 +147,22 @@ button:focus-visible {
   padding: 10px;
   border: 1px solid #2d4057;
   border-radius: 8px;
+  color: #dfeaf4;
   background: #152131;
   cursor: pointer;
   text-align: left;
 }
 
+.component-item.active {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.12);
+}
+
 .component-icon {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
   place-items: center;
   border-radius: 7px;
   color: #08202b;
@@ -120,18 +171,39 @@ button:focus-visible {
 }
 
 .component-item strong,
-.component-item small {
+.component-item small,
+.state-button strong,
+.state-button small {
   display: block;
 }
 
-.component-item strong {
+.component-item strong,
+.state-button strong {
   font-size: 13px;
 }
 
-.component-item small {
+.component-item small,
+.state-button small {
   margin-top: 3px;
   color: #71859b;
   font-size: 10px;
+}
+
+.milestone-card {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 13px;
+  border: 1px solid #243348;
+  border-radius: 8px;
+  color: #7f94aa;
+  background: #0d151f;
+  font-size: 11px;
+}
+
+.milestone-card strong {
+  margin-bottom: 2px;
+  color: #b8c9d9;
 }
 
 .canvas-area {
@@ -146,6 +218,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 0 14px;
   border-bottom: 1px solid #202b3a;
   color: #788ba1;
@@ -153,12 +226,11 @@ button:focus-visible {
   font-size: 11px;
 }
 
-.canvas-grid {
-  display: grid;
-  min-height: calc(100vh - 96px);
-  place-items: center;
-  padding: 48px;
-  overflow: auto;
+.konva-host {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background-color: #0b1119;
   background-image:
     linear-gradient(#162130 1px, transparent 1px),
@@ -166,81 +238,49 @@ button:focus-visible {
   background-size: 24px 24px;
 }
 
-.selection-box {
-  position: relative;
-  display: grid;
-  width: min(560px, 72vw);
-  min-height: 420px;
-  place-items: center;
-  padding: 44px;
-  border: 1px solid #38bdf8;
-  background: rgba(12, 20, 30, 0.58);
-  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.15);
-}
-
-.selection-label {
-  position: absolute;
-  top: -25px;
-  left: -1px;
-  padding: 5px 8px;
-  color: #06212e;
-  background: #38bdf8;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.resize-handle {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  border: 1px solid #dff7ff;
-  background: #38bdf8;
-}
-
-.top-left { top: -5px; left: -5px; }
-.top-right { top: -5px; right: -5px; }
-.bottom-left { bottom: -5px; left: -5px; }
-.bottom-right { right: -5px; bottom: -5px; }
-
-.pump-svg {
-  width: min(100%, 470px);
-  filter: drop-shadow(0 22px 20px rgba(0, 0, 0, 0.3));
-}
-
-.pump-svg svg {
+.konva-host canvas {
   display: block;
-  width: 100%;
-  height: auto;
 }
 
-.pump-svg #pump-color1 {
-  fill: var(--pump-color1) !important;
-  transition: fill 240ms ease;
+.canvas-status {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid rgba(74, 96, 121, 0.72);
+  border-radius: 7px;
+  color: #91a5ba;
+  background: rgba(11, 18, 28, 0.88);
+  pointer-events: none;
+  font-size: 10px;
+  backdrop-filter: blur(8px);
 }
 
-.pump-svg #pump-color2 {
-  fill: var(--pump-color2) !important;
-  transition: fill 240ms ease;
+.canvas-status code {
+  color: #c5d7e7;
 }
 
 .panel-description {
   margin: -4px 0 16px;
   color: #708297;
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
-.palette-list {
+.state-list {
   display: grid;
   gap: 8px;
 }
 
-.palette-button {
+.state-button {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
-  padding: 9px 10px;
+  padding: 10px;
   border: 1px solid #273548;
   border-radius: 7px;
   color: #9badbf;
@@ -249,104 +289,91 @@ button:focus-visible {
   text-align: left;
 }
 
-.palette-button:hover,
-.palette-button.active {
+.state-button:hover,
+.state-button.active {
   border-color: #38bdf8;
   color: #e7f7ff;
   background: #132435;
 }
 
-.palette-preview {
-  display: flex;
-  width: 42px;
-  height: 26px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 5px;
+.state-swatch {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.18);
 }
 
-.palette-preview i {
-  flex: 1;
-}
-
-.binding-list {
+.property-summary {
   display: grid;
-  gap: 10px;
-  margin-top: 24px;
+  gap: 11px;
+  margin-top: 22px;
   padding-top: 18px;
   border-top: 1px solid #243041;
 }
 
-.binding-list > div {
+.property-summary div {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px;
-  border-radius: 7px;
-  background: #0d141e;
-}
-
-.binding-color {
-  width: 28px;
-  height: 28px;
-  flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 5px;
-}
-
-.binding-list code,
-.binding-list small {
-  display: block;
-}
-
-.binding-list code {
-  color: #bdd0e2;
+  justify-content: space-between;
+  gap: 12px;
   font-size: 11px;
 }
 
-.binding-list small {
-  margin-top: 3px;
-  color: #66798f;
+.property-summary span {
+  color: #71859b;
+}
+
+.property-summary code {
+  color: #bdd0e2;
   font-size: 10px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 980px) {
   .editor-main {
-    grid-template-columns: 150px minmax(0, 1fr);
+    grid-template-columns: 170px minmax(0, 1fr) 240px;
   }
 
-  .property-panel {
-    grid-column: 1 / -1;
-    border-top: 1px solid #243041;
-    border-left: 0;
-  }
-
-  .palette-list {
-    grid-template-columns: repeat(5, minmax(100px, 1fr));
+  .brand-block span,
+  .canvas-toolbar span:last-child {
+    display: none;
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
+  body {
+    overflow: auto;
+  }
+
+  .editor-shell {
+    min-height: 760px;
+  }
+
+  .editor-header {
+    align-items: center;
+    padding: 8px 12px;
+  }
+
   .editor-main {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(520px, 1fr) auto;
   }
 
   .component-panel {
     display: none;
   }
 
-  .canvas-grid {
-    min-height: 480px;
-    padding: 36px 20px;
+  .property-panel {
+    border-top: 1px solid #243041;
+    border-left: 0;
   }
 
-  .selection-box {
-    width: 100%;
-    min-height: 320px;
-    padding: 28px;
+  .canvas-area {
+    grid-row: 1;
   }
 
-  .palette-list {
-    grid-template-columns: 1fr 1fr;
+  .state-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
