@@ -1,7 +1,7 @@
 .header-message {
-  max-width: 260px;
+  max-width: 280px;
   overflow: hidden;
-  color: #7f91a6;
+  color: #7890a8;
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -9,83 +9,181 @@
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.42;
+  opacity: 0.38;
 }
 
 .section-title {
-  margin-top: 24px;
+  margin-top: 22px;
+  margin-bottom: 10px;
+}
+
+.action-grid,
+.document-actions,
+.arrange-grid {
+  display: grid;
+  gap: 7px;
 }
 
 .action-grid,
 .document-actions {
-  display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.action-grid {
-  grid-template-columns: 1fr 1fr;
+.arrange-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .action-grid button,
-.document-actions button {
-  padding: 9px 10px;
-  border: 1px solid #2b3a4e;
-  border-radius: 7px;
-  color: #9eb0c2;
-  background: #0e1621;
+.document-actions button,
+.arrange-grid button {
+  min-height: 31px;
+  border: 1px solid #2a3b50;
+  border-radius: 6px;
+  color: #9fb2c5;
+  background: #111b28;
   cursor: pointer;
+  font-size: 11px;
 }
 
-.action-grid button:not(:disabled):hover,
-.document-actions button:hover {
+.action-grid button:hover:not(:disabled),
+.document-actions button:hover:not(:disabled),
+.arrange-grid button:hover:not(:disabled) {
   border-color: #38bdf8;
-  color: #e7f7ff;
-  background: #132435;
+  color: #e4f5ff;
+  background: #142638;
+}
+
+.snap-settings {
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid #263548;
+  border-radius: 7px;
+  background: #0d151f;
+}
+
+.checkbox-field,
+.inline-number {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #91a5ba;
+  font-size: 11px;
+}
+
+.checkbox-field {
+  justify-content: flex-start;
+}
+
+.checkbox-field input {
+  accent-color: #38bdf8;
+}
+
+.inline-number input {
+  width: 74px;
+  padding: 5px 7px;
+  border: 1px solid #2b3b4f;
+  border-radius: 5px;
+  color: #d8e7f3;
+  background: #0a111a;
 }
 
 .hidden-input {
   display: none;
 }
 
-.property-field {
+.inspector-tabs {
   display: grid;
-  gap: 7px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  margin: -4px -4px 18px;
+  padding: 4px;
+  border: 1px solid #263548;
+  border-radius: 8px;
+  background: #0b121b;
 }
 
-.property-field span {
-  color: #71859b;
+.inspector-tabs button {
+  padding: 7px 3px;
+  border: 0;
+  border-radius: 5px;
+  color: #71869b;
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.inspector-tabs button.active {
+  color: #dcf5ff;
+  background: #173044;
+}
+
+.property-field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 13px;
+  color: #8095aa;
   font-size: 11px;
 }
 
 .property-field input {
   width: 100%;
-  padding: 9px 10px;
-  border: 1px solid #2b3a4e;
-  border-radius: 7px;
-  outline: none;
-  color: #dce7f2;
-  background: #0d141e;
-  font: inherit;
-  font-size: 12px;
+  padding: 8px 9px;
+  border: 1px solid #2a3a4e;
+  border-radius: 6px;
+  color: #deebf5;
+  background: #0b131d;
 }
 
-.property-field input:focus {
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.12);
+.property-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.empty-selection {
+.property-field.compact {
   margin: 0;
-  padding: 14px;
-  border: 1px dashed #2b3a4e;
-  border-radius: 8px;
-  color: #71859b;
-  background: #0d141e;
+}
+
+.property-toggle {
+  margin-top: 13px;
+  padding: 9px 10px;
+  border: 1px solid #28384b;
+  border-radius: 6px;
+  background: #0e1722;
+}
+
+.selection-summary,
+.empty-selection,
+.inspector-placeholder {
+  padding: 13px;
+  border: 1px solid #28384b;
+  border-radius: 7px;
+  color: #8094a8;
+  background: #0d151f;
   font-size: 12px;
   line-height: 1.6;
 }
 
-@media (max-width: 1160px) {
+.selection-summary strong {
+  color: #e4f5ff;
+}
+
+.inspector-placeholder {
+  display: grid;
+  gap: 7px;
+}
+
+.inspector-placeholder strong {
+  color: #bed3e5;
+}
+
+.canvas-toolbar span:last-child {
+  color: #94a8bb;
+}
+
+@media (max-width: 1180px) {
   .header-message {
     display: none;
   }
