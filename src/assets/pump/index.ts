@@ -25,7 +25,7 @@ export const pumpStatePalettes = {
 
 export type PumpState = keyof typeof pumpStatePalettes
 
-function createStateSource(state: PumpState) {
+function createFallbackSource(state: PumpState) {
   const palette = pumpStatePalettes[state]
   const stateStyle = `<style>
     #pump-color1 { fill: ${palette.light} !important; }
@@ -38,10 +38,17 @@ function createStateSource(state: PumpState) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(stateSvg)}`
 }
 
+function createStateSources(state: PumpState) {
+  return [
+    `/components/pump/pump-${state}.png`,
+    createFallbackSource(state),
+  ] as const
+}
+
 export const pumpStateSources = {
-  gray: createStateSource('gray'),
-  green: createStateSource('green'),
-  blue: createStateSource('blue'),
-  orange: createStateSource('orange'),
-  red: createStateSource('red'),
-} satisfies Record<PumpState, string>
+  gray: createStateSources('gray'),
+  green: createStateSources('green'),
+  blue: createStateSources('blue'),
+  orange: createStateSources('orange'),
+  red: createStateSources('red'),
+} satisfies Record<PumpState, readonly string[]>
