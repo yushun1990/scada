@@ -6,6 +6,9 @@ import { useCachedImage } from './image-cache'
 
 export const PUMP_DESIGN_WIDTH = 512
 export const PUMP_DESIGN_HEIGHT = 720
+export const PUMP_ASPECT_RATIO = PUMP_DESIGN_WIDTH / PUMP_DESIGN_HEIGHT
+export const PUMP_MIN_WIDTH = 96
+export const PUMP_MIN_HEIGHT = PUMP_MIN_WIDTH / PUMP_ASPECT_RATIO
 
 export type PumpNodeProps = {
   state: PumpState
@@ -54,7 +57,7 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
       blue,
       orange,
       red,
-    } satisfies Record<PumpState, HTMLImageElement | null>
+    } satisfies Record<PumpState, HTMLCanvasElement | null>
 
     return (
       <Group
@@ -73,8 +76,12 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
         }}
         onTransformEnd={(event) => {
           const group = event.target as Konva.Group
-          const scaleX = group.scaleX()
-          const scaleY = group.scaleY()
+          const uniformScale = Math.max(
+            Math.abs(group.scaleX()),
+            Math.abs(group.scaleY()),
+          )
+          const nextWidth = Math.max(PUMP_MIN_WIDTH, group.width() * uniformScale)
+          const nextHeight = nextWidth / PUMP_ASPECT_RATIO
 
           group.scaleX(1)
           group.scaleY(1)
@@ -82,8 +89,8 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
           onTransformEnd({
             x: group.x(),
             y: group.y(),
-            width: Math.max(96, group.width() * scaleX),
-            height: Math.max(128, group.height() * scaleY),
+            width: nextWidth,
+            height: nextHeight,
             rotation: group.rotation(),
           })
         }}
