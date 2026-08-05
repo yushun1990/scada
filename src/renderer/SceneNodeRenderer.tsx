@@ -5,16 +5,15 @@ import type { NodeTransform, SceneNode } from '../scene/model'
 
 export type SceneNodeRendererProps = {
   node: SceneNode
-  editable: boolean
-  onSelect: () => void
-  onTransformChange: (transform: NodeTransform) => void
+  transform: NodeTransform
+  editorMode: boolean
 }
 
 export const SceneNodeRenderer = forwardRef<
   Konva.Group,
   SceneNodeRendererProps
 >(function SceneNodeRenderer(
-  { node, editable, onSelect, onTransformChange },
+  { node, transform, editorMode },
   ref,
 ) {
   switch (node.type) {
@@ -22,18 +21,12 @@ export const SceneNodeRenderer = forwardRef<
       return (
         <PumpNode
           ref={ref}
+          nodeId={node.id}
           state={node.props.state}
-          {...node.transform}
-          draggable={editable}
-          onSelect={onSelect}
-          onDragEnd={(x, y) => {
-            onTransformChange({
-              ...node.transform,
-              x,
-              y,
-            })
-          }}
-          onTransformEnd={onTransformChange}
+          {...transform}
+          draggable={editorMode && !node.locked}
+          visible={editorMode || node.visible}
+          opacity={node.visible ? 1 : 0.2}
         />
       )
   }
