@@ -14,7 +14,20 @@ M1 使用 React、TypeScript、Konva 和 react-konva 验证一个多图片状态
 - 图片通过共享缓存加载，不为每次渲染重复创建资源；
 - Transformer 结束后会把临时 scale 归一化为组件 width/height。
 
-用户提供的五张 PNG 色彩图在尺寸和透明边界上存在少量差异。为保证 M1 状态切换绝对不抖动，当前实现从仓库中的同源水泵 SVG 生成五个完全同尺寸的图片源，并以 Konva Image 节点加载。组件接口保留为图片状态集，后续可直接替换成归一化 PNG 文件。
+## 水泵状态资源
+
+运行时优先加载以下 PNG：
+
+```text
+public/components/pump/
+├── pump-gray.png
+├── pump-green.png
+├── pump-blue.png
+├── pump-orange.png
+└── pump-red.png
+```
+
+用户提供的原始色彩图在图片尺寸和透明边界上存在少量差异，因此需要先归一化到统一设计画布。若上述 PNG 尚未放入仓库，当前实现会自动回退到同源 SVG 生成的状态图片，保证编辑器仍可运行且状态切换不抖动。
 
 ## 技术栈
 
