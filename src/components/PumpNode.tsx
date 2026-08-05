@@ -11,6 +11,7 @@ export const PUMP_MIN_WIDTH = 96
 export const PUMP_MIN_HEIGHT = PUMP_MIN_WIDTH / PUMP_ASPECT_RATIO
 
 export type PumpNodeProps = {
+  nodeId: string
   state: PumpState
   x: number
   y: number
@@ -18,20 +19,14 @@ export type PumpNodeProps = {
   height: number
   rotation: number
   draggable: boolean
-  onSelect: () => void
-  onDragEnd: (x: number, y: number) => void
-  onTransformEnd: (value: {
-    x: number
-    y: number
-    width: number
-    height: number
-    rotation: number
-  }) => void
+  visible: boolean
+  opacity: number
 }
 
 export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
   function PumpNode(
     {
+      nodeId,
       state,
       x,
       y,
@@ -39,9 +34,8 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
       height,
       rotation,
       draggable,
-      onSelect,
-      onDragEnd,
-      onTransformEnd,
+      visible,
+      opacity,
     },
     ref,
   ) {
@@ -62,38 +56,16 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
     return (
       <Group
         ref={ref}
+        id={nodeId}
+        name="scene-node"
         x={x}
         y={y}
         width={width}
         height={height}
         rotation={rotation}
         draggable={draggable}
-        onMouseDown={onSelect}
-        onTouchStart={onSelect}
-        onDragStart={onSelect}
-        onDragEnd={(event) => {
-          onDragEnd(event.target.x(), event.target.y())
-        }}
-        onTransformEnd={(event) => {
-          const group = event.target as Konva.Group
-          const uniformScale = Math.max(
-            Math.abs(group.scaleX()),
-            Math.abs(group.scaleY()),
-          )
-          const nextWidth = Math.max(PUMP_MIN_WIDTH, group.width() * uniformScale)
-          const nextHeight = nextWidth / PUMP_ASPECT_RATIO
-
-          group.scaleX(1)
-          group.scaleY(1)
-
-          onTransformEnd({
-            x: group.x(),
-            y: group.y(),
-            width: nextWidth,
-            height: nextHeight,
-            rotation: group.rotation(),
-          })
-        }}
+        visible={visible}
+        opacity={opacity}
       >
         {(Object.keys(images) as PumpState[]).map((imageState) => {
           const active = state === imageState
