@@ -1,5 +1,5 @@
 import type { PumpState } from '../assets/pump'
-import { getPortDefinition } from '../components/ports'
+import { getAnchorDefinition } from '../components/anchors'
 import {
   GROUP_NODE_TYPE,
   PUMP_NODE_TYPE,
@@ -143,28 +143,47 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
   return null
 }
 
-function parseEndpoint(value: unknown): ConnectionEndpoint | null {
-  if (
-    !isRecord(value) ||
-    typeof value.nodeId !== 'string' ||
-    typeof value.portId !== 'string'
-  ) {
+function migrateLegacyPortId(portId: string) {
+  if (portId === 'inlet') {
+    return 'left-75'
+  }
+
+  if (portId === 'outlet') {
+    return 'right-center'
+  }
+
+  return portId
+}
+
+function parseEndpoint(value: unknown, version: number): ConnectionEndpoint | null {
+  if (!isRecord(value) || typeof value.nodeId !== 'string') {
     return null
   }
 
-  return {
-    nodeId: value.nodeId,
-    portId: value.portId,
+  if (version >= 4 && typeof value.anchorId === 'string') {
+    return {
+      nodeId: value.nodeId,
+      anchorId: value.anchorId,
+    }
   }
+
+  if (version === 3 && typeof value.portId === 'string') {
+    return {
+      nodeId: value.nodeId,
+      anchorId: migrateLegacyPortId(value.portId),
+    }
+  }
+
+  return null
 }
 
-function parseConnection(value: unknown): SceneConnection | null {
+function parseConnection(value: unknown, version: number): SceneConnection | null {
   if (!isRecord(value) || !isRecord(value.style)) {
     return null
   }
 
-  const source = parseEndpoint(value.source)
-  const target = parseEndpoint(value.target)
+  const source = parseEndpoint(value.source, version)
+  const target = parseEndpoint(value.target, version)
 
   if (
     typeof value.id !== 'string' ||
@@ -247,10 +266,10 @@ function validateConnections(
     }
 
     if (
-      !getPortDefinition(sourceNode, connection.source.portId) ||
-      !getPortDefinition(targetNode, connection.target.portId)
+      !getAnchorDefinition(sourceNode, connection.source.anchorId) ||
+      !getAnchorDefinition(targetNode, connection.target.anchorId)
     ) {
-      throw new Error('场景 JSON 包含不存在的组件端口')
+      throw new Error('场景 JSON 包含不存在的视觉锚点')
     }
   }
 }
@@ -269,9 +288,14 @@ export function parseSceneDocument(json: string): SceneDocument {
   }
 
   const sourceVersion = value.version
+  const supportedVersion =
+    sourceVersion === 1 ||
+    sourceVersion === 2 ||
+    sourceVersion === 3 ||
+    sourceVersion === SCENE_VERSION
 
   if (
-    (sourceVersion !== 1 && sourceVersion !== 2 && sourceVersion !== SCENE_VERSION) ||
+    !supportedVersion ||
     typeof value.id !== 'string' ||
     typeof value.name !== 'string' ||
     !isFiniteNumber(value.width) ||
@@ -280,7 +304,7 @@ export function parseSceneDocument(json: string): SceneDocument {
     value.height <= 0 ||
     typeof value.background !== 'string' ||
     !Array.isArray(value.nodes) ||
-    (sourceVersion === SCENE_VERSION && !Array.isArray(value.connections))
+    (sourceVersion >= 3 && !Array.isArray(value.connections))
   ) {
     throw new Error('场景 JSON 格式无效或版本不受支持')
   }
@@ -292,8 +316,10 @@ export function parseSceneDocument(json: string): SceneDocument {
   }
 
   const parsedNodes = nodes as SceneNode[]
-  const parsedConnections = sourceVersion === SCENE_VERSION
-    ? (value.connections as unknown[]).map(parseConnection)
+  const parsedConnections = sourceVersion >= 3
+    ? (value.connections as unknown[]).map((connection) =>
+        parseConnection(connection, sourceVersion),
+      )
     : []
 
   if (parsedConnections.some((connection) => connection === null)) {
