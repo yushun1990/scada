@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type Konva from 'konva'
-import { Layer, Line, Rect, Stage, Transformer } from 'react-konva'
+import { Circle, Layer, Line, Rect, Stage, Transformer } from 'react-konva'
 import {
   PUMP_MIN_HEIGHT,
   PUMP_MIN_WIDTH,
 } from '../components/PumpNode'
+import {
+  getNodePortDefinitions,
+  getPortWorldPosition,
+  isNodeEffectivelyVisible,
+  normalizeConnectionEndpoints,
+} from '../components/ports'
 import {
   boundsIntersect,
   computeSnap,
@@ -18,6 +24,9 @@ import {
 } from '../scene/geometry'
 import {
   isGroupNode,
+  isPumpNode,
+  type ConnectionEndpoint,
+  type SceneConnection,
   type SceneDocument,
 } from '../scene/model'
 import { SceneNodeRenderer } from './SceneNodeRenderer'
@@ -28,9 +37,16 @@ export type SceneRendererProps = {
   scene: SceneDocument
   mode: RendererMode
   selectedNodeIds: string[]
+  selectedConnectionId: string | null
+  connectionMode: boolean
   snapSettings: SnapSettings
   gridVisible: boolean
   onSelectionChange: (nodeIds: string[]) => void
+  onConnectionSelectionChange: (connectionId: string | null) => void
+  onCreateConnection: (
+    source: ConnectionEndpoint,
+    target: ConnectionEndpoint,
+  ) => void
   onTransformNodes: (updates: TransformUpdates) => void
 }
 
@@ -56,6 +72,11 @@ type DragSession = {
   initialTransforms: TransformUpdates
 }
 
+type ConnectionSession = {
+  source: ConnectionEndpoint
+  current: Point
+}
+
 const CORNER_ANCHORS = [
   'top-left',
   'top-right',
@@ -65,6 +86,8 @@ const CORNER_ANCHORS = [
 
 const MARQUEE_THRESHOLD = 4
 const GROUP_MIN_SIZE = 48
+const PORT_PREFIX = 'scene-port::'
+const CONNECTION_PREFIX = 'scene-connection::'
 
 function hasSelectionModifier(event: Event) {
   const keyboardEvent = event as MouseEvent
@@ -81,6 +104,42 @@ function findSceneNodeId(target: Konva.Node) {
   while (current) {
     if (current.hasName('scene-node')) {
       return current.id()
+    }
+
+    current = current.getParent()
+  }
+
+  return null
+}
+
+function findPortEndpoint(target: Konva.Node): ConnectionEndpoint | null {
+  let current: Konva.Node | null = target
+
+  while (current) {
+    const id = current.id()
+
+    if (id.startsWith(PORT_PREFIX)) {
+      const [, nodeId, portId] = id.split('::')
+
+      if (nodeId && portId) {
+        return { nodeId, portId }
+      }
+    }
+
+    current = current.getParent()
+  }
+
+  return null
+}
+
+function findConnectionId(target: Konva.Node) {
+  let current: Konva.Node | null = target
+
+  while (current) {
+    const id = current.id()
+
+    if (id.startsWith(CONNECTION_PREFIX)) {
+      return id.slice(CONNECTION_PREFIX.length)
     }
 
     current = current.getParent()
@@ -163,13 +222,44 @@ function isDarkBackground(color: string) {
   return luminance < 0.48
 }
 
+function getConnectionPoints(
+  scene: SceneDocument,
+  connection: SceneConnection,
+  overrides: TransformUpdates,
+) {
+  const source = getPortWorldPosition(scene, connection.source, overrides)
+  const target = getPortWorldPosition(scene, connection.target, overrides)
+
+  if (!source || !target) {
+    return null
+  }
+
+  return [source.x, source.y, target.x, target.y]
+}
+
+function isConnectionVisible(scene: SceneDocument, connection: SceneConnection) {
+  const sourceNode = scene.nodes.find((node) => node.id === connection.source.nodeId)
+  const targetNode = scene.nodes.find((node) => node.id === connection.target.nodeId)
+
+  return Boolean(
+    sourceNode &&
+    targetNode &&
+    isNodeEffectivelyVisible(scene, sourceNode) &&
+    isNodeEffectivelyVisible(scene, targetNode),
+  )
+}
+
 export function SceneRenderer({
   scene,
   mode,
   selectedNodeIds,
+  selectedConnectionId,
+  connectionMode,
   snapSettings,
   gridVisible,
   onSelectionChange,
+  onConnectionSelectionChange,
+  onCreateConnection,
   onTransformNodes,
 }: SceneRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -179,10 +269,13 @@ export function SceneRenderer({
   const dragSessionRef = useRef<DragSession | null>(null)
   const dragPreviewRef = useRef<TransformUpdates>({})
   const marqueeSessionRef = useRef<MarqueeSession | null>(null)
+  const connectionSessionRef = useRef<ConnectionSession | null>(null)
   const [viewport, setViewport] = useState({ width: 960, height: 640 })
   const [guides, setGuides] = useState<AlignmentGuide[]>([])
   const [dragPreview, setDragPreview] = useState<TransformUpdates>({})
   const [marquee, setMarquee] = useState<MarqueeState | null>(null)
+  const [connectionSession, setConnectionSession] =
+    useState<ConnectionSession | null>(null)
 
   const rootNodes = getRootNodes(scene)
   const selectedNodes = rootNodes.filter((node) =>
@@ -218,7 +311,9 @@ export function SceneRenderer({
     const cancelTransientInteraction = () => {
       pendingSelectionRef.current = null
       marqueeSessionRef.current = null
+      connectionSessionRef.current = null
       setMarquee(null)
+      setConnectionSession(null)
       setGuides([])
     }
 
@@ -233,12 +328,23 @@ export function SceneRenderer({
 
     pendingSelectionRef.current = null
     marqueeSessionRef.current = null
+    connectionSessionRef.current = null
     dragSessionRef.current = null
     dragPreviewRef.current = {}
     setMarquee(null)
+    setConnectionSession(null)
     setGuides([])
     setDragPreview({})
   }, [mode])
+
+  useEffect(() => {
+    if (connectionMode) {
+      return
+    }
+
+    connectionSessionRef.current = null
+    setConnectionSession(null)
+  }, [connectionMode])
 
   useEffect(() => {
     const transformer = transformerRef.current
@@ -271,9 +377,15 @@ export function SceneRenderer({
     setMarquee(null)
   }
 
+  function clearConnectionSession() {
+    connectionSessionRef.current = null
+    setConnectionSession(null)
+  }
+
   function cancelPointerInteraction() {
     pendingSelectionRef.current = null
     clearMarqueeSession()
+    clearConnectionSession()
   }
 
   function applyPreview(updates: TransformUpdates) {
@@ -307,6 +419,7 @@ export function SceneRenderer({
       hasSelectionModifier(nativeEvent),
     )
     pendingSelectionRef.current = nextSelection
+    onConnectionSelectionChange(null)
     onSelectionChange(nextSelection)
   }
 
@@ -536,6 +649,7 @@ export function SceneRenderer({
     if (!session.active) {
       if (!session.additive) {
         onSelectionChange([])
+        onConnectionSelectionChange(null)
       }
       return
     }
@@ -550,6 +664,7 @@ export function SceneRenderer({
       )
       .map((node) => node.id)
 
+    onConnectionSelectionChange(null)
     onSelectionChange(
       session.additive
         ? Array.from(new Set([...selectedNodeIds, ...matchedIds]))
@@ -557,7 +672,61 @@ export function SceneRenderer({
     )
   }
 
-  function handleStageMouseUp() {
+  function beginConnection(endpoint: ConnectionEndpoint) {
+    const point = getPortWorldPosition(scene, endpoint, dragPreview)
+
+    if (!point) {
+      return
+    }
+
+    pendingSelectionRef.current = null
+    clearMarqueeSession()
+    const session = { source: endpoint, current: point }
+    connectionSessionRef.current = session
+    setConnectionSession(session)
+    onSelectionChange([])
+    onConnectionSelectionChange(null)
+  }
+
+  function updateConnectionPreview(stage: Konva.Stage) {
+    const session = connectionSessionRef.current
+    const pointer = stage.getPointerPosition()
+
+    if (!session || !pointer) {
+      return
+    }
+
+    const nextSession = { ...session, current: pointer }
+    connectionSessionRef.current = nextSession
+    setConnectionSession(nextSession)
+  }
+
+  function finishConnection(target: Konva.Node) {
+    const session = connectionSessionRef.current
+    const targetEndpoint = findPortEndpoint(target)
+    clearConnectionSession()
+
+    if (!session || !targetEndpoint) {
+      return
+    }
+
+    const normalized = normalizeConnectionEndpoints(
+      scene,
+      session.source,
+      targetEndpoint,
+    )
+
+    if (normalized) {
+      onCreateConnection(normalized.source, normalized.target)
+    }
+  }
+
+  function handleStageMouseUp(target: Konva.Node) {
+    if (connectionSessionRef.current) {
+      finishConnection(target)
+      return
+    }
+
     if (marqueeSessionRef.current) {
       finishMarquee()
       return
@@ -600,6 +769,9 @@ export function SceneRenderer({
   const majorGridStroke = darkBackground
     ? 'rgba(148, 163, 184, 0.28)'
     : 'rgba(71, 85, 105, 0.22)'
+  const connectionSourcePoint = connectionSession
+    ? getPortWorldPosition(scene, connectionSession.source, dragPreview)
+    : null
 
   return (
     <div
@@ -613,6 +785,22 @@ export function SceneRenderer({
         onMouseDown={(event) => {
           if (isInsideTransformer(event.target, transformerRef.current)) {
             cancelPointerInteraction()
+            return
+          }
+
+          const portEndpoint = findPortEndpoint(event.target)
+
+          if (connectionMode && portEndpoint) {
+            beginConnection(portEndpoint)
+            return
+          }
+
+          const connectionId = findConnectionId(event.target)
+
+          if (connectionId) {
+            cancelPointerInteraction()
+            onSelectionChange([])
+            onConnectionSelectionChange(connectionId)
             return
           }
 
@@ -636,16 +824,23 @@ export function SceneRenderer({
             handleNodePointerDown(event.target, event.evt)
           } else if (mode === 'editor') {
             onSelectionChange([])
+            onConnectionSelectionChange(null)
           }
         }}
         onMouseMove={(event) => {
           const stage = event.target.getStage()
 
-          if (stage) {
+          if (!stage) {
+            return
+          }
+
+          if (connectionSessionRef.current) {
+            updateConnectionPreview(stage)
+          } else {
             updateMarquee(stage)
           }
         }}
-        onMouseUp={handleStageMouseUp}
+        onMouseUp={(event) => handleStageMouseUp(event.target)}
         onMouseLeave={cancelPointerInteraction}
         onDragStart={(event) => {
           handleDragStart(event.target)
@@ -667,7 +862,7 @@ export function SceneRenderer({
               key={`grid-x-${x}`}
               points={[x, 0, x, viewport.height]}
               stroke={index % 5 === 0 ? majorGridStroke : minorGridStroke}
-              strokeWidth={index % 5 === 0 ? 0.8 : 0.5}
+              strokeWidth={index % 5 === 0 ? 0.8 : 0.6}
               perfectDrawEnabled={false}
             />
           ))}
@@ -677,10 +872,42 @@ export function SceneRenderer({
               key={`grid-y-${y}`}
               points={[0, y, viewport.width, y]}
               stroke={index % 5 === 0 ? majorGridStroke : minorGridStroke}
-              strokeWidth={index % 5 === 0 ? 0.8 : 0.5}
+              strokeWidth={index % 5 === 0 ? 0.8 : 0.6}
               perfectDrawEnabled={false}
             />
           ))}
+        </Layer>
+
+        <Layer listening={mode === 'editor'}>
+          {scene.connections.map((connection) => {
+            const points = getConnectionPoints(scene, connection, dragPreview)
+
+            if (!points || !isConnectionVisible(scene, connection)) {
+              return null
+            }
+
+            const selected = selectedConnectionId === connection.id
+            const dash = connection.style.dash === 'dashed' ? [10, 7] : undefined
+
+            return (
+              <Line
+                key={connection.id}
+                id={`${CONNECTION_PREFIX}${connection.id}`}
+                points={points}
+                stroke={selected ? '#2563eb' : connection.style.stroke}
+                strokeWidth={
+                  selected
+                    ? connection.style.strokeWidth + 2
+                    : connection.style.strokeWidth
+                }
+                dash={dash}
+                lineCap="round"
+                lineJoin="round"
+                hitStrokeWidth={18}
+                perfectDrawEnabled={false}
+              />
+            )
+          })}
         </Layer>
 
         <Layer>
@@ -786,12 +1013,72 @@ export function SceneRenderer({
               dash={[6, 4]}
             />
           )}
+
+          {connectionSession && connectionSourcePoint && (
+            <Line
+              points={[
+                connectionSourcePoint.x,
+                connectionSourcePoint.y,
+                connectionSession.current.x,
+                connectionSession.current.y,
+              ]}
+              stroke="#0f766e"
+              strokeWidth={3}
+              dash={[8, 6]}
+              lineCap="round"
+            />
+          )}
+        </Layer>
+
+        <Layer listening={mode === 'editor' && connectionMode}>
+          {mode === 'editor' && connectionMode &&
+            scene.nodes.filter(isPumpNode).flatMap((node) => {
+              if (!isNodeEffectivelyVisible(scene, node)) {
+                return []
+              }
+
+              return getNodePortDefinitions(node).map((port) => {
+                const position = getPortWorldPosition(
+                  scene,
+                  { nodeId: node.id, portId: port.id },
+                  dragPreview,
+                )
+
+                if (!position) {
+                  return null
+                }
+
+                return (
+                  <Circle
+                    key={`${node.id}-${port.id}`}
+                    id={`${PORT_PREFIX}${node.id}::${port.id}`}
+                    x={position.x}
+                    y={position.y}
+                    radius={7}
+                    fill={port.direction === 'input' ? '#f59e0b' : '#0f766e'}
+                    stroke="#ffffff"
+                    strokeWidth={2}
+                    shadowColor="rgba(15, 23, 42, 0.28)"
+                    shadowBlur={4}
+                    hitStrokeWidth={10}
+                  />
+                )
+              })
+            })}
         </Layer>
       </Stage>
 
       <div className="canvas-status">
-        <span>{mode === 'editor' ? '编辑模式' : '预览模式'}</span>
-        {selectedNodeIds.length > 1 ? (
+        <span>
+          {mode === 'editor'
+            ? connectionMode
+              ? '连线模式'
+              : '编辑模式'
+            : '预览模式'}
+        </span>
+        {selectedConnectionId ? (
+          <code>connection selected</code>
+        ) : selectedNodeIds.length > 1 ? (
           <code>{selectedNodeIds.length} selected</code>
         ) : primaryNode ? (
           <code>
@@ -801,7 +1088,7 @@ export function SceneRenderer({
             {Math.round(primaryNode.transform.rotation)}°
           </code>
         ) : (
-          <code>{rootNodes.length} root nodes</code>
+          <code>{scene.connections.length} connections</code>
         )}
       </div>
     </div>
