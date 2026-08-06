@@ -16,6 +16,7 @@ import {
 } from './scene/geometry'
 import {
   cloneSceneSubtrees,
+  collectSubtreeIds,
   deleteSceneNodes,
   groupSceneNodes,
   ungroupSceneNode,
@@ -27,6 +28,7 @@ import {
   isPumpNode,
   PUMP_ASPECT_RATIO,
   type NodeTransform,
+  type SceneDocument,
   type SceneNode,
 } from './scene/model'
 import { parseSceneDocument } from './scene/validation'
@@ -62,7 +64,7 @@ const alignButtons: Array<{ mode: AlignMode; label: string; title: string }> = [
   { mode: 'bottom', label: '下', title: '底对齐' },
 ]
 
-function getInitialSelectedIds(scene: ReturnType<typeof createDefaultScene>) {
+function getInitialSelectedIds(scene: SceneDocument) {
   const firstRoot = getRootNodes(scene)[0]
   return firstRoot ? [firstRoot.id] : []
 }
@@ -89,7 +91,7 @@ function App() {
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(
     getInitialSelectedIds(scene),
   )
-  const [message, setMessage] = useState('M2.2 组合与格线控制已启用')
+  const [message, setMessage] = useState('M2.2 组合公共属性与格线已修复')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('base')
   const [gridVisible, setGridVisible] = useState(true)
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({
@@ -106,7 +108,13 @@ function App() {
     .map((nodeId) => rootNodes.find((node) => node.id === nodeId))
     .filter((node): node is SceneNode => Boolean(node))
   const primaryNode = selectedNodes[selectedNodes.length - 1] ?? null
-  const selectedPumpNodes = selectedNodes.filter(isPumpNode)
+
+  const selectedSubtreeIds = collectSubtreeIds(scene, selectedNodeIds)
+  const selectedPumpNodes = scene.nodes.filter(
+    (node) => selectedSubtreeIds.has(node.id) && isPumpNode(node),
+  )
+  const selectedGroupCount = selectedNodes.filter(isGroupNode).length
+
   const canGroup =
     selectedNodes.length >= 2 &&
     selectedNodes.every(
@@ -260,6 +268,7 @@ function App() {
           : node,
       ),
     }))
+    setMessage(`已批量更新 ${selectedPumpNodes.length} 个水泵状态`)
   }
 
   function updateSelectedBaseProperty(
@@ -402,7 +411,7 @@ function App() {
       <header className="editor-header">
         <div className="brand-block">
           <strong>SCADA Editor Lab</strong>
-          <span>M2.2 · 格线、组合与拆分</span>
+          <span>M2.2 · 组合公共属性、格线与浅色编辑器</span>
         </div>
 
         <div className="header-actions">
@@ -607,8 +616,8 @@ function App() {
 
           <div className="milestone-card">
             <strong>M2.2 当前能力</strong>
-            <span>格线显示与网格吸附相互独立</span>
-            <span>组合关系持久化到场景 JSON</span>
+            <span>格线由 Konva 背景层直接绘制</span>
+            <span>组合公共属性作用到兼容子组件</span>
             <span>组合整体移动、旋转和等比缩放</span>
             <span>拆分后保持当前世界位置</span>
           </div>
@@ -617,7 +626,7 @@ function App() {
         <section className="canvas-area" aria-label="SCADA 编辑画布">
           <div className="canvas-toolbar">
             <span>{scene.name} / {rootNodes.length} root nodes / {scene.nodes.length} total</span>
-            <span>Shift/Ctrl 多选 · 空白拖动框选 · 组合后整体编辑</span>
+            <span>Shift/Ctrl 多选 · 空白拖动框选 · 组合后可批量设置公共属性</span>
           </div>
           <SceneRenderer
             scene={scene}
@@ -756,33 +765,41 @@ function App() {
 
           {inspectorTab === 'properties' && (
             <>
-              <div className="panel-title">组件属性</div>
+              <div className="panel-title">组件公共属性</div>
               {selectedPumpNodes.length === 0 ? (
                 <div className="inspector-placeholder">
-                  <strong>当前选择没有可直接编辑的水泵属性</strong>
-                  <span>组合节点只暴露基础几何属性；拆分后可编辑子组件状态。</span>
+                  <strong>当前选择范围没有兼容的水泵属性</strong>
+                  <span>后续组件注册表会在这里计算不同类型之间的公共属性交集。</span>
                 </div>
               ) : (
-                <div className="state-list">
-                  {pumpStates.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`state-button${selectedPumpNodes.every((node) => node.props.state === item.id) ? ' active' : ''}`}
-                      onClick={() => setSelectedPumpState(item.id)}
-                    >
-                      <span
-                        className="state-swatch"
-                        style={{ backgroundColor: item.swatch }}
-                        aria-hidden="true"
-                      />
-                      <span>
-                        <strong>{item.name}</strong>
-                        <small>{item.description}</small>
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <div className="property-scope">
+                    当前选择范围包含 <strong>{selectedPumpNodes.length}</strong> 个水泵。
+                    {selectedGroupCount > 0 && (
+                      <span>修改将递归应用到组合内的真实子组件。</span>
+                    )}
+                  </div>
+                  <div className="state-list">
+                    {pumpStates.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`state-button${selectedPumpNodes.every((node) => node.props.state === item.id) ? ' active' : ''}`}
+                        onClick={() => setSelectedPumpState(item.id)}
+                      >
+                        <span
+                          className="state-swatch"
+                          style={{ backgroundColor: item.swatch }}
+                          aria-hidden="true"
+                        />
+                        <span>
+                          <strong>{item.name}</strong>
+                          <small>{item.description}</small>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
             </>
           )}
