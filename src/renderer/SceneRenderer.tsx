@@ -22,6 +22,7 @@ import {
   type SnapSettings,
   type TransformUpdates,
 } from '../scene/geometry'
+import { collectSubtreeIds } from '../scene/hierarchy'
 import {
   isGroupNode,
   isPumpNode,
@@ -68,13 +69,13 @@ type MarqueeSession = MarqueeState & {
 type DragSession = {
   nodeId: string
   nodeIds: string[]
+  affectedNodeIds: Set<string>
   initialBounds: Bounds
   initialTransforms: TransformUpdates
 }
 
 type ConnectionSession = {
   source: ConnectionEndpoint
-  current: Point
 }
 
 const CORNER_ANCHORS = [
@@ -272,10 +273,7 @@ export function SceneRenderer({
 }: SceneRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
-  const nodeLayerRef = useRef<Konva.Layer>(null)
-  const connectionLayerRef = useRef<Konva.Layer>(null)
-  const overlayLayerRef = useRef<Konva.Layer>(null)
-  const portLayerRef = useRef<Konva.Layer>(null)
+  const dynamicLayerRef = useRef<Konva.Layer>(null)
   const connectionPreviewRef = useRef<Konva.Line>(null)
   const verticalGuideRef = useRef<Konva.Line>(null)
   const horizontalGuideRef = useRef<Konva.Line>(null)
@@ -287,8 +285,12 @@ export function SceneRenderer({
   const pendingSelectionRef = useRef<string[] | null>(null)
   const dragSessionRef = useRef<DragSession | null>(null)
   const dragPreviewRef = useRef<TransformUpdates>({})
+  const dragFrameRef = useRef<number | null>(null)
+  const pendingDragTargetRef = useRef<Konva.Node | null>(null)
   const marqueeSessionRef = useRef<MarqueeSession | null>(null)
   const connectionSessionRef = useRef<ConnectionSession | null>(null)
+  const connectionFrameRef = useRef<number | null>(null)
+  const pendingConnectionPointRef = useRef<Point | null>(null)
   const [viewport, setViewport] = useState({ width: 960, height: 640 })
   const [marquee, setMarquee] = useState<MarqueeState | null>(null)
 
@@ -335,13 +337,27 @@ export function SceneRenderer({
 
     window.addEventListener('blur', cancelTransientInteraction)
     return () => window.removeEventListener('blur', cancelTransientInteraction)
-  })
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (dragFrameRef.current !== null) {
+        cancelAnimationFrame(dragFrameRef.current)
+      }
+
+      if (connectionFrameRef.current !== null) {
+        cancelAnimationFrame(connectionFrameRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (mode === 'editor') {
       return
     }
 
+    cancelScheduledDrag()
+    cancelScheduledConnectionPreview()
     pendingSelectionRef.current = null
     marqueeSessionRef.current = null
     connectionSessionRef.current = null
@@ -357,6 +373,7 @@ export function SceneRenderer({
       return
     }
 
+    cancelScheduledConnectionPreview()
     connectionSessionRef.current = null
     hideConnectionPreview()
   }, [connectionMode])
@@ -382,13 +399,17 @@ export function SceneRenderer({
         ? [selectedNodeRef]
         : [],
     )
-    transformer.getLayer()?.batchDraw()
+    dynamicLayerRef.current?.batchDraw()
   }, [mode, selectedNodeIds, scene.nodes])
+
+  function drawDynamicLayer() {
+    dynamicLayerRef.current?.batchDraw()
+  }
 
   function hideGuides() {
     verticalGuideRef.current?.visible(false)
     horizontalGuideRef.current?.visible(false)
-    overlayLayerRef.current?.batchDraw()
+    drawDynamicLayer()
   }
 
   function updateGuides(guides: AlignmentGuide[]) {
@@ -434,8 +455,18 @@ export function SceneRenderer({
     }
   }
 
-  function refreshConnections(overrides: TransformUpdates) {
+  function refreshConnections(
+    overrides: TransformUpdates,
+    affectedNodeIds: ReadonlySet<string>,
+  ) {
     for (const connection of scene.connections) {
+      if (
+        !affectedNodeIds.has(connection.source.nodeId) &&
+        !affectedNodeIds.has(connection.target.nodeId)
+      ) {
+        continue
+      }
+
       const line = connectionRefs.current.get(connection.id)
 
       if (!line) {
@@ -443,39 +474,36 @@ export function SceneRenderer({
       }
 
       const points = getConnectionPoints(scene, connection, overrides)
-      const visible = Boolean(
-        points && isConnectionVisible(scene, connection),
-      )
-      line.visible(visible)
+      line.visible(Boolean(points) && isConnectionVisible(scene, connection))
 
       if (points) {
         line.points(points)
       }
     }
-
-    connectionLayerRef.current?.batchDraw()
   }
 
-  function refreshPorts(overrides: TransformUpdates) {
+  function refreshPorts(
+    overrides: TransformUpdates,
+    affectedNodeIds: ReadonlySet<string>,
+  ) {
     if (!connectionMode) {
       return
     }
 
-    for (const node of scene.nodes.filter(isPumpNode)) {
+    for (const node of scene.nodes) {
+      if (!isPumpNode(node) || !affectedNodeIds.has(node.id)) {
+        continue
+      }
+
       for (const port of getNodePortDefinitions(node)) {
-        const circle = portRefs.current.get(
-          portKey({ nodeId: node.id, portId: port.id }),
-        )
+        const endpoint = { nodeId: node.id, portId: port.id }
+        const circle = portRefs.current.get(portKey(endpoint))
 
         if (!circle) {
           continue
         }
 
-        const position = getPortWorldPosition(
-          scene,
-          { nodeId: node.id, portId: port.id },
-          overrides,
-        )
+        const position = getPortWorldPosition(scene, endpoint, overrides)
         circle.visible(Boolean(position) && isNodeEffectivelyVisible(scene, node))
 
         if (position) {
@@ -483,8 +511,6 @@ export function SceneRenderer({
         }
       }
     }
-
-    portLayerRef.current?.batchDraw()
   }
 
   function refreshSelection(overrides: TransformUpdates) {
@@ -520,41 +546,10 @@ export function SceneRenderer({
     }
   }
 
-  function refreshDragDecorations(
-    overrides: TransformUpdates,
-    guides: AlignmentGuide[],
-  ) {
-    refreshConnections(overrides)
-    refreshPorts(overrides)
-    refreshSelection(overrides)
-    updateGuides(guides)
-    overlayLayerRef.current?.batchDraw()
-  }
-
-  function clearMarqueeSession() {
-    marqueeSessionRef.current = null
-    setMarquee(null)
-  }
-
-  function hideConnectionPreview() {
-    connectionPreviewRef.current?.visible(false)
-    overlayLayerRef.current?.batchDraw()
-  }
-
-  function clearConnectionSession() {
-    connectionSessionRef.current = null
-    hideConnectionPreview()
-  }
-
-  function cancelPointerInteraction() {
-    pendingSelectionRef.current = null
-    clearMarqueeSession()
-    clearConnectionSession()
-  }
-
   function applyPreview(
     updates: TransformUpdates,
     guides: AlignmentGuide[],
+    affectedNodeIds: ReadonlySet<string>,
   ) {
     for (const [nodeId, transform] of Object.entries(updates)) {
       nodeRefs.current.get(nodeId)?.position({
@@ -564,8 +559,33 @@ export function SceneRenderer({
     }
 
     dragPreviewRef.current = updates
-    refreshDragDecorations(updates, guides)
-    nodeLayerRef.current?.batchDraw()
+    refreshConnections(updates, affectedNodeIds)
+    refreshPorts(updates, affectedNodeIds)
+    refreshSelection(updates)
+    updateGuides(guides)
+    drawDynamicLayer()
+  }
+
+  function clearMarqueeSession() {
+    marqueeSessionRef.current = null
+    setMarquee(null)
+  }
+
+  function hideConnectionPreview() {
+    connectionPreviewRef.current?.visible(false)
+    drawDynamicLayer()
+  }
+
+  function clearConnectionSession() {
+    cancelScheduledConnectionPreview()
+    connectionSessionRef.current = null
+    hideConnectionPreview()
+  }
+
+  function cancelPointerInteraction() {
+    pendingSelectionRef.current = null
+    clearMarqueeSession()
+    clearConnectionSession()
   }
 
   function handleNodePointerDown(target: Konva.Node, nativeEvent: Event) {
@@ -636,6 +656,7 @@ export function SceneRenderer({
     dragSessionRef.current = {
       nodeId,
       nodeIds,
+      affectedNodeIds: collectSubtreeIds(scene, nodeIds),
       initialBounds,
       initialTransforms,
     }
@@ -644,7 +665,7 @@ export function SceneRenderer({
     hideGuides()
   }
 
-  function handleDragMove(target: Konva.Node) {
+  function processDragMove(target: Konva.Node) {
     const session = dragSessionRef.current
 
     if (!session) {
@@ -684,10 +705,47 @@ export function SceneRenderer({
       }
     }
 
-    applyPreview(updates, snapResult.guides)
+    applyPreview(updates, snapResult.guides, session.affectedNodeIds)
   }
 
-  function handleDragEnd() {
+  function scheduleDragMove(target: Konva.Node) {
+    pendingDragTargetRef.current = target
+
+    if (dragFrameRef.current !== null) {
+      return
+    }
+
+    dragFrameRef.current = requestAnimationFrame(() => {
+      dragFrameRef.current = null
+      const latestTarget = pendingDragTargetRef.current
+
+      if (latestTarget) {
+        processDragMove(latestTarget)
+      }
+    })
+  }
+
+  function cancelScheduledDrag() {
+    if (dragFrameRef.current !== null) {
+      cancelAnimationFrame(dragFrameRef.current)
+      dragFrameRef.current = null
+    }
+
+    pendingDragTargetRef.current = null
+  }
+
+  function flushScheduledDrag(target: Konva.Node) {
+    if (dragFrameRef.current !== null) {
+      cancelAnimationFrame(dragFrameRef.current)
+      dragFrameRef.current = null
+    }
+
+    pendingDragTargetRef.current = null
+    processDragMove(target)
+  }
+
+  function handleDragEnd(target: Konva.Node) {
+    flushScheduledDrag(target)
     const updates = dragPreviewRef.current
 
     if (Object.keys(updates).length > 0) {
@@ -847,8 +905,7 @@ export function SceneRenderer({
 
     pendingSelectionRef.current = null
     clearMarqueeSession()
-    const session = { source: endpoint, current: point }
-    connectionSessionRef.current = session
+    connectionSessionRef.current = { source: endpoint }
     connectionPreviewRef.current?.points([
       point.x,
       point.y,
@@ -856,20 +913,18 @@ export function SceneRenderer({
       point.y,
     ])
     connectionPreviewRef.current?.visible(true)
-    overlayLayerRef.current?.batchDraw()
+    drawDynamicLayer()
     onSelectionChange([])
     onConnectionSelectionChange(null)
   }
 
-  function updateConnectionPreview(stage: Konva.Stage) {
+  function processConnectionPreview(point: Point) {
     const session = connectionSessionRef.current
-    const pointer = stage.getPointerPosition()
 
-    if (!session || !pointer) {
+    if (!session) {
       return
     }
 
-    session.current = pointer
     const source = getPortWorldPosition(scene, session.source)
 
     if (!source) {
@@ -879,10 +934,42 @@ export function SceneRenderer({
     connectionPreviewRef.current?.points([
       source.x,
       source.y,
-      pointer.x,
-      pointer.y,
+      point.x,
+      point.y,
     ])
-    overlayLayerRef.current?.batchDraw()
+    drawDynamicLayer()
+  }
+
+  function scheduleConnectionPreview(stage: Konva.Stage) {
+    const pointer = stage.getPointerPosition()
+
+    if (!pointer) {
+      return
+    }
+
+    pendingConnectionPointRef.current = pointer
+
+    if (connectionFrameRef.current !== null) {
+      return
+    }
+
+    connectionFrameRef.current = requestAnimationFrame(() => {
+      connectionFrameRef.current = null
+      const point = pendingConnectionPointRef.current
+
+      if (point) {
+        processConnectionPreview(point)
+      }
+    })
+  }
+
+  function cancelScheduledConnectionPreview() {
+    if (connectionFrameRef.current !== null) {
+      cancelAnimationFrame(connectionFrameRef.current)
+      connectionFrameRef.current = null
+    }
+
+    pendingConnectionPointRef.current = null
   }
 
   function finishConnection(target: Konva.Node) {
@@ -1019,7 +1106,7 @@ export function SceneRenderer({
           }
 
           if (connectionSessionRef.current) {
-            updateConnectionPreview(stage)
+            scheduleConnectionPreview(stage)
           } else {
             updateMarquee(stage)
           }
@@ -1027,8 +1114,8 @@ export function SceneRenderer({
         onMouseUp={(event) => handleStageMouseUp(event.target)}
         onMouseLeave={cancelPointerInteraction}
         onDragStart={(event) => handleDragStart(event.target)}
-        onDragMove={(event) => handleDragMove(event.target)}
-        onDragEnd={handleDragEnd}
+        onDragMove={(event) => scheduleDragMove(event.target)}
+        onDragEnd={(event) => handleDragEnd(event.target)}
       >
         <Layer listening={false}>
           <Rect
@@ -1058,7 +1145,7 @@ export function SceneRenderer({
           ))}
         </Layer>
 
-        <Layer ref={connectionLayerRef} listening={mode === 'editor'}>
+        <Layer ref={dynamicLayerRef} listening={mode === 'editor'}>
           {scene.connections.map((connection) => {
             const points = getConnectionPoints(scene, connection)
 
@@ -1093,12 +1180,11 @@ export function SceneRenderer({
                 lineJoin="round"
                 hitStrokeWidth={18}
                 perfectDrawEnabled={false}
+                listening={mode === 'editor'}
               />
             )
           })}
-        </Layer>
 
-        <Layer ref={nodeLayerRef}>
           {rootNodes.map((node) => (
             <SceneNodeRenderer
               key={node.id}
@@ -1142,9 +1228,7 @@ export function SceneRenderer({
             }}
             onTransformEnd={handleTransformEnd}
           />
-        </Layer>
 
-        <Layer ref={overlayLayerRef} listening={false}>
           {selectedNodeIds.length > 1 &&
             selectedNodes.map((node) => {
               const bounds = getNodeBounds(scene, node)
@@ -1166,6 +1250,7 @@ export function SceneRenderer({
                   stroke="#2563eb"
                   strokeWidth={1}
                   dash={[5, 4]}
+                  listening={false}
                 />
               )
             })}
@@ -1180,6 +1265,7 @@ export function SceneRenderer({
               stroke="#0284c7"
               strokeWidth={1.5}
               dash={[9, 5]}
+              listening={false}
             />
           )}
 
@@ -1190,6 +1276,7 @@ export function SceneRenderer({
             stroke="#db2777"
             strokeWidth={1}
             perfectDrawEnabled={false}
+            listening={false}
           />
           <Line
             ref={horizontalGuideRef}
@@ -1198,6 +1285,7 @@ export function SceneRenderer({
             stroke="#db2777"
             strokeWidth={1}
             perfectDrawEnabled={false}
+            listening={false}
           />
 
           {marqueeBounds && (
@@ -1210,6 +1298,7 @@ export function SceneRenderer({
               stroke="#2563eb"
               strokeWidth={1}
               dash={[6, 4]}
+              listening={false}
             />
           )}
 
@@ -1222,13 +1311,9 @@ export function SceneRenderer({
             dash={[8, 6]}
             lineCap="round"
             perfectDrawEnabled={false}
+            listening={false}
           />
-        </Layer>
 
-        <Layer
-          ref={portLayerRef}
-          listening={mode === 'editor' && connectionMode}
-        >
           {mode === 'editor' &&
             connectionMode &&
             scene.nodes.filter(isPumpNode).flatMap((node) => {
@@ -1263,9 +1348,8 @@ export function SceneRenderer({
                     }
                     stroke="#ffffff"
                     strokeWidth={2}
-                    shadowColor="rgba(15, 23, 42, 0.28)"
-                    shadowBlur={4}
-                    hitStrokeWidth={10}
+                    hitStrokeWidth={12}
+                    perfectDrawEnabled={false}
                   />
                 )
               })
