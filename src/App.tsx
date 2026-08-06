@@ -91,7 +91,7 @@ function App() {
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(
     getInitialSelectedIds(scene),
   )
-  const [message, setMessage] = useState('M2.2 组合公共属性与格线已修复')
+  const [message, setMessage] = useState('M2.2 吸附策略已收敛')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('base')
   const [gridVisible, setGridVisible] = useState(true)
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({
@@ -411,7 +411,7 @@ function App() {
       <header className="editor-header">
         <div className="brand-block">
           <strong>SCADA Editor Lab</strong>
-          <span>M2.2 · 组合公共属性、格线与浅色编辑器</span>
+          <span>M2.2 · 组合、格线与基础编辑</span>
         </div>
 
         <div className="header-actions">
@@ -525,7 +525,7 @@ function App() {
             </button>
           </div>
 
-          <div className="panel-title section-title">视图与吸附</div>
+          <div className="panel-title section-title">视图与网格</div>
           <div className="snap-settings">
             <label className="checkbox-field">
               <input
@@ -534,19 +534,6 @@ function App() {
                 onChange={(event) => setGridVisible(event.target.checked)}
               />
               <span>显示格线</span>
-            </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={snapSettings.enabled}
-                onChange={(event) => {
-                  setSnapSettings((current) => ({
-                    ...current,
-                    enabled: event.target.checked,
-                  }))
-                }}
-              />
-              <span>启用吸附</span>
             </label>
             <label className="checkbox-field">
               <input
@@ -560,19 +547,6 @@ function App() {
                 }}
               />
               <span>网格吸附</span>
-            </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={snapSettings.objectEnabled}
-                onChange={(event) => {
-                  setSnapSettings((current) => ({
-                    ...current,
-                    objectEnabled: event.target.checked,
-                  }))
-                }}
-              />
-              <span>组件吸附</span>
             </label>
             <label className="inline-number">
               <span>网格尺寸</span>
@@ -590,6 +564,9 @@ function App() {
                 }}
               />
             </label>
+            <p className="panel-description">
+              组件边缘与中心线吸附始终开启，不需要单独配置。
+            </p>
           </div>
 
           <div className="panel-title section-title">场景文档</div>
@@ -616,9 +593,9 @@ function App() {
 
           <div className="milestone-card">
             <strong>M2.2 当前能力</strong>
-            <span>格线由 Konva 背景层直接绘制</span>
+            <span>组件吸附作为固定编辑器能力</span>
+            <span>格线显示与网格吸附相互独立</span>
             <span>组合公共属性作用到兼容子组件</span>
-            <span>组合整体移动、旋转和等比缩放</span>
             <span>拆分后保持当前世界位置</span>
           </div>
         </aside>
@@ -626,7 +603,7 @@ function App() {
         <section className="canvas-area" aria-label="SCADA 编辑画布">
           <div className="canvas-toolbar">
             <span>{scene.name} / {rootNodes.length} root nodes / {scene.nodes.length} total</span>
-            <span>Shift/Ctrl 多选 · 空白拖动框选 · 组合后可批量设置公共属性</span>
+            <span>组件吸附始终开启 · Shift/Ctrl 多选 · 空白拖动框选</span>
           </div>
           <SceneRenderer
             scene={scene}
