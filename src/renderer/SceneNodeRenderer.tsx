@@ -22,7 +22,7 @@ export type SceneNodeRendererProps = {
 export const SceneNodeRenderer = forwardRef<
   Konva.Group,
   SceneNodeRendererProps
->(function SceneNodeRenderer(
+>(function SceneNodeRendererImpl(
   {
     scene,
     node,

@@ -36,6 +36,7 @@ import {
   type ConnectionEndpoint,
   type ConnectionRouting,
   type NodeTransform,
+  type PumpSceneNode,
   type SceneConnection,
   type SceneDocument,
   type SceneNode,
@@ -144,7 +145,8 @@ function App() {
 
   const selectedSubtreeIds = collectSubtreeIds(scene, selectedNodeIds)
   const selectedPumpNodes = scene.nodes.filter(
-    (node) => selectedSubtreeIds.has(node.id) && isPumpNode(node),
+    (node): node is PumpSceneNode =>
+      selectedSubtreeIds.has(node.id) && isPumpNode(node),
   )
   const selectedGroupCount = selectedNodes.filter(isGroupNode).length
 
