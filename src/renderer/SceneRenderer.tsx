@@ -50,6 +50,14 @@ import {
   type SceneNode,
 } from '../scene/model'
 import { SceneNodeRenderer } from './SceneNodeRenderer'
+import {
+  centerSceneAtScale,
+  fitSceneToViewport,
+  isPointInsideScene,
+  scenePointFromViewport,
+  VIEWPORT_ZOOM_FACTOR,
+  type ViewportTransform,
+} from '../editor/viewport'
 
 export type RendererMode = 'editor' | 'preview'
 
@@ -59,6 +67,7 @@ export type SceneRendererProps = {
   selectedNodeIds: string[]
   selectedConnectionId: string | null
   connectionMode: boolean
+  panMode: boolean
   snapSettings: SnapSettings
   gridVisible: boolean
   onSelectionChange: (nodeIds: string[]) => void
@@ -78,6 +87,11 @@ export type SceneRendererProps = {
 type Point = {
   x: number
   y: number
+}
+
+type PanSession = {
+  startPointer: Point
+  startTransform: ViewportTransform
 }
 
 type MarqueeState = {
@@ -136,6 +150,15 @@ const RECONNECT_SNAP_RADIUS = 24
 const PORT_PREFIX = 'scene-port::'
 const CONNECTION_PREFIX = 'scene-connection::'
 const CONNECTION_HANDLE_PREFIX = 'scene-connection-handle::'
+
+function isEditableTarget(target: EventTarget | null) {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  )
+}
 
 function hasSelectionModifier(event: Event) {
   const keyboardEvent = event as MouseEvent
@@ -358,6 +381,7 @@ export function SceneRenderer({
   selectedNodeIds,
   selectedConnectionId,
   connectionMode,
+  panMode,
   snapSettings,
   gridVisible,
   onSelectionChange,
@@ -368,6 +392,9 @@ export function SceneRenderer({
 }: SceneRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
+  const staticLayerRef = useRef<Konva.Layer>(null)
+  const staticViewportGroupRef = useRef<Konva.Group>(null)
+  const dynamicViewportGroupRef = useRef<Konva.Group>(null)
   const dynamicLayerRef = useRef<Konva.Layer>(null)
   const connectionPreviewRef = useRef<Konva.Line>(null)
   const verticalGuideRef = useRef<Konva.Line>(null)
@@ -393,7 +420,17 @@ export function SceneRenderer({
   const reconnectFrameRef = useRef<number | null>(null)
   const pendingReconnectHandleRef = useRef<Konva.Circle | null>(null)
   const reconnectCandidateKeyRef = useRef<string | null>(null)
+  const panSessionRef = useRef<PanSession | null>(null)
+  const spacePressedRef = useRef(false)
+  const viewportInitializedRef = useRef(false)
+  const viewportTransformRef = useRef<ViewportTransform>({ x: 0, y: 0, scale: 1 })
+  const pointerStatusRef = useRef<HTMLSpanElement>(null)
   const [viewport, setViewport] = useState({ width: 960, height: 640 })
+  const [viewportTransform, setViewportTransform] = useState<ViewportTransform>({
+    x: 0,
+    y: 0,
+    scale: 1,
+  })
   const [marquee, setMarquee] = useState<MarqueeState | null>(null)
   const [hoveredPort, setHoveredPort] = useState<HoveredPort | null>(null)
 
@@ -421,15 +458,56 @@ export function SceneRenderer({
         return
       }
 
-      setViewport({
+      const nextViewport = {
         width: Math.max(320, Math.floor(entry.contentRect.width)),
         height: Math.max(360, Math.floor(entry.contentRect.height)),
-      })
+      }
+      setViewport(nextViewport)
+
+      if (!viewportInitializedRef.current) {
+        viewportInitializedRef.current = true
+        commitViewportTransform(
+          fitSceneToViewport(nextViewport, {
+            width: scene.width,
+            height: scene.height,
+          }),
+        )
+      }
     })
 
     observer.observe(container)
     return () => observer.disconnect()
   }, [])
+
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || isEditableTarget(event.target)) {
+        return
+      }
+
+      event.preventDefault()
+      spacePressedRef.current = true
+      setStageCursor('grab')
+    }
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== 'Space') {
+        return
+      }
+
+      spacePressedRef.current = false
+      if (!panSessionRef.current) {
+        setStageCursor(panMode ? 'grab' : 'default')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [panMode])
 
   useEffect(() => {
     const cancelTransientInteraction = () => {
@@ -525,6 +603,133 @@ export function SceneRenderer({
     dynamicLayerRef.current?.batchDraw()
   }
 
+  function drawViewportLayers() {
+    staticLayerRef.current?.batchDraw()
+    dynamicLayerRef.current?.batchDraw()
+  }
+
+  function applyViewportTransform(next: ViewportTransform) {
+    viewportTransformRef.current = next
+    staticViewportGroupRef.current?.setAttrs({
+      x: next.x,
+      y: next.y,
+      scaleX: next.scale,
+      scaleY: next.scale,
+    })
+    dynamicViewportGroupRef.current?.setAttrs({
+      x: next.x,
+      y: next.y,
+      scaleX: next.scale,
+      scaleY: next.scale,
+    })
+    drawViewportLayers()
+  }
+
+  function commitViewportTransform(next: ViewportTransform) {
+    applyViewportTransform(next)
+    setViewportTransform(next)
+  }
+
+  function getScenePointer(stage: Konva.Stage) {
+    const pointer = stage.getPointerPosition()
+    return pointer
+      ? scenePointFromViewport(pointer, viewportTransformRef.current)
+      : null
+  }
+
+  function updatePointerStatus(stage: Konva.Stage) {
+    const point = getScenePointer(stage)
+    const status = pointerStatusRef.current
+
+    if (!status) {
+      return
+    }
+
+    status.textContent = point && isPointInsideScene(point, scene)
+      ? `X ${Math.round(point.x)}  Y ${Math.round(point.y)}`
+      : 'X —  Y —'
+  }
+
+  function fitScene() {
+    commitViewportTransform(
+      fitSceneToViewport(viewport, { width: scene.width, height: scene.height }),
+    )
+  }
+
+  function resetViewport() {
+    commitViewportTransform(
+      centerSceneAtScale(viewport, { width: scene.width, height: scene.height }, 1),
+    )
+  }
+
+  function zoomAtViewportPoint(point: Point, requestedScale: number) {
+    const current = viewportTransformRef.current
+    const scenePoint = scenePointFromViewport(point, current)
+    const nextScale = Math.min(8, Math.max(0.1, requestedScale))
+    commitViewportTransform({
+      x: point.x - scenePoint.x * nextScale,
+      y: point.y - scenePoint.y * nextScale,
+      scale: nextScale,
+    })
+  }
+
+  function zoomBy(factor: number) {
+    zoomAtViewportPoint(
+      { x: viewport.width / 2, y: viewport.height / 2 },
+      viewportTransformRef.current.scale * factor,
+    )
+  }
+
+  function shouldStartPan(nativeEvent: Event) {
+    const mouseEvent = nativeEvent as MouseEvent
+    return panMode || spacePressedRef.current || mouseEvent.button === 1
+  }
+
+  function beginPan(stage: Konva.Stage, nativeEvent: Event) {
+    const pointer = stage.getPointerPosition()
+
+    if (!pointer) {
+      return false
+    }
+
+    nativeEvent.preventDefault()
+    cancelPointerInteraction()
+    cancelReconnectSession()
+    panSessionRef.current = {
+      startPointer: pointer,
+      startTransform: { ...viewportTransformRef.current },
+    }
+    setStageCursor('grabbing')
+    return true
+  }
+
+  function updatePan(stage: Konva.Stage) {
+    const session = panSessionRef.current
+    const pointer = stage.getPointerPosition()
+
+    if (!session || !pointer) {
+      return false
+    }
+
+    applyViewportTransform({
+      ...session.startTransform,
+      x: session.startTransform.x + pointer.x - session.startPointer.x,
+      y: session.startTransform.y + pointer.y - session.startPointer.y,
+    })
+    return true
+  }
+
+  function finishPan() {
+    if (!panSessionRef.current) {
+      return false
+    }
+
+    panSessionRef.current = null
+    setViewportTransform({ ...viewportTransformRef.current })
+    setStageCursor(panMode || spacePressedRef.current ? 'grab' : 'default')
+    return true
+  }
+
   function setStageCursor(cursor: string) {
     const stage = dynamicLayerRef.current?.getStage()
 
@@ -551,7 +756,7 @@ export function SceneRenderer({
           vertical.position,
           0,
           vertical.position,
-          viewport.height,
+          scene.height,
         ])
         verticalGuideRef.current.stroke(
           vertical.source === 'object' ? '#db2777' : '#0891b2',
@@ -569,7 +774,7 @@ export function SceneRenderer({
         horizontalGuideRef.current.points([
           0,
           horizontal.position,
-          viewport.width,
+          scene.width,
           horizontal.position,
         ])
         horizontalGuideRef.current.stroke(
@@ -845,7 +1050,7 @@ export function SceneRenderer({
       session.nodeIds,
       session.initialBounds,
       rawDelta,
-      snapSettings,
+      { ...snapSettings, threshold: snapSettings.threshold / viewportTransformRef.current.scale },
     )
     const updates: TransformUpdates = {}
 
@@ -1006,9 +1211,9 @@ export function SceneRenderer({
       return
     }
 
-    const pointer = stage.getPointerPosition()
+    const pointer = getScenePointer(stage)
 
-    if (!pointer) {
+    if (!pointer || !isPointInsideScene(pointer, scene)) {
       return
     }
 
@@ -1024,15 +1229,15 @@ export function SceneRenderer({
 
   function updateMarquee(stage: Konva.Stage) {
     const session = marqueeSessionRef.current
-    const pointer = stage.getPointerPosition()
+    const pointer = getScenePointer(stage)
 
     if (!session || !pointer) {
       return
     }
 
     const movedEnough =
-      Math.abs(pointer.x - session.start.x) >= MARQUEE_THRESHOLD ||
-      Math.abs(pointer.y - session.start.y) >= MARQUEE_THRESHOLD
+      Math.abs(pointer.x - session.start.x) >= MARQUEE_THRESHOLD / viewportTransformRef.current.scale ||
+      Math.abs(pointer.y - session.start.y) >= MARQUEE_THRESHOLD / viewportTransformRef.current.scale
     const nextSession: MarqueeSession = {
       ...session,
       current: pointer,
@@ -1126,7 +1331,7 @@ export function SceneRenderer({
   }
 
   function scheduleConnectionPreview(stage: Konva.Stage) {
-    const pointer = stage.getPointerPosition()
+    const pointer = getScenePointer(stage)
 
     if (!pointer) {
       return
@@ -1202,7 +1407,7 @@ export function SceneRenderer({
       return
     }
 
-    target.radius(9)
+    target.radius(9 / viewportTransformRef.current.scale)
     target.strokeWidth(3)
     setStageCursor('crosshair')
     setHoveredPort({
@@ -1220,7 +1425,7 @@ export function SceneRenderer({
     return
   }
 
-    target.radius(7)
+    target.radius(7 / viewportTransformRef.current.scale)
     target.strokeWidth(2)
     setStageCursor('default')
     setHoveredPort(null)
@@ -1256,7 +1461,7 @@ export function SceneRenderer({
   ) {
     const valid = isReconnectEndpointValid(session, endpoint)
     circle.opacity(valid ? 1 : 0.18)
-    circle.radius(7)
+    circle.radius(7 / viewportTransformRef.current.scale)
     circle.stroke('#ffffff')
     circle.strokeWidth(2)
     circle.listening(false)
@@ -1296,7 +1501,7 @@ export function SceneRenderer({
       )
       circle.listening(connectionMode)
       circle.opacity(1)
-      circle.radius(7)
+      circle.radius(7 / viewportTransformRef.current.scale)
       circle.stroke('#ffffff')
       circle.strokeWidth(2)
     }
@@ -1326,7 +1531,7 @@ export function SceneRenderer({
 
       if (circle) {
         circle.opacity(1)
-        circle.radius(10)
+        circle.radius(10 / viewportTransformRef.current.scale)
         circle.stroke('#16a34a')
         circle.strokeWidth(3)
       }
@@ -1338,7 +1543,7 @@ export function SceneRenderer({
     point: Point,
   ): ReconnectCandidate | null {
     let nearest: ReconnectCandidate | null = null
-    let nearestDistanceSquared = RECONNECT_SNAP_RADIUS ** 2
+    let nearestDistanceSquared = (RECONNECT_SNAP_RADIUS / viewportTransformRef.current.scale) ** 2
 
     for (const node of scene.nodes) {
       if (isGroupNode(node) || !isNodeEffectivelyVisible(scene, node)) {
@@ -1455,7 +1660,7 @@ export function SceneRenderer({
     }
 
     const stage = handle.getStage()
-    const pointer = stage?.getPointerPosition() ?? handle.position()
+    const pointer = stage ? getScenePointer(stage) ?? handle.position() : handle.position()
     const candidate = findReconnectCandidate(session, pointer)
     const displayPoint = candidate?.position ?? pointer
     const points = candidate
@@ -1614,16 +1819,17 @@ export function SceneRenderer({
   const gridSize = Math.max(4, snapSettings.gridSize)
   const verticalGridLines = gridVisible
     ? Array.from(
-        { length: Math.ceil(viewport.width / gridSize) + 1 },
+        { length: Math.ceil(scene.width / gridSize) + 1 },
         (_, index) => index * gridSize,
       )
     : []
   const horizontalGridLines = gridVisible
     ? Array.from(
-        { length: Math.ceil(viewport.height / gridSize) + 1 },
+        { length: Math.ceil(scene.height / gridSize) + 1 },
         (_, index) => index * gridSize,
       )
     : []
+  const visualControlScale = 1 / viewportTransform.scale
   const darkBackground = isDarkBackground(scene.background)
   const minorGridStroke = darkBackground
     ? 'rgba(203, 213, 225, 0.16)'
@@ -1644,12 +1850,34 @@ export function SceneRenderer({
     <div
       ref={containerRef}
       className="konva-host"
-      style={{ backgroundColor: scene.background }}
     >
       <Stage
         width={viewport.width}
         height={viewport.height}
+        onWheel={(event) => {
+          event.evt.preventDefault()
+          const stage = event.target.getStage()
+          const pointer = stage?.getPointerPosition()
+
+          if (!pointer) {
+            return
+          }
+
+          const factor = event.evt.deltaY > 0
+            ? 1 / VIEWPORT_ZOOM_FACTOR
+            : VIEWPORT_ZOOM_FACTOR
+          zoomAtViewportPoint(
+            pointer,
+            viewportTransformRef.current.scale * factor,
+          )
+        }}
         onMouseDown={(event) => {
+          const stage = event.target.getStage()
+
+          if (stage && shouldStartPan(event.evt) && beginPan(stage, event.evt)) {
+            return
+          }
+
           const handleRole = findConnectionHandleRole(event.target)
 
           if (handleRole) {
@@ -1710,15 +1938,29 @@ export function SceneRenderer({
             return
           }
 
+          updatePointerStatus(stage)
+
+          if (updatePan(stage)) {
+            return
+          }
+
           if (connectionSessionRef.current) {
             scheduleConnectionPreview(stage)
           } else {
             updateMarquee(stage)
           }
         }}
-        onMouseUp={(event) => handleStageMouseUp(event.target)}
+        onMouseUp={(event) => {
+          if (!finishPan()) {
+            handleStageMouseUp(event.target)
+          }
+        }}
         onMouseLeave={() => {
-          setStageCursor('default')
+          finishPan()
+          if (pointerStatusRef.current) {
+            pointerStatusRef.current.textContent = 'X —  Y —'
+          }
+          setStageCursor(panMode ? 'grab' : 'default')
           setHoveredPort(null)
           cancelReconnectSession()
           cancelPointerInteraction()
@@ -1739,19 +1981,30 @@ export function SceneRenderer({
           }
         }}
       >
-        <Layer listening={false}>
+        <Layer ref={staticLayerRef} listening={false}>
+          <Group
+            ref={staticViewportGroupRef}
+            x={viewportTransform.x}
+            y={viewportTransform.y}
+            scaleX={viewportTransform.scale}
+            scaleY={viewportTransform.scale}
+          >
           <Rect
-            width={viewport.width}
-            height={viewport.height}
+            width={scene.width}
+            height={scene.height}
             fill={scene.background}
+            shadowColor="#0f172a"
+            shadowBlur={20 * visualControlScale}
+            shadowOpacity={0.2}
+            shadowOffsetY={5 * visualControlScale}
           />
 
           {verticalGridLines.map((x, index) => (
             <Line
               key={`grid-x-${x}`}
-              points={[x, 0, x, viewport.height]}
+              points={[x, 0, x, scene.height]}
               stroke={index % 5 === 0 ? majorGridStroke : minorGridStroke}
-              strokeWidth={index % 5 === 0 ? 0.8 : 0.6}
+              strokeWidth={(index % 5 === 0 ? 0.8 : 0.6) * visualControlScale}
               perfectDrawEnabled={false}
             />
           ))}
@@ -1759,15 +2012,23 @@ export function SceneRenderer({
           {horizontalGridLines.map((y, index) => (
             <Line
               key={`grid-y-${y}`}
-              points={[0, y, viewport.width, y]}
+              points={[0, y, scene.width, y]}
               stroke={index % 5 === 0 ? majorGridStroke : minorGridStroke}
-              strokeWidth={index % 5 === 0 ? 0.8 : 0.6}
+              strokeWidth={(index % 5 === 0 ? 0.8 : 0.6) * visualControlScale}
               perfectDrawEnabled={false}
             />
           ))}
+          </Group>
         </Layer>
 
         <Layer ref={dynamicLayerRef} listening={mode === 'editor'}>
+          <Group
+            ref={dynamicViewportGroupRef}
+            x={viewportTransform.x}
+            y={viewportTransform.y}
+            scaleX={viewportTransform.scale}
+            scaleY={viewportTransform.scale}
+          >
           {scene.connections.map((connection) => {
             const points = getConnectionRoutePoints(scene, connection)
 
@@ -1833,11 +2094,11 @@ export function SceneRenderer({
             keepRatio
             shiftBehavior="none"
             borderStroke="#2563eb"
-            borderStrokeWidth={1.5}
+            borderStrokeWidth={1.5 * visualControlScale}
             anchorFill="#2563eb"
             anchorStroke="#ffffff"
-            anchorSize={9}
-            rotateAnchorOffset={24}
+            anchorSize={9 * visualControlScale}
+            rotateAnchorOffset={24 * visualControlScale}
             boundBoxFunc={(oldBox, newBox) => {
               if (
                 Math.abs(newBox.width) < minimumTransformWidth ||
@@ -1947,11 +2208,11 @@ export function SceneRenderer({
                 id={`${CONNECTION_HANDLE_PREFIX}source`}
                 x={selectedSourcePosition.x}
                 y={selectedSourcePosition.y}
-                radius={7}
+                radius={7 * visualControlScale}
                 fill="#ffffff"
                 stroke="#2563eb"
                 strokeWidth={2}
-                hitStrokeWidth={12}
+                hitStrokeWidth={12 * visualControlScale}
                 draggable
                 onMouseEnter={() => setStageCursor('grab')}
                 onMouseLeave={() => {
@@ -1974,11 +2235,11 @@ export function SceneRenderer({
                 id={`${CONNECTION_HANDLE_PREFIX}target`}
                 x={selectedTargetPosition.x}
                 y={selectedTargetPosition.y}
-                radius={7}
+                radius={7 * visualControlScale}
                 fill="#2563eb"
                 stroke="#ffffff"
                 strokeWidth={2}
-                hitStrokeWidth={12}
+                hitStrokeWidth={12 * visualControlScale}
                 draggable
                 onMouseEnter={() => setStageCursor('grab')}
                 onMouseLeave={() => {
@@ -2026,11 +2287,11 @@ export function SceneRenderer({
                     id={`${PORT_PREFIX}${node.id}::${port.id}`}
                     x={position.x}
                     y={position.y}
-                    radius={7}
+                    radius={7 * visualControlScale}
                     fill="#475569"
                     stroke="#ffffff"
                     strokeWidth={2}
-                    hitStrokeWidth={12}
+                    hitStrokeWidth={12 * visualControlScale}
                     perfectDrawEnabled={false}
                     visible={connectionMode}
                     listening={connectionMode}
@@ -2067,33 +2328,50 @@ export function SceneRenderer({
               />
             </Group>
           )}
+          </Group>
         </Layer>
       </Stage>
 
+      <div className="viewport-controls" aria-label="视口缩放">
+        <button type="button" onClick={() => zoomBy(1 / VIEWPORT_ZOOM_FACTOR)} title="缩小">−</button>
+        <button type="button" className="zoom-value" onClick={resetViewport} title="恢复 100%">
+          {Math.round(viewportTransform.scale * 100)}%
+        </button>
+        <button type="button" onClick={() => zoomBy(VIEWPORT_ZOOM_FACTOR)} title="放大">+</button>
+        <button type="button" onClick={fitScene} title="适应场景">适应</button>
+      </div>
+
       <div className="canvas-status">
-        <span>
-          {mode === 'editor'
-            ? connectionMode
-              ? '连线模式'
-              : '编辑模式'
-            : '预览模式'}
+        <span className="canvas-status-group">
+          <span>
+            {mode === 'preview'
+              ? '预览'
+              : panMode
+                ? '平移'
+                : connectionMode
+                  ? '连线'
+                  : '选择'}
+          </span>
+          <span ref={pointerStatusRef} className="pointer-position">X —  Y —</span>
+          <span>{scene.width} × {scene.height}</span>
         </span>
-        {selectedConnectionId ? (
-          <code>
-            {selectedConnection?.routing ?? 'connection'} · 拖动端点重连
-          </code>
-        ) : selectedNodeIds.length > 1 ? (
-          <code>{selectedNodeIds.length} selected</code>
-        ) : primaryNode ? (
-          <code>
-            {isGroupNode(primaryNode) ? 'group · ' : ''}
-            {Math.round(primaryNode.transform.width)} ×{' '}
-            {Math.round(primaryNode.transform.height)} /{' '}
-            {Math.round(primaryNode.transform.rotation)}°
-          </code>
-        ) : (
-          <code>{scene.connections.length} connections</code>
-        )}
+        <span className="canvas-status-group">
+          <span className="zoom-status">{Math.round(viewportTransform.scale * 100)}%</span>
+          {selectedConnectionId ? (
+            <code>{selectedConnection?.routing ?? 'connection'} · 端点可重连</code>
+          ) : selectedNodeIds.length > 1 ? (
+            <code>{selectedNodeIds.length} 个对象</code>
+          ) : primaryNode ? (
+            <code>
+              {isGroupNode(primaryNode) ? '组合 · ' : ''}
+              {Math.round(primaryNode.transform.width)} ×{' '}
+              {Math.round(primaryNode.transform.height)} /{' '}
+              {Math.round(primaryNode.transform.rotation)}°
+            </code>
+          ) : (
+            <code>{scene.nodes.length} 节点 · {scene.connections.length} 连线</code>
+          )}
+        </span>
       </div>
     </div>
   )
