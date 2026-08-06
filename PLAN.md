@@ -1,171 +1,310 @@
 # SCADA Editor Lab Development Plan
 
-## Current direction
+## 1. Product direction
 
-The project is a browser-only, generic SCADA composition editor experiment. It is not a pump editor and must not encode pump-specific geometry, inlet/outlet counts, media types, or runtime semantics into the base drawing engine.
+This repository is a browser-only, generic SCADA composition editor experiment.
 
-Before expanding the component library, the editor must first gain a stable geometry, hierarchy, visual-connection, and component-capability model.
+It is not a pump editor, a workflow editor, or a device-management platform. The editor must first become a usable scene-authoring workbench before domain-specific components, runtime bindings, and behavior wiring are expanded.
 
-The implementation order is intentionally:
+The product model is:
 
 ```text
-M2.1 Selection, snapping, alignment
-  -> M2.2 Hierarchy and grouping
-  -> M2.3A Generic anchors and endpoints
-  -> M2.3B Editable paths and curves
-  -> M2.3C Connection styles and flow effects
-  -> M3 Component definitions and Property/Action/Event
-  -> M4 Mock runtime and behavior wiring
-  -> M5 Component Lab and component expansion
+Infinite editor workspace
+  contains one fixed-size SCADA scene artboard
+    containing components, groups, visual connections, and annotations
 ```
 
-The complete visual-connection model is described in [`docs/architecture/visual-connections.md`](docs/architecture/visual-connections.md).
+The infinite workspace owns viewport pan and zoom. The scene artboard owns final width, height, background, export bounds, and runtime presentation.
 
-## M2.1 Selection, snapping, alignment
+## 2. Revised implementation order
+
+```text
+M0 Product contract and editor shell
+  -> M1 Workspace, viewport, and scene settings
+  -> M2 Core editing commands, clipboard, history, and layers
+  -> M3 Generic visual connections
+  -> M4 Component registry, assets, and authoring contract
+  -> M5 Runtime values, bindings, and behavior wiring
+  -> M6 Production authoring features and component expansion
+```
+
+This order replaces the previous connection-first sequence. Existing selection, grouping, snapping, and generic-anchor work remains valid, but the missing workbench foundation is now the immediate priority.
+
+Detailed UI structure is defined in [`docs/product/editor-ui.md`](docs/product/editor-ui.md). Visual connection architecture remains in [`docs/architecture/visual-connections.md`](docs/architecture/visual-connections.md).
+
+## 3. Current implementation map
+
+The repository already contains partial work from several milestones:
+
+```text
+M1 partial
+- fixed scene size
+- scene background color in the document model
+- grid display and grid size
+
+M2 partial
+- single and multi-selection
+- marquee selection
+- move, resize, rotate
+- snapping and alignment guides
+- align and distribute
+- persistent grouping and ungrouping
+- lock and visibility
+- local save, import, and export
+
+M3 partial
+- SceneConnection entities
+- generic neutral visual anchors
+- straight and automatic orthogonal routes
+- connection selection, delete, style, and endpoint reconnect
+- transform-following endpoints
+```
+
+Missing foundational capabilities must be completed before M3 path editing continues.
+
+# M0 Product contract and editor shell
+
+## Goal
+
+Replace the experiment-style control layout with a stable desktop editor information architecture.
+
+## Scope
+
+- Desktop-first application shell.
+- Top menu and command toolbar.
+- Left dock with `Components`, `Layers`, and `Assets` tabs.
+- Center viewport containing the scene artboard.
+- Right selection-aware inspector.
+- Bottom status bar.
+- Contextual toolbars for node, group, connection, and scene editing.
+- Consistent keyboard shortcut registry.
+- Command availability and disabled-state rules.
+
+## Design rules
+
+- Frequently used commands belong in the toolbar or keyboard shortcuts, not in long side-panel button lists.
+- The right inspector changes according to the current selection.
+- With no selection, the right inspector edits the scene.
+- Editor UI state is not stored in `SceneDocument` unless it affects the exported scene.
+
+## Acceptance
+
+- The shell can host scene settings, layers, component library, viewport controls, and contextual inspectors without adding ad hoc panels.
+- The same command is represented by one command identifier even when invoked from a menu, toolbar, shortcut, or context menu.
+
+# M1 Workspace, viewport, and scene settings
+
+## M1.1 Viewport navigation
 
 ### Scope
 
-- Selection model changes from one `selectedNodeId` to ordered `selectedNodeIds`.
-- Click selection, Shift/Ctrl additive selection, and marquee selection.
-- Grid snapping with configurable step and threshold.
-- Object snapping against left, center, right, top, middle, and bottom axes.
-- Temporary alignment guides while dragging.
-- Align left/center/right/top/middle/bottom.
-- Distribute horizontally and vertically.
-- Move selection as one transaction.
+- Viewport transform separated from scene coordinates.
+- Zoom from 10% to 800%.
+- Cursor-centered wheel zoom.
+- `Space + drag` and middle-mouse pan.
+- Optional wheel or trackpad pan.
+- Zoom in, zoom out, reset to 100%.
+- Fit scene to viewport.
+- Fit current selection to viewport.
+- Viewport coordinate conversion helpers.
+- Zoom value shown in the status bar.
+- Grid and guides scale correctly with the viewport.
 
 ### Design rule
 
-Snapping and alignment are pure geometry operations over scene data. Konva nodes are render targets, not the source of geometry truth.
+Node transforms remain in scene coordinates. Zooming and panning never rewrite component geometry or connection waypoints.
 
 ### Acceptance
 
-- Dragging a node near grid or another node produces stable snap behavior and visible guides.
-- A multi-selection can be aligned or evenly distributed without changing component proportions.
-- Runtime property updates never enter the editor selection or geometry command path.
+- Zooming around the cursor keeps the scene point under the cursor stable.
+- A component has the same scene coordinates before and after viewport navigation.
+- Selection, dragging, snapping, anchors, connections, and marquee work at every supported zoom level.
 
-## M2.2 Hierarchy and grouping
+## M1.2 Scene artboard and background
 
 ### Scope
 
-- Add persistent parent/child hierarchy.
-- Introduce `core.group` scene nodes.
-- Child transforms are stored relative to the parent group.
-- Group and ungroup preserve every child's world position and rotation.
-- Group move, rotate, proportional resize, lock, visibility, and z-order.
-- Layer tree displays hierarchy.
+- Scene width and height editing.
+- Common resolution presets and custom dimensions.
+- Scene background color.
+- Transparent background option.
+- Optional scene background image.
+- Background image fit modes: `cover`, `contain`, `stretch`, `center`, `tile`.
+- Background image opacity.
+- Scene overflow and clipping policy.
+- Scene origin and artboard shadow inside the infinite workspace.
+- Fit scene command after dimension changes.
 
 ### Design rule
 
-Grouping is not only temporary multi-selection. It is a persisted scene relationship and must survive export/import.
+The workspace background is editor chrome. The scene background is persisted output. They are separate visual layers.
 
 ### Acceptance
 
-- Grouping selected nodes does not visually move them.
-- Moving or rotating a group updates all children consistently.
-- Ungrouping preserves the current world appearance.
+- Changing the scene background does not change editor panels or workspace color.
+- Scene dimensions determine preview and export bounds.
+- Components keep their scene coordinates when scene size changes.
 
-## M2.3 Generic visual connections
+## M1.3 View aids
 
-Visual connections are drawing geometry used for pipes, wires, signal lines, process paths, and annotations. They are not behavior links and do not require Property, Action, Event, input/output direction, or a media type.
+### Scope
 
-The current pump-specific port implementation is considered a prototype. Its transform-following, reconnect-preview, and command-boundary work is reusable, but the hard-coded pump registry and mandatory input/output compatibility are not the target architecture.
+- Show or hide grid.
+- Grid size and subdivisions.
+- Rulers.
+- Guide creation from rulers.
+- Show or hide anchors, bounds, and connection handles.
+- Optional minimap after viewport behavior is stable.
 
-### M2.3A Generic anchors and endpoints
+# M2 Core editing commands, clipboard, history, and layers
 
-#### Scope
+## M2.1 Command and history foundation
 
-- Replace visual `PortDefinition` terminology with `VisualAnchorDefinition` in the geometry layer.
-- Allow every component to expose any number of anchors.
-- Provide a dense default anchor set for generic image components:
-  - corners;
-  - edge centers;
-  - quarter-edge positions;
-  - optional center point.
-- Support component-defined custom anchors.
-- Make anchor role and kinds optional metadata rather than mandatory constraints.
-- Support both attached endpoints and free scene endpoints.
-- Keep connection create, select, delete, reconnect, and endpoint-following behavior.
-- Remove `isPumpNode` restrictions from anchor resolution.
-- Migrate existing `{ nodeId, portId }` endpoints to generic anchor endpoints.
+### Scope
 
-#### Design rule
+- All persisted edits pass through immutable editor commands.
+- Undo and redo stacks.
+- Transaction boundaries for drag, resize, rotate, multi-move, and property editing.
+- Command coalescing for repeated keyboard movement and text/property input.
+- Dirty-state tracking.
+- Keyboard shortcut registry.
 
-A visual anchor is a drawing attachment point. A semantic port is optional component metadata introduced through the component registry. The base editor must permit neutral anchor-to-anchor drawing.
+### Required shortcuts
 
-#### Acceptance
+```text
+Ctrl/Cmd + Z             undo
+Ctrl/Cmd + Shift + Z     redo
+Delete / Backspace       delete selection
+Arrow keys               nudge selection
+Shift + Arrow keys       coarse nudge
+Ctrl/Cmd + A             select all in active scope
+Esc                      cancel current interaction
+```
 
-- A generic image has enough perimeter anchors to route lines cleanly from different sides.
-- A connection may attach to any neutral anchor without input/output validation.
-- A connection may end at a free scene point.
-- Attached endpoints survive move, rotate, resize, group, and ungroup.
+### Acceptance
 
-### M2.3B Editable paths and curves
+- One drag operation produces one undo entry rather than one entry per pointer event.
+- Undo and redo restore nodes, groups, connections, and scene properties consistently.
 
-#### Scope
+## M2.2 Clipboard and duplication
 
-- Persist an explicit connection path model.
-- Support:
-  - straight paths;
-  - automatic and manual orthogonal paths;
-  - arbitrary polylines;
-  - cubic Bezier curves.
-- Allow any number of persistent waypoints.
-- Insert a waypoint by interacting with a segment.
-- Move and delete individual waypoints.
-- Drag an orthogonal segment while preserving horizontal/vertical constraints.
-- Expose Bezier control handles.
-- Convert path kinds through the inspector.
+### Scope
+
+- Copy, cut, and paste nodes, groups, and selected connections.
+- Preserve internal hierarchy.
+- Preserve internal connections between copied nodes.
+- Re-map all copied IDs.
+- Paste offset from the original position.
+- Paste in place.
+- Duplicate command.
+- Copy and paste through an internal editor clipboard first.
+- Optional system clipboard JSON interoperability later.
+
+### Required shortcuts
+
+```text
+Ctrl/Cmd + C             copy
+Ctrl/Cmd + X             cut
+Ctrl/Cmd + V             paste
+Ctrl/Cmd + Shift + V     paste in place
+Ctrl/Cmd + D             duplicate
+```
+
+### Acceptance
+
+- Copying a group copies its complete subtree.
+- Copying connected components preserves connections whose two endpoints are both inside the copied selection.
+- External connections are not silently duplicated.
+
+## M2.3 Selection, transforms, snapping, and alignment
+
+### Scope
+
+- Click, additive, and marquee selection.
+- Multi-selection movement.
+- Resize and rotate.
+- Grid and object snapping.
+- Alignment guides.
+- Align and distribute.
+- Reset transform.
+- Numeric transform editing.
+
+Most of this scope is already implemented and must be migrated into the command/history boundary.
+
+## M2.4 Hierarchy, groups, and layers
+
+### Scope
+
+- Persistent parent-child hierarchy.
+- Group and ungroup.
+- Nested group support.
+- Layer tree.
+- Expand and collapse groups.
+- Select from the tree.
+- Rename from the tree.
+- Lock and visibility from the tree.
+- Drag to reorder siblings.
+- Move into and out of groups.
+- Bring forward, send backward, bring to front, send to back.
+- Enter-group editing scope and breadcrumb.
+
+### Acceptance
+
+- Tree order matches render order.
+- Grouping and reparenting preserve world appearance.
+- Locked items remain selectable from the layer tree according to editor policy but cannot be transformed accidentally.
+
+# M3 Generic visual connections
+
+Visual connections represent pipes, wires, signal lines, process paths, and annotations. They remain separate from runtime behavior links.
+
+## M3.1 Generic anchors and endpoints
+
+### Scope
+
+- Neutral visual anchors independent of pump semantics.
+- Dense default anchors for image and rectangular components.
+- Component-defined custom anchors.
+- Optional semantic role and kind metadata.
+- Attached anchor endpoints.
+- Free scene endpoints.
 - Detach and reattach endpoints.
-- Add path editing through immutable editor commands so undo/redo can be introduced cleanly.
+- Create, select, delete, reconnect.
+- Endpoint following after move, rotate, resize, group, and ungroup.
 
-#### Design rule
+### Current status
 
-A connection is not merely an endpoint pair. Endpoints, path geometry, and style are independent persisted concerns.
+Neutral anchors and attached endpoints are implemented. Free endpoints, detach, and reattach remain.
 
-#### Acceptance
+## M3.2 Editable paths and curves
 
-- Users can construct a polyline with any number of bends.
-- Users can reshape an orthogonal route without losing right-angle constraints.
-- Users can create and edit a smooth curve using control handles.
-- Moving an attached component updates endpoints without silently discarding manual path geometry.
+### Scope
 
-### M2.3C Connection styles and flow effects
+- Straight paths.
+- Automatic and manual orthogonal paths.
+- Arbitrary polylines.
+- Cubic Bezier curves.
+- Any number of persistent waypoints.
+- Insert, move, and delete waypoints.
+- Drag an orthogonal segment while preserving constraints.
+- Bezier control handles.
+- Convert path kinds through the inspector.
 
-#### Scope
+## M3.3 Connection style and flow effects
 
-- Stroke color, width, opacity, line cap, and line join.
+### Scope
+
+- Color, width, opacity, cap, and join.
 - Solid, dashed, dotted, and custom dash patterns.
-- Independent start and end markers, including arrows and circles.
-- Configurable visual flow direction.
-- Flow effects:
-  - animated dash offset;
-  - moving dots;
-  - limited path particles.
-- Effect speed, spacing, size, and optional effect color.
-- One shared animation scheduler for all animated connections.
-- Performance validation with many static and animated connections.
+- Independent start and end markers.
+- Forward and reverse visual flow.
+- Animated dash, dots, and limited path particles.
+- Shared animation scheduler.
+- Performance validation for many static and animated connections.
 
-#### Design rule
+# M4 Component registry, assets, and authoring contract
 
-Connections are rendered inside Konva Canvas. CSS may style editor controls, but it does not animate Canvas line geometry. Flow effects use one shared `requestAnimationFrame` or `Konva.Animation` loop, and frame state is never persisted in `SceneDocument`.
-
-#### Acceptance
-
-- A user can visually indicate forward or reverse flow without creating a runtime behavior link.
-- Static connections do not participate in the animation loop.
-- Multiple animated lines share one scheduler rather than one timer per connection.
-- Animation remains editor/runtime presentation state driven by persisted effect configuration.
-
-## M3 Component definitions and affordances
-
-### Goal
-
-Introduce a component contract inspired by WoT's Property, Action, and Event separation, without importing TD, protocol binding, or network semantics.
-
-M3 consumes the generic anchor and connection subsystem. A component may optionally attach semantic direction, media, or signal metadata to selected anchors, but those semantics do not redefine the base drawing model.
-
-### Component definition
+## M4.1 Generic component contract
 
 ```ts
 interface ComponentDefinition {
@@ -182,87 +321,80 @@ interface ComponentDefinition {
 }
 ```
 
-### Right property panel
+## M4.2 Component and asset library
 
-The right side is divided into:
+### Scope
 
-1. `基础`: name, position, size, rotation, visibility, lock, layer order.
-2. `属性`: schema-generated component property editors.
-3. `动作`: action definitions and manual test invocation.
-4. `事件`: event definitions, latest mock payload, and behavior-link entry points.
+- Searchable component library.
+- Categories and recent components.
+- Drag component onto the scene.
+- Generic `Image`, `SVG`, `Text`, `Rectangle`, `Ellipse`, `Line`, and `Group` components.
+- Industrial components such as pump, valve, tank, indicator, and numeric display.
+- Project asset library for images and SVG files.
+- Asset replacement without losing node geometry and bindings.
 
-### Property
+### Design direction
 
-A property is a readable component value and may be writable, bindable, persisted, or runtime-only.
+Official interactive industrial components should prefer SVG or structured scene-graph rendering. PNG and JPEG remain valid generic image assets but mainly support whole-object visibility, opacity, transform, and anchors.
 
-Examples:
+## M4.3 Generated inspector
 
-- `state`
-- `opacity`
-- `running`
-- `level`
-- `label`
+- Base editor properties.
+- Component properties generated from schema.
+- Action test invocation.
+- Event inspection.
+- Anchor and optional semantic-port inspection.
 
-The definition owns schema and editor metadata. The scene node stores only property values and overrides.
+# M5 Runtime values, bindings, and behavior wiring
 
-### Action
-
-An action is an explicitly invoked component operation.
-
-Examples:
-
-- `start`
-- `stop`
-- `reset`
-- `open`
-- `close`
-- `acknowledgeAlarm`
-
-M3 only supports manual mock invocation. Cross-component behavior is introduced in M4.
-
-### Event
-
-An event is a component-emitted occurrence, not a continuously readable value.
-
-Examples:
-
-- `clicked`
-- `alarmRaised`
-- `stateChanged`
-- `animationCompleted`
-
-Editor pointer events and component semantic events remain separate APIs.
-
-### Acceptance
-
-- Adding a component definition automatically generates its property panel.
-- `SceneRenderer` does not require a switch statement for every new component.
-- Properties, actions, events, anchors, and optional semantic ports are discoverable from the registry.
-
-## M4 Mock runtime and behavior wiring
+## Scope
 
 - Mock variable store.
 - Property bindings.
+- Runtime state separated from persisted scene configuration.
 - Event-to-action links.
 - Event-to-property assignments.
-- Condition comparison with a deliberately small operator set.
-- Runtime state separated from persisted scene configuration.
-- Behavior graph is stored independently from visual connections.
+- Small condition operator set.
+- Behavior graph stored independently from visual connections.
+- Preview mode that disables editing interactions.
 
-## M5 Component Lab and expansion
+# M6 Production authoring features and component expansion
 
-- Dedicated Component Lab.
-- Property controls generated from definitions.
-- Action invocation and emitted-event log.
-- Anchor and optional semantic-port visualization.
-- State snapshots.
-- Pump, tank, pipe, indicator, numeric display, valve, generic image, and basic shape components.
+## Scope
 
-## Explicit non-goals for the current phase
+- Multiple scenes or pages.
+- Scene templates.
+- Reusable symbols and component instances.
+- Project-level assets.
+- Export and import packages.
+- Diagnostics for broken assets, anchors, bindings, and behavior links.
+- Performance budgets and large-scene profiling.
+- Component Lab.
+- More industrial components and state variants.
 
-- Arbitrary JavaScript expressions.
-- Full Figma-like vector editing unrelated to SCADA composition.
-- General-purpose workflow engine.
-- Network-facing WoT Thing Description support.
-- MQTT, WebSocket, or backend persistence.
+# 4. Immediate execution sequence
+
+The next implementation order is now:
+
+```text
+1. M1.1 Viewport pan, zoom, fit scene, and coordinate conversion
+2. M1.2 Scene inspector: size, background color, transparency, background image
+3. M2.1 Undo/redo command history and dirty state
+4. M2.2 Copy, cut, paste, paste in place, and duplicate
+5. M2.4 Layer tree, z-order, and group editing scope
+6. Resume M3.1 free endpoints and endpoint detach/reattach
+7. M3.2 arbitrary waypoints and curves
+8. M3.3 markers and flow effects
+```
+
+This sequence makes the editor usable as a general scene-authoring tool before deepening connection geometry.
+
+# 5. Explicit non-goals for the current phase
+
+- Backend persistence.
+- MQTT, WebSocket, or device protocol integration.
 - Collaborative editing.
+- Arbitrary JavaScript expressions.
+- General-purpose workflow execution.
+- Full vector illustration features unrelated to SCADA composition.
+- Network-facing WoT Thing Description support.
