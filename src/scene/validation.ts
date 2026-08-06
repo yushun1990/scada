@@ -6,6 +6,7 @@ import {
   SCENE_VERSION,
   isGroupNode,
   type ConnectionEndpoint,
+  type ConnectionRouting,
   type GroupSceneNode,
   type NodeTransform,
   type PumpSceneNode,
@@ -61,6 +62,10 @@ function parseTransform(value: unknown): NodeTransform | null {
 
 function isPumpState(value: unknown): value is PumpState {
   return typeof value === 'string' && pumpStates.has(value as PumpState)
+}
+
+function isConnectionRouting(value: unknown): value is ConnectionRouting {
+  return value === 'straight' || value === 'orthogonal'
 }
 
 function parseBaseNode(value: Record<string, unknown>, version: number) {
@@ -166,7 +171,7 @@ function parseConnection(value: unknown): SceneConnection | null {
     typeof value.name !== 'string' ||
     !source ||
     !target ||
-    value.routing !== 'straight' ||
+    !isConnectionRouting(value.routing) ||
     typeof value.style.stroke !== 'string' ||
     !isFiniteNumber(value.style.strokeWidth) ||
     value.style.strokeWidth <= 0 ||
@@ -180,7 +185,7 @@ function parseConnection(value: unknown): SceneConnection | null {
     name: value.name,
     source,
     target,
-    routing: 'straight',
+    routing: value.routing,
     style: {
       stroke: value.style.stroke,
       strokeWidth: value.style.strokeWidth,
