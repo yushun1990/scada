@@ -8,15 +8,23 @@ import type { PumpState } from './assets/pump'
 import {
   alignNodes,
   distributeNodes,
+  getRootNodes,
   type AlignMode,
   type DistributeMode,
   type SnapSettings,
   type TransformUpdates,
 } from './scene/geometry'
 import {
-  cloneSceneNode,
+  cloneSceneSubtrees,
+  deleteSceneNodes,
+  groupSceneNodes,
+  ungroupSceneNode,
+} from './scene/hierarchy'
+import {
   createDefaultScene,
   createPumpNode,
+  isGroupNode,
+  isPumpNode,
   PUMP_ASPECT_RATIO,
   type NodeTransform,
   type SceneNode,
@@ -27,7 +35,8 @@ import {
   type RendererMode,
 } from './renderer/SceneRenderer'
 
-const STORAGE_KEY = 'scada-editor-lab.scene.v1'
+const STORAGE_KEY = 'scada-editor-lab.scene.v2'
+const LEGACY_STORAGE_KEY = 'scada-editor-lab.scene.v1'
 
 type InspectorTab = 'base' | 'properties' | 'actions' | 'events'
 
@@ -53,8 +62,15 @@ const alignButtons: Array<{ mode: AlignMode; label: string; title: string }> = [
   { mode: 'bottom', label: '下', title: '底对齐' },
 ]
 
+function getInitialSelectedIds(scene: ReturnType<typeof createDefaultScene>) {
+  const firstRoot = getRootNodes(scene)[0]
+  return firstRoot ? [firstRoot.id] : []
+}
+
 function loadInitialScene() {
-  const savedScene = window.localStorage.getItem(STORAGE_KEY)
+  const savedScene =
+    window.localStorage.getItem(STORAGE_KEY) ??
+    window.localStorage.getItem(LEGACY_STORAGE_KEY)
 
   if (!savedScene) {
     return createDefaultScene()
@@ -71,10 +87,11 @@ function App() {
   const [mode, setMode] = useState<RendererMode>('editor')
   const [scene, setScene] = useState(loadInitialScene)
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(
-    scene.nodes[0] ? [scene.nodes[0].id] : [],
+    getInitialSelectedIds(scene),
   )
-  const [message, setMessage] = useState('M2.1 多选与吸附已启用')
+  const [message, setMessage] = useState('M2.2 组合与格线控制已启用')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('base')
+  const [gridVisible, setGridVisible] = useState(true)
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({
     enabled: true,
     gridEnabled: true,
@@ -84,10 +101,20 @@ function App() {
   })
   const importInputRef = useRef<HTMLInputElement>(null)
 
+  const rootNodes = getRootNodes(scene)
   const selectedNodes = selectedNodeIds
-    .map((nodeId) => scene.nodes.find((node) => node.id === nodeId))
+    .map((nodeId) => rootNodes.find((node) => node.id === nodeId))
     .filter((node): node is SceneNode => Boolean(node))
   const primaryNode = selectedNodes[selectedNodes.length - 1] ?? null
+  const selectedPumpNodes = selectedNodes.filter(isPumpNode)
+  const canGroup =
+    selectedNodes.length >= 2 &&
+    selectedNodes.every(
+      (node) => node.parentId === selectedNodes[0]?.parentId,
+    )
+  const canUngroup =
+    selectedNodes.length === 1 &&
+    Boolean(primaryNode && isGroupNode(primaryNode))
 
   function updateNode(
     nodeId: string,
@@ -122,8 +149,8 @@ function App() {
 
   function addPump() {
     const node = createPumpNode(
-      scene.nodes.length + 1,
-      Math.min(scene.nodes.length * 18, 120),
+      scene.nodes.filter(isPumpNode).length + 1,
+      Math.min(rootNodes.length * 18, 120),
     )
 
     setScene((current) => ({
@@ -141,16 +168,10 @@ function App() {
       return
     }
 
-    const copies = selectedNodes.map((node, index) =>
-      cloneSceneNode(node, scene.nodes.length + index + 1),
-    )
-
-    setScene((current) => ({
-      ...current,
-      nodes: [...current.nodes, ...copies],
-    }))
-    setSelectedNodeIds(copies.map((node) => node.id))
-    setMessage(`已复制 ${copies.length} 个组件`)
+    const result = cloneSceneSubtrees(scene, selectedNodeIds)
+    setScene(result.scene)
+    setSelectedNodeIds(result.rootIds)
+    setMessage(`已复制 ${result.rootIds.length} 个根节点`)
   }
 
   function deleteSelectedNodes() {
@@ -158,13 +179,39 @@ function App() {
       return
     }
 
-    const selectedIdSet = new Set(selectedNodeIds)
-    setScene((current) => ({
-      ...current,
-      nodes: current.nodes.filter((node) => !selectedIdSet.has(node.id)),
-    }))
+    setScene(deleteSceneNodes(scene, selectedNodeIds))
     setSelectedNodeIds([])
-    setMessage(`已删除 ${selectedNodes.length} 个组件`)
+    setMessage(`已删除 ${selectedNodes.length} 个选中节点及其子节点`)
+  }
+
+  function groupSelectedNodes() {
+    if (!canGroup) {
+      return
+    }
+
+    const result = groupSceneNodes(scene, selectedNodeIds)
+
+    if (!result.groupId) {
+      setMessage('当前选择无法组合')
+      return
+    }
+
+    setScene(result.scene)
+    setSelectedNodeIds([result.groupId])
+    setInspectorTab('base')
+    setMessage('已将选中组件组合为一个持久化分组')
+  }
+
+  function ungroupSelectedNode() {
+    if (!primaryNode || !isGroupNode(primaryNode)) {
+      return
+    }
+
+    const result = ungroupSceneNode(scene, primaryNode.id)
+    setScene(result.scene)
+    setSelectedNodeIds(result.childIds)
+    setInspectorTab('base')
+    setMessage(`已拆分组合，恢复 ${result.childIds.length} 个直接子节点`)
   }
 
   function resetSelectedTransforms() {
@@ -172,33 +219,37 @@ function App() {
       return
     }
 
-    const width = 256
     const updates: TransformUpdates = {}
 
     selectedNodes.forEach((node, index) => {
+      const width = isPumpNode(node) ? 256 : node.transform.width
+      const height = isPumpNode(node)
+        ? width / PUMP_ASPECT_RATIO
+        : node.transform.height
+
       updates[node.id] = {
         x: 160 + index * 36,
         y: 48 + index * 28,
         width,
-        height: width / PUMP_ASPECT_RATIO,
+        height,
         rotation: 0,
       }
     })
 
     updateNodeTransforms(updates)
-    setMessage('已重置选中组件')
+    setMessage('已重置选中节点')
   }
 
   function setSelectedPumpState(state: PumpState) {
-    if (selectedNodes.length === 0) {
+    if (selectedPumpNodes.length === 0) {
       return
     }
 
-    const selectedIdSet = new Set(selectedNodeIds)
+    const selectedIdSet = new Set(selectedPumpNodes.map((node) => node.id))
     setScene((current) => ({
       ...current,
       nodes: current.nodes.map((node) =>
-        selectedIdSet.has(node.id)
+        selectedIdSet.has(node.id) && isPumpNode(node)
           ? {
               ...node,
               props: {
@@ -235,6 +286,7 @@ function App() {
     }
 
     const transform = primaryNode.transform
+    const aspectRatio = transform.width / transform.height
     let nextTransform: NodeTransform = {
       ...transform,
       [field]: value,
@@ -245,7 +297,7 @@ function App() {
       nextTransform = {
         ...nextTransform,
         width,
-        height: width / PUMP_ASPECT_RATIO,
+        height: width / aspectRatio,
       }
     }
 
@@ -253,7 +305,7 @@ function App() {
       const height = Math.max(1, value)
       nextTransform = {
         ...nextTransform,
-        width: height * PUMP_ASPECT_RATIO,
+        width: height * aspectRatio,
         height,
       }
     }
@@ -266,7 +318,7 @@ function App() {
     updateNodeTransforms(updates)
 
     if (Object.keys(updates).length > 0) {
-      setMessage('已完成组件对齐')
+      setMessage('已完成节点对齐')
     }
   }
 
@@ -289,7 +341,9 @@ function App() {
   }
 
   function restoreScene() {
-    const savedScene = window.localStorage.getItem(STORAGE_KEY)
+    const savedScene =
+      window.localStorage.getItem(STORAGE_KEY) ??
+      window.localStorage.getItem(LEGACY_STORAGE_KEY)
 
     if (!savedScene) {
       setMessage('浏览器中没有已保存场景')
@@ -299,7 +353,7 @@ function App() {
     try {
       const restoredScene = parseSceneDocument(savedScene)
       setScene(restoredScene)
-      setSelectedNodeIds(restoredScene.nodes[0] ? [restoredScene.nodes[0].id] : [])
+      setSelectedNodeIds(getInitialSelectedIds(restoredScene))
       setMessage('已恢复浏览器场景')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '场景恢复失败')
@@ -330,7 +384,7 @@ function App() {
     try {
       const importedScene = parseSceneDocument(await file.text())
       setScene(importedScene)
-      setSelectedNodeIds(importedScene.nodes[0] ? [importedScene.nodes[0].id] : [])
+      setSelectedNodeIds(getInitialSelectedIds(importedScene))
       setMode('editor')
       setMessage(`已导入 ${file.name}`)
     } catch (error) {
@@ -348,7 +402,7 @@ function App() {
       <header className="editor-header">
         <div className="brand-block">
           <strong>SCADA Editor Lab</strong>
-          <span>M2.1 · 多选、吸附、对齐与排列</span>
+          <span>M2.2 · 格线、组合与拆分</span>
         </div>
 
         <div className="header-actions">
@@ -415,6 +469,20 @@ function App() {
             >
               删除
             </button>
+            <button
+              type="button"
+              disabled={!canGroup}
+              onClick={groupSelectedNodes}
+            >
+              组合
+            </button>
+            <button
+              type="button"
+              disabled={!canUngroup}
+              onClick={ungroupSelectedNode}
+            >
+              拆分
+            </button>
           </div>
 
           <div className="panel-title section-title">对齐</div>
@@ -448,8 +516,16 @@ function App() {
             </button>
           </div>
 
-          <div className="panel-title section-title">吸附</div>
+          <div className="panel-title section-title">视图与吸附</div>
           <div className="snap-settings">
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={gridVisible}
+                onChange={(event) => setGridVisible(event.target.checked)}
+              />
+              <span>显示格线</span>
+            </label>
             <label className="checkbox-field">
               <input
                 type="checkbox"
@@ -490,7 +566,7 @@ function App() {
               <span>组件吸附</span>
             </label>
             <label className="inline-number">
-              <span>网格</span>
+              <span>网格尺寸</span>
               <input
                 type="number"
                 min="4"
@@ -530,41 +606,38 @@ function App() {
           />
 
           <div className="milestone-card">
-            <strong>M2.1 操作提示</strong>
-            <span>Shift/Ctrl 点击增加或移除选择</span>
-            <span>在空白处拖动进行框选</span>
-            <span>拖动任一选中组件可整体移动</span>
-            <span>粉色线为组件吸附，蓝色线为网格吸附</span>
+            <strong>M2.2 当前能力</strong>
+            <span>格线显示与网格吸附相互独立</span>
+            <span>组合关系持久化到场景 JSON</span>
+            <span>组合整体移动、旋转和等比缩放</span>
+            <span>拆分后保持当前世界位置</span>
           </div>
         </aside>
 
         <section className="canvas-area" aria-label="SCADA 编辑画布">
           <div className="canvas-toolbar">
-            <span>{scene.name} / {scene.nodes.length} nodes</span>
-            <span>
-              {selectedNodes.length} selected · grid {snapSettings.gridSize}px
-            </span>
+            <span>{scene.name} / {rootNodes.length} root nodes / {scene.nodes.length} total</span>
+            <span>Shift/Ctrl 多选 · 空白拖动框选 · 组合后整体编辑</span>
           </div>
           <SceneRenderer
             scene={scene}
             mode={mode}
             selectedNodeIds={selectedNodeIds}
             snapSettings={snapSettings}
+            gridVisible={gridVisible}
             onSelectionChange={setSelectedNodeIds}
             onTransformNodes={updateNodeTransforms}
           />
         </section>
 
         <aside className="property-panel">
-          <div className="inspector-tabs" role="tablist">
-            {(
-              [
-                ['base', '基础'],
-                ['properties', '属性'],
-                ['actions', '动作'],
-                ['events', '事件'],
-              ] as Array<[InspectorTab, string]>
-            ).map(([tab, label]) => (
+          <div className="inspector-tabs" role="tablist" aria-label="节点检查器">
+            {([
+              ['base', '基础'],
+              ['properties', '属性'],
+              ['actions', '动作'],
+              ['events', '事件'],
+            ] as Array<[InspectorTab, string]>).map(([tab, label]) => (
               <button
                 key={tab}
                 type="button"
@@ -576,17 +649,38 @@ function App() {
             ))}
           </div>
 
-          {selectedNodes.length === 0 ? (
-            <p className="empty-selection">
-              点击组件，或在空白区域拖动框选组件。
-            </p>
-          ) : inspectorTab === 'base' ? (
+          {inspectorTab === 'base' && (
             <>
               <div className="panel-title">基础属性</div>
-              {selectedNodes.length > 1 ? (
-                <div className="selection-summary">
-                  已选择 <strong>{selectedNodes.length}</strong> 个组件。位置和尺寸字段仅在单选时显示。
-                </div>
+              {selectedNodes.length === 0 ? (
+                <p className="empty-selection">请选择一个或多个节点。</p>
+              ) : selectedNodes.length > 1 ? (
+                <>
+                  <div className="selection-summary">
+                    已选择 <strong>{selectedNodes.length}</strong> 个根节点。
+                    可执行对齐、排列或组合。
+                  </div>
+                  <label className="checkbox-field property-toggle">
+                    <input
+                      type="checkbox"
+                      checked={commonVisible}
+                      onChange={(event) =>
+                        updateSelectedBaseProperty('visible', event.target.checked)
+                      }
+                    />
+                    <span>全部可见</span>
+                  </label>
+                  <label className="checkbox-field property-toggle">
+                    <input
+                      type="checkbox"
+                      checked={commonLocked}
+                      onChange={(event) =>
+                        updateSelectedBaseProperty('locked', event.target.checked)
+                      }
+                    />
+                    <span>全部锁定</span>
+                  </label>
+                </>
               ) : primaryNode ? (
                 <>
                   <label className="property-field">
@@ -601,103 +695,80 @@ function App() {
                   </label>
 
                   <div className="property-grid">
-                    {(
-                      [
-                        ['x', 'X'],
-                        ['y', 'Y'],
-                        ['width', '宽'],
-                        ['height', '高'],
-                        ['rotation', '旋转'],
-                      ] as Array<[keyof NodeTransform, string]>
-                    ).map(([field, label]) => (
-                      <label key={field} className="property-field compact">
-                        <span>{label}</span>
-                        <input
-                          type="number"
-                          value={Number(primaryNode.transform[field].toFixed(2))}
-                          onChange={(event) => {
-                            updatePrimaryTransformField(
-                              field,
-                              Number(event.target.value),
-                            )
-                          }}
-                        />
-                      </label>
-                    ))}
+                    {(['x', 'y', 'width', 'height', 'rotation'] as const).map(
+                      (field) => (
+                        <label key={field} className="property-field compact">
+                          <span>{field.toUpperCase()}</span>
+                          <input
+                            type="number"
+                            value={Math.round(primaryNode.transform[field] * 100) / 100}
+                            onChange={(event) =>
+                              updatePrimaryTransformField(
+                                field,
+                                Number(event.target.value),
+                              )
+                            }
+                          />
+                        </label>
+                      ),
+                    )}
+                  </div>
+
+                  <label className="checkbox-field property-toggle">
+                    <input
+                      type="checkbox"
+                      checked={primaryNode.visible}
+                      onChange={(event) =>
+                        updateSelectedBaseProperty('visible', event.target.checked)
+                      }
+                    />
+                    <span>可见</span>
+                  </label>
+                  <label className="checkbox-field property-toggle">
+                    <input
+                      type="checkbox"
+                      checked={primaryNode.locked}
+                      onChange={(event) =>
+                        updateSelectedBaseProperty('locked', event.target.checked)
+                      }
+                    />
+                    <span>锁定</span>
+                  </label>
+
+                  <div className="property-summary">
+                    <div>
+                      <span>节点类型</span>
+                      <code>{primaryNode.type}</code>
+                    </div>
+                    <div>
+                      <span>父节点</span>
+                      <code>{primaryNode.parentId ?? 'scene-root'}</code>
+                    </div>
+                    <div>
+                      <span>场景版本</span>
+                      <code>v{scene.version}</code>
+                    </div>
                   </div>
                 </>
               ) : null}
-
-              <label className="checkbox-field property-toggle">
-                <input
-                  type="checkbox"
-                  checked={commonVisible}
-                  onChange={(event) => {
-                    updateSelectedBaseProperty('visible', event.target.checked)
-                  }}
-                />
-                <span>可见</span>
-              </label>
-              <label className="checkbox-field property-toggle">
-                <input
-                  type="checkbox"
-                  checked={commonLocked}
-                  onChange={(event) => {
-                    updateSelectedBaseProperty('locked', event.target.checked)
-                  }}
-                />
-                <span>锁定</span>
-              </label>
-
-              {selectedNodes.length > 1 && (
-                <>
-                  <div className="panel-title section-title">对齐与排列</div>
-                  <div className="arrange-grid">
-                    {alignButtons.map((item) => (
-                      <button
-                        key={item.mode}
-                        type="button"
-                        onClick={() => applyAlignment(item.mode)}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      disabled={selectedNodes.length < 3}
-                      onClick={() => applyDistribution('horizontal')}
-                    >
-                      水平分布
-                    </button>
-                    <button
-                      type="button"
-                      disabled={selectedNodes.length < 3}
-                      onClick={() => applyDistribution('vertical')}
-                    >
-                      垂直分布
-                    </button>
-                  </div>
-                </>
-              )}
             </>
-          ) : inspectorTab === 'properties' ? (
+          )}
+
+          {inspectorTab === 'properties' && (
             <>
               <div className="panel-title">组件属性</div>
-              <p className="panel-description">
-                当前水泵的 state 是首个组件属性。M3 将由组件定义自动生成这里的编辑器。
-              </p>
-              <div className="state-list">
-                {pumpStates.map((item) => {
-                  const allActive = selectedNodes.every(
-                    (node) => node.props.state === item.id,
-                  )
-
-                  return (
+              {selectedPumpNodes.length === 0 ? (
+                <div className="inspector-placeholder">
+                  <strong>当前选择没有可直接编辑的水泵属性</strong>
+                  <span>组合节点只暴露基础几何属性；拆分后可编辑子组件状态。</span>
+                </div>
+              ) : (
+                <div className="state-list">
+                  {pumpStates.map((item) => (
                     <button
                       key={item.id}
                       type="button"
-                      className={`state-button${allActive ? ' active' : ''}`}
-                      aria-pressed={allActive}
+                      className={`state-button${selectedPumpNodes.every((node) => node.props.state === item.id) ? ' active' : ''}`}
                       onClick={() => setSelectedPumpState(item.id)}
                     >
                       <span
@@ -710,36 +781,23 @@ function App() {
                         <small>{item.description}</small>
                       </span>
                     </button>
-                  )
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </>
-          ) : inspectorTab === 'actions' ? (
+          )}
+
+          {inspectorTab === 'actions' && (
             <div className="inspector-placeholder">
-              <strong>Action</strong>
-              <span>M3 将从组件定义发现动作，并允许模拟调用。</span>
-            </div>
-          ) : (
-            <div className="inspector-placeholder">
-              <strong>Event</strong>
-              <span>M3 将从组件定义发现事件，并记录模拟事件。</span>
+              <strong>Action 定义入口</strong>
+              <span>M3 接入组件注册表后，可在这里手动调用 start、stop、reset 等动作。</span>
             </div>
           )}
 
-          {primaryNode && (
-            <div className="property-summary">
-              <div>
-                <span>主节点</span>
-                <code>{primaryNode.id.slice(0, 18)}…</code>
-              </div>
-              <div>
-                <span>选择数量</span>
-                <code>{selectedNodes.length}</code>
-              </div>
-              <div>
-                <span>场景版本</span>
-                <code>v{scene.version}</code>
-              </div>
+          {inspectorTab === 'events' && (
+            <div className="inspector-placeholder">
+              <strong>Event 定义入口</strong>
+              <span>M3/M4 将在这里显示语义事件和 Event → Action 行为连接。</span>
             </div>
           )}
         </aside>
