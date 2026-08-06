@@ -66,8 +66,6 @@ export type SceneRendererProps = {
   mode: RendererMode
   selectedNodeIds: string[]
   selectedConnectionId: string | null
-  connectionMode: boolean
-  panMode: boolean
   snapSettings: SnapSettings
   gridVisible: boolean
   onSelectionChange: (nodeIds: string[]) => void
@@ -380,8 +378,6 @@ export function SceneRenderer({
   mode,
   selectedNodeIds,
   selectedConnectionId,
-  connectionMode,
-  panMode,
   snapSettings,
   gridVisible,
   onSelectionChange,
@@ -497,7 +493,7 @@ export function SceneRenderer({
 
       spacePressedRef.current = false
       if (!panSessionRef.current) {
-        setStageCursor(panMode ? 'grab' : 'default')
+        setStageCursor('default')
       }
     }
 
@@ -507,7 +503,7 @@ export function SceneRenderer({
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [panMode])
+  }, [])
 
   useEffect(() => {
     const cancelTransientInteraction = () => {
@@ -555,17 +551,6 @@ export function SceneRenderer({
     hideConnectionPreview()
     hideGuides()
   }, [mode])
-
-  useEffect(() => {
-    if (connectionMode) {
-      return
-    }
-
-    cancelScheduledConnectionPreview()
-    connectionSessionRef.current = null
-    setHoveredPort(null)
-    hideConnectionPreview()
-  }, [connectionMode])
 
   useEffect(() => {
   const session = reconnectSessionRef.current
@@ -682,7 +667,7 @@ export function SceneRenderer({
 
   function shouldStartPan(nativeEvent: Event) {
     const mouseEvent = nativeEvent as MouseEvent
-    return panMode || spacePressedRef.current || mouseEvent.button === 1
+    return spacePressedRef.current || mouseEvent.button === 1
   }
 
   function beginPan(stage: Konva.Stage, nativeEvent: Event) {
@@ -726,7 +711,7 @@ export function SceneRenderer({
 
     panSessionRef.current = null
     setViewportTransform({ ...viewportTransformRef.current })
-    setStageCursor(panMode || spacePressedRef.current ? 'grab' : 'default')
+    setStageCursor(spacePressedRef.current ? 'grab' : 'default')
     return true
   }
 
@@ -843,10 +828,6 @@ export function SceneRenderer({
     overrides: TransformUpdates,
     affectedNodeIds: ReadonlySet<string>,
   ) {
-    if (!connectionMode && !reconnectSessionRef.current) {
-      return
-    }
-
     for (const node of scene.nodes) {
       if (isGroupNode(node) || !affectedNodeIds.has(node.id)) {
         continue
@@ -864,7 +845,7 @@ export function SceneRenderer({
         circle.visible(
         Boolean(position) &&
           isNodeEffectivelyVisible(scene, node) &&
-          (connectionMode || Boolean(reconnectSessionRef.current)),
+          (mode === 'editor' || Boolean(reconnectSessionRef.current)),
       )
 
         if (position) {
@@ -941,6 +922,11 @@ export function SceneRenderer({
   function clearConnectionSession() {
     cancelScheduledConnectionPreview()
     connectionSessionRef.current = null
+
+    for (const circle of portRefs.current.values()) {
+      circle.opacity(0)
+    }
+
     hideConnectionPreview()
   }
 
@@ -1303,6 +1289,13 @@ export function SceneRenderer({
     clearMarqueeSession()
     setHoveredPort(null)
     connectionSessionRef.current = { source: endpoint }
+
+    for (const circle of portRefs.current.values()) {
+      circle.visible(true)
+      circle.listening(true)
+      circle.opacity(0.55)
+    }
+
     const points = getConnectionPreviewRoutePoints(scene, endpoint, point)
     connectionPreviewRef.current?.points(
       points ?? [point.x, point.y, point.x, point.y],
@@ -1408,7 +1401,8 @@ export function SceneRenderer({
     }
 
     target.radius(9 / viewportTransformRef.current.scale)
-    target.strokeWidth(3)
+    target.strokeWidth(3 / viewportTransformRef.current.scale)
+    target.opacity(1)
     setStageCursor('crosshair')
     setHoveredPort({
       endpoint,
@@ -1426,7 +1420,8 @@ export function SceneRenderer({
   }
 
     target.radius(7 / viewportTransformRef.current.scale)
-    target.strokeWidth(2)
+    target.strokeWidth(2 / viewportTransformRef.current.scale)
+    target.opacity(connectionSessionRef.current ? 0.55 : 0)
     setStageCursor('default')
     setHoveredPort(null)
     drawDynamicLayer()
@@ -1494,16 +1489,16 @@ export function SceneRenderer({
 
       circle.visible(
         Boolean(
-          connectionMode &&
+          mode === 'editor' &&
             node &&
             isNodeEffectivelyVisible(scene, node),
         ),
       )
-      circle.listening(connectionMode)
-      circle.opacity(1)
+      circle.listening(mode === 'editor')
+      circle.opacity(0)
       circle.radius(7 / viewportTransformRef.current.scale)
       circle.stroke('#ffffff')
-      circle.strokeWidth(2)
+      circle.strokeWidth(2 / viewportTransformRef.current.scale)
     }
   }
 
@@ -1894,7 +1889,7 @@ export function SceneRenderer({
 
           const portEndpoint = findPortEndpoint(event.target)
 
-          if (connectionMode && portEndpoint) {
+          if (portEndpoint) {
             beginConnection(portEndpoint)
             return
           }
@@ -1960,7 +1955,7 @@ export function SceneRenderer({
           if (pointerStatusRef.current) {
             pointerStatusRef.current.textContent = 'X —  Y —'
           }
-          setStageCursor(panMode ? 'grab' : 'default')
+          setStageCursor('default')
           setHoveredPort(null)
           cancelReconnectSession()
           cancelPointerInteraction()
@@ -2293,8 +2288,9 @@ export function SceneRenderer({
                     strokeWidth={2}
                     hitStrokeWidth={12 * visualControlScale}
                     perfectDrawEnabled={false}
-                    visible={connectionMode}
-                    listening={connectionMode}
+                    visible={mode === 'editor'}
+                    listening={mode === 'editor'}
+                    opacity={0}
                     onMouseEnter={(event) =>
                       handlePortEnter(event.target as Konva.Circle, endpoint)
                     }
@@ -2346,11 +2342,9 @@ export function SceneRenderer({
           <span>
             {mode === 'preview'
               ? '预览'
-              : panMode
-                ? '平移'
-                : connectionMode
-                  ? '连线'
-                  : '选择'}
+              : connectionSessionRef.current
+                ? '连线'
+                : '选择'}
           </span>
           <span ref={pointerStatusRef} className="pointer-position">X —  Y —</span>
           <span>{scene.width} × {scene.height}</span>
