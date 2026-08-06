@@ -1,12 +1,15 @@
 import type { PumpState } from '../assets/pump'
+import { getPortDefinition } from '../components/ports'
 import {
   GROUP_NODE_TYPE,
   PUMP_NODE_TYPE,
   SCENE_VERSION,
   isGroupNode,
+  type ConnectionEndpoint,
   type GroupSceneNode,
   type NodeTransform,
   type PumpSceneNode,
+  type SceneConnection,
   type SceneDocument,
   type SceneNode,
 } from './model'
@@ -115,7 +118,7 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
   }
 
   if (
-    version === SCENE_VERSION &&
+    version >= 2 &&
     value.type === GROUP_NODE_TYPE &&
     isFiniteNumber(value.props.designWidth) &&
     isFiniteNumber(value.props.designHeight) &&
@@ -133,6 +136,57 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
   }
 
   return null
+}
+
+function parseEndpoint(value: unknown): ConnectionEndpoint | null {
+  if (
+    !isRecord(value) ||
+    typeof value.nodeId !== 'string' ||
+    typeof value.portId !== 'string'
+  ) {
+    return null
+  }
+
+  return {
+    nodeId: value.nodeId,
+    portId: value.portId,
+  }
+}
+
+function parseConnection(value: unknown): SceneConnection | null {
+  if (!isRecord(value) || !isRecord(value.style)) {
+    return null
+  }
+
+  const source = parseEndpoint(value.source)
+  const target = parseEndpoint(value.target)
+
+  if (
+    typeof value.id !== 'string' ||
+    typeof value.name !== 'string' ||
+    !source ||
+    !target ||
+    value.routing !== 'straight' ||
+    typeof value.style.stroke !== 'string' ||
+    !isFiniteNumber(value.style.strokeWidth) ||
+    value.style.strokeWidth <= 0 ||
+    (value.style.dash !== 'solid' && value.style.dash !== 'dashed')
+  ) {
+    return null
+  }
+
+  return {
+    id: value.id,
+    name: value.name,
+    source,
+    target,
+    routing: 'straight',
+    style: {
+      stroke: value.style.stroke,
+      strokeWidth: value.style.strokeWidth,
+      dash: value.style.dash,
+    },
+  }
 }
 
 function validateHierarchy(nodes: SceneNode[]) {
@@ -167,6 +221,35 @@ function validateHierarchy(nodes: SceneNode[]) {
   }
 }
 
+function validateConnections(
+  nodes: SceneNode[],
+  connections: SceneConnection[],
+) {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]))
+  const connectionIds = new Set<string>()
+
+  for (const connection of connections) {
+    if (connectionIds.has(connection.id)) {
+      throw new Error('场景 JSON 包含重复连线 ID')
+    }
+
+    connectionIds.add(connection.id)
+    const sourceNode = nodeMap.get(connection.source.nodeId)
+    const targetNode = nodeMap.get(connection.target.nodeId)
+
+    if (!sourceNode || !targetNode) {
+      throw new Error('场景 JSON 包含失效连线端点')
+    }
+
+    if (
+      !getPortDefinition(sourceNode, connection.source.portId) ||
+      !getPortDefinition(targetNode, connection.target.portId)
+    ) {
+      throw new Error('场景 JSON 包含不存在的组件端口')
+    }
+  }
+}
+
 function normalizeBackground(background: string) {
   return background.toLowerCase() === LEGACY_DEFAULT_BACKGROUND
     ? DEFAULT_EDITOR_BACKGROUND
@@ -183,7 +266,7 @@ export function parseSceneDocument(json: string): SceneDocument {
   const sourceVersion = value.version
 
   if (
-    (sourceVersion !== 1 && sourceVersion !== SCENE_VERSION) ||
+    (sourceVersion !== 1 && sourceVersion !== 2 && sourceVersion !== SCENE_VERSION) ||
     typeof value.id !== 'string' ||
     typeof value.name !== 'string' ||
     !isFiniteNumber(value.width) ||
@@ -191,7 +274,8 @@ export function parseSceneDocument(json: string): SceneDocument {
     value.width <= 0 ||
     value.height <= 0 ||
     typeof value.background !== 'string' ||
-    !Array.isArray(value.nodes)
+    !Array.isArray(value.nodes) ||
+    (sourceVersion === SCENE_VERSION && !Array.isArray(value.connections))
   ) {
     throw new Error('场景 JSON 格式无效或版本不受支持')
   }
@@ -203,7 +287,17 @@ export function parseSceneDocument(json: string): SceneDocument {
   }
 
   const parsedNodes = nodes as SceneNode[]
+  const parsedConnections = sourceVersion === SCENE_VERSION
+    ? (value.connections as unknown[]).map(parseConnection)
+    : []
+
+  if (parsedConnections.some((connection) => connection === null)) {
+    throw new Error('场景 JSON 包含无效连线')
+  }
+
+  const connections = parsedConnections as SceneConnection[]
   validateHierarchy(parsedNodes)
+  validateConnections(parsedNodes, connections)
 
   return {
     version: SCENE_VERSION,
@@ -213,5 +307,6 @@ export function parseSceneDocument(json: string): SceneDocument {
     height: value.height,
     background: normalizeBackground(value.background),
     nodes: parsedNodes,
+    connections,
   }
 }
