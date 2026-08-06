@@ -1,0 +1,128 @@
+name: Apply M2.3A generic anchor migration
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-and-verify:
+    if: github.event.pull_request.head.ref == 'agent/m23a-generic-anchors'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Migrate editor UI to visual anchors
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{label}: expected one match, found {count}')
+              return text.replace(old, new, 1)
+
+          app_path = Path('src/App.tsx')
+          app = app_path.read_text()
+          app = app.replace("const STORAGE_KEY = 'scada-editor-lab.scene.v3'", "const STORAGE_KEY = 'scada-editor-lab.scene.v4'")
+          app = replace_once(
+              app,
+              "const LEGACY_STORAGE_KEYS = [\n  'scada-editor-lab.scene.v2',",
+              "const LEGACY_STORAGE_KEYS = [\n  'scada-editor-lab.scene.v3',\n  'scada-editor-lab.scene.v2',",
+              'legacy storage key',
+          )
+          app = app.replace(
+              "M2.3 正交连线与端点重连已启用",
+              "M2.3A 通用视觉锚点迁移已启用",
+          )
+          app = app.replace('.portId', '.anchorId')
+          app = app.replace('原始子组件端口', '原始子组件锚点')
+          app = app.replace('这两个端口之间已经存在连接', '这两个锚点之间已经存在连接')
+          app = app.replace('目标端口之间已经存在另一条连接', '目标锚点之间已经存在另一条连接')
+          app = app.replace('目标端口方向或介质类型不兼容', '目标视觉锚点不可连接')
+          app = app.replace(
+              "            <span><i className=\"port-dot input\" />进水口</span>\n            <span><i className=\"port-dot output\" />出水口</span>",
+              "            <span><i className=\"port-dot output\" />中性视觉锚点</span>",
+          )
+          app = app.replace(
+              '连线模式用于创建连接；选中已有连线后，可直接拖动两端的蓝色控制点重新连接。',
+              '连线模式会显示图片四周的通用锚点；选中已有连线后，可拖动两端控制点重新连接。',
+          )
+          app = app.replace(
+              "<strong>M2.3 当前切片</strong>\n              <span>端口拖拽建立正交连接</span>",
+              "<strong>M2.3A 当前切片</strong>\n            <span>每个普通图片节点提供 17 个中性锚点</span>",
+          )
+          app = app.replace(
+              "? '拖动端口建立连接 · 橙色输入 · 绿色输出'",
+              "? '拖动任意视觉锚点建立连接 · 不限制输入输出语义'",
+          )
+          app = app.replace(
+              "? '拖动连线两端控制点可重连 · 绿色表示可放置端口'",
+              "? '拖动连线两端控制点可重连 · 绿色表示可放置锚点'",
+          )
+          app = app.replace(
+              '          onReconnectConnection={reconnectConnection}',
+              '            onReconnectConnection={reconnectConnection}',
+          )
+          app_path.write_text(app)
+
+          renderer_path = Path('src/renderer/SceneRenderer.tsx')
+          renderer = renderer_path.read_text()
+          renderer = renderer.replace('portId', 'anchorId')
+          renderer = renderer.replace(
+              "  isGroupNode,\n  isPumpNode,\n",
+              "  isGroupNode,\n",
+          )
+          renderer = replace_once(
+              renderer,
+              "if (!isPumpNode(node) || !isNodeEffectivelyVisible(scene, node))",
+              "if (isGroupNode(node) || !isNodeEffectivelyVisible(scene, node))",
+              'reconnect candidate node filter',
+          )
+          renderer = replace_once(
+              renderer,
+              'scene.nodes.filter(isPumpNode).flatMap((node) => {',
+              'scene.nodes.filter((node) => !isGroupNode(node)).flatMap((node) => {',
+              'anchor rendering node filter',
+          )
+          renderer = replace_once(
+              renderer,
+              "fill={\n                      port.direction === 'input' ? '#f59e0b' : '#0f766e'\n                    }",
+              "fill=\"#475569\"",
+              'neutral anchor fill',
+          )
+          renderer = replace_once(
+              renderer,
+              "const tooltipText = hoveredPort\n    ? `${hoveredPort.title} · ${\n        hoveredPort.direction === 'input'\n          ? '输入'\n          : hoveredPort.direction === 'output'\n            ? '输出'\n            : '双向'\n      }`\n    : ''",
+              "const tooltipText = hoveredPort ? hoveredPort.title : ''",
+              'neutral anchor tooltip',
+          )
+          renderer_path.write_text(renderer)
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Commit verified migration
+        shell: bash
+        run: |
+          rm .github/workflows/m23a-generic-anchor-patch.yml
+          git config user.name "scada-editor-bot"
+          git config user.email "scada-editor-bot@users.noreply.github.com"
+          git add src/App.tsx src/renderer/SceneRenderer.tsx .github/workflows
+          git commit -m "feat: render generic visual anchors"
+          git push origin "HEAD:${{ github.head_ref }}"
