@@ -595,11 +595,11 @@ export function SceneRenderer({
     : []
   const darkBackground = isDarkBackground(scene.background)
   const minorGridStroke = darkBackground
-    ? 'rgba(203, 213, 225, 0.20)'
-    : 'rgba(100, 116, 139, 0.18)'
+    ? 'rgba(203, 213, 225, 0.16)'
+    : 'rgba(100, 116, 139, 0.14)'
   const majorGridStroke = darkBackground
-    ? 'rgba(56, 189, 248, 0.42)'
-    : 'rgba(37, 99, 235, 0.30)'
+    ? 'rgba(148, 163, 184, 0.28)'
+    : 'rgba(71, 85, 105, 0.22)'
 
   return (
     <div
@@ -667,7 +667,7 @@ export function SceneRenderer({
               key={`grid-x-${x}`}
               points={[x, 0, x, viewport.height]}
               stroke={index % 5 === 0 ? majorGridStroke : minorGridStroke}
-              strokeWidth={index % 5 === 0 ? 1 : 0.6}
+              strokeWidth={index % 5 === 0 ? 0.8 : 0.5}
               perfectDrawEnabled={false}
             />
           ))}
@@ -677,7 +677,7 @@ export function SceneRenderer({
               key={`grid-y-${y}`}
               points={[0, y, viewport.width, y]}
               stroke={index % 5 === 0 ? majorGridStroke : minorGridStroke}
-              strokeWidth={index % 5 === 0 ? 1 : 0.6}
+              strokeWidth={index % 5 === 0 ? 0.8 : 0.5}
               perfectDrawEnabled={false}
             />
           ))}
