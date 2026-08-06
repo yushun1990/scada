@@ -46,12 +46,14 @@ export type ConnectionEndpoint = {
   portId: string
 }
 
+export type ConnectionRouting = 'straight' | 'orthogonal'
+
 export type SceneConnection = {
   id: string
   name: string
   source: ConnectionEndpoint
   target: ConnectionEndpoint
-  routing: 'straight'
+  routing: ConnectionRouting
   style: {
     stroke: string
     strokeWidth: number
@@ -140,7 +142,7 @@ export function createSceneConnection(
     name: `连接 ${index}`,
     source,
     target,
-    routing: 'straight',
+    routing: 'orthogonal',
     style: {
       stroke: '#0f766e',
       strokeWidth: 4,
