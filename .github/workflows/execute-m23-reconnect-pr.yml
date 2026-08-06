@@ -119,10 +119,9 @@ jobs:
                   adjusted_indent = max(0, indentation(line) + offset)
                   adjusted.append(' ' * adjusted_indent + line.lstrip(' '))
 
-              replacement = adjusted
-              text_lines[start:start + len(old_lines)] = replacement
-              result = '\n'.join(text_lines)
-              return result + ('\n' if text.endswith('\n') else '')'''
+              text_lines[start:start + len(old_lines)] = adjusted
+              result = chr(10).join(text_lines)
+              return result + (chr(10) if text.endswith(chr(10)) else '')'''
 
           if original_helper not in normalized:
               raise RuntimeError('Unable to replace embedded patch helper')
