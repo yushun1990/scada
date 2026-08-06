@@ -84,6 +84,12 @@ jobs:
           )
           renderer = replace_once(
               renderer,
+              "if (!isPumpNode(node) || !affectedNodeIds.has(node.id))",
+              "if (isGroupNode(node) || !affectedNodeIds.has(node.id))",
+              'anchor refresh node filter',
+          )
+          renderer = replace_once(
+              renderer,
               "if (!isPumpNode(node) || !isNodeEffectivelyVisible(scene, node))",
               "if (isGroupNode(node) || !isNodeEffectivelyVisible(scene, node))",
               'reconnect candidate node filter',
