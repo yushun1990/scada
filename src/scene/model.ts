@@ -1,7 +1,8 @@
 import type { PumpState } from '../assets/pump'
 
-export const SCENE_VERSION = 1 as const
+export const SCENE_VERSION = 2 as const
 export const PUMP_NODE_TYPE = 'pump.submersible' as const
+export const GROUP_NODE_TYPE = 'core.group' as const
 export const PUMP_ASPECT_RATIO = 512 / 720
 
 export type NodeTransform = {
@@ -12,21 +13,33 @@ export type NodeTransform = {
   rotation: number
 }
 
-export type PumpSceneNode = {
+type SceneNodeBase = {
   id: string
-  type: typeof PUMP_NODE_TYPE
   name: string
+  parentId: string | null
   visible: boolean
   locked: boolean
   transform: NodeTransform
-  props: {
-    state: PumpState
-  }
   bindings: []
   behaviors: []
 }
 
-export type SceneNode = PumpSceneNode
+export type PumpSceneNode = SceneNodeBase & {
+  type: typeof PUMP_NODE_TYPE
+  props: {
+    state: PumpState
+  }
+}
+
+export type GroupSceneNode = SceneNodeBase & {
+  type: typeof GROUP_NODE_TYPE
+  props: {
+    designWidth: number
+    designHeight: number
+  }
+}
+
+export type SceneNode = PumpSceneNode | GroupSceneNode
 
 export type SceneDocument = {
   version: typeof SCENE_VERSION
@@ -38,18 +51,27 @@ export type SceneDocument = {
   nodes: SceneNode[]
 }
 
-function createId(prefix: string) {
+export function createSceneId(prefix: string) {
   const suffix = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
   return `${prefix}-${suffix}`
+}
+
+export function isPumpNode(node: SceneNode): node is PumpSceneNode {
+  return node.type === PUMP_NODE_TYPE
+}
+
+export function isGroupNode(node: SceneNode): node is GroupSceneNode {
+  return node.type === GROUP_NODE_TYPE
 }
 
 export function createPumpNode(index: number, offset = 0): PumpSceneNode {
   const width = 256
 
   return {
-    id: createId('pump'),
+    id: createSceneId('pump'),
     type: PUMP_NODE_TYPE,
     name: `潜水泵 ${index}`,
+    parentId: null,
     visible: true,
     locked: false,
     transform: {
@@ -67,32 +89,36 @@ export function createPumpNode(index: number, offset = 0): PumpSceneNode {
   }
 }
 
+export function createGroupNode(
+  index: number,
+  transform: NodeTransform,
+  parentId: string | null = null,
+): GroupSceneNode {
+  return {
+    id: createSceneId('group'),
+    type: GROUP_NODE_TYPE,
+    name: `组合 ${index}`,
+    parentId,
+    visible: true,
+    locked: false,
+    transform,
+    props: {
+      designWidth: transform.width,
+      designHeight: transform.height,
+    },
+    bindings: [],
+    behaviors: [],
+  }
+}
+
 export function createDefaultScene(): SceneDocument {
   return {
     version: SCENE_VERSION,
-    id: createId('scene'),
+    id: createSceneId('scene'),
     name: 'pump-lab',
     width: 1280,
     height: 720,
     background: '#0b1119',
     nodes: [createPumpNode(1)],
-  }
-}
-
-export function cloneSceneNode(node: SceneNode, index: number): SceneNode {
-  return {
-    ...node,
-    id: createId('pump'),
-    name: `${node.name} 副本 ${index}`,
-    transform: {
-      ...node.transform,
-      x: node.transform.x + 24,
-      y: node.transform.y + 24,
-    },
-    props: {
-      ...node.props,
-    },
-    bindings: [],
-    behaviors: [],
   }
 }
