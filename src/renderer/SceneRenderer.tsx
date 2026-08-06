@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import type Konva from 'konva'
-import { Circle, Layer, Line, Rect, Stage, Transformer } from 'react-konva'
+import {
+  Circle,
+  Group,
+  Layer,
+  Line,
+  Rect,
+  Stage,
+  Text,
+  Transformer,
+} from 'react-konva'
 import {
   PUMP_MIN_HEIGHT,
   PUMP_MIN_WIDTH,
 } from '../components/PumpNode'
 import {
   getNodePortDefinitions,
+  getPortDefinition,
   getPortWorldPosition,
   isNodeEffectivelyVisible,
   normalizeConnectionEndpoints,
@@ -24,11 +34,16 @@ import {
 } from '../scene/geometry'
 import { collectSubtreeIds } from '../scene/hierarchy'
 import {
+  getConnectionPreviewRoutePoints,
+  getConnectionRoutePoints,
+} from '../scene/connection-routing'
+import {
   isGroupNode,
   isPumpNode,
   type ConnectionEndpoint,
   type SceneConnection,
   type SceneDocument,
+  type SceneNode,
 } from '../scene/model'
 import { SceneNodeRenderer } from './SceneNodeRenderer'
 
@@ -76,6 +91,14 @@ type DragSession = {
 
 type ConnectionSession = {
   source: ConnectionEndpoint
+}
+
+type HoveredPort = {
+  endpoint: ConnectionEndpoint
+  title: string
+  direction: 'input' | 'output' | 'bidirectional'
+  x: number
+  y: number
 }
 
 const CORNER_ANCHORS = [
@@ -223,21 +246,6 @@ function isDarkBackground(color: string) {
   return luminance < 0.48
 }
 
-function getConnectionPoints(
-  scene: SceneDocument,
-  connection: SceneConnection,
-  overrides: TransformUpdates = {},
-) {
-  const source = getPortWorldPosition(scene, connection.source, overrides)
-  const target = getPortWorldPosition(scene, connection.target, overrides)
-
-  if (!source || !target) {
-    return null
-  }
-
-  return [source.x, source.y, target.x, target.y]
-}
-
 function isConnectionVisible(scene: SceneDocument, connection: SceneConnection) {
   const sourceNode = scene.nodes.find(
     (node) => node.id === connection.source.nodeId,
@@ -256,6 +264,23 @@ function isConnectionVisible(scene: SceneDocument, connection: SceneConnection) 
 
 function portKey(endpoint: ConnectionEndpoint) {
   return `${endpoint.nodeId}::${endpoint.portId}`
+}
+
+function getPreviewTransform(node: SceneNode, group: Konva.Group) {
+  const baseWidth = isGroupNode(node)
+    ? node.props.designWidth
+    : group.width()
+  const baseHeight = isGroupNode(node)
+    ? node.props.designHeight
+    : group.height()
+
+  return {
+    x: group.x(),
+    y: group.y(),
+    width: Math.max(1, baseWidth * Math.abs(group.scaleX())),
+    height: Math.max(1, baseHeight * Math.abs(group.scaleY())),
+    rotation: group.rotation(),
+  }
 }
 
 export function SceneRenderer({
@@ -278,6 +303,8 @@ export function SceneRenderer({
   const verticalGuideRef = useRef<Konva.Line>(null)
   const horizontalGuideRef = useRef<Konva.Line>(null)
   const selectionBoundsRef = useRef<Konva.Rect>(null)
+  const selectedSourceHandleRef = useRef<Konva.Circle>(null)
+  const selectedTargetHandleRef = useRef<Konva.Circle>(null)
   const nodeRefs = useRef(new Map<string, Konva.Group>())
   const connectionRefs = useRef(new Map<string, Konva.Line>())
   const portRefs = useRef(new Map<string, Konva.Circle>())
@@ -287,12 +314,14 @@ export function SceneRenderer({
   const dragPreviewRef = useRef<TransformUpdates>({})
   const dragFrameRef = useRef<number | null>(null)
   const pendingDragTargetRef = useRef<Konva.Node | null>(null)
+  const transformFrameRef = useRef<number | null>(null)
   const marqueeSessionRef = useRef<MarqueeSession | null>(null)
   const connectionSessionRef = useRef<ConnectionSession | null>(null)
   const connectionFrameRef = useRef<number | null>(null)
   const pendingConnectionPointRef = useRef<Point | null>(null)
   const [viewport, setViewport] = useState({ width: 960, height: 640 })
   const [marquee, setMarquee] = useState<MarqueeState | null>(null)
+  const [hoveredPort, setHoveredPort] = useState<HoveredPort | null>(null)
 
   const rootNodes = getRootNodes(scene)
   const selectedNodes = rootNodes.filter((node) =>
@@ -302,6 +331,9 @@ export function SceneRenderer({
     selectedNodes.find(
       (node) => node.id === selectedNodeIds[selectedNodeIds.length - 1],
     ) ?? null
+  const selectedConnection = scene.connections.find(
+    (connection) => connection.id === selectedConnectionId,
+  ) ?? null
 
   useEffect(() => {
     const container = containerRef.current
@@ -331,6 +363,7 @@ export function SceneRenderer({
       marqueeSessionRef.current = null
       connectionSessionRef.current = null
       setMarquee(null)
+      setHoveredPort(null)
       hideConnectionPreview()
       hideGuides()
     }
@@ -341,12 +374,11 @@ export function SceneRenderer({
 
   useEffect(() => {
     return () => {
-      if (dragFrameRef.current !== null) {
-        cancelAnimationFrame(dragFrameRef.current)
-      }
+      cancelScheduledDrag()
+      cancelScheduledConnectionPreview()
 
-      if (connectionFrameRef.current !== null) {
-        cancelAnimationFrame(connectionFrameRef.current)
+      if (transformFrameRef.current !== null) {
+        cancelAnimationFrame(transformFrameRef.current)
       }
     }
   }, [])
@@ -364,6 +396,7 @@ export function SceneRenderer({
     dragSessionRef.current = null
     dragPreviewRef.current = {}
     setMarquee(null)
+    setHoveredPort(null)
     hideConnectionPreview()
     hideGuides()
   }, [mode])
@@ -375,6 +408,7 @@ export function SceneRenderer({
 
     cancelScheduledConnectionPreview()
     connectionSessionRef.current = null
+    setHoveredPort(null)
     hideConnectionPreview()
   }, [connectionMode])
 
@@ -399,11 +433,19 @@ export function SceneRenderer({
         ? [selectedNodeRef]
         : [],
     )
-    dynamicLayerRef.current?.batchDraw()
+    drawDynamicLayer()
   }, [mode, selectedNodeIds, scene.nodes])
 
   function drawDynamicLayer() {
     dynamicLayerRef.current?.batchDraw()
+  }
+
+  function setStageCursor(cursor: string) {
+    const stage = dynamicLayerRef.current?.getStage()
+
+    if (stage) {
+      stage.container().style.cursor = cursor
+    }
   }
 
   function hideGuides() {
@@ -473,12 +515,37 @@ export function SceneRenderer({
         continue
       }
 
-      const points = getConnectionPoints(scene, connection, overrides)
+      const points = getConnectionRoutePoints(scene, connection, overrides)
       line.visible(Boolean(points) && isConnectionVisible(scene, connection))
 
       if (points) {
         line.points(points)
       }
+    }
+  }
+
+  function refreshSelectedConnectionHandles(overrides: TransformUpdates) {
+    if (!selectedConnection) {
+      return
+    }
+
+    const source = getPortWorldPosition(
+      scene,
+      selectedConnection.source,
+      overrides,
+    )
+    const target = getPortWorldPosition(
+      scene,
+      selectedConnection.target,
+      overrides,
+    )
+
+    if (source) {
+      selectedSourceHandleRef.current?.position(source)
+    }
+
+    if (target) {
+      selectedTargetHandleRef.current?.position(target)
     }
   }
 
@@ -560,6 +627,7 @@ export function SceneRenderer({
 
     dragPreviewRef.current = updates
     refreshConnections(updates, affectedNodeIds)
+    refreshSelectedConnectionHandles(updates)
     refreshPorts(updates, affectedNodeIds)
     refreshSelection(updates)
     updateGuides(guides)
@@ -618,6 +686,7 @@ export function SceneRenderer({
 
     clearMarqueeSession()
     clearConnectionSession()
+    setHoveredPort(null)
     const nodeId = findSceneNodeId(target)
 
     if (!nodeId) {
@@ -758,7 +827,7 @@ export function SceneRenderer({
     hideGuides()
   }
 
-  function handleTransformEnd() {
+  function processTransformPreview() {
     if (selectedNodeIds.length !== 1) {
       return
     }
@@ -773,16 +842,49 @@ export function SceneRenderer({
       return
     }
 
+    const updates = { [node.id]: getPreviewTransform(node, group) }
+    const affectedNodeIds = collectSubtreeIds(scene, [node.id])
+    refreshConnections(updates, affectedNodeIds)
+    refreshSelectedConnectionHandles(updates)
+    refreshPorts(updates, affectedNodeIds)
+    drawDynamicLayer()
+  }
+
+  function scheduleTransformPreview() {
+    if (transformFrameRef.current !== null) {
+      return
+    }
+
+    transformFrameRef.current = requestAnimationFrame(() => {
+      transformFrameRef.current = null
+      processTransformPreview()
+    })
+  }
+
+  function handleTransformEnd() {
+    if (transformFrameRef.current !== null) {
+      cancelAnimationFrame(transformFrameRef.current)
+      transformFrameRef.current = null
+    }
+
+    if (selectedNodeIds.length !== 1) {
+      return
+    }
+
+    const nodeId = selectedNodeIds[0]
+    const node = nodeId
+      ? rootNodes.find((candidate) => candidate.id === nodeId)
+      : null
+    const group = nodeId ? nodeRefs.current.get(nodeId) : undefined
+
+    if (!node || !group || node.locked) {
+      return
+    }
+
+    const preview = getPreviewTransform(node, group)
     const aspectRatio = node.transform.width / node.transform.height
     const minimumWidth = isGroupNode(node) ? GROUP_MIN_SIZE : PUMP_MIN_WIDTH
-    const baseWidth = isGroupNode(node)
-      ? node.props.designWidth
-      : group.width()
-    const uniformScale = Math.max(
-      Math.abs(group.scaleX()),
-      Math.abs(group.scaleY()),
-    )
-    const nextWidth = Math.max(minimumWidth, baseWidth * uniformScale)
+    const nextWidth = Math.max(minimumWidth, preview.width)
     const nextHeight = nextWidth / aspectRatio
 
     if (isGroupNode(node)) {
@@ -905,13 +1007,12 @@ export function SceneRenderer({
 
     pendingSelectionRef.current = null
     clearMarqueeSession()
+    setHoveredPort(null)
     connectionSessionRef.current = { source: endpoint }
-    connectionPreviewRef.current?.points([
-      point.x,
-      point.y,
-      point.x,
-      point.y,
-    ])
+    const points = getConnectionPreviewRoutePoints(scene, endpoint, point)
+    connectionPreviewRef.current?.points(
+      points ?? [point.x, point.y, point.x, point.y],
+    )
     connectionPreviewRef.current?.visible(true)
     drawDynamicLayer()
     onSelectionChange([])
@@ -925,18 +1026,13 @@ export function SceneRenderer({
       return
     }
 
-    const source = getPortWorldPosition(scene, session.source)
+    const points = getConnectionPreviewRoutePoints(scene, session.source, point)
 
-    if (!source) {
+    if (!points) {
       return
     }
 
-    connectionPreviewRef.current?.points([
-      source.x,
-      source.y,
-      point.x,
-      point.y,
-    ])
+    connectionPreviewRef.current?.points(points)
     drawDynamicLayer()
   }
 
@@ -1008,6 +1104,36 @@ export function SceneRenderer({
     }
   }
 
+  function handlePortEnter(target: Konva.Circle, endpoint: ConnectionEndpoint) {
+    const node = scene.nodes.find((candidate) => candidate.id === endpoint.nodeId)
+    const port = node ? getPortDefinition(node, endpoint.portId) : null
+    const position = getPortWorldPosition(scene, endpoint)
+
+    if (!port || !position) {
+      return
+    }
+
+    target.radius(9)
+    target.strokeWidth(3)
+    setStageCursor('crosshair')
+    setHoveredPort({
+      endpoint,
+      title: port.title,
+      direction: port.direction,
+      x: position.x,
+      y: position.y,
+    })
+    drawDynamicLayer()
+  }
+
+  function handlePortLeave(target: Konva.Circle) {
+    target.radius(7)
+    target.strokeWidth(2)
+    setStageCursor('default')
+    setHoveredPort(null)
+    drawDynamicLayer()
+  }
+
   const selectionBounds =
     selectedNodeIds.length > 1
       ? getSelectionBounds(scene, selectedNodeIds)
@@ -1043,6 +1169,22 @@ export function SceneRenderer({
   const majorGridStroke = darkBackground
     ? 'rgba(148, 163, 184, 0.28)'
     : 'rgba(71, 85, 105, 0.22)'
+  const selectedSourcePosition = selectedConnection
+    ? getPortWorldPosition(scene, selectedConnection.source)
+    : null
+  const selectedTargetPosition = selectedConnection
+    ? getPortWorldPosition(scene, selectedConnection.target)
+    : null
+  const tooltipText = hoveredPort
+    ? `${hoveredPort.title} · ${
+        hoveredPort.direction === 'input'
+          ? '输入'
+          : hoveredPort.direction === 'output'
+            ? '输出'
+            : '双向'
+      }`
+    : ''
+  const tooltipWidth = Math.max(88, tooltipText.length * 12 + 18)
 
   return (
     <div
@@ -1112,7 +1254,11 @@ export function SceneRenderer({
           }
         }}
         onMouseUp={(event) => handleStageMouseUp(event.target)}
-        onMouseLeave={cancelPointerInteraction}
+        onMouseLeave={() => {
+          setStageCursor('default')
+          setHoveredPort(null)
+          cancelPointerInteraction()
+        }}
         onDragStart={(event) => handleDragStart(event.target)}
         onDragMove={(event) => scheduleDragMove(event.target)}
         onDragEnd={(event) => handleDragEnd(event.target)}
@@ -1147,7 +1293,7 @@ export function SceneRenderer({
 
         <Layer ref={dynamicLayerRef} listening={mode === 'editor'}>
           {scene.connections.map((connection) => {
-            const points = getConnectionPoints(scene, connection)
+            const points = getConnectionRoutePoints(scene, connection)
 
             if (!points || !isConnectionVisible(scene, connection)) {
               return null
@@ -1226,6 +1372,7 @@ export function SceneRenderer({
 
               return newBox
             }}
+            onTransform={scheduleTransformPreview}
             onTransformEnd={handleTransformEnd}
           />
 
@@ -1310,9 +1457,35 @@ export function SceneRenderer({
             strokeWidth={3}
             dash={[8, 6]}
             lineCap="round"
+            lineJoin="round"
             perfectDrawEnabled={false}
             listening={false}
           />
+
+          {selectedSourcePosition && selectedTargetPosition && (
+            <>
+              <Circle
+                ref={selectedSourceHandleRef}
+                x={selectedSourcePosition.x}
+                y={selectedSourcePosition.y}
+                radius={5}
+                fill="#ffffff"
+                stroke="#2563eb"
+                strokeWidth={2}
+                listening={false}
+              />
+              <Circle
+                ref={selectedTargetHandleRef}
+                x={selectedTargetPosition.x}
+                y={selectedTargetPosition.y}
+                radius={5}
+                fill="#2563eb"
+                stroke="#ffffff"
+                strokeWidth={2}
+                listening={false}
+              />
+            </>
+          )}
 
           {mode === 'editor' &&
             connectionMode &&
@@ -1350,10 +1523,39 @@ export function SceneRenderer({
                     strokeWidth={2}
                     hitStrokeWidth={12}
                     perfectDrawEnabled={false}
+                    onMouseEnter={(event) =>
+                      handlePortEnter(event.target as Konva.Circle, endpoint)
+                    }
+                    onMouseLeave={(event) =>
+                      handlePortLeave(event.target as Konva.Circle)
+                    }
                   />
                 )
               })
             })}
+
+          {hoveredPort && (
+            <Group listening={false}>
+              <Rect
+                x={hoveredPort.x + 12}
+                y={hoveredPort.y - 34}
+                width={tooltipWidth}
+                height={26}
+                fill="#0f172a"
+                opacity={0.94}
+                cornerRadius={5}
+              />
+              <Text
+                x={hoveredPort.x + 20}
+                y={hoveredPort.y - 28}
+                width={tooltipWidth - 16}
+                text={tooltipText}
+                fill="#f8fafc"
+                fontSize={12}
+                listening={false}
+              />
+            </Group>
+          )}
         </Layer>
       </Stage>
 
@@ -1366,7 +1568,7 @@ export function SceneRenderer({
             : '预览模式'}
         </span>
         {selectedConnectionId ? (
-          <code>connection selected</code>
+          <code>{selectedConnection?.routing ?? 'connection'} selected</code>
         ) : selectedNodeIds.length > 1 ? (
           <code>{selectedNodeIds.length} selected</code>
         ) : primaryNode ? (
