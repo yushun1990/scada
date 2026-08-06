@@ -24,10 +24,13 @@ import {
 import {
   createDefaultScene,
   createPumpNode,
+  createSceneConnection,
   isGroupNode,
   isPumpNode,
   PUMP_ASPECT_RATIO,
+  type ConnectionEndpoint,
   type NodeTransform,
+  type SceneConnection,
   type SceneDocument,
   type SceneNode,
 } from './scene/model'
@@ -37,8 +40,11 @@ import {
   type RendererMode,
 } from './renderer/SceneRenderer'
 
-const STORAGE_KEY = 'scada-editor-lab.scene.v2'
-const LEGACY_STORAGE_KEY = 'scada-editor-lab.scene.v1'
+const STORAGE_KEY = 'scada-editor-lab.scene.v3'
+const LEGACY_STORAGE_KEYS = [
+  'scada-editor-lab.scene.v2',
+  'scada-editor-lab.scene.v1',
+]
 
 type InspectorTab = 'base' | 'properties' | 'actions' | 'events'
 
@@ -69,10 +75,26 @@ function getInitialSelectedIds(scene: SceneDocument) {
   return firstRoot ? [firstRoot.id] : []
 }
 
+function getSavedScene() {
+  const current = window.localStorage.getItem(STORAGE_KEY)
+
+  if (current) {
+    return current
+  }
+
+  for (const key of LEGACY_STORAGE_KEYS) {
+    const legacy = window.localStorage.getItem(key)
+
+    if (legacy) {
+      return legacy
+    }
+  }
+
+  return null
+}
+
 function loadInitialScene() {
-  const savedScene =
-    window.localStorage.getItem(STORAGE_KEY) ??
-    window.localStorage.getItem(LEGACY_STORAGE_KEY)
+  const savedScene = getSavedScene()
 
   if (!savedScene) {
     return createDefaultScene()
@@ -91,7 +113,9 @@ function App() {
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(
     getInitialSelectedIds(scene),
   )
-  const [message, setMessage] = useState('M2.2 吸附策略已收敛')
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
+  const [connectionMode, setConnectionMode] = useState(false)
+  const [message, setMessage] = useState('M2.3 端口与直线连接已启用')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('base')
   const [gridVisible, setGridVisible] = useState(true)
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({
@@ -108,6 +132,9 @@ function App() {
     .map((nodeId) => rootNodes.find((node) => node.id === nodeId))
     .filter((node): node is SceneNode => Boolean(node))
   const primaryNode = selectedNodes[selectedNodes.length - 1] ?? null
+  const selectedConnection = scene.connections.find(
+    (connection) => connection.id === selectedConnectionId,
+  ) ?? null
 
   const selectedSubtreeIds = collectSubtreeIds(scene, selectedNodeIds)
   const selectedPumpNodes = scene.nodes.filter(
@@ -123,6 +150,24 @@ function App() {
   const canUngroup =
     selectedNodes.length === 1 &&
     Boolean(primaryNode && isGroupNode(primaryNode))
+  const hasSelection = selectedNodes.length > 0 || Boolean(selectedConnection)
+
+  function selectNodes(nodeIds: string[]) {
+    setSelectedNodeIds(nodeIds)
+
+    if (nodeIds.length > 0) {
+      setSelectedConnectionId(null)
+    }
+  }
+
+  function selectConnection(connectionId: string | null) {
+    setSelectedConnectionId(connectionId)
+
+    if (connectionId) {
+      setSelectedNodeIds([])
+      setInspectorTab('base')
+    }
+  }
 
   function updateNode(
     nodeId: string,
@@ -132,6 +177,18 @@ function App() {
       ...current,
       nodes: current.nodes.map((node) =>
         node.id === nodeId ? updater(node) : node,
+      ),
+    }))
+  }
+
+  function updateConnection(
+    connectionId: string,
+    updater: (connection: SceneConnection) => SceneConnection,
+  ) {
+    setScene((current) => ({
+      ...current,
+      connections: current.connections.map((connection) =>
+        connection.id === connectionId ? updater(connection) : connection,
       ),
     }))
   }
@@ -166,6 +223,7 @@ function App() {
       nodes: [...current.nodes, node],
     }))
     setSelectedNodeIds([node.id])
+    setSelectedConnectionId(null)
     setMode('editor')
     setInspectorTab('base')
     setMessage(`已添加 ${node.name}`)
@@ -179,17 +237,30 @@ function App() {
     const result = cloneSceneSubtrees(scene, selectedNodeIds)
     setScene(result.scene)
     setSelectedNodeIds(result.rootIds)
-    setMessage(`已复制 ${result.rootIds.length} 个根节点`)
+    setSelectedConnectionId(null)
+    setMessage(`已复制 ${result.rootIds.length} 个根节点及其内部连线`)
   }
 
-  function deleteSelectedNodes() {
+  function deleteSelection() {
+    if (selectedConnection) {
+      setScene((current) => ({
+        ...current,
+        connections: current.connections.filter(
+          (connection) => connection.id !== selectedConnection.id,
+        ),
+      }))
+      setSelectedConnectionId(null)
+      setMessage(`已删除连线 ${selectedConnection.name}`)
+      return
+    }
+
     if (selectedNodes.length === 0) {
       return
     }
 
     setScene(deleteSceneNodes(scene, selectedNodeIds))
     setSelectedNodeIds([])
-    setMessage(`已删除 ${selectedNodes.length} 个选中节点及其子节点`)
+    setMessage(`已删除 ${selectedNodes.length} 个选中节点及关联连线`)
   }
 
   function groupSelectedNodes() {
@@ -206,8 +277,9 @@ function App() {
 
     setScene(result.scene)
     setSelectedNodeIds([result.groupId])
+    setSelectedConnectionId(null)
     setInspectorTab('base')
-    setMessage('已将选中组件组合为一个持久化分组')
+    setMessage('已组合节点，现有连线端点保持附着')
   }
 
   function ungroupSelectedNode() {
@@ -218,8 +290,42 @@ function App() {
     const result = ungroupSceneNode(scene, primaryNode.id)
     setScene(result.scene)
     setSelectedNodeIds(result.childIds)
+    setSelectedConnectionId(null)
     setInspectorTab('base')
-    setMessage(`已拆分组合，恢复 ${result.childIds.length} 个直接子节点`)
+    setMessage(`已拆分组合，连线仍引用原始子组件端口`)
+  }
+
+  function createConnection(
+    source: ConnectionEndpoint,
+    target: ConnectionEndpoint,
+  ) {
+    const duplicate = scene.connections.some(
+      (connection) =>
+        connection.source.nodeId === source.nodeId &&
+        connection.source.portId === source.portId &&
+        connection.target.nodeId === target.nodeId &&
+        connection.target.portId === target.portId,
+    )
+
+    if (duplicate) {
+      setMessage('这两个端口之间已经存在连接')
+      return
+    }
+
+    const connection = createSceneConnection(
+      scene.connections.length + 1,
+      source,
+      target,
+    )
+
+    setScene((current) => ({
+      ...current,
+      connections: [...current.connections, connection],
+    }))
+    setSelectedNodeIds([])
+    setSelectedConnectionId(connection.id)
+    setInspectorTab('base')
+    setMessage(`已创建 ${connection.name}`)
   }
 
   function resetSelectedTransforms() {
@@ -245,7 +351,7 @@ function App() {
     })
 
     updateNodeTransforms(updates)
-    setMessage('已重置选中节点')
+    setMessage('已重置选中节点，连线端点同步更新')
   }
 
   function setSelectedPumpState(state: PumpState) {
@@ -346,13 +452,11 @@ function App() {
 
   function saveScene() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scene))
-    setMessage('场景已保存到浏览器')
+    setMessage('v3 场景已保存到浏览器')
   }
 
   function restoreScene() {
-    const savedScene =
-      window.localStorage.getItem(STORAGE_KEY) ??
-      window.localStorage.getItem(LEGACY_STORAGE_KEY)
+    const savedScene = getSavedScene()
 
     if (!savedScene) {
       setMessage('浏览器中没有已保存场景')
@@ -363,6 +467,7 @@ function App() {
       const restoredScene = parseSceneDocument(savedScene)
       setScene(restoredScene)
       setSelectedNodeIds(getInitialSelectedIds(restoredScene))
+      setSelectedConnectionId(null)
       setMessage('已恢复浏览器场景')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '场景恢复失败')
@@ -394,7 +499,9 @@ function App() {
       const importedScene = parseSceneDocument(await file.text())
       setScene(importedScene)
       setSelectedNodeIds(getInitialSelectedIds(importedScene))
+      setSelectedConnectionId(null)
       setMode('editor')
+      setConnectionMode(false)
       setMessage(`已导入 ${file.name}`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '场景导入失败')
@@ -411,7 +518,7 @@ function App() {
       <header className="editor-header">
         <div className="brand-block">
           <strong>SCADA Editor Lab</strong>
-          <span>M2.2 · 组合、格线与基础编辑</span>
+          <span>M2.3 · 端口与可视连线</span>
         </div>
 
         <div className="header-actions">
@@ -429,7 +536,9 @@ function App() {
               className={mode === 'preview' ? 'active' : ''}
               onClick={() => {
                 setMode('preview')
+                setConnectionMode(false)
                 setSelectedNodeIds([])
+                setSelectedConnectionId(null)
               }}
             >
               预览
@@ -473,8 +582,8 @@ function App() {
             </button>
             <button
               type="button"
-              disabled={selectedNodes.length === 0}
-              onClick={deleteSelectedNodes}
+              disabled={!hasSelection}
+              onClick={deleteSelection}
             >
               删除
             </button>
@@ -493,6 +602,25 @@ function App() {
               拆分
             </button>
           </div>
+
+          <div className="panel-title section-title">连线</div>
+          <button
+            type="button"
+            className={`connection-mode-button${connectionMode ? ' active' : ''}`}
+            onClick={() => {
+              setMode('editor')
+              setConnectionMode((current) => !current)
+            }}
+          >
+            {connectionMode ? '退出连线模式' : '进入连线模式'}
+          </button>
+          <div className="connection-legend">
+            <span><i className="port-dot input" />进水口</span>
+            <span><i className="port-dot output" />出水口</span>
+          </div>
+          <p className="panel-description connection-help">
+            从任意端口拖到兼容端口建立连接。端点引用组件端口，移动、旋转、组合或拆分后会自动跟随。
+          </p>
 
           <div className="panel-title section-title">对齐</div>
           <div className="arrange-grid">
@@ -565,7 +693,7 @@ function App() {
               />
             </label>
             <p className="panel-description">
-              组件边缘与中心线吸附始终开启，不需要单独配置。
+              组件边缘与中心线吸附始终开启。
             </p>
           </div>
 
@@ -592,26 +720,36 @@ function App() {
           />
 
           <div className="milestone-card">
-            <strong>M2.2 当前能力</strong>
-            <span>组件吸附作为固定编辑器能力</span>
-            <span>格线显示与网格吸附相互独立</span>
-            <span>组合公共属性作用到兼容子组件</span>
-            <span>拆分后保持当前世界位置</span>
+            <strong>M2.3 当前切片</strong>
+            <span>归一化进水口与出水口</span>
+            <span>端口拖拽建立直线连接</span>
+            <span>连线选择、删除与样式设置</span>
+            <span>组合和变换后端点自动跟随</span>
           </div>
         </aside>
 
         <section className="canvas-area" aria-label="SCADA 编辑画布">
           <div className="canvas-toolbar">
-            <span>{scene.name} / {rootNodes.length} root nodes / {scene.nodes.length} total</span>
-            <span>组件吸附始终开启 · Shift/Ctrl 多选 · 空白拖动框选</span>
+            <span>
+              {scene.name} / {rootNodes.length} root / {scene.nodes.length} nodes / {scene.connections.length} connections
+            </span>
+            <span>
+              {connectionMode
+                ? '拖动端口建立连接 · 橙色输入 · 绿色输出'
+                : '组件吸附始终开启 · Shift/Ctrl 多选 · 空白拖动框选'}
+            </span>
           </div>
           <SceneRenderer
             scene={scene}
             mode={mode}
             selectedNodeIds={selectedNodeIds}
+            selectedConnectionId={selectedConnectionId}
+            connectionMode={connectionMode}
             snapSettings={snapSettings}
             gridVisible={gridVisible}
-            onSelectionChange={setSelectedNodeIds}
+            onSelectionChange={selectNodes}
+            onConnectionSelectionChange={selectConnection}
+            onCreateConnection={createConnection}
             onTransformNodes={updateNodeTransforms}
           />
         </section>
@@ -635,11 +773,94 @@ function App() {
             ))}
           </div>
 
-          {inspectorTab === 'base' && (
+          {inspectorTab === 'base' && selectedConnection && (
+            <>
+              <div className="panel-title">连线属性</div>
+              <label className="property-field">
+                <span>名称</span>
+                <input
+                  value={selectedConnection.name}
+                  onChange={(event) => {
+                    const name = event.target.value
+                    updateConnection(selectedConnection.id, (connection) => ({
+                      ...connection,
+                      name,
+                    }))
+                  }}
+                />
+              </label>
+              <label className="property-field">
+                <span>颜色</span>
+                <input
+                  className="color-input"
+                  type="color"
+                  value={selectedConnection.style.stroke}
+                  onChange={(event) => {
+                    const stroke = event.target.value
+                    updateConnection(selectedConnection.id, (connection) => ({
+                      ...connection,
+                      style: { ...connection.style, stroke },
+                    }))
+                  }}
+                />
+              </label>
+              <label className="property-field">
+                <span>线宽</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="24"
+                  value={selectedConnection.style.strokeWidth}
+                  onChange={(event) => {
+                    const strokeWidth = Number(event.target.value)
+
+                    if (Number.isFinite(strokeWidth) && strokeWidth > 0) {
+                      updateConnection(selectedConnection.id, (connection) => ({
+                        ...connection,
+                        style: { ...connection.style, strokeWidth },
+                      }))
+                    }
+                  }}
+                />
+              </label>
+              <label className="property-field">
+                <span>线型</span>
+                <select
+                  value={selectedConnection.style.dash}
+                  onChange={(event) => {
+                    const dash = event.target.value as 'solid' | 'dashed'
+                    updateConnection(selectedConnection.id, (connection) => ({
+                      ...connection,
+                      style: { ...connection.style, dash },
+                    }))
+                  }}
+                >
+                  <option value="solid">实线</option>
+                  <option value="dashed">虚线</option>
+                </select>
+              </label>
+              <div className="property-summary">
+                <div>
+                  <span>起点</span>
+                  <code>{selectedConnection.source.nodeId} / {selectedConnection.source.portId}</code>
+                </div>
+                <div>
+                  <span>终点</span>
+                  <code>{selectedConnection.target.nodeId} / {selectedConnection.target.portId}</code>
+                </div>
+                <div>
+                  <span>路由</span>
+                  <code>{selectedConnection.routing}</code>
+                </div>
+              </div>
+            </>
+          )}
+
+          {inspectorTab === 'base' && !selectedConnection && (
             <>
               <div className="panel-title">基础属性</div>
               {selectedNodes.length === 0 ? (
-                <p className="empty-selection">请选择一个或多个节点。</p>
+                <p className="empty-selection">请选择组件、组合或连线。</p>
               ) : selectedNodes.length > 1 ? (
                 <>
                   <div className="selection-summary">
@@ -740,13 +961,20 @@ function App() {
             </>
           )}
 
-          {inspectorTab === 'properties' && (
+          {inspectorTab === 'properties' && selectedConnection && (
+            <div className="inspector-placeholder">
+              <strong>可视连线不是组件 Property</strong>
+              <span>颜色、线宽和路由属于场景几何样式，在“基础”页编辑。</span>
+            </div>
+          )}
+
+          {inspectorTab === 'properties' && !selectedConnection && (
             <>
               <div className="panel-title">组件公共属性</div>
               {selectedPumpNodes.length === 0 ? (
                 <div className="inspector-placeholder">
                   <strong>当前选择范围没有兼容的水泵属性</strong>
-                  <span>后续组件注册表会在这里计算不同类型之间的公共属性交集。</span>
+                  <span>后续组件注册表会计算不同类型之间的公共属性交集。</span>
                 </div>
               ) : (
                 <>
