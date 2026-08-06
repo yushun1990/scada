@@ -27,6 +27,35 @@ jobs:
         if: github.head_ref == 'agent/m0-m1-workbench-viewport'
         run: python scripts/apply_workbench_viewport.py
 
+      - name: Complete workbench toolbar
+        if: github.head_ref == 'agent/m0-m1-workbench-viewport'
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/App.tsx')
+          text = path.read_text()
+          marker = '''            <button
+              type="button"
+              className="tool-button"
+              disabled={!hasSelection}
+              onClick={deleteSelection}
+            >
+              删除
+            </button>'''
+          addition = marker + '''
+            <button
+              type="button"
+              className="tool-button optional-tool"
+              disabled={selectedNodes.length === 0}
+              onClick={resetSelectedTransforms}
+            >
+              重置
+            </button>'''
+          if text.count(marker) != 1:
+              raise RuntimeError('delete toolbar command not found exactly once')
+          path.write_text(text.replace(marker, addition, 1))
+
       - name: Install dependencies
         run: npm install
 
