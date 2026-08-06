@@ -1,3 +1,4 @@
+// Editor-only viewport geometry. These values are never serialized into SceneDocument.
 export const MIN_VIEWPORT_SCALE = 0.1
 export const MAX_VIEWPORT_SCALE = 8
 export const VIEWPORT_ZOOM_FACTOR = 1.15
