@@ -649,45 +649,8 @@ function App() {
 
         <section className="canvas-area" aria-label="SCADA 编辑画布">
           <div className="canvas-toolbar">
-            <div className="canvas-toolbar-summary">
-              <strong>{scene.name}</strong>
-              <span>{scene.width} × {scene.height}</span>
-              <span>{scene.nodes.length} 个组件</span>
-              <span>{scene.connections.length} 条连线</span>
-            </div>
-
-            <div className="canvas-tool-strip" role="toolbar" aria-label="绘图工具">
-              <div className="canvas-tool-group" aria-label="对齐">
-                {alignButtons.map((item) => (
-                  <button
-                    key={item.mode}
-                    type="button"
-                    title={item.title}
-                    disabled={selectedNodes.length < 2}
-                    onClick={() => applyAlignment(item.mode)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  title="水平均匀分布"
-                  disabled={selectedNodes.length < 3}
-                  onClick={() => applyDistribution('horizontal')}
-                >
-                  水平分布
-                </button>
-                <button
-                  type="button"
-                  title="垂直均匀分布"
-                  disabled={selectedNodes.length < 3}
-                  onClick={() => applyDistribution('vertical')}
-                >
-                  垂直分布
-                </button>
-              </div>
-
-              <div className="canvas-tool-group view-tool-group" aria-label="视图与网格">
+            <div className="canvas-tool-strip" role="toolbar" aria-label="视图与网格">
+              <div className="canvas-tool-group view-tool-group">
                 <label className="canvas-toggle">
                   <input
                     type="checkbox"
@@ -727,10 +690,6 @@ function App() {
                 </label>
               </div>
             </div>
-
-            <span className="canvas-toolbar-hint">
-              靠近组件锚点后直接拖动即可连线 · Space 或中键平移
-            </span>
           </div>
           <SceneRenderer
             scene={scene}
@@ -748,54 +707,109 @@ function App() {
         </section>
 
         <aside className="property-panel">
-          <section className="base-inspector" aria-label="基础设置">
+          <section className="base-inspector" aria-label="基础操作">
             <div className="inspector-section-header">
               <div>
                 <strong>基础</strong>
                 <span>
                   {selectedConnection
-                    ? '连线几何与样式'
+                    ? '连线操作'
                     : selectedNodes.length > 0
                       ? `${selectedNodes.length} 个对象`
-                      : '场景信息'}
+                      : '未选择对象'}
                 </span>
-              </div>
-
-              <div className="base-command-row" role="toolbar" aria-label="选择操作">
-                <button
-                  type="button"
-                  disabled={selectedNodes.length === 0}
-                  onClick={duplicateSelectedNodes}
-                >
-                  复制
-                </button>
-                <button
-                  type="button"
-                  disabled={!hasSelection}
-                  onClick={deleteSelection}
-                >
-                  删除
-                </button>
-                <button
-                  type="button"
-                  disabled={selectedNodes.length === 0}
-                  onClick={resetSelectedTransforms}
-                >
-                  重置
-                </button>
-                <button type="button" disabled={!canGroup} onClick={groupSelectedNodes}>
-                  组合
-                </button>
-                <button type="button" disabled={!canUngroup} onClick={ungroupSelectedNode}>
-                  拆分
-                </button>
               </div>
             </div>
 
-            {selectedConnection ? (
-              <div className="base-group-list">
+            <div className="base-operation-list">
+              <fieldset className="inspector-group">
+                <legend>操作</legend>
+                <div className="base-command-row" role="toolbar" aria-label="对象操作">
+                  <button
+                    type="button"
+                    disabled={selectedNodes.length === 0}
+                    onClick={duplicateSelectedNodes}
+                  >
+                    复制
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!hasSelection}
+                    onClick={deleteSelection}
+                  >
+                    删除
+                  </button>
+                  <button
+                    type="button"
+                    disabled={selectedNodes.length === 0}
+                    onClick={resetSelectedTransforms}
+                  >
+                    重置
+                  </button>
+                  <button type="button" disabled={!canGroup} onClick={groupSelectedNodes}>
+                    组合
+                  </button>
+                  <button type="button" disabled={!canUngroup} onClick={ungroupSelectedNode}>
+                    拆分
+                  </button>
+                </div>
+              </fieldset>
+
+              <fieldset className="inspector-group">
+                <legend>对齐与分布</legend>
+                <div className="base-align-grid">
+                  {alignButtons.map((item) => (
+                    <button
+                      key={item.mode}
+                      type="button"
+                      title={item.title}
+                      disabled={selectedNodes.length < 2}
+                      onClick={() => applyAlignment(item.mode)}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={selectedNodes.length < 3}
+                    onClick={() => applyDistribution('horizontal')}
+                  >
+                    水平分布
+                  </button>
+                  <button
+                    type="button"
+                    disabled={selectedNodes.length < 3}
+                    onClick={() => applyDistribution('vertical')}
+                  >
+                    垂直分布
+                  </button>
+                </div>
+              </fieldset>
+            </div>
+          </section>
+
+          <section className="semantic-inspector" aria-label="对象配置">
+            <div className="inspector-tabs" role="tablist" aria-label="对象配置检查器">
+              {([
+                ['properties', '属性'],
+                ['actions', '方法'],
+                ['events', '事件'],
+              ] as Array<[InspectorTab, string]>).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={inspectorTab === tab ? 'active' : ''}
+                  onClick={() => setInspectorTab(tab)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {inspectorTab === 'properties' && selectedConnection && (
+              <div className="property-section-list">
                 <fieldset className="inspector-group">
-                  <legend>连线</legend>
+                  <legend>标识与路径</legend>
                   <label className="property-field">
                     <span>名称</span>
                     <input
@@ -894,17 +908,21 @@ function App() {
                   </div>
                 </div>
               </div>
-            ) : selectedNodes.length === 0 ? (
+            )}
+
+            {inspectorTab === 'properties' && !selectedConnection && selectedNodes.length === 0 && (
               <div className="scene-inspector-summary">
                 <div><span>场景</span><code>{scene.name}</code></div>
                 <div><span>尺寸</span><code>{scene.width} × {scene.height}</code></div>
                 <div><span>背景</span><code>{scene.background}</code></div>
                 <div><span>扩展</span><code>组件越界时自动向右/向下扩展</code></div>
               </div>
-            ) : selectedNodes.length > 1 ? (
-              <div className="base-group-list">
+            )}
+
+            {inspectorTab === 'properties' && !selectedConnection && selectedNodes.length > 1 && (
+              <div className="property-section-list">
                 <fieldset className="inspector-group">
-                  <legend>选择</legend>
+                  <legend>批量属性</legend>
                   <div className="selection-summary">
                     已选择 <strong>{selectedNodes.length}</strong> 个根节点。
                   </div>
@@ -929,9 +947,43 @@ function App() {
                     <span>全部锁定</span>
                   </label>
                 </fieldset>
+
+                {selectedPumpNodes.length > 0 && (
+                  <fieldset className="inspector-group">
+                    <legend>组件状态</legend>
+                    <div className="property-scope">
+                      当前范围包含 <strong>{selectedPumpNodes.length}</strong> 个水泵。
+                      {selectedGroupCount > 0 && (
+                        <span>修改会递归应用到组合内的真实子组件。</span>
+                      )}
+                    </div>
+                    <div className="state-list">
+                      {pumpStates.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`state-button${selectedPumpNodes.every((node) => node.props.state === item.id) ? ' active' : ''}`}
+                          onClick={() => setSelectedPumpState(item.id)}
+                        >
+                          <span
+                            className="state-swatch"
+                            style={{ backgroundColor: item.swatch }}
+                            aria-hidden="true"
+                          />
+                          <span>
+                            <strong>{item.name}</strong>
+                            <small>{item.description}</small>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
               </div>
-            ) : primaryNode ? (
-              <div className="base-group-list">
+            )}
+
+            {inspectorTab === 'properties' && !selectedConnection && primaryNode && (
+              <div className="property-section-list">
                 <fieldset className="inspector-group">
                   <legend>标识</legend>
                   <label className="property-field">
@@ -993,51 +1045,10 @@ function App() {
                     <span>锁定</span>
                   </label>
                 </fieldset>
-              </div>
-            ) : null}
-          </section>
 
-          <section className="semantic-inspector" aria-label="组件语义">
-            <div className="inspector-tabs" role="tablist" aria-label="组件语义检查器">
-              {([
-                ['properties', '属性'],
-                ['actions', '方法'],
-                ['events', '事件'],
-              ] as Array<[InspectorTab, string]>).map(([tab, label]) => (
-                <button
-                  key={tab}
-                  type="button"
-                  className={inspectorTab === tab ? 'active' : ''}
-                  onClick={() => setInspectorTab(tab)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {inspectorTab === 'properties' && selectedConnection && (
-              <div className="inspector-placeholder">
-                <strong>连线没有组件属性</strong>
-                <span>连线几何和样式统一在上方“基础”区域编辑。</span>
-              </div>
-            )}
-
-            {inspectorTab === 'properties' && !selectedConnection && (
-              <>
-                <div className="panel-title">组件公共属性</div>
-                {selectedPumpNodes.length === 0 ? (
-                  <div className="inspector-placeholder">
-                    <strong>当前选择没有可编辑的公共属性</strong>
-                    <span>后续由组件注册表计算不同组件类型之间的公共属性交集。</span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="property-scope">
-                      当前范围包含 <strong>{selectedPumpNodes.length}</strong> 个水泵。
-                      {selectedGroupCount > 0 && (
-                        <span>修改会递归应用到组合内的真实子组件。</span>
-                      )}
-                    </div>
+                {selectedPumpNodes.length > 0 && (
+                  <fieldset className="inspector-group">
+                    <legend>组件状态</legend>
                     <div className="state-list">
                       {pumpStates.map((item) => (
                         <button
@@ -1058,9 +1069,9 @@ function App() {
                         </button>
                       ))}
                     </div>
-                  </>
+                  </fieldset>
                 )}
-              </>
+              </div>
             )}
 
             {inspectorTab === 'actions' && (
