@@ -35,11 +35,11 @@ jobs:
 
           path = Path('src/App.tsx')
           text = path.read_text()
+          toolbar_start = text.index('<div className="editor-toolbar"')
+          toolbar_end = text.index('</div>\n\n        <div className="header-actions">', toolbar_start)
           click_marker = 'onClick={deleteSelection}'
-          if text.count(click_marker) != 1:
-              raise RuntimeError('delete toolbar command not found exactly once')
-          marker_index = text.index(click_marker)
-          button_end = text.index('</button>', marker_index) + len('</button>')
+          marker_index = text.index(click_marker, toolbar_start, toolbar_end)
+          button_end = text.index('</button>', marker_index, toolbar_end) + len('</button>')
           addition = '''
             <button
               type="button"
