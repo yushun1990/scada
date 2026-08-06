@@ -1,6 +1,6 @@
 import type { PumpState } from '../assets/pump'
 
-export const SCENE_VERSION = 2 as const
+export const SCENE_VERSION = 3 as const
 export const PUMP_NODE_TYPE = 'pump.submersible' as const
 export const GROUP_NODE_TYPE = 'core.group' as const
 export const PUMP_ASPECT_RATIO = 512 / 720
@@ -41,6 +41,24 @@ export type GroupSceneNode = SceneNodeBase & {
 
 export type SceneNode = PumpSceneNode | GroupSceneNode
 
+export type ConnectionEndpoint = {
+  nodeId: string
+  portId: string
+}
+
+export type SceneConnection = {
+  id: string
+  name: string
+  source: ConnectionEndpoint
+  target: ConnectionEndpoint
+  routing: 'straight'
+  style: {
+    stroke: string
+    strokeWidth: number
+    dash: 'solid' | 'dashed'
+  }
+}
+
 export type SceneDocument = {
   version: typeof SCENE_VERSION
   id: string
@@ -49,6 +67,7 @@ export type SceneDocument = {
   height: number
   background: string
   nodes: SceneNode[]
+  connections: SceneConnection[]
 }
 
 export function createSceneId(prefix: string) {
@@ -111,6 +130,25 @@ export function createGroupNode(
   }
 }
 
+export function createSceneConnection(
+  index: number,
+  source: ConnectionEndpoint,
+  target: ConnectionEndpoint,
+): SceneConnection {
+  return {
+    id: createSceneId('connection'),
+    name: `连接 ${index}`,
+    source,
+    target,
+    routing: 'straight',
+    style: {
+      stroke: '#0f766e',
+      strokeWidth: 4,
+      dash: 'solid',
+    },
+  }
+}
+
 export function createDefaultScene(): SceneDocument {
   return {
     version: SCENE_VERSION,
@@ -120,5 +158,6 @@ export function createDefaultScene(): SceneDocument {
     height: 720,
     background: '#edf1f5',
     nodes: [createPumpNode(1)],
+    connections: [],
   }
 }
