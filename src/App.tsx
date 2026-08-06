@@ -6,6 +6,11 @@ import {
 } from 'react'
 import type { PumpState } from './assets/pump'
 import {
+  hasDuplicateConnection,
+  reconnectSceneConnection,
+  type ConnectionEndpointRole,
+} from './scene/connection-commands'
+import {
   alignNodes,
   distributeNodes,
   getRootNodes,
@@ -29,6 +34,7 @@ import {
   isPumpNode,
   PUMP_ASPECT_RATIO,
   type ConnectionEndpoint,
+  type ConnectionRouting,
   type NodeTransform,
   type SceneConnection,
   type SceneDocument,
@@ -115,7 +121,7 @@ function App() {
   )
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
   const [connectionMode, setConnectionMode] = useState(false)
-  const [message, setMessage] = useState('M2.3 端口与直线连接已启用')
+  const [message, setMessage] = useState('M2.3 正交连线与端点重连已启用')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('base')
   const [gridVisible, setGridVisible] = useState(true)
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({
@@ -299,15 +305,7 @@ function App() {
     source: ConnectionEndpoint,
     target: ConnectionEndpoint,
   ) {
-    const duplicate = scene.connections.some(
-      (connection) =>
-        connection.source.nodeId === source.nodeId &&
-        connection.source.portId === source.portId &&
-        connection.target.nodeId === target.nodeId &&
-        connection.target.portId === target.portId,
-    )
-
-    if (duplicate) {
+    if (hasDuplicateConnection(scene, source, target)) {
       setMessage('这两个端口之间已经存在连接')
       return
     }
@@ -326,6 +324,44 @@ function App() {
     setSelectedConnectionId(connection.id)
     setInspectorTab('base')
     setMessage(`已创建 ${connection.name}`)
+  }
+
+  function reconnectConnection(
+    connectionId: string,
+    role: ConnectionEndpointRole,
+    endpoint: ConnectionEndpoint,
+  ) {
+    const result = reconnectSceneConnection(
+      scene,
+      connectionId,
+      role,
+      endpoint,
+    )
+
+    if (result.status === 'updated') {
+      setScene(result.scene)
+      setSelectedConnectionId(connectionId)
+      setMessage(role === 'source' ? '已重新连接起点' : '已重新连接终点')
+      return true
+    }
+
+    if (result.status === 'unchanged') {
+      setMessage('端点位置未改变')
+      return true
+    }
+
+    if (result.status === 'duplicate') {
+      setMessage('目标端口之间已经存在另一条连接')
+      return false
+    }
+
+    if (result.status === 'incompatible') {
+      setMessage('目标端口方向或介质类型不兼容')
+      return false
+    }
+
+    setMessage('待重连的连线已不存在')
+    return false
   }
 
   function resetSelectedTransforms() {
@@ -619,7 +655,7 @@ function App() {
             <span><i className="port-dot output" />出水口</span>
           </div>
           <p className="panel-description connection-help">
-            从任意端口拖到兼容端口建立连接。端点引用组件端口，移动、旋转、组合或拆分后会自动跟随。
+            连线模式用于创建连接；选中已有连线后，可直接拖动两端的蓝色控制点重新连接。
           </p>
 
           <div className="panel-title section-title">对齐</div>
@@ -721,9 +757,9 @@ function App() {
 
           <div className="milestone-card">
             <strong>M2.3 当前切片</strong>
-            <span>归一化进水口与出水口</span>
-            <span>端口拖拽建立直线连接</span>
+              <span>端口拖拽建立正交连接</span>
             <span>连线选择、删除与样式设置</span>
+            <span>起点和终点拖拽重连</span>
             <span>组合和变换后端点自动跟随</span>
           </div>
         </aside>
@@ -736,6 +772,8 @@ function App() {
             <span>
               {connectionMode
                 ? '拖动端口建立连接 · 橙色输入 · 绿色输出'
+                : selectedConnection
+                ? '拖动连线两端控制点可重连 · 绿色表示可放置端口'
                 : '组件吸附始终开启 · Shift/Ctrl 多选 · 空白拖动框选'}
             </span>
           </div>
@@ -750,6 +788,7 @@ function App() {
             onSelectionChange={selectNodes}
             onConnectionSelectionChange={selectConnection}
             onCreateConnection={createConnection}
+          onReconnectConnection={reconnectConnection}
             onTransformNodes={updateNodeTransforms}
           />
         </section>
@@ -788,6 +827,22 @@ function App() {
                     }))
                   }}
                 />
+              </label>
+              <label className="property-field">
+                <span>路由</span>
+                <select
+                  value={selectedConnection.routing}
+                  onChange={(event) => {
+                    const routing = event.target.value as ConnectionRouting
+                    updateConnection(selectedConnection.id, (connection) => ({
+                      ...connection,
+                      routing,
+                    }))
+                  }}
+                >
+                  <option value="orthogonal">正交折线</option>
+                  <option value="straight">直线</option>
+                </select>
               </label>
               <label className="property-field">
                 <span>颜色</span>
@@ -849,8 +904,8 @@ function App() {
                   <code>{selectedConnection.target.nodeId} / {selectedConnection.target.portId}</code>
                 </div>
                 <div>
-                  <span>路由</span>
-                  <code>{selectedConnection.routing}</code>
+                <span>端点编辑</span>
+                  <code>拖动蓝色控制点</code>
                 </div>
               </div>
             </>
