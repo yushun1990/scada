@@ -147,6 +147,22 @@ function nextPointerSelection(
   return [nodeId]
 }
 
+function isDarkBackground(color: string) {
+  const match = /^#([0-9a-f]{6})$/i.exec(color.trim())
+
+  if (!match) {
+    return false
+  }
+
+  const value = Number.parseInt(match[1], 16)
+  const red = (value >> 16) & 0xff
+  const green = (value >> 8) & 0xff
+  const blue = value & 0xff
+  const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255
+
+  return luminance < 0.48
+}
+
 export function SceneRenderer({
   scene,
   mode,
@@ -564,14 +580,32 @@ export function SceneRenderer({
     ? GROUP_MIN_SIZE
     : PUMP_MIN_HEIGHT
 
+  const gridSize = Math.max(4, snapSettings.gridSize)
+  const verticalGridLines = gridVisible
+    ? Array.from(
+        { length: Math.ceil(viewport.width / gridSize) + 1 },
+        (_, index) => index * gridSize,
+      )
+    : []
+  const horizontalGridLines = gridVisible
+    ? Array.from(
+        { length: Math.ceil(viewport.height / gridSize) + 1 },
+        (_, index) => index * gridSize,
+      )
+    : []
+  const darkBackground = isDarkBackground(scene.background)
+  const minorGridStroke = darkBackground
+    ? 'rgba(203, 213, 225, 0.20)'
+    : 'rgba(100, 116, 139, 0.18)'
+  const majorGridStroke = darkBackground
+    ? 'rgba(56, 189, 248, 0.42)'
+    : 'rgba(37, 99, 235, 0.30)'
+
   return (
     <div
       ref={containerRef}
       className="konva-host"
-      style={{
-        backgroundImage: gridVisible ? undefined : 'none',
-        backgroundSize: `${snapSettings.gridSize}px ${snapSettings.gridSize}px`,
-      }}
+      style={{ backgroundColor: scene.background }}
     >
       <Stage
         width={viewport.width}
@@ -627,6 +661,26 @@ export function SceneRenderer({
             height={viewport.height}
             fill={scene.background}
           />
+
+          {verticalGridLines.map((x, index) => (
+            <Line
+              key={`grid-x-${x}`}
+              points={[x, 0, x, viewport.height]}
+              stroke={index % 5 === 0 ? majorGridStroke : minorGridStroke}
+              strokeWidth={index % 5 === 0 ? 1 : 0.6}
+              perfectDrawEnabled={false}
+            />
+          ))}
+
+          {horizontalGridLines.map((y, index) => (
+            <Line
+              key={`grid-y-${y}`}
+              points={[0, y, viewport.width, y]}
+              stroke={index % 5 === 0 ? majorGridStroke : minorGridStroke}
+              strokeWidth={index % 5 === 0 ? 1 : 0.6}
+              perfectDrawEnabled={false}
+            />
+          ))}
         </Layer>
 
         <Layer>
@@ -655,10 +709,10 @@ export function SceneRenderer({
             flipEnabled={false}
             keepRatio
             shiftBehavior="none"
-            borderStroke="#38bdf8"
+            borderStroke="#2563eb"
             borderStrokeWidth={1.5}
-            anchorFill="#38bdf8"
-            anchorStroke="#e0f7ff"
+            anchorFill="#2563eb"
+            anchorStroke="#ffffff"
             anchorSize={9}
             rotateAnchorOffset={24}
             boundBoxFunc={(oldBox, newBox) => {
@@ -687,7 +741,7 @@ export function SceneRenderer({
                   y={bounds.top}
                   width={bounds.width}
                   height={bounds.height}
-                  stroke="#38bdf8"
+                  stroke="#2563eb"
                   strokeWidth={1}
                   dash={[5, 4]}
                 />
@@ -700,7 +754,7 @@ export function SceneRenderer({
               y={selectionBounds.top}
               width={selectionBounds.width}
               height={selectionBounds.height}
-              stroke="#7dd3fc"
+              stroke="#0284c7"
               strokeWidth={1.5}
               dash={[9, 5]}
             />
@@ -714,7 +768,7 @@ export function SceneRenderer({
                   ? [guide.position, 0, guide.position, viewport.height]
                   : [0, guide.position, viewport.width, guide.position]
               }
-              stroke={guide.source === 'object' ? '#f472b6' : '#22d3ee'}
+              stroke={guide.source === 'object' ? '#db2777' : '#0891b2'}
               strokeWidth={1}
               dash={guide.source === 'grid' ? [5, 4] : undefined}
             />
@@ -726,8 +780,8 @@ export function SceneRenderer({
               y={marqueeBounds.top}
               width={marqueeBounds.width}
               height={marqueeBounds.height}
-              fill="rgba(56, 189, 248, 0.12)"
-              stroke="#38bdf8"
+              fill="rgba(37, 99, 235, 0.12)"
+              stroke="#2563eb"
               strokeWidth={1}
               dash={[6, 4]}
             />
