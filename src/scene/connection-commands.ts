@@ -1,4 +1,4 @@
-import { normalizeConnectionEndpoints } from '../components/ports'
+import { normalizeVisualConnectionEndpoints } from '../components/anchors'
 import type {
   ConnectionEndpoint,
   SceneConnection,
@@ -24,7 +24,7 @@ export function endpointsEqual(
   first: ConnectionEndpoint,
   second: ConnectionEndpoint,
 ) {
-  return first.nodeId === second.nodeId && first.portId === second.portId
+  return first.nodeId === second.nodeId && first.anchorId === second.anchorId
 }
 
 export function resolveReconnectedEndpoints(
@@ -35,23 +35,10 @@ export function resolveReconnectedEndpoints(
 ) {
   const fixedEndpoint =
     role === 'source' ? connection.target : connection.source
-  const normalized =
-    role === 'source'
-      ? normalizeConnectionEndpoints(scene, candidate, fixedEndpoint)
-      : normalizeConnectionEndpoints(scene, fixedEndpoint, candidate)
 
-  if (!normalized) {
-    return null
-  }
-
-  const keepsEndpointRoles =
-    role === 'source'
-      ? endpointsEqual(normalized.source, candidate) &&
-        endpointsEqual(normalized.target, fixedEndpoint)
-      : endpointsEqual(normalized.source, fixedEndpoint) &&
-        endpointsEqual(normalized.target, candidate)
-
-  return keepsEndpointRoles ? normalized : null
+  return role === 'source'
+    ? normalizeVisualConnectionEndpoints(scene, candidate, fixedEndpoint)
+    : normalizeVisualConnectionEndpoints(scene, fixedEndpoint, candidate)
 }
 
 export function hasDuplicateConnection(
