@@ -40,6 +40,10 @@ type MarqueeState = {
   additive: boolean
 }
 
+type MarqueeSession = MarqueeState & {
+  active: boolean
+}
+
 type DragSession = {
   nodeId: string
   nodeIds: string[]
@@ -53,6 +57,8 @@ const CORNER_ANCHORS = [
   'bottom-left',
   'bottom-right',
 ] as const
+
+const MARQUEE_THRESHOLD = 4
 
 function hasSelectionModifier(event: Event) {
   const keyboardEvent = event as MouseEvent
@@ -149,7 +155,7 @@ export function SceneRenderer({
   const pendingSelectionRef = useRef<string[] | null>(null)
   const dragSessionRef = useRef<DragSession | null>(null)
   const dragPreviewRef = useRef<TransformUpdates>({})
-  const marqueeRef = useRef<MarqueeState | null>(null)
+  const marqueeSessionRef = useRef<MarqueeSession | null>(null)
   const [viewport, setViewport] = useState({ width: 960, height: 640 })
   const [guides, setGuides] = useState<AlignmentGuide[]>([])
   const [dragPreview, setDragPreview] = useState<TransformUpdates>({})
@@ -185,6 +191,32 @@ export function SceneRenderer({
   }, [])
 
   useEffect(() => {
+    const cancelTransientInteraction = () => {
+      pendingSelectionRef.current = null
+      marqueeSessionRef.current = null
+      setMarquee(null)
+      setGuides([])
+    }
+
+    window.addEventListener('blur', cancelTransientInteraction)
+    return () => window.removeEventListener('blur', cancelTransientInteraction)
+  }, [])
+
+  useEffect(() => {
+    if (mode === 'editor') {
+      return
+    }
+
+    pendingSelectionRef.current = null
+    marqueeSessionRef.current = null
+    dragSessionRef.current = null
+    dragPreviewRef.current = {}
+    setMarquee(null)
+    setGuides([])
+    setDragPreview({})
+  }, [mode])
+
+  useEffect(() => {
     const transformer = transformerRef.current
 
     if (!transformer) {
@@ -210,6 +242,16 @@ export function SceneRenderer({
     transformer.getLayer()?.batchDraw()
   }, [mode, selectedNodeIds, scene.nodes])
 
+  function clearMarqueeSession() {
+    marqueeSessionRef.current = null
+    setMarquee(null)
+  }
+
+  function cancelPointerInteraction() {
+    pendingSelectionRef.current = null
+    clearMarqueeSession()
+  }
+
   function applyPreview(updates: TransformUpdates) {
     for (const [nodeId, transform] of Object.entries(updates)) {
       nodeRefs.current.get(nodeId)?.position({
@@ -227,9 +269,12 @@ export function SceneRenderer({
       return
     }
 
+    clearMarqueeSession()
+
     const nodeId = findSceneNodeId(target)
 
     if (!nodeId) {
+      pendingSelectionRef.current = null
       return
     }
 
@@ -246,6 +291,8 @@ export function SceneRenderer({
     if (mode !== 'editor') {
       return
     }
+
+    clearMarqueeSession()
 
     const nodeId = findSceneNodeId(target)
 
@@ -268,6 +315,7 @@ export function SceneRenderer({
     const initialBounds = getSelectionBounds(scene, nodeIds)
 
     if (!initialBounds) {
+      pendingSelectionRef.current = null
       return
     }
 
@@ -344,6 +392,7 @@ export function SceneRenderer({
       onTransformNodes(updates)
     }
 
+    pendingSelectionRef.current = null
     dragSessionRef.current = null
     dragPreviewRef.current = {}
     setDragPreview({})
@@ -385,7 +434,7 @@ export function SceneRenderer({
     })
   }
 
-  function beginMarquee(stage: Konva.Stage, nativeEvent: Event) {
+  function beginMarqueeCandidate(stage: Konva.Stage, nativeEvent: Event) {
     if (mode !== 'editor') {
       return
     }
@@ -402,63 +451,88 @@ export function SceneRenderer({
       return
     }
 
-    const nextMarquee: MarqueeState = {
+    pendingSelectionRef.current = null
+    clearMarqueeSession()
+    marqueeSessionRef.current = {
       start: pointer,
       current: pointer,
       additive: hasSelectionModifier(nativeEvent),
+      active: false,
     }
-    marqueeRef.current = nextMarquee
-    setMarquee(nextMarquee)
   }
 
   function updateMarquee(stage: Konva.Stage) {
-    const currentMarquee = marqueeRef.current
+    const session = marqueeSessionRef.current
     const pointer = stage.getPointerPosition()
 
-    if (!currentMarquee || !pointer) {
+    if (!session || !pointer) {
       return
     }
 
-    const nextMarquee = {
-      ...currentMarquee,
+    const movedEnough =
+      Math.abs(pointer.x - session.start.x) >= MARQUEE_THRESHOLD ||
+      Math.abs(pointer.y - session.start.y) >= MARQUEE_THRESHOLD
+    const nextSession: MarqueeSession = {
+      ...session,
       current: pointer,
+      active: session.active || movedEnough,
     }
-    marqueeRef.current = nextMarquee
-    setMarquee(nextMarquee)
+
+    marqueeSessionRef.current = nextSession
+    setMarquee(
+      nextSession.active
+        ? {
+            start: nextSession.start,
+            current: nextSession.current,
+            additive: nextSession.additive,
+          }
+        : null,
+    )
   }
 
   function finishMarquee() {
-    const currentMarquee = marqueeRef.current
+    const session = marqueeSessionRef.current
 
-    if (!currentMarquee) {
+    clearMarqueeSession()
+    pendingSelectionRef.current = null
+
+    if (!session) {
       return
     }
 
-    const bounds = normalizeMarquee(currentMarquee)
-
-    if (bounds.width < 4 && bounds.height < 4) {
-      if (!currentMarquee.additive) {
+    if (!session.active) {
+      if (!session.additive) {
         onSelectionChange([])
       }
-    } else {
-      const matchedIds = scene.nodes
-        .filter(
-          (node) =>
-            node.visible &&
-            !node.locked &&
-            boundsIntersect(bounds, getNodeBounds(node)),
-        )
-        .map((node) => node.id)
-
-      onSelectionChange(
-        currentMarquee.additive
-          ? Array.from(new Set([...selectedNodeIds, ...matchedIds]))
-          : matchedIds,
-      )
+      return
     }
 
-    marqueeRef.current = null
-    setMarquee(null)
+    const bounds = normalizeMarquee(session)
+    const matchedIds = scene.nodes
+      .filter(
+        (node) =>
+          node.visible &&
+          !node.locked &&
+          boundsIntersect(bounds, getNodeBounds(node)),
+      )
+      .map((node) => node.id)
+
+    onSelectionChange(
+      session.additive
+        ? Array.from(new Set([...selectedNodeIds, ...matchedIds]))
+        : matchedIds,
+    )
+  }
+
+  function handleStageMouseUp() {
+    if (marqueeSessionRef.current) {
+      finishMarquee()
+      return
+    }
+
+    if (!dragSessionRef.current) {
+      pendingSelectionRef.current = null
+    }
   }
 
   const selectionBounds = selectedNodeIds.length > 1
@@ -482,6 +556,7 @@ export function SceneRenderer({
         height={viewport.height}
         onMouseDown={(event) => {
           if (isInsideTransformer(event.target, transformerRef.current)) {
+            cancelPointerInteraction()
             return
           }
 
@@ -493,11 +568,12 @@ export function SceneRenderer({
             const stage = event.target.getStage()
 
             if (stage) {
-              beginMarquee(stage, event.evt)
+              beginMarqueeCandidate(stage, event.evt)
             }
           }
         }}
         onTouchStart={(event) => {
+          cancelPointerInteraction()
           const nodeId = findSceneNodeId(event.target)
 
           if (nodeId) {
@@ -513,8 +589,8 @@ export function SceneRenderer({
             updateMarquee(stage)
           }
         }}
-        onMouseUp={finishMarquee}
-        onMouseLeave={finishMarquee}
+        onMouseUp={handleStageMouseUp}
+        onMouseLeave={cancelPointerInteraction}
         onDragStart={(event) => {
           handleDragStart(event.target)
         }}
