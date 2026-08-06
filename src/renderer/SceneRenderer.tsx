@@ -458,26 +458,27 @@ export function SceneRenderer({
         return
       }
 
-      setViewport({
+      const nextViewport = {
         width: Math.max(320, Math.floor(entry.contentRect.width)),
         height: Math.max(360, Math.floor(entry.contentRect.height)),
-      })
+      }
+      setViewport(nextViewport)
+
+      if (!viewportInitializedRef.current) {
+        viewportInitializedRef.current = true
+        commitViewportTransform(
+          fitSceneToViewport(nextViewport, {
+            width: scene.width,
+            height: scene.height,
+          }),
+        )
+      }
     })
 
     observer.observe(container)
     return () => observer.disconnect()
   }, [])
 
-  useEffect(() => {
-    if (viewportInitializedRef.current) {
-      return
-    }
-
-    viewportInitializedRef.current = true
-    commitViewportTransform(
-      fitSceneToViewport(viewport, { width: scene.width, height: scene.height }),
-    )
-  }, [viewport.width, viewport.height, scene.width, scene.height])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

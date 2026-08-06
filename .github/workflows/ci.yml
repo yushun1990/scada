@@ -6,26 +6,17 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Apply review fixes
-        if: github.head_ref == 'agent/m0-m1-workbench-viewport'
-        run: python scripts/fix_workbench_review.py
 
       - name: Install dependencies
         run: npm install
@@ -35,44 +26,3 @@ jobs:
 
       - name: Lint
         run: npm run lint
-
-      - name: Commit verified review fixes
-        if: github.head_ref == 'agent/m0-m1-workbench-viewport'
-        shell: bash
-        run: |
-          rm scripts/fix_workbench_review.py
-          cat > .github/workflows/ci.yml <<'YAML'
-          name: CI
-
-          on:
-            push:
-              branches: [main]
-            pull_request:
-              branches: [main]
-
-          jobs:
-            verify:
-              runs-on: ubuntu-latest
-              steps:
-                - name: Checkout
-                  uses: actions/checkout@v4
-
-                - name: Set up Node.js
-                  uses: actions/setup-node@v4
-                  with:
-                    node-version: 22
-
-                - name: Install dependencies
-                  run: npm install
-
-                - name: Build
-                  run: npm run build
-
-                - name: Lint
-                  run: npm run lint
-          YAML
-          git config user.name "scada-editor-bot"
-          git config user.email "scada-editor-bot@users.noreply.github.com"
-          git add src/App.tsx src/renderer/SceneRenderer.tsx .github/workflows scripts
-          git commit -m "fix: initialize viewport from measured workspace"
-          git push origin "HEAD:${{ github.head_ref }}"

@@ -495,7 +495,7 @@ function App() {
 
   function saveScene() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scene))
-    setMessage('v3 场景已保存到浏览器')
+    setMessage('v4 场景已保存到浏览器')
   }
 
   function restoreScene() {
@@ -641,14 +641,14 @@ function App() {
             >
               删除
             </button>
-  <button
-    type="button"
-    className="tool-button optional-tool"
-    disabled={selectedNodes.length === 0}
-    onClick={resetSelectedTransforms}
-  >
-    重置
-  </button>
+            <button
+              type="button"
+              className="tool-button optional-tool"
+              disabled={selectedNodes.length === 0}
+              onClick={resetSelectedTransforms}
+            >
+              重置
+            </button>
             <button
               type="button"
               className="tool-button optional-tool"
