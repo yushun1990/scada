@@ -66,7 +66,7 @@ export const SceneNodeRenderer = forwardRef<
         <Rect
           width={node.props.designWidth}
           height={node.props.designHeight}
-          fill="rgba(56, 189, 248, 0.001)"
+          fill="rgba(56, 189, 248, 0.01)"
           listening={selectable}
         />
 
