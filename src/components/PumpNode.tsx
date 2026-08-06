@@ -11,7 +11,7 @@ export const PUMP_MIN_WIDTH = 96
 export const PUMP_MIN_HEIGHT = PUMP_MIN_WIDTH / PUMP_ASPECT_RATIO
 
 export type PumpNodeProps = {
-  nodeId: string
+  nodeId?: string
   state: PumpState
   x: number
   y: number
@@ -21,6 +21,7 @@ export type PumpNodeProps = {
   draggable: boolean
   visible: boolean
   opacity: number
+  listening: boolean
 }
 
 export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
@@ -36,6 +37,7 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
       draggable,
       visible,
       opacity,
+      listening,
     },
     ref,
   ) {
@@ -57,7 +59,7 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
       <Group
         ref={ref}
         id={nodeId}
-        name="scene-node"
+        name={listening ? 'scene-node' : undefined}
         x={x}
         y={y}
         width={width}
@@ -66,6 +68,7 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
         draggable={draggable}
         visible={visible}
         opacity={opacity}
+        listening={listening}
       >
         {(Object.keys(images) as PumpState[]).map((imageState) => {
           const active = state === imageState
@@ -77,7 +80,7 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
               width={width}
               height={height}
               opacity={active ? 1 : 0}
-              listening={active}
+              listening={listening && active}
               perfectDrawEnabled={false}
             />
           )
