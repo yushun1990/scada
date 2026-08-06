@@ -34,6 +34,16 @@ jobs:
           start = next(index for index, line in enumerate(workflow) if line.strip() == 'run: |') + 1
           end = next(index for index in range(start, len(workflow)) if workflow[index].startswith('      - name: Install dependencies'))
           source = '\n'.join(line[10:] if line.startswith('          ') else line for line in workflow[start:end])
+          source = source.replace(
+              "    if count != 1:\n        raise RuntimeError(f'{label}: expected one match, found {count}')",
+              """    if label == 'left dock closing' and count == 0:
+        start_index = text.index('          <div className=\"milestone-card\">')
+        end_index = text.index('        </aside>', start_index) + len('        </aside>')
+        return text[:start_index] + new + text[end_index:]
+    if count != 1:
+        raise RuntimeError(f'{label}: expected one match, found {count}')""",
+              1,
+          )
           Path('/tmp/apply-workbench-viewport.py').write_text(source + '\n')
           PY
           python /tmp/apply-workbench-viewport.py
