@@ -44,6 +44,94 @@ jobs:
               line[10:] if line.startswith('          ') else line
               for line in lines
           )
+
+          original_helper = '''def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f"{label}: expected one match, found {count}")
+              return text.replace(old, new, 1)'''
+
+          resilient_helper = '''def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+
+              if count == 1:
+                  return text.replace(old, new, 1)
+
+              old_lines = old.splitlines()
+              new_lines = new.splitlines()
+              text_lines = text.splitlines()
+              normalized_old = [line.lstrip(' ') for line in old_lines]
+              candidates = []
+
+              for start in range(0, len(text_lines) - len(old_lines) + 1):
+                  candidate = text_lines[start:start + len(old_lines)]
+
+                  if [line.lstrip(' ') for line in candidate] == normalized_old:
+                      candidates.append(start)
+
+              if len(candidates) != 1:
+                  raise RuntimeError(
+                      f"{label}: expected one whitespace-normalized match, "
+                      f"found {len(candidates)}",
+                  )
+
+              start = candidates[0]
+              actual_old = text_lines[start:start + len(old_lines)]
+
+              def indentation(line: str) -> int:
+                  return len(line) - len(line.lstrip(' '))
+
+              old_tokens = [line.lstrip(' ') for line in old_lines]
+              new_tokens = [line.lstrip(' ') for line in new_lines]
+              matched_offsets = {}
+              consumed_old = set()
+
+              for new_index, token in enumerate(new_tokens):
+                  for old_index, old_token in enumerate(old_tokens):
+                      if old_index in consumed_old or token != old_token:
+                          continue
+
+                      consumed_old.add(old_index)
+                      matched_offsets[new_index] = (
+                          indentation(actual_old[old_index]) -
+                          indentation(new_lines[new_index])
+                      )
+                      break
+
+              adjusted = []
+
+              for index, line in enumerate(new_lines):
+                  if not line.strip():
+                      adjusted.append('')
+                      continue
+
+                  if index in matched_offsets:
+                      offset = matched_offsets[index]
+                  elif matched_offsets:
+                      nearest_index = min(
+                          matched_offsets,
+                          key=lambda matched: (abs(matched - index), matched > index),
+                      )
+                      offset = matched_offsets[nearest_index]
+                  else:
+                      offset = 0
+
+                  adjusted_indent = max(0, indentation(line) + offset)
+                  adjusted.append(' ' * adjusted_indent + line.lstrip(' '))
+
+              replacement = adjusted
+              text_lines[start:start + len(old_lines)] = replacement
+              result = '\n'.join(text_lines)
+              return result + ('\n' if text.endswith('\n') else '')'''
+
+          if original_helper not in normalized:
+              raise RuntimeError('Unable to replace embedded patch helper')
+
+          normalized = normalized.replace(
+              original_helper,
+              resilient_helper,
+              1,
+          )
           exec(compile(normalized, 'm23-reconnect-patch.py', 'exec'))
           PY
 
