@@ -19,6 +19,9 @@ const pumpStates = new Set<PumpState>([
   'red',
 ])
 
+const LEGACY_DEFAULT_BACKGROUND = '#0b1119'
+const DEFAULT_EDITOR_BACKGROUND = '#edf1f5'
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -164,6 +167,12 @@ function validateHierarchy(nodes: SceneNode[]) {
   }
 }
 
+function normalizeBackground(background: string) {
+  return background.toLowerCase() === LEGACY_DEFAULT_BACKGROUND
+    ? DEFAULT_EDITOR_BACKGROUND
+    : background
+}
+
 export function parseSceneDocument(json: string): SceneDocument {
   const value: unknown = JSON.parse(json)
 
@@ -202,7 +211,7 @@ export function parseSceneDocument(json: string): SceneDocument {
     name: value.name,
     width: value.width,
     height: value.height,
-    background: value.background,
+    background: normalizeBackground(value.background),
     nodes: parsedNodes,
   }
 }
