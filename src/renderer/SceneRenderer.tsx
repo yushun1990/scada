@@ -9,13 +9,17 @@ import {
   boundsIntersect,
   computeSnap,
   getNodeBounds,
+  getRootNodes,
   getSelectionBounds,
   type AlignmentGuide,
   type Bounds,
   type SnapSettings,
   type TransformUpdates,
 } from '../scene/geometry'
-import type { SceneDocument } from '../scene/model'
+import {
+  isGroupNode,
+  type SceneDocument,
+} from '../scene/model'
 import { SceneNodeRenderer } from './SceneNodeRenderer'
 
 export type RendererMode = 'editor' | 'preview'
@@ -25,6 +29,7 @@ export type SceneRendererProps = {
   mode: RendererMode
   selectedNodeIds: string[]
   snapSettings: SnapSettings
+  gridVisible: boolean
   onSelectionChange: (nodeIds: string[]) => void
   onTransformNodes: (updates: TransformUpdates) => void
 }
@@ -59,6 +64,7 @@ const CORNER_ANCHORS = [
 ] as const
 
 const MARQUEE_THRESHOLD = 4
+const GROUP_MIN_SIZE = 48
 
 function hasSelectionModifier(event: Event) {
   const keyboardEvent = event as MouseEvent
@@ -146,6 +152,7 @@ export function SceneRenderer({
   mode,
   selectedNodeIds,
   snapSettings,
+  gridVisible,
   onSelectionChange,
   onTransformNodes,
 }: SceneRendererProps) {
@@ -161,7 +168,8 @@ export function SceneRenderer({
   const [dragPreview, setDragPreview] = useState<TransformUpdates>({})
   const [marquee, setMarquee] = useState<MarqueeState | null>(null)
 
-  const selectedNodes = scene.nodes.filter((node) =>
+  const rootNodes = getRootNodes(scene)
+  const selectedNodes = rootNodes.filter((node) =>
     selectedNodeIds.includes(node.id),
   )
   const primaryNode = selectedNodes.find(
@@ -225,7 +233,7 @@ export function SceneRenderer({
 
     const nodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null
     const selectedNode = nodeId
-      ? scene.nodes.find((node) => node.id === nodeId)
+      ? rootNodes.find((node) => node.id === nodeId)
       : null
     const selectedNodeRef = nodeId
       ? nodeRefs.current.get(nodeId)
@@ -270,7 +278,6 @@ export function SceneRenderer({
     }
 
     clearMarqueeSession()
-
     const nodeId = findSceneNodeId(target)
 
     if (!nodeId) {
@@ -293,7 +300,6 @@ export function SceneRenderer({
     }
 
     clearMarqueeSession()
-
     const nodeId = findSceneNodeId(target)
 
     if (!nodeId) {
@@ -308,7 +314,7 @@ export function SceneRenderer({
     }
 
     nodeIds = nodeIds.filter((id) => {
-      const node = scene.nodes.find((candidate) => candidate.id === id)
+      const node = rootNodes.find((candidate) => candidate.id === id)
       return node && !node.locked
     })
 
@@ -322,7 +328,7 @@ export function SceneRenderer({
     const initialTransforms: TransformUpdates = {}
 
     for (const id of nodeIds) {
-      const node = scene.nodes.find((candidate) => candidate.id === id)
+      const node = rootNodes.find((candidate) => candidate.id === id)
 
       if (node) {
         initialTransforms[id] = { ...node.transform }
@@ -405,23 +411,34 @@ export function SceneRenderer({
     }
 
     const nodeId = selectedNodeIds[0]
-    const node = scene.nodes.find((candidate) => candidate.id === nodeId)
+    const node = nodeId
+      ? rootNodes.find((candidate) => candidate.id === nodeId)
+      : null
     const group = nodeId ? nodeRefs.current.get(nodeId) : undefined
 
     if (!node || !group || node.locked) {
       return
     }
 
+    const aspectRatio = node.transform.width / node.transform.height
+    const minimumWidth = isGroupNode(node) ? GROUP_MIN_SIZE : PUMP_MIN_WIDTH
+    const baseWidth = isGroupNode(node)
+      ? node.props.designWidth
+      : group.width()
     const uniformScale = Math.max(
       Math.abs(group.scaleX()),
       Math.abs(group.scaleY()),
     )
-    const aspectRatio = node.transform.width / node.transform.height
-    const nextWidth = Math.max(PUMP_MIN_WIDTH, group.width() * uniformScale)
+    const nextWidth = Math.max(minimumWidth, baseWidth * uniformScale)
     const nextHeight = nextWidth / aspectRatio
 
-    group.scaleX(1)
-    group.scaleY(1)
+    if (isGroupNode(node)) {
+      group.scaleX(nextWidth / node.props.designWidth)
+      group.scaleY(nextHeight / node.props.designHeight)
+    } else {
+      group.scaleX(1)
+      group.scaleY(1)
+    }
 
     onTransformNodes({
       [node.id]: {
@@ -508,12 +525,12 @@ export function SceneRenderer({
     }
 
     const bounds = normalizeMarquee(session)
-    const matchedIds = scene.nodes
+    const matchedIds = rootNodes
       .filter(
         (node) =>
           node.visible &&
           !node.locked &&
-          boundsIntersect(bounds, getNodeBounds(node)),
+          boundsIntersect(bounds, getNodeBounds(scene, node)),
       )
       .map((node) => node.id)
 
@@ -539,15 +556,20 @@ export function SceneRenderer({
     ? getSelectionBounds(scene, selectedNodeIds, dragPreview)
     : null
   const marqueeBounds = marquee ? normalizeMarquee(marquee) : null
+  const transformNode = selectedNodeIds.length === 1 ? primaryNode : null
+  const minimumTransformWidth = transformNode && isGroupNode(transformNode)
+    ? GROUP_MIN_SIZE
+    : PUMP_MIN_WIDTH
+  const minimumTransformHeight = transformNode && isGroupNode(transformNode)
+    ? GROUP_MIN_SIZE
+    : PUMP_MIN_HEIGHT
 
   return (
     <div
       ref={containerRef}
       className="konva-host"
       style={{
-        backgroundImage: snapSettings.gridEnabled
-          ? undefined
-          : 'none',
+        backgroundImage: gridVisible ? undefined : 'none',
         backgroundSize: `${snapSettings.gridSize}px ${snapSettings.gridSize}px`,
       }}
     >
@@ -608,7 +630,7 @@ export function SceneRenderer({
         </Layer>
 
         <Layer>
-          {scene.nodes.map((node) => (
+          {rootNodes.map((node) => (
             <SceneNodeRenderer
               key={node.id}
               ref={(instance) => {
@@ -618,9 +640,11 @@ export function SceneRenderer({
                   nodeRefs.current.delete(node.id)
                 }
               }}
+              scene={scene}
               node={node}
               transform={dragPreview[node.id] ?? node.transform}
               editorMode={mode === 'editor'}
+              selectable
             />
           ))}
 
@@ -639,8 +663,8 @@ export function SceneRenderer({
             rotateAnchorOffset={24}
             boundBoxFunc={(oldBox, newBox) => {
               if (
-                Math.abs(newBox.width) < PUMP_MIN_WIDTH ||
-                Math.abs(newBox.height) < PUMP_MIN_HEIGHT
+                Math.abs(newBox.width) < minimumTransformWidth ||
+                Math.abs(newBox.height) < minimumTransformHeight
               ) {
                 return oldBox
               }
@@ -654,10 +678,7 @@ export function SceneRenderer({
         <Layer listening={false}>
           {selectedNodeIds.length > 1 &&
             selectedNodes.map((node) => {
-              const bounds = getNodeBounds(
-                node,
-                dragPreview[node.id] ?? node.transform,
-              )
+              const bounds = getNodeBounds(scene, node, dragPreview)
 
               return (
                 <Rect
@@ -720,12 +741,13 @@ export function SceneRenderer({
           <code>{selectedNodeIds.length} selected</code>
         ) : primaryNode ? (
           <code>
+            {isGroupNode(primaryNode) ? 'group · ' : ''}
             {Math.round(primaryNode.transform.width)} ×{' '}
             {Math.round(primaryNode.transform.height)} /{' '}
             {Math.round(primaryNode.transform.rotation)}°
           </code>
         ) : (
-          <code>{scene.nodes.length} nodes</code>
+          <code>{rootNodes.length} root nodes</code>
         )}
       </div>
     </div>
