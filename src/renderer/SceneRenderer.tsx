@@ -2347,10 +2347,6 @@ export function SceneRenderer({
                 : '选择'}
           </span>
           <span ref={pointerStatusRef} className="pointer-position">X —  Y —</span>
-          <span>{scene.width} × {scene.height}</span>
-        </span>
-        <span className="canvas-status-group">
-          <span className="zoom-status">{Math.round(viewportTransform.scale * 100)}%</span>
           {selectedConnectionId ? (
             <code>{selectedConnection?.routing ?? 'connection'} · 端点可重连</code>
           ) : selectedNodeIds.length > 1 ? (
@@ -2362,9 +2358,14 @@ export function SceneRenderer({
               {Math.round(primaryNode.transform.height)} /{' '}
               {Math.round(primaryNode.transform.rotation)}°
             </code>
-          ) : (
-            <code>{scene.nodes.length} 节点 · {scene.connections.length} 连线</code>
-          )}
+          ) : null}
+        </span>
+        <span className="canvas-status-group scene-status-summary">
+          <span className="zoom-status">{Math.round(viewportTransform.scale * 100)}%</span>
+          <strong>{scene.name}</strong>
+          <span>{scene.width} × {scene.height}</span>
+          <span>{scene.nodes.length} 个组件</span>
+          <span>{scene.connections.length} 条连线</span>
         </span>
       </div>
     </div>
