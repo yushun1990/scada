@@ -1,7 +1,7 @@
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #dce7f2;
-  background: #0a0f17;
+  color: #243247;
+  background: #e7ecf2;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -15,16 +15,18 @@ body {
   min-width: 320px;
   min-height: 100vh;
   overflow: hidden;
-  background: #0a0f17;
+  background: #e7ecf2;
 }
 
-button {
+button,
+input {
   color: inherit;
   font: inherit;
 }
 
-button:focus-visible {
-  outline: 2px solid #38bdf8;
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
 
@@ -40,8 +42,9 @@ button:focus-visible {
   justify-content: space-between;
   gap: 24px;
   padding: 0 18px;
-  border-bottom: 1px solid #243041;
-  background: #111823;
+  border-bottom: 1px solid #cbd5e1;
+  background: #f8fafc;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .brand-block {
@@ -51,11 +54,12 @@ button:focus-visible {
 }
 
 .brand-block strong {
+  color: #172033;
   font-size: 15px;
 }
 
 .brand-block span {
-  color: #7f91a6;
+  color: #64748b;
   font-size: 12px;
 }
 
@@ -71,14 +75,13 @@ button:focus-visible {
 
 .mode-switch {
   padding: 3px;
-  border: 1px solid #29384b;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
-  background: #0b121c;
+  background: #eef2f6;
 }
 
 .mode-switch button,
 .secondary-button {
-  border: 0;
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
@@ -86,31 +89,33 @@ button:focus-visible {
 
 .mode-switch button {
   padding: 7px 14px;
-  color: #7f91a6;
+  border: 0;
+  color: #64748b;
   background: transparent;
 }
 
 .mode-switch button.active {
-  color: #06212e;
-  background: #38bdf8;
+  color: #ffffff;
+  background: #2563eb;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.24);
   font-weight: 700;
 }
 
 .secondary-button {
-  padding: 9px 12px;
-  border: 1px solid #2b3a4e;
-  color: #9eb0c2;
-  background: #121c29;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  background: #ffffff;
 }
 
-.secondary-button:hover {
-  border-color: #4a647f;
-  color: #e6f3ff;
+.secondary-button:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: #f8fafc;
 }
 
 .editor-main {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr) 292px;
+  grid-template-columns: 218px minmax(0, 1fr) 304px;
   min-height: 0;
 }
 
@@ -119,20 +124,20 @@ button:focus-visible {
   min-height: 0;
   padding: 16px;
   overflow: auto;
-  background: #111823;
+  background: #f8fafc;
 }
 
 .component-panel {
-  border-right: 1px solid #243041;
+  border-right: 1px solid #cbd5e1;
 }
 
 .property-panel {
-  border-left: 1px solid #243041;
+  border-left: 1px solid #cbd5e1;
 }
 
 .panel-title {
   margin-bottom: 14px;
-  color: #9fb0c2;
+  color: #64748b;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -145,17 +150,23 @@ button:focus-visible {
   gap: 10px;
   width: 100%;
   padding: 10px;
-  border: 1px solid #2d4057;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
-  color: #dfeaf4;
-  background: #152131;
+  color: #334155;
+  background: #ffffff;
   cursor: pointer;
   text-align: left;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.component-item:hover,
+.component-item.active {
+  border-color: #60a5fa;
+  background: #eff6ff;
 }
 
 .component-item.active {
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.12);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
 }
 
 .component-icon {
@@ -165,8 +176,8 @@ button:focus-visible {
   flex: 0 0 auto;
   place-items: center;
   border-radius: 7px;
-  color: #08202b;
-  background: #67d4ee;
+  color: #ffffff;
+  background: #2563eb;
   font-weight: 900;
 }
 
@@ -185,7 +196,7 @@ button:focus-visible {
 .component-item small,
 .state-button small {
   margin-top: 3px;
-  color: #71859b;
+  color: #64748b;
   font-size: 10px;
 }
 
@@ -194,16 +205,16 @@ button:focus-visible {
   gap: 8px;
   margin-top: 18px;
   padding: 13px;
-  border: 1px solid #243348;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
-  color: #7f94aa;
-  background: #0d151f;
+  color: #64748b;
+  background: #ffffff;
   font-size: 11px;
 }
 
 .milestone-card strong {
   margin-bottom: 2px;
-  color: #b8c9d9;
+  color: #334155;
 }
 
 .canvas-area {
@@ -211,7 +222,7 @@ button:focus-visible {
   grid-template-rows: 40px minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
-  background: #0d131c;
+  background: #dce3ea;
 }
 
 .canvas-toolbar {
@@ -220,9 +231,9 @@ button:focus-visible {
   justify-content: space-between;
   gap: 12px;
   padding: 0 14px;
-  border-bottom: 1px solid #202b3a;
-  color: #788ba1;
-  background: #101721;
+  border-bottom: 1px solid #cbd5e1;
+  color: #64748b;
+  background: #f1f5f9;
   font-size: 11px;
 }
 
@@ -231,11 +242,7 @@ button:focus-visible {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background-color: #0b1119;
-  background-image:
-    linear-gradient(#162130 1px, transparent 1px),
-    linear-gradient(90deg, #162130 1px, transparent 1px);
-  background-size: 24px 24px;
+  background: #edf1f5;
 }
 
 .konva-host canvas {
@@ -250,22 +257,23 @@ button:focus-visible {
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
-  border: 1px solid rgba(74, 96, 121, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.8);
   border-radius: 7px;
-  color: #91a5ba;
-  background: rgba(11, 18, 28, 0.88);
+  color: #475569;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
   pointer-events: none;
   font-size: 10px;
   backdrop-filter: blur(8px);
 }
 
 .canvas-status code {
-  color: #c5d7e7;
+  color: #1e293b;
 }
 
 .panel-description {
   margin: -4px 0 16px;
-  color: #708297;
+  color: #64748b;
   font-size: 12px;
   line-height: 1.65;
 }
@@ -281,28 +289,32 @@ button:focus-visible {
   gap: 11px;
   width: 100%;
   padding: 10px;
-  border: 1px solid #273548;
+  border: 1px solid #cbd5e1;
   border-radius: 7px;
-  color: #9badbf;
-  background: #0e1621;
+  color: #475569;
+  background: #ffffff;
   cursor: pointer;
   text-align: left;
 }
 
 .state-button:hover,
 .state-button.active {
-  border-color: #38bdf8;
-  color: #e7f7ff;
-  background: #132435;
+  border-color: #3b82f6;
+  color: #1e293b;
+  background: #eff6ff;
+}
+
+.state-button.active {
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
 }
 
 .state-swatch {
   width: 34px;
   height: 34px;
   flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(15, 23, 42, 0.16);
   border-radius: 8px;
-  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.28);
 }
 
 .property-summary {
@@ -310,7 +322,7 @@ button:focus-visible {
   gap: 11px;
   margin-top: 22px;
   padding-top: 18px;
-  border-top: 1px solid #243041;
+  border-top: 1px solid #e2e8f0;
 }
 
 .property-summary div {
@@ -322,17 +334,21 @@ button:focus-visible {
 }
 
 .property-summary span {
-  color: #71859b;
+  color: #64748b;
 }
 
 .property-summary code {
-  color: #bdd0e2;
+  max-width: 170px;
+  overflow: hidden;
+  color: #334155;
   font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 980px) {
   .editor-main {
-    grid-template-columns: 170px minmax(0, 1fr) 240px;
+    grid-template-columns: 176px minmax(0, 1fr) 250px;
   }
 
   .brand-block span,
@@ -365,7 +381,7 @@ button:focus-visible {
   }
 
   .property-panel {
-    border-top: 1px solid #243041;
+    border-top: 1px solid #cbd5e1;
     border-left: 0;
   }
 
