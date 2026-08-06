@@ -19,6 +19,10 @@ export type PortDefinition = {
     x: number
     y: number
   }
+  outward: {
+    x: number
+    y: number
+  }
 }
 
 const pumpPorts: PortDefinition[] = [
@@ -28,6 +32,7 @@ const pumpPorts: PortDefinition[] = [
     direction: 'input',
     kinds: ['water'],
     position: { x: 0.12, y: 0.72 },
+    outward: { x: -1, y: 0 },
   },
   {
     id: 'outlet',
@@ -35,6 +40,7 @@ const pumpPorts: PortDefinition[] = [
     direction: 'output',
     kinds: ['water'],
     position: { x: 0.9, y: 0.46 },
+    outward: { x: 1, y: 0 },
   },
 ]
 
@@ -71,6 +77,27 @@ export function getPortWorldPosition(
   return normalizedPointToWorld(transform, port.position)
 }
 
+export function getPortWorldDirection(
+  scene: SceneDocument,
+  endpoint: ConnectionEndpoint,
+  overrides: TransformUpdates = {},
+) {
+  const node = scene.nodes.find((candidate) => candidate.id === endpoint.nodeId)
+
+  if (!node || !isPumpNode(node)) {
+    return null
+  }
+
+  const port = getPortDefinition(node, endpoint.portId)
+  const transform = getWorldTransform(scene, node.id, overrides)
+
+  if (!port || !transform) {
+    return null
+  }
+
+  return rotateVector(port.outward, transform.rotation)
+}
+
 function normalizedPointToWorld(
   transform: NodeTransform,
   point: { x: number; y: number },
@@ -84,6 +111,17 @@ function normalizedPointToWorld(
   return {
     x: transform.x + localX * cosine - localY * sine,
     y: transform.y + localX * sine + localY * cosine,
+  }
+}
+
+function rotateVector(vector: { x: number; y: number }, rotation: number) {
+  const radians = (rotation * Math.PI) / 180
+  const cosine = Math.cos(radians)
+  const sine = Math.sin(radians)
+
+  return {
+    x: vector.x * cosine - vector.y * sine,
+    y: vector.x * sine + vector.y * cosine,
   }
 }
 
