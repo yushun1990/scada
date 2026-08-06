@@ -22,6 +22,11 @@ import {
   normalizeConnectionEndpoints,
 } from '../components/ports'
 import {
+  hasDuplicateConnection,
+  resolveReconnectedEndpoints,
+  type ConnectionEndpointRole,
+} from '../scene/connection-commands'
+import {
   boundsIntersect,
   computeSnap,
   getNodeBounds,
@@ -63,6 +68,11 @@ export type SceneRendererProps = {
     source: ConnectionEndpoint,
     target: ConnectionEndpoint,
   ) => void
+  onReconnectConnection: (
+    connectionId: string,
+    role: ConnectionEndpointRole,
+    endpoint: ConnectionEndpoint,
+  ) => boolean
   onTransformNodes: (updates: TransformUpdates) => void
 }
 
@@ -93,6 +103,19 @@ type ConnectionSession = {
   source: ConnectionEndpoint
 }
 
+type ReconnectCandidate = {
+  endpoint: ConnectionEndpoint
+  position: Point
+  connection: SceneConnection
+}
+
+type ReconnectSession = {
+  connection: SceneConnection
+  role: ConnectionEndpointRole
+  handle: Konva.Circle
+  candidate: ReconnectCandidate | null
+}
+
 type HoveredPort = {
   endpoint: ConnectionEndpoint
   title: string
@@ -110,8 +133,10 @@ const CORNER_ANCHORS = [
 
 const MARQUEE_THRESHOLD = 4
 const GROUP_MIN_SIZE = 48
+const RECONNECT_SNAP_RADIUS = 24
 const PORT_PREFIX = 'scene-port::'
 const CONNECTION_PREFIX = 'scene-connection::'
+const CONNECTION_HANDLE_PREFIX = 'scene-connection-handle::'
 
 function hasSelectionModifier(event: Event) {
   const keyboardEvent = event as MouseEvent
@@ -164,6 +189,28 @@ function findConnectionId(target: Konva.Node) {
 
     if (id.startsWith(CONNECTION_PREFIX)) {
       return id.slice(CONNECTION_PREFIX.length)
+    }
+
+    current = current.getParent()
+  }
+
+  return null
+}
+
+function findConnectionHandleRole(
+  target: Konva.Node,
+): ConnectionEndpointRole | null {
+  let current: Konva.Node | null = target
+
+  while (current) {
+    const id = current.id()
+
+    if (id === `${CONNECTION_HANDLE_PREFIX}source`) {
+      return 'source'
+    }
+
+    if (id === `${CONNECTION_HANDLE_PREFIX}target`) {
+      return 'target'
     }
 
     current = current.getParent()
@@ -266,6 +313,29 @@ function portKey(endpoint: ConnectionEndpoint) {
   return `${endpoint.nodeId}::${endpoint.portId}`
 }
 
+function endpointFromPortKey(key: string): ConnectionEndpoint | null {
+  const separatorIndex = key.lastIndexOf('::')
+
+  if (separatorIndex <= 0) {
+    return null
+  }
+
+  return {
+    nodeId: key.slice(0, separatorIndex),
+    portId: key.slice(separatorIndex + 2),
+  }
+}
+
+function reverseFlattenedPoints(points: number[]) {
+  const reversed: number[] = []
+
+  for (let index = points.length - 2; index >= 0; index -= 2) {
+    reversed.push(points[index], points[index + 1])
+  }
+
+  return reversed
+}
+
 function getPreviewTransform(node: SceneNode, group: Konva.Group) {
   const baseWidth = isGroupNode(node)
     ? node.props.designWidth
@@ -294,6 +364,7 @@ export function SceneRenderer({
   onSelectionChange,
   onConnectionSelectionChange,
   onCreateConnection,
+  onReconnectConnection,
   onTransformNodes,
 }: SceneRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -319,6 +390,10 @@ export function SceneRenderer({
   const connectionSessionRef = useRef<ConnectionSession | null>(null)
   const connectionFrameRef = useRef<number | null>(null)
   const pendingConnectionPointRef = useRef<Point | null>(null)
+  const reconnectSessionRef = useRef<ReconnectSession | null>(null)
+  const reconnectFrameRef = useRef<number | null>(null)
+  const pendingReconnectHandleRef = useRef<Konva.Circle | null>(null)
+  const reconnectCandidateKeyRef = useRef<string | null>(null)
   const [viewport, setViewport] = useState({ width: 960, height: 640 })
   const [marquee, setMarquee] = useState<MarqueeState | null>(null)
   const [hoveredPort, setHoveredPort] = useState<HoveredPort | null>(null)
@@ -364,6 +439,7 @@ export function SceneRenderer({
       connectionSessionRef.current = null
       setMarquee(null)
       setHoveredPort(null)
+      cancelReconnectSession()
       hideConnectionPreview()
       hideGuides()
     }
@@ -376,6 +452,7 @@ export function SceneRenderer({
     return () => {
       cancelScheduledDrag()
       cancelScheduledConnectionPreview()
+      cancelScheduledReconnect()
 
       if (transformFrameRef.current !== null) {
         cancelAnimationFrame(transformFrameRef.current)
@@ -390,6 +467,7 @@ export function SceneRenderer({
 
     cancelScheduledDrag()
     cancelScheduledConnectionPreview()
+    cancelReconnectSession()
     pendingSelectionRef.current = null
     marqueeSessionRef.current = null
     connectionSessionRef.current = null
@@ -411,6 +489,14 @@ export function SceneRenderer({
     setHoveredPort(null)
     hideConnectionPreview()
   }, [connectionMode])
+
+  useEffect(() => {
+  const session = reconnectSessionRef.current
+
+  if (session && session.connection.id !== selectedConnectionId) {
+    cancelReconnectSession()
+    }
+  }, [selectedConnectionId])
 
   useEffect(() => {
     const transformer = transformerRef.current
@@ -525,7 +611,7 @@ export function SceneRenderer({
   }
 
   function refreshSelectedConnectionHandles(overrides: TransformUpdates) {
-    if (!selectedConnection) {
+    if (!selectedConnection || reconnectSessionRef.current) {
       return
     }
 
@@ -553,7 +639,7 @@ export function SceneRenderer({
     overrides: TransformUpdates,
     affectedNodeIds: ReadonlySet<string>,
   ) {
-    if (!connectionMode) {
+    if (!connectionMode && !reconnectSessionRef.current) {
       return
     }
 
@@ -571,7 +657,11 @@ export function SceneRenderer({
         }
 
         const position = getPortWorldPosition(scene, endpoint, overrides)
-        circle.visible(Boolean(position) && isNodeEffectivelyVisible(scene, node))
+        circle.visible(
+        Boolean(position) &&
+          isNodeEffectivelyVisible(scene, node) &&
+          (connectionMode || Boolean(reconnectSessionRef.current)),
+      )
 
         if (position) {
           circle.position(position)
@@ -1127,11 +1217,384 @@ export function SceneRenderer({
   }
 
   function handlePortLeave(target: Konva.Circle) {
+  if (reconnectSessionRef.current) {
+    return
+  }
+
     target.radius(7)
     target.strokeWidth(2)
     setStageCursor('default')
     setHoveredPort(null)
     drawDynamicLayer()
+  }
+
+  function isReconnectEndpointValid(
+    session: ReconnectSession,
+    endpoint: ConnectionEndpoint,
+  ) {
+    const resolved = resolveReconnectedEndpoints(
+      scene,
+      session.connection,
+      session.role,
+      endpoint,
+    )
+
+    return Boolean(
+      resolved &&
+        !hasDuplicateConnection(
+          scene,
+          resolved.source,
+          resolved.target,
+          session.connection.id,
+        ),
+    )
+  }
+
+  function styleReconnectPort(
+    session: ReconnectSession,
+    endpoint: ConnectionEndpoint,
+    circle: Konva.Circle,
+  ) {
+    const valid = isReconnectEndpointValid(session, endpoint)
+    circle.opacity(valid ? 1 : 0.18)
+    circle.radius(7)
+    circle.stroke('#ffffff')
+    circle.strokeWidth(2)
+    circle.listening(false)
+  }
+
+  function showReconnectPorts(session: ReconnectSession) {
+    for (const [key, circle] of portRefs.current) {
+      const endpoint = endpointFromPortKey(key)
+
+      if (!endpoint) {
+        continue
+      }
+
+      const node = scene.nodes.find(
+        (candidate) => candidate.id === endpoint.nodeId,
+      )
+      circle.visible(
+        Boolean(node && isNodeEffectivelyVisible(scene, node)),
+      )
+      styleReconnectPort(session, endpoint, circle)
+    }
+  }
+
+  function restorePortPresentation() {
+    for (const [key, circle] of portRefs.current) {
+      const endpoint = endpointFromPortKey(key)
+      const node = endpoint
+        ? scene.nodes.find((candidate) => candidate.id === endpoint.nodeId)
+        : null
+
+      circle.visible(
+        Boolean(
+          connectionMode &&
+            node &&
+            isNodeEffectivelyVisible(scene, node),
+        ),
+      )
+      circle.listening(connectionMode)
+      circle.opacity(1)
+      circle.radius(7)
+      circle.stroke('#ffffff')
+      circle.strokeWidth(2)
+    }
+  }
+
+  function updateReconnectCandidateHighlight(
+    session: ReconnectSession,
+    candidate: ReconnectCandidate | null,
+  ) {
+    const previousKey = reconnectCandidateKeyRef.current
+
+    if (previousKey) {
+      const previousCircle = portRefs.current.get(previousKey)
+      const previousEndpoint = endpointFromPortKey(previousKey)
+
+      if (previousCircle && previousEndpoint) {
+        styleReconnectPort(session, previousEndpoint, previousCircle)
+      }
+    }
+
+    reconnectCandidateKeyRef.current = candidate
+      ? portKey(candidate.endpoint)
+      : null
+
+    if (candidate) {
+      const circle = portRefs.current.get(portKey(candidate.endpoint))
+
+      if (circle) {
+        circle.opacity(1)
+        circle.radius(10)
+        circle.stroke('#16a34a')
+        circle.strokeWidth(3)
+      }
+    }
+  }
+
+  function findReconnectCandidate(
+    session: ReconnectSession,
+    point: Point,
+  ): ReconnectCandidate | null {
+    let nearest: ReconnectCandidate | null = null
+    let nearestDistanceSquared = RECONNECT_SNAP_RADIUS ** 2
+
+    for (const node of scene.nodes) {
+      if (!isPumpNode(node) || !isNodeEffectivelyVisible(scene, node)) {
+        continue
+      }
+
+      for (const port of getNodePortDefinitions(node)) {
+        const endpoint = { nodeId: node.id, portId: port.id }
+        const position = getPortWorldPosition(scene, endpoint)
+
+        if (!position) {
+          continue
+        }
+
+        const deltaX = point.x - position.x
+        const deltaY = point.y - position.y
+        const distanceSquared = deltaX * deltaX + deltaY * deltaY
+
+        if (distanceSquared > nearestDistanceSquared) {
+          continue
+        }
+
+        const resolved = resolveReconnectedEndpoints(
+          scene,
+          session.connection,
+          session.role,
+          endpoint,
+        )
+
+        if (
+          !resolved ||
+          hasDuplicateConnection(
+            scene,
+            resolved.source,
+            resolved.target,
+            session.connection.id,
+          )
+        ) {
+          continue
+        }
+
+        nearestDistanceSquared = distanceSquared
+        nearest = {
+          endpoint,
+          position,
+          connection: {
+            ...session.connection,
+            source: resolved.source,
+            target: resolved.target,
+          },
+        }
+      }
+    }
+
+    return nearest
+  }
+
+  function getFloatingReconnectPoints(
+    session: ReconnectSession,
+    point: Point,
+  ) {
+    const fixedEndpoint =
+      session.role === 'source'
+        ? session.connection.target
+        : session.connection.source
+    const points = getConnectionPreviewRoutePoints(
+      scene,
+      fixedEndpoint,
+      point,
+    )
+
+    if (!points) {
+      return null
+    }
+
+    return session.role === 'source'
+      ? reverseFlattenedPoints(points)
+      : points
+  }
+
+  function beginReconnect(
+    role: ConnectionEndpointRole,
+    handle: Konva.Circle,
+  ) {
+    if (!selectedConnection || mode !== 'editor') {
+      return
+    }
+
+    clearMarqueeSession()
+    clearConnectionSession()
+    setHoveredPort(null)
+    const session: ReconnectSession = {
+      connection: selectedConnection,
+      role,
+      handle,
+      candidate: null,
+    }
+    reconnectSessionRef.current = session
+    reconnectCandidateKeyRef.current = null
+    handle.moveToTop()
+    connectionRefs.current.get(selectedConnection.id)?.opacity(0.2)
+    connectionPreviewRef.current?.stroke('#2563eb')
+    connectionPreviewRef.current?.visible(true)
+    showReconnectPorts(session)
+    setStageCursor('grabbing')
+    processReconnectPreview(handle)
+  }
+
+  function processReconnectPreview(handle: Konva.Circle) {
+    const session = reconnectSessionRef.current
+
+    if (!session) {
+      return
+    }
+
+    const stage = handle.getStage()
+    const pointer = stage?.getPointerPosition() ?? handle.position()
+    const candidate = findReconnectCandidate(session, pointer)
+    const displayPoint = candidate?.position ?? pointer
+    const points = candidate
+      ? getConnectionRoutePoints(scene, candidate.connection)
+      : getFloatingReconnectPoints(session, displayPoint)
+
+    session.candidate = candidate
+    handle.position(displayPoint)
+    handle.stroke(candidate ? '#16a34a' : '#2563eb')
+    handle.strokeWidth(3)
+    updateReconnectCandidateHighlight(session, candidate)
+
+    if (points) {
+      connectionPreviewRef.current?.points(points)
+      connectionPreviewRef.current?.stroke(
+        candidate ? '#16a34a' : '#2563eb',
+      )
+      connectionPreviewRef.current?.visible(true)
+    }
+
+    drawDynamicLayer()
+  }
+
+  function scheduleReconnectPreview(handle: Konva.Circle) {
+    pendingReconnectHandleRef.current = handle
+
+    if (reconnectFrameRef.current !== null) {
+      return
+    }
+
+    reconnectFrameRef.current = requestAnimationFrame(() => {
+      reconnectFrameRef.current = null
+      const latestHandle = pendingReconnectHandleRef.current
+
+      if (latestHandle) {
+        processReconnectPreview(latestHandle)
+      }
+    })
+  }
+
+  function cancelScheduledReconnect() {
+    if (reconnectFrameRef.current !== null) {
+      cancelAnimationFrame(reconnectFrameRef.current)
+      reconnectFrameRef.current = null
+    }
+
+    pendingReconnectHandleRef.current = null
+  }
+
+  function flushScheduledReconnect(handle: Konva.Circle) {
+    cancelScheduledReconnect()
+    processReconnectPreview(handle)
+  }
+
+  function restoreConnectionFromSession(session: ReconnectSession) {
+    const line = connectionRefs.current.get(session.connection.id)
+    const points = getConnectionRoutePoints(scene, session.connection)
+
+    if (line) {
+      line.opacity(1)
+
+      if (points) {
+        line.points(points)
+      }
+    }
+
+    const sourcePosition = getPortWorldPosition(
+      scene,
+      session.connection.source,
+    )
+    const targetPosition = getPortWorldPosition(
+      scene,
+      session.connection.target,
+    )
+
+    if (sourcePosition) {
+      selectedSourceHandleRef.current?.position(sourcePosition)
+    }
+
+    if (targetPosition) {
+      selectedTargetHandleRef.current?.position(targetPosition)
+    }
+  }
+
+  function clearReconnectSession(accepted = false) {
+    cancelScheduledReconnect()
+    const session = reconnectSessionRef.current
+
+    if (!session) {
+      return
+    }
+
+    if (!accepted) {
+      restoreConnectionFromSession(session)
+    } else {
+      connectionRefs.current.get(session.connection.id)?.opacity(1)
+    }
+
+    reconnectSessionRef.current = null
+    reconnectCandidateKeyRef.current = null
+    restorePortPresentation()
+    connectionPreviewRef.current?.visible(false)
+    setStageCursor('default')
+    drawDynamicLayer()
+  }
+
+  function cancelReconnectSession() {
+    clearReconnectSession(false)
+  }
+
+  function finishReconnect(handle: Konva.Circle) {
+    flushScheduledReconnect(handle)
+    const session = reconnectSessionRef.current
+
+    if (!session) {
+      return
+    }
+
+    const candidate = session.candidate
+    const accepted = candidate
+      ? onReconnectConnection(
+          session.connection.id,
+          session.role,
+          candidate.endpoint,
+        )
+      : false
+
+    if (accepted && candidate) {
+      const line = connectionRefs.current.get(session.connection.id)
+      const points = getConnectionRoutePoints(scene, candidate.connection)
+
+      if (line && points) {
+        line.points(points)
+        line.opacity(1)
+      }
+    }
+
+    clearReconnectSession(accepted)
   }
 
   const selectionBounds =
@@ -1196,6 +1659,15 @@ export function SceneRenderer({
         width={viewport.width}
         height={viewport.height}
         onMouseDown={(event) => {
+          const handleRole = findConnectionHandleRole(event.target)
+
+          if (handleRole) {
+            pendingSelectionRef.current = null
+            clearMarqueeSession()
+            clearConnectionSession()
+            return
+          }
+
           if (isInsideTransformer(event.target, transformerRef.current)) {
             cancelPointerInteraction()
             return
@@ -1257,11 +1729,24 @@ export function SceneRenderer({
         onMouseLeave={() => {
           setStageCursor('default')
           setHoveredPort(null)
+          cancelReconnectSession()
           cancelPointerInteraction()
         }}
-        onDragStart={(event) => handleDragStart(event.target)}
-        onDragMove={(event) => scheduleDragMove(event.target)}
-        onDragEnd={(event) => handleDragEnd(event.target)}
+        onDragStart={(event) => {
+          if (!findConnectionHandleRole(event.target)) {
+            handleDragStart(event.target)
+          }
+        }}
+        onDragMove={(event) => {
+          if (!findConnectionHandleRole(event.target)) {
+            scheduleDragMove(event.target)
+          }
+        }}
+        onDragEnd={(event) => {
+          if (!findConnectionHandleRole(event.target)) {
+            handleDragEnd(event.target)
+          }
+        }}
       >
         <Layer listening={false}>
           <Rect
@@ -1462,33 +1947,68 @@ export function SceneRenderer({
             listening={false}
           />
 
-          {selectedSourcePosition && selectedTargetPosition && (
+          {mode === 'editor' &&
+          selectedSourcePosition &&
+          selectedTargetPosition && (
             <>
               <Circle
                 ref={selectedSourceHandleRef}
+                id={`${CONNECTION_HANDLE_PREFIX}source`}
                 x={selectedSourcePosition.x}
                 y={selectedSourcePosition.y}
-                radius={5}
+                radius={7}
                 fill="#ffffff"
                 stroke="#2563eb"
                 strokeWidth={2}
-                listening={false}
+                hitStrokeWidth={12}
+                draggable
+                onMouseEnter={() => setStageCursor('grab')}
+                onMouseLeave={() => {
+                  if (!reconnectSessionRef.current) {
+                    setStageCursor('default')
+                  }
+                }}
+                onDragStart={(event) =>
+                  beginReconnect('source', event.target as Konva.Circle)
+                }
+                onDragMove={(event) =>
+                  scheduleReconnectPreview(event.target as Konva.Circle)
+                }
+                onDragEnd={(event) =>
+                  finishReconnect(event.target as Konva.Circle)
+                }
               />
               <Circle
                 ref={selectedTargetHandleRef}
+                id={`${CONNECTION_HANDLE_PREFIX}target`}
                 x={selectedTargetPosition.x}
                 y={selectedTargetPosition.y}
-                radius={5}
+                radius={7}
                 fill="#2563eb"
                 stroke="#ffffff"
                 strokeWidth={2}
-                listening={false}
+                hitStrokeWidth={12}
+                draggable
+                onMouseEnter={() => setStageCursor('grab')}
+                onMouseLeave={() => {
+                  if (!reconnectSessionRef.current) {
+                    setStageCursor('default')
+                  }
+                }}
+                onDragStart={(event) =>
+                  beginReconnect('target', event.target as Konva.Circle)
+                }
+                onDragMove={(event) =>
+                  scheduleReconnectPreview(event.target as Konva.Circle)
+                }
+                onDragEnd={(event) =>
+                  finishReconnect(event.target as Konva.Circle)
+                }
               />
             </>
           )}
 
           {mode === 'editor' &&
-            connectionMode &&
             scene.nodes.filter(isPumpNode).flatMap((node) => {
               if (!isNodeEffectivelyVisible(scene, node)) {
                 return []
@@ -1523,6 +2043,8 @@ export function SceneRenderer({
                     strokeWidth={2}
                     hitStrokeWidth={12}
                     perfectDrawEnabled={false}
+                    visible={connectionMode}
+                    listening={connectionMode}
                     onMouseEnter={(event) =>
                       handlePortEnter(event.target as Konva.Circle, endpoint)
                     }
@@ -1568,7 +2090,9 @@ export function SceneRenderer({
             : '预览模式'}
         </span>
         {selectedConnectionId ? (
-          <code>{selectedConnection?.routing ?? 'connection'} selected</code>
+          <code>
+            {selectedConnection?.routing ?? 'connection'} · 拖动端点重连
+          </code>
         ) : selectedNodeIds.length > 1 ? (
           <code>{selectedNodeIds.length} selected</code>
         ) : primaryNode ? (
