@@ -1,6 +1,6 @@
 import type { PumpState } from '../assets/pump'
 
-export const SCENE_VERSION = 3 as const
+export const SCENE_VERSION = 4 as const
 export const PUMP_NODE_TYPE = 'pump.submersible' as const
 export const GROUP_NODE_TYPE = 'core.group' as const
 export const PUMP_ASPECT_RATIO = 512 / 720
@@ -43,7 +43,7 @@ export type SceneNode = PumpSceneNode | GroupSceneNode
 
 export type ConnectionEndpoint = {
   nodeId: string
-  portId: string
+  anchorId: string
 }
 
 export type ConnectionRouting = 'straight' | 'orthogonal'
@@ -155,7 +155,7 @@ export function createDefaultScene(): SceneDocument {
   return {
     version: SCENE_VERSION,
     id: createSceneId('scene'),
-    name: 'pump-lab',
+    name: 'scada-lab',
     width: 1280,
     height: 720,
     background: '#edf1f5',
