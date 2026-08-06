@@ -41,19 +41,7 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
     },
     ref,
   ) {
-    const gray = useCachedImage(pumpStateSources.gray)
-    const green = useCachedImage(pumpStateSources.green)
-    const blue = useCachedImage(pumpStateSources.blue)
-    const orange = useCachedImage(pumpStateSources.orange)
-    const red = useCachedImage(pumpStateSources.red)
-
-    const images = {
-      gray,
-      green,
-      blue,
-      orange,
-      red,
-    } satisfies Record<PumpState, HTMLCanvasElement | null>
+    const image = useCachedImage(pumpStateSources[state])
 
     return (
       <Group
@@ -70,21 +58,13 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
         opacity={opacity}
         listening={listening}
       >
-        {(Object.keys(images) as PumpState[]).map((imageState) => {
-          const active = state === imageState
-
-          return (
-            <KonvaImage
-              key={imageState}
-              image={images[imageState] ?? undefined}
-              width={width}
-              height={height}
-              opacity={active ? 1 : 0}
-              listening={listening && active}
-              perfectDrawEnabled={false}
-            />
-          )
-        })}
+        <KonvaImage
+          image={image ?? undefined}
+          width={width}
+          height={height}
+          listening={listening}
+          perfectDrawEnabled={false}
+        />
       </Group>
     )
   },
