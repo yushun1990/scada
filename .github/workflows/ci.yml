@@ -23,6 +23,24 @@ jobs:
         with:
           node-version: 22
 
+      - name: Align refinement patch with current renderer
+        if: github.head_ref == 'agent/refine-editor-layout-and-auto-connect'
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('scripts/refine_editor_layout.py')
+          text = path.read_text()
+          text = text.replace(
+              "'''    target.radius(9)\n    target.strokeWidth(3)\n    setStageCursor('crosshair')'''",
+              "'''    target.radius(9 / viewportTransformRef.current.scale)\n    target.strokeWidth(3)\n    setStageCursor('crosshair')'''",
+          )
+          text = text.replace(
+              "'''    target.radius(7)\n    target.strokeWidth(2)\n    setStageCursor('default')'''",
+              "'''    target.radius(7 / viewportTransformRef.current.scale)\n    target.strokeWidth(2)\n    setStageCursor('default')'''",
+          )
+          path.write_text(text)
+
       - name: Apply editor refinement
         if: github.head_ref == 'agent/refine-editor-layout-and-auto-connect'
         run: python scripts/refine_editor_layout.py
