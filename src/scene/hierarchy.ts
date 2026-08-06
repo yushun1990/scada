@@ -2,6 +2,7 @@ import {
   createGroupNode,
   createSceneId,
   isGroupNode,
+  type SceneConnection,
   type SceneDocument,
   type SceneNode,
 } from './model'
@@ -65,6 +66,11 @@ export function deleteSceneNodes(
   return {
     ...scene,
     nodes: scene.nodes.filter((node) => !deletedIds.has(node.id)),
+    connections: scene.connections.filter(
+      (connection) =>
+        !deletedIds.has(connection.source.nodeId) &&
+        !deletedIds.has(connection.target.nodeId),
+    ),
   }
 }
 
@@ -212,6 +218,43 @@ export function ungroupSceneNode(
   }
 }
 
+function cloneInternalConnections(
+  scene: SceneDocument,
+  subtreeIds: Set<string>,
+  idMap: Map<string, string>,
+) {
+  return scene.connections
+    .filter(
+      (connection) =>
+        subtreeIds.has(connection.source.nodeId) &&
+        subtreeIds.has(connection.target.nodeId),
+    )
+    .map((connection, index) => {
+      const sourceNodeId = idMap.get(connection.source.nodeId)
+      const targetNodeId = idMap.get(connection.target.nodeId)
+
+      if (!sourceNodeId || !targetNodeId) {
+        return null
+      }
+
+      return {
+        ...connection,
+        id: createSceneId('connection'),
+        name: `${connection.name} 副本 ${index + 1}`,
+        source: {
+          ...connection.source,
+          nodeId: sourceNodeId,
+        },
+        target: {
+          ...connection.target,
+          nodeId: targetNodeId,
+        },
+        style: { ...connection.style },
+      } satisfies SceneConnection
+    })
+    .filter((connection): connection is SceneConnection => Boolean(connection))
+}
+
 export function cloneSceneSubtrees(
   scene: SceneDocument,
   rootIds: readonly string[],
@@ -260,11 +303,13 @@ export function cloneSceneSubtrees(
       } as SceneNode
     })
     .filter((node): node is SceneNode => Boolean(node))
+  const clonedConnections = cloneInternalConnections(scene, subtreeIds, idMap)
 
   return {
     scene: {
       ...scene,
       nodes: [...scene.nodes, ...clonedNodes],
+      connections: [...scene.connections, ...clonedConnections],
     },
     rootIds: uniqueRootIds
       .map((nodeId) => idMap.get(nodeId))
