@@ -25,28 +25,7 @@ jobs:
 
       - name: Apply workbench viewport patch
         if: github.head_ref == 'agent/m0-m1-workbench-viewport'
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          workflow = Path('.github/workflows/apply-workbench-viewport.yml').read_text().splitlines()
-          start = next(index for index, line in enumerate(workflow) if line.strip() == 'run: |') + 1
-          end = next(index for index in range(start, len(workflow)) if workflow[index].startswith('      - name: Install dependencies'))
-          source = '\n'.join(line[10:] if line.startswith('          ') else line for line in workflow[start:end])
-          old = "    if count != 1:\n        raise RuntimeError(f'{label}: expected one match, found {count}')"
-          replacement = '\n'.join([
-              "    if label == 'left dock closing' and count == 0:",
-              "        start_index = text.index('          <div className=\\\"milestone-card\\\">')",
-              "        end_index = text.index('        </aside>', start_index) + len('        </aside>')",
-              "        return text[:start_index] + new + text[end_index:]",
-              "    if count != 1:",
-              "        raise RuntimeError(f'{label}: expected one match, found {count}')",
-          ])
-          source = source.replace(old, replacement, 1)
-          Path('/tmp/apply-workbench-viewport.py').write_text(source + '\n')
-          PY
-          python /tmp/apply-workbench-viewport.py
+        run: python scripts/apply_workbench_viewport.py
 
       - name: Install dependencies
         run: npm install
@@ -62,6 +41,7 @@ jobs:
         shell: bash
         run: |
           rm .github/workflows/apply-workbench-viewport.yml
+          rm scripts/apply_workbench_viewport.py
           cat > .github/workflows/ci.yml <<'YAML'
           name: CI
 
@@ -94,6 +74,6 @@ jobs:
           YAML
           git config user.name "scada-editor-bot"
           git config user.email "scada-editor-bot@users.noreply.github.com"
-          git add src/App.tsx src/renderer/SceneRenderer.tsx src/editor/viewport.ts src/workbench.css .github/workflows
+          git add src/App.tsx src/renderer/SceneRenderer.tsx src/editor/viewport.ts src/workbench.css .github/workflows scripts
           git commit -m "feat: add workbench shell and viewport navigation"
           git push origin "HEAD:${{ github.head_ref }}"
