@@ -42,6 +42,10 @@ import {
   type SceneDocument,
   type SceneNode,
 } from './scene/model'
+import {
+  applyTransformsAndExpandScene,
+  expandSceneToContainNodes,
+} from './scene/scene-bounds'
 import { parseSceneDocument } from './scene/validation'
 import {
   SceneRenderer,
@@ -55,7 +59,7 @@ const LEGACY_STORAGE_KEYS = [
   'scada-editor-lab.scene.v1',
 ]
 
-type InspectorTab = 'base' | 'properties' | 'actions' | 'events'
+type InspectorTab = 'properties' | 'actions' | 'events'
 type LeftDockTab = 'components' | 'layers' | 'assets'
 
 const pumpStates: Array<{
@@ -124,11 +128,9 @@ function App() {
     getInitialSelectedIds(scene),
   )
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
-  const [connectionMode, setConnectionMode] = useState(false)
-  const [panMode, setPanMode] = useState(false)
   const [leftDockTab, setLeftDockTab] = useState<LeftDockTab>('components')
-  const [message, setMessage] = useState('M0/M1.1 编辑器工作台与视口导航已启用')
-  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('base')
+  const [message, setMessage] = useState('编辑器布局与自动连线已启用')
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('properties')
   const [gridVisible, setGridVisible] = useState(true)
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({
     enabled: true,
@@ -178,8 +180,7 @@ function App() {
 
     if (connectionId) {
       setSelectedNodeIds([])
-      setInspectorTab('base')
-    }
+      }
   }
 
   function updateNode(
@@ -211,14 +212,7 @@ function App() {
       return
     }
 
-    setScene((current) => ({
-      ...current,
-      nodes: current.nodes.map((node) =>
-        updates[node.id]
-          ? { ...node, transform: updates[node.id] }
-          : node,
-      ),
-    }))
+    setScene((current) => applyTransformsAndExpandScene(current, updates))
   }
 
   function updateNodeTransform(nodeId: string, transform: NodeTransform) {
@@ -238,7 +232,6 @@ function App() {
     setSelectedNodeIds([node.id])
     setSelectedConnectionId(null)
     setMode('editor')
-    setInspectorTab('base')
     setMessage(`已添加 ${node.name}`)
   }
 
@@ -248,7 +241,7 @@ function App() {
     }
 
     const result = cloneSceneSubtrees(scene, selectedNodeIds)
-    setScene(result.scene)
+    setScene(expandSceneToContainNodes(result.scene))
     setSelectedNodeIds(result.rootIds)
     setSelectedConnectionId(null)
     setMessage(`已复制 ${result.rootIds.length} 个根节点及其内部连线`)
@@ -291,7 +284,6 @@ function App() {
     setScene(result.scene)
     setSelectedNodeIds([result.groupId])
     setSelectedConnectionId(null)
-    setInspectorTab('base')
     setMessage('已组合节点，现有连线端点保持附着')
   }
 
@@ -304,7 +296,6 @@ function App() {
     setScene(result.scene)
     setSelectedNodeIds(result.childIds)
     setSelectedConnectionId(null)
-    setInspectorTab('base')
     setMessage(`已拆分组合，连线仍引用原始子组件锚点`)
   }
 
@@ -329,7 +320,6 @@ function App() {
     }))
     setSelectedNodeIds([])
     setSelectedConnectionId(connection.id)
-    setInspectorTab('base')
     setMessage(`已创建 ${connection.name}`)
   }
 
@@ -544,32 +534,10 @@ function App() {
       setSelectedNodeIds(getInitialSelectedIds(importedScene))
       setSelectedConnectionId(null)
       setMode('editor')
-      setConnectionMode(false)
       setMessage(`已导入 ${file.name}`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '场景导入失败')
     }
-  }
-
-  function activateSelectTool() {
-    setMode('editor')
-    setPanMode(false)
-    setConnectionMode(false)
-    setMessage('选择工具')
-  }
-
-  function activatePanTool() {
-    setMode('editor')
-    setPanMode(true)
-    setConnectionMode(false)
-    setMessage('平移工具 · 也可按住 Space 或使用鼠标中键')
-  }
-
-  function activateConnectionTool() {
-    setMode('editor')
-    setPanMode(false)
-    setConnectionMode(true)
-    setMessage('连线工具 · 拖动任意视觉锚点建立连接')
   }
 
   const commonVisible =
@@ -582,121 +550,46 @@ function App() {
       <header className="editor-header">
         <div className="brand-block">
           <strong>SCADA Editor</strong>
-          <span>Generic composition workbench</span>
+          <span>通用组态编辑器</span>
         </div>
 
-        <nav className="editor-menu" aria-label="主菜单">
-          {['文件', '编辑', '视图', '排列', '连接', '运行', '帮助'].map((item) => (
-            <button key={item} type="button" tabIndex={-1}>{item}</button>
-          ))}
-        </nav>
+        <span className="header-message">{message}</span>
 
-        <div className="editor-toolbar" role="toolbar" aria-label="编辑工具栏">
-          <div className="toolbar-group">
-            <button
-              type="button"
-              className={`tool-button${!panMode && !connectionMode ? ' active' : ''}`}
-              onClick={activateSelectTool}
-              title="选择工具 (V)"
-            >
-              选择
-            </button>
-            <button
-              type="button"
-              className={`tool-button${panMode ? ' active' : ''}`}
-              onClick={activatePanTool}
-              title="平移工具 (H / Space)"
-            >
-              平移
-            </button>
-            <button
-              type="button"
-              className={`tool-button${connectionMode ? ' active' : ''}`}
-              onClick={activateConnectionTool}
-              title="连线工具 (C)"
-            >
-              连线
-            </button>
-          </div>
-
-          <div className="toolbar-group">
-            <button type="button" className="tool-button" disabled title="M2.1 实现撤销">撤销</button>
-            <button type="button" className="tool-button" disabled title="M2.1 实现重做">重做</button>
-          </div>
-
-          <div className="toolbar-group">
-            <button
-              type="button"
-              className="tool-button"
-              disabled={selectedNodes.length === 0}
-              onClick={duplicateSelectedNodes}
-            >
-              复制
-            </button>
-            <button
-              type="button"
-              className="tool-button"
-              disabled={!hasSelection}
-              onClick={deleteSelection}
-            >
-              删除
-            </button>
-            <button
-              type="button"
-              className="tool-button optional-tool"
-              disabled={selectedNodes.length === 0}
-              onClick={resetSelectedTransforms}
-            >
-              重置
-            </button>
-            <button
-              type="button"
-              className="tool-button optional-tool"
-              disabled={!canGroup}
-              onClick={groupSelectedNodes}
-            >
-              组合
-            </button>
-            <button
-              type="button"
-              className="tool-button optional-tool"
-              disabled={!canUngroup}
-              onClick={ungroupSelectedNode}
-            >
-              拆分
-            </button>
-          </div>
-
-          <div className="toolbar-group">
-            <button type="button" className="tool-button" onClick={saveScene}>保存</button>
-            <button type="button" className="tool-button optional-tool" onClick={exportScene}>导出</button>
-          </div>
+        <div className="document-toolbar" role="toolbar" aria-label="场景文档操作">
+          <button type="button" onClick={saveScene}>保存</button>
+          <button type="button" onClick={restoreScene}>恢复</button>
+          <button type="button" onClick={() => importInputRef.current?.click()}>导入</button>
+          <button type="button" onClick={exportScene}>导出</button>
+          <input
+            ref={importInputRef}
+            className="hidden-input"
+            type="file"
+            accept="application/json,.json"
+            onChange={(event) => {
+              void importScene(event)
+            }}
+          />
         </div>
 
-        <div className="header-actions">
-          <span className="header-message">{message}</span>
-          <div className="mode-switch" role="group" aria-label="编辑器模式">
-            <button
-              type="button"
-              className={mode === 'editor' ? 'active' : ''}
-              onClick={activateSelectTool}
-            >
-              编辑
-            </button>
-            <button
-              type="button"
-              className={mode === 'preview' ? 'active' : ''}
-              onClick={() => {
-                setMode('preview')
-                setPanMode(false)
-                setConnectionMode(false)
-                setSelectedNodeIds([])
-                setSelectedConnectionId(null)
-              }}
-            >
-              预览
-            </button>
-          </div>
+        <div className="mode-switch" role="group" aria-label="工作模式">
+          <button
+            type="button"
+            className={mode === 'editor' ? 'active' : ''}
+            onClick={() => setMode('editor')}
+          >
+            设计
+          </button>
+          <button
+            type="button"
+            className={mode === 'preview' ? 'active' : ''}
+            onClick={() => {
+              setMode('preview')
+              setSelectedNodeIds([])
+              setSelectedConnectionId(null)
+            }}
+          >
+            预览
+          </button>
         </div>
       </header>
 
@@ -719,205 +612,124 @@ function App() {
             ))}
           </div>
 
-          <div className="dock-content" hidden={leftDockTab !== 'components'}>
-          <div className="panel-title">组件</div>
-          <button
-            className="component-item active"
-            type="button"
-            onClick={addPump}
-          >
-            <span className="component-icon">P</span>
-            <span>
-              <strong>添加潜水泵</strong>
-              <small>pump.submersible</small>
-            </span>
-          </button>
-
-          <div className="panel-title section-title">选择操作</div>
-          <div className="action-grid">
-            <button
-              type="button"
-              disabled={selectedNodes.length === 0}
-              onClick={duplicateSelectedNodes}
-            >
-              复制
-            </button>
-            <button
-              type="button"
-              disabled={!hasSelection}
-              onClick={deleteSelection}
-            >
-              删除
-            </button>
-            <button
-              type="button"
-              disabled={!canGroup}
-              onClick={groupSelectedNodes}
-            >
-              组合
-            </button>
-            <button
-              type="button"
-              disabled={!canUngroup}
-              onClick={ungroupSelectedNode}
-            >
-              拆分
-            </button>
-          </div>
-
-          <div className="panel-title section-title">连线</div>
-          <button
-            type="button"
-            className={`connection-mode-button${connectionMode ? ' active' : ''}`}
-            onClick={() => {
-              if (connectionMode) {
-                activateSelectTool()
-              } else {
-                activateConnectionTool()
-              }
-            }}
-          >
-            {connectionMode ? '退出连线模式' : '进入连线模式'}
-          </button>
-          <div className="connection-legend">
-            <span><i className="port-dot output" />中性视觉锚点</span>
-          </div>
-          <p className="panel-description connection-help">
-            连线模式会显示图片四周的通用锚点；选中已有连线后，可拖动两端控制点重新连接。
-          </p>
-
-          <div className="panel-title section-title">对齐</div>
-          <div className="arrange-grid">
-            {alignButtons.map((item) => (
+          {leftDockTab === 'components' && (
+            <div className="dock-content">
+              <div className="panel-title">基础组件</div>
               <button
-                key={item.mode}
+                className="component-item active"
                 type="button"
-                title={item.title}
-                disabled={selectedNodes.length < 2}
-                onClick={() => applyAlignment(item.mode)}
+                onClick={addPump}
               >
-                {item.label}
+                <span className="component-icon">P</span>
+                <span>
+                  <strong>添加潜水泵</strong>
+                  <small>pump.submersible</small>
+                </span>
               </button>
-            ))}
-            <button
-              type="button"
-              title="水平均匀分布"
-              disabled={selectedNodes.length < 3}
-              onClick={() => applyDistribution('horizontal')}
-            >
-              水平分布
-            </button>
-            <button
-              type="button"
-              title="垂直均匀分布"
-              disabled={selectedNodes.length < 3}
-              onClick={() => applyDistribution('vertical')}
-            >
-              垂直分布
-            </button>
-          </div>
-
-          <div className="panel-title section-title">视图与网格</div>
-          <div className="snap-settings">
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={gridVisible}
-                onChange={(event) => setGridVisible(event.target.checked)}
-              />
-              <span>显示格线</span>
-            </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={snapSettings.gridEnabled}
-                onChange={(event) => {
-                  setSnapSettings((current) => ({
-                    ...current,
-                    gridEnabled: event.target.checked,
-                  }))
-                }}
-              />
-              <span>网格吸附</span>
-            </label>
-            <label className="inline-number">
-              <span>网格尺寸</span>
-              <input
-                type="number"
-                min="4"
-                max="128"
-                value={snapSettings.gridSize}
-                onChange={(event) => {
-                  const gridSize = Number(event.target.value)
-
-                  if (Number.isFinite(gridSize) && gridSize > 0) {
-                    setSnapSettings((current) => ({ ...current, gridSize }))
-                  }
-                }}
-              />
-            </label>
-            <p className="panel-description">
-              组件边缘与中心线吸附始终开启。
-            </p>
-          </div>
-
-          <div className="panel-title section-title">场景文档</div>
-          <div className="document-actions">
-            <button type="button" onClick={saveScene}>保存浏览器</button>
-            <button type="button" onClick={restoreScene}>恢复浏览器</button>
-            <button type="button" onClick={exportScene}>导出 JSON</button>
-            <button
-              type="button"
-              onClick={() => importInputRef.current?.click()}
-            >
-              导入 JSON
-            </button>
-          </div>
-          <input
-            ref={importInputRef}
-            className="hidden-input"
-            type="file"
-            accept="application/json,.json"
-            onChange={(event) => {
-              void importScene(event)
-            }}
-          />
-
-          <div className="milestone-card">
-            <strong>M0 / M1.1 当前切片</strong>
-            <span>桌面编辑器工作台外壳</span>
-            <span>无限工作区与固定场景画板</span>
-            <span>缩放、平移、100% 与适应场景</span>
-            <span>场景坐标与视口坐标分离</span>
-          </div>
-          </div>
+              <p className="panel-description component-dock-help">
+                后续组件注册表、搜索、分类和拖放入口统一放在这里。
+              </p>
+            </div>
+          )}
 
           {leftDockTab === 'layers' && (
             <div className="dock-placeholder">
-              <strong>图层树将在 M2.4 实现</strong>
-              <span>当前组合层级已经持久化；下一阶段会加入排序、锁定、显隐和进入组合编辑。</span>
+              <strong>图层树</strong>
+              <span>用于层级、排序、锁定、显隐和进入组合编辑。</span>
             </div>
           )}
 
           {leftDockTab === 'assets' && (
             <div className="dock-placeholder">
-              <strong>资源库将在 M4.2 实现</strong>
-              <span>用于管理项目图片和 SVG，并支持拖入场景和资源替换。</span>
+              <strong>资源库</strong>
+              <span>用于项目图片、SVG 和其他可复用资源。</span>
             </div>
           )}
         </aside>
 
         <section className="canvas-area" aria-label="SCADA 编辑画布">
           <div className="canvas-toolbar">
-            <span>
-              {scene.name} / {rootNodes.length} root / {scene.nodes.length} nodes / {scene.connections.length} connections
-            </span>
-            <span>
-              {connectionMode
-                ? '拖动任意视觉锚点建立连接 · 不限制输入输出语义'
-                : selectedConnection
-                ? '拖动连线两端控制点可重连 · 绿色表示可放置锚点'
-                : '组件吸附始终开启 · Shift/Ctrl 多选 · 空白拖动框选'}
+            <div className="canvas-toolbar-summary">
+              <strong>{scene.name}</strong>
+              <span>{scene.width} × {scene.height}</span>
+              <span>{scene.nodes.length} 个组件</span>
+              <span>{scene.connections.length} 条连线</span>
+            </div>
+
+            <div className="canvas-tool-strip" role="toolbar" aria-label="绘图工具">
+              <div className="canvas-tool-group" aria-label="对齐">
+                {alignButtons.map((item) => (
+                  <button
+                    key={item.mode}
+                    type="button"
+                    title={item.title}
+                    disabled={selectedNodes.length < 2}
+                    onClick={() => applyAlignment(item.mode)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  title="水平均匀分布"
+                  disabled={selectedNodes.length < 3}
+                  onClick={() => applyDistribution('horizontal')}
+                >
+                  水平分布
+                </button>
+                <button
+                  type="button"
+                  title="垂直均匀分布"
+                  disabled={selectedNodes.length < 3}
+                  onClick={() => applyDistribution('vertical')}
+                >
+                  垂直分布
+                </button>
+              </div>
+
+              <div className="canvas-tool-group view-tool-group" aria-label="视图与网格">
+                <label className="canvas-toggle">
+                  <input
+                    type="checkbox"
+                    checked={gridVisible}
+                    onChange={(event) => setGridVisible(event.target.checked)}
+                  />
+                  <span>格线</span>
+                </label>
+                <label className="canvas-toggle">
+                  <input
+                    type="checkbox"
+                    checked={snapSettings.gridEnabled}
+                    onChange={(event) => {
+                      setSnapSettings((current) => ({
+                        ...current,
+                        gridEnabled: event.target.checked,
+                      }))
+                    }}
+                  />
+                  <span>网格吸附</span>
+                </label>
+                <label className="canvas-grid-size">
+                  <span>间距</span>
+                  <input
+                    type="number"
+                    min="4"
+                    max="128"
+                    value={snapSettings.gridSize}
+                    onChange={(event) => {
+                      const gridSize = Number(event.target.value)
+
+                      if (Number.isFinite(gridSize) && gridSize > 0) {
+                        setSnapSettings((current) => ({ ...current, gridSize }))
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <span className="canvas-toolbar-hint">
+              靠近组件锚点后直接拖动即可连线 · Space 或中键平移
             </span>
           </div>
           <SceneRenderer
@@ -925,8 +737,6 @@ function App() {
             mode={mode}
             selectedNodeIds={selectedNodeIds}
             selectedConnectionId={selectedConnectionId}
-            connectionMode={connectionMode}
-            panMode={panMode}
             snapSettings={snapSettings}
             gridVisible={gridVisible}
             onSelectionChange={selectNodes}
@@ -938,138 +748,165 @@ function App() {
         </section>
 
         <aside className="property-panel">
-          <div className="inspector-tabs" role="tablist" aria-label="节点检查器">
-            {([
-              ['base', '基础'],
-              ['properties', '属性'],
-              ['actions', '动作'],
-              ['events', '事件'],
-            ] as Array<[InspectorTab, string]>).map(([tab, label]) => (
-              <button
-                key={tab}
-                type="button"
-                className={inspectorTab === tab ? 'active' : ''}
-                onClick={() => setInspectorTab(tab)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <section className="base-inspector" aria-label="基础设置">
+            <div className="inspector-section-header">
+              <div>
+                <strong>基础</strong>
+                <span>
+                  {selectedConnection
+                    ? '连线几何与样式'
+                    : selectedNodes.length > 0
+                      ? `${selectedNodes.length} 个对象`
+                      : '场景信息'}
+                </span>
+              </div>
 
-          {inspectorTab === 'base' && selectedConnection && (
-            <>
-              <div className="panel-title">连线属性</div>
-              <label className="property-field">
-                <span>名称</span>
-                <input
-                  value={selectedConnection.name}
-                  onChange={(event) => {
-                    const name = event.target.value
-                    updateConnection(selectedConnection.id, (connection) => ({
-                      ...connection,
-                      name,
-                    }))
-                  }}
-                />
-              </label>
-              <label className="property-field">
-                <span>路由</span>
-                <select
-                  value={selectedConnection.routing}
-                  onChange={(event) => {
-                    const routing = event.target.value as ConnectionRouting
-                    updateConnection(selectedConnection.id, (connection) => ({
-                      ...connection,
-                      routing,
-                    }))
-                  }}
+              <div className="base-command-row" role="toolbar" aria-label="选择操作">
+                <button
+                  type="button"
+                  disabled={selectedNodes.length === 0}
+                  onClick={duplicateSelectedNodes}
                 >
-                  <option value="orthogonal">正交折线</option>
-                  <option value="straight">直线</option>
-                </select>
-              </label>
-              <label className="property-field">
-                <span>颜色</span>
-                <input
-                  className="color-input"
-                  type="color"
-                  value={selectedConnection.style.stroke}
-                  onChange={(event) => {
-                    const stroke = event.target.value
-                    updateConnection(selectedConnection.id, (connection) => ({
-                      ...connection,
-                      style: { ...connection.style, stroke },
-                    }))
-                  }}
-                />
-              </label>
-              <label className="property-field">
-                <span>线宽</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="24"
-                  value={selectedConnection.style.strokeWidth}
-                  onChange={(event) => {
-                    const strokeWidth = Number(event.target.value)
+                  复制
+                </button>
+                <button
+                  type="button"
+                  disabled={!hasSelection}
+                  onClick={deleteSelection}
+                >
+                  删除
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedNodes.length === 0}
+                  onClick={resetSelectedTransforms}
+                >
+                  重置
+                </button>
+                <button type="button" disabled={!canGroup} onClick={groupSelectedNodes}>
+                  组合
+                </button>
+                <button type="button" disabled={!canUngroup} onClick={ungroupSelectedNode}>
+                  拆分
+                </button>
+              </div>
+            </div>
 
-                    if (Number.isFinite(strokeWidth) && strokeWidth > 0) {
-                      updateConnection(selectedConnection.id, (connection) => ({
-                        ...connection,
-                        style: { ...connection.style, strokeWidth },
-                      }))
-                    }
-                  }}
-                />
-              </label>
-              <label className="property-field">
-                <span>线型</span>
-                <select
-                  value={selectedConnection.style.dash}
-                  onChange={(event) => {
-                    const dash = event.target.value as 'solid' | 'dashed'
-                    updateConnection(selectedConnection.id, (connection) => ({
-                      ...connection,
-                      style: { ...connection.style, dash },
-                    }))
-                  }}
-                >
-                  <option value="solid">实线</option>
-                  <option value="dashed">虚线</option>
-                </select>
-              </label>
-              <div className="property-summary">
-                <div>
-                  <span>起点</span>
-                  <code>{selectedConnection.source.nodeId} / {selectedConnection.source.anchorId}</code>
-                </div>
-                <div>
-                  <span>终点</span>
-                  <code>{selectedConnection.target.nodeId} / {selectedConnection.target.anchorId}</code>
-                </div>
-                <div>
-                <span>端点编辑</span>
-                  <code>拖动蓝色控制点</code>
+            {selectedConnection ? (
+              <div className="base-group-list">
+                <fieldset className="inspector-group">
+                  <legend>连线</legend>
+                  <label className="property-field">
+                    <span>名称</span>
+                    <input
+                      value={selectedConnection.name}
+                      onChange={(event) => {
+                        const name = event.target.value
+                        updateConnection(selectedConnection.id, (connection) => ({
+                          ...connection,
+                          name,
+                        }))
+                      }}
+                    />
+                  </label>
+                  <label className="property-field">
+                    <span>路由</span>
+                    <select
+                      value={selectedConnection.routing}
+                      onChange={(event) => {
+                        const routing = event.target.value as ConnectionRouting
+                        updateConnection(selectedConnection.id, (connection) => ({
+                          ...connection,
+                          routing,
+                        }))
+                      }}
+                    >
+                      <option value="orthogonal">正交折线</option>
+                      <option value="straight">直线</option>
+                    </select>
+                  </label>
+                </fieldset>
+
+                <fieldset className="inspector-group">
+                  <legend>样式</legend>
+                  <div className="property-grid">
+                    <label className="property-field compact">
+                      <span>颜色</span>
+                      <input
+                        className="color-input"
+                        type="color"
+                        value={selectedConnection.style.stroke}
+                        onChange={(event) => {
+                          const stroke = event.target.value
+                          updateConnection(selectedConnection.id, (connection) => ({
+                            ...connection,
+                            style: { ...connection.style, stroke },
+                          }))
+                        }}
+                      />
+                    </label>
+                    <label className="property-field compact">
+                      <span>线宽</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="24"
+                        value={selectedConnection.style.strokeWidth}
+                        onChange={(event) => {
+                          const strokeWidth = Number(event.target.value)
+
+                          if (Number.isFinite(strokeWidth) && strokeWidth > 0) {
+                            updateConnection(selectedConnection.id, (connection) => ({
+                              ...connection,
+                              style: { ...connection.style, strokeWidth },
+                            }))
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <label className="property-field">
+                    <span>线型</span>
+                    <select
+                      value={selectedConnection.style.dash}
+                      onChange={(event) => {
+                        const dash = event.target.value as 'solid' | 'dashed'
+                        updateConnection(selectedConnection.id, (connection) => ({
+                          ...connection,
+                          style: { ...connection.style, dash },
+                        }))
+                      }}
+                    >
+                      <option value="solid">实线</option>
+                      <option value="dashed">虚线</option>
+                    </select>
+                  </label>
+                </fieldset>
+
+                <div className="property-summary compact-summary">
+                  <div>
+                    <span>起点</span>
+                    <code>{selectedConnection.source.nodeId} / {selectedConnection.source.anchorId}</code>
+                  </div>
+                  <div>
+                    <span>终点</span>
+                    <code>{selectedConnection.target.nodeId} / {selectedConnection.target.anchorId}</code>
+                  </div>
                 </div>
               </div>
-            </>
-          )}
-
-          {inspectorTab === 'base' && !selectedConnection && (
-            <>
-              <div className="panel-title">基础属性</div>
-              {selectedNodes.length === 0 ? (
-                <div className="scene-inspector-summary">
-                  <div><span>场景</span><code>{scene.name}</code></div>
-                  <div><span>尺寸</span><code>{scene.width} × {scene.height}</code></div>
-                  <div><span>背景</span><code>{scene.background}</code></div>
-                  <div><span>下一切片</span><code>M1.2 场景设置</code></div>
-                </div>
-              ) : selectedNodes.length > 1 ? (
-                <>
+            ) : selectedNodes.length === 0 ? (
+              <div className="scene-inspector-summary">
+                <div><span>场景</span><code>{scene.name}</code></div>
+                <div><span>尺寸</span><code>{scene.width} × {scene.height}</code></div>
+                <div><span>背景</span><code>{scene.background}</code></div>
+                <div><span>扩展</span><code>组件越界时自动向右/向下扩展</code></div>
+              </div>
+            ) : selectedNodes.length > 1 ? (
+              <div className="base-group-list">
+                <fieldset className="inspector-group">
+                  <legend>选择</legend>
                   <div className="selection-summary">
                     已选择 <strong>{selectedNodes.length}</strong> 个根节点。
-                    可执行对齐、排列或组合。
                   </div>
                   <label className="checkbox-field property-toggle">
                     <input
@@ -1091,9 +928,12 @@ function App() {
                     />
                     <span>全部锁定</span>
                   </label>
-                </>
-              ) : primaryNode ? (
-                <>
+                </fieldset>
+              </div>
+            ) : primaryNode ? (
+              <div className="base-group-list">
+                <fieldset className="inspector-group">
+                  <legend>标识</legend>
                   <label className="property-field">
                     <span>名称</span>
                     <input
@@ -1104,7 +944,14 @@ function App() {
                       }}
                     />
                   </label>
+                  <div className="property-summary compact-summary">
+                    <div><span>类型</span><code>{primaryNode.type}</code></div>
+                    <div><span>父级</span><code>{primaryNode.parentId ?? 'scene-root'}</code></div>
+                  </div>
+                </fieldset>
 
+                <fieldset className="inspector-group">
+                  <legend>几何</legend>
                   <div className="property-grid">
                     {(['x', 'y', 'width', 'height', 'rotation'] as const).map(
                       (field) => (
@@ -1114,17 +961,17 @@ function App() {
                             type="number"
                             value={Math.round(primaryNode.transform[field] * 100) / 100}
                             onChange={(event) =>
-                              updatePrimaryTransformField(
-                                field,
-                                Number(event.target.value),
-                              )
+                              updatePrimaryTransformField(field, Number(event.target.value))
                             }
                           />
                         </label>
                       ),
                     )}
                   </div>
+                </fieldset>
 
+                <fieldset className="inspector-group inspector-toggle-group">
+                  <legend>显示</legend>
                   <label className="checkbox-field property-toggle">
                     <input
                       type="checkbox"
@@ -1145,87 +992,91 @@ function App() {
                     />
                     <span>锁定</span>
                   </label>
+                </fieldset>
+              </div>
+            ) : null}
+          </section>
 
-                  <div className="property-summary">
-                    <div>
-                      <span>节点类型</span>
-                      <code>{primaryNode.type}</code>
-                    </div>
-                    <div>
-                      <span>父节点</span>
-                      <code>{primaryNode.parentId ?? 'scene-root'}</code>
-                    </div>
-                    <div>
-                      <span>场景版本</span>
-                      <code>v{scene.version}</code>
-                    </div>
-                  </div>
-                </>
-              ) : null}
-            </>
-          )}
-
-          {inspectorTab === 'properties' && selectedConnection && (
-            <div className="inspector-placeholder">
-              <strong>可视连线不是组件 Property</strong>
-              <span>颜色、线宽和路由属于场景几何样式，在“基础”页编辑。</span>
+          <section className="semantic-inspector" aria-label="组件语义">
+            <div className="inspector-tabs" role="tablist" aria-label="组件语义检查器">
+              {([
+                ['properties', '属性'],
+                ['actions', '方法'],
+                ['events', '事件'],
+              ] as Array<[InspectorTab, string]>).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={inspectorTab === tab ? 'active' : ''}
+                  onClick={() => setInspectorTab(tab)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-          )}
 
-          {inspectorTab === 'properties' && !selectedConnection && (
-            <>
-              <div className="panel-title">组件公共属性</div>
-              {selectedPumpNodes.length === 0 ? (
-                <div className="inspector-placeholder">
-                  <strong>当前选择范围没有兼容的水泵属性</strong>
-                  <span>后续组件注册表会计算不同类型之间的公共属性交集。</span>
-                </div>
-              ) : (
-                <>
-                  <div className="property-scope">
-                    当前选择范围包含 <strong>{selectedPumpNodes.length}</strong> 个水泵。
-                    {selectedGroupCount > 0 && (
-                      <span>修改将递归应用到组合内的真实子组件。</span>
-                    )}
+            {inspectorTab === 'properties' && selectedConnection && (
+              <div className="inspector-placeholder">
+                <strong>连线没有组件属性</strong>
+                <span>连线几何和样式统一在上方“基础”区域编辑。</span>
+              </div>
+            )}
+
+            {inspectorTab === 'properties' && !selectedConnection && (
+              <>
+                <div className="panel-title">组件公共属性</div>
+                {selectedPumpNodes.length === 0 ? (
+                  <div className="inspector-placeholder">
+                    <strong>当前选择没有可编辑的公共属性</strong>
+                    <span>后续由组件注册表计算不同组件类型之间的公共属性交集。</span>
                   </div>
-                  <div className="state-list">
-                    {pumpStates.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={`state-button${selectedPumpNodes.every((node) => node.props.state === item.id) ? ' active' : ''}`}
-                        onClick={() => setSelectedPumpState(item.id)}
-                      >
-                        <span
-                          className="state-swatch"
-                          style={{ backgroundColor: item.swatch }}
-                          aria-hidden="true"
-                        />
-                        <span>
-                          <strong>{item.name}</strong>
-                          <small>{item.description}</small>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          )}
+                ) : (
+                  <>
+                    <div className="property-scope">
+                      当前范围包含 <strong>{selectedPumpNodes.length}</strong> 个水泵。
+                      {selectedGroupCount > 0 && (
+                        <span>修改会递归应用到组合内的真实子组件。</span>
+                      )}
+                    </div>
+                    <div className="state-list">
+                      {pumpStates.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`state-button${selectedPumpNodes.every((node) => node.props.state === item.id) ? ' active' : ''}`}
+                          onClick={() => setSelectedPumpState(item.id)}
+                        >
+                          <span
+                            className="state-swatch"
+                            style={{ backgroundColor: item.swatch }}
+                            aria-hidden="true"
+                          />
+                          <span>
+                            <strong>{item.name}</strong>
+                            <small>{item.description}</small>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
 
-          {inspectorTab === 'actions' && (
-            <div className="inspector-placeholder">
-              <strong>Action 定义入口</strong>
-              <span>M3 接入组件注册表后，可在这里手动调用 start、stop、reset 等动作。</span>
-            </div>
-          )}
+            {inspectorTab === 'actions' && (
+              <div className="inspector-placeholder">
+                <strong>方法定义入口</strong>
+                <span>组件注册表接入后，在这里调用 start、stop、reset 等方法。</span>
+              </div>
+            )}
 
-          {inspectorTab === 'events' && (
-            <div className="inspector-placeholder">
-              <strong>Event 定义入口</strong>
-              <span>M3/M4 将在这里显示语义事件和 Event → Action 行为连接。</span>
-            </div>
-          )}
+            {inspectorTab === 'events' && (
+              <div className="inspector-placeholder">
+                <strong>事件定义入口</strong>
+                <span>后续在这里显示语义事件和 Event → Method 行为连接。</span>
+              </div>
+            )}
+          </section>
         </aside>
       </main>
     </div>
