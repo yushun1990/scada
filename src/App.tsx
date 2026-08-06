@@ -1,4 +1,5 @@
 import './m2.css'
+import './workbench.css'
 import {
   useRef,
   useState,
@@ -55,6 +56,7 @@ const LEGACY_STORAGE_KEYS = [
 ]
 
 type InspectorTab = 'base' | 'properties' | 'actions' | 'events'
+type LeftDockTab = 'components' | 'layers' | 'assets'
 
 const pumpStates: Array<{
   id: PumpState
@@ -123,7 +125,9 @@ function App() {
   )
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
   const [connectionMode, setConnectionMode] = useState(false)
-  const [message, setMessage] = useState('M2.3A 通用视觉锚点迁移已启用')
+  const [panMode, setPanMode] = useState(false)
+  const [leftDockTab, setLeftDockTab] = useState<LeftDockTab>('components')
+  const [message, setMessage] = useState('M0/M1.1 编辑器工作台与视口导航已启用')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('base')
   const [gridVisible, setGridVisible] = useState(true)
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({
@@ -547,6 +551,27 @@ function App() {
     }
   }
 
+  function activateSelectTool() {
+    setMode('editor')
+    setPanMode(false)
+    setConnectionMode(false)
+    setMessage('选择工具')
+  }
+
+  function activatePanTool() {
+    setMode('editor')
+    setPanMode(true)
+    setConnectionMode(false)
+    setMessage('平移工具 · 也可按住 Space 或使用鼠标中键')
+  }
+
+  function activateConnectionTool() {
+    setMode('editor')
+    setPanMode(false)
+    setConnectionMode(true)
+    setMessage('连线工具 · 拖动任意视觉锚点建立连接')
+  }
+
   const commonVisible =
     selectedNodes.length > 0 && selectedNodes.every((node) => node.visible)
   const commonLocked =
@@ -556,8 +581,96 @@ function App() {
     <div className="editor-shell">
       <header className="editor-header">
         <div className="brand-block">
-          <strong>SCADA Editor Lab</strong>
-          <span>M2.3 · 端口与可视连线</span>
+          <strong>SCADA Editor</strong>
+          <span>Generic composition workbench</span>
+        </div>
+
+        <nav className="editor-menu" aria-label="主菜单">
+          {['文件', '编辑', '视图', '排列', '连接', '运行', '帮助'].map((item) => (
+            <button key={item} type="button" tabIndex={-1}>{item}</button>
+          ))}
+        </nav>
+
+        <div className="editor-toolbar" role="toolbar" aria-label="编辑工具栏">
+          <div className="toolbar-group">
+            <button
+              type="button"
+              className={`tool-button${!panMode && !connectionMode ? ' active' : ''}`}
+              onClick={activateSelectTool}
+              title="选择工具 (V)"
+            >
+              选择
+            </button>
+            <button
+              type="button"
+              className={`tool-button${panMode ? ' active' : ''}`}
+              onClick={activatePanTool}
+              title="平移工具 (H / Space)"
+            >
+              平移
+            </button>
+            <button
+              type="button"
+              className={`tool-button${connectionMode ? ' active' : ''}`}
+              onClick={activateConnectionTool}
+              title="连线工具 (C)"
+            >
+              连线
+            </button>
+          </div>
+
+          <div className="toolbar-group">
+            <button type="button" className="tool-button" disabled title="M2.1 实现撤销">撤销</button>
+            <button type="button" className="tool-button" disabled title="M2.1 实现重做">重做</button>
+          </div>
+
+          <div className="toolbar-group">
+            <button
+              type="button"
+              className="tool-button"
+              disabled={selectedNodes.length === 0}
+              onClick={duplicateSelectedNodes}
+            >
+              复制
+            </button>
+            <button
+              type="button"
+              className="tool-button"
+              disabled={!hasSelection}
+              onClick={deleteSelection}
+            >
+              删除
+            </button>
+  <button
+    type="button"
+    className="tool-button optional-tool"
+    disabled={selectedNodes.length === 0}
+    onClick={resetSelectedTransforms}
+  >
+    重置
+  </button>
+            <button
+              type="button"
+              className="tool-button optional-tool"
+              disabled={!canGroup}
+              onClick={groupSelectedNodes}
+            >
+              组合
+            </button>
+            <button
+              type="button"
+              className="tool-button optional-tool"
+              disabled={!canUngroup}
+              onClick={ungroupSelectedNode}
+            >
+              拆分
+            </button>
+          </div>
+
+          <div className="toolbar-group">
+            <button type="button" className="tool-button" onClick={saveScene}>保存</button>
+            <button type="button" className="tool-button optional-tool" onClick={exportScene}>导出</button>
+          </div>
         </div>
 
         <div className="header-actions">
@@ -566,7 +679,7 @@ function App() {
             <button
               type="button"
               className={mode === 'editor' ? 'active' : ''}
-              onClick={() => setMode('editor')}
+              onClick={activateSelectTool}
             >
               编辑
             </button>
@@ -575,6 +688,7 @@ function App() {
               className={mode === 'preview' ? 'active' : ''}
               onClick={() => {
                 setMode('preview')
+                setPanMode(false)
                 setConnectionMode(false)
                 setSelectedNodeIds([])
                 setSelectedConnectionId(null)
@@ -583,20 +697,29 @@ function App() {
               预览
             </button>
           </div>
-
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={selectedNodes.length === 0}
-            onClick={resetSelectedTransforms}
-          >
-            重置选中
-          </button>
         </div>
       </header>
 
       <main className="editor-main">
         <aside className="component-panel">
+          <div className="dock-tabs" role="tablist" aria-label="左侧工作区">
+            {([
+              ['components', '组件'],
+              ['layers', '图层'],
+              ['assets', '资源'],
+            ] as Array<[LeftDockTab, string]>).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                className={leftDockTab === tab ? 'active' : ''}
+                onClick={() => setLeftDockTab(tab)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="dock-content" hidden={leftDockTab !== 'components'}>
           <div className="panel-title">组件</div>
           <button
             className="component-item active"
@@ -647,8 +770,11 @@ function App() {
             type="button"
             className={`connection-mode-button${connectionMode ? ' active' : ''}`}
             onClick={() => {
-              setMode('editor')
-              setConnectionMode((current) => !current)
+              if (connectionMode) {
+                activateSelectTool()
+              } else {
+                activateConnectionTool()
+              }
             }}
           >
             {connectionMode ? '退出连线模式' : '进入连线模式'}
@@ -758,12 +884,27 @@ function App() {
           />
 
           <div className="milestone-card">
-            <strong>M2.3A 当前切片</strong>
-            <span>每个普通图片节点提供 17 个中性锚点</span>
-            <span>连线选择、删除与样式设置</span>
-            <span>起点和终点拖拽重连</span>
-            <span>组合和变换后端点自动跟随</span>
+            <strong>M0 / M1.1 当前切片</strong>
+            <span>桌面编辑器工作台外壳</span>
+            <span>无限工作区与固定场景画板</span>
+            <span>缩放、平移、100% 与适应场景</span>
+            <span>场景坐标与视口坐标分离</span>
           </div>
+          </div>
+
+          {leftDockTab === 'layers' && (
+            <div className="dock-placeholder">
+              <strong>图层树将在 M2.4 实现</strong>
+              <span>当前组合层级已经持久化；下一阶段会加入排序、锁定、显隐和进入组合编辑。</span>
+            </div>
+          )}
+
+          {leftDockTab === 'assets' && (
+            <div className="dock-placeholder">
+              <strong>资源库将在 M4.2 实现</strong>
+              <span>用于管理项目图片和 SVG，并支持拖入场景和资源替换。</span>
+            </div>
+          )}
         </aside>
 
         <section className="canvas-area" aria-label="SCADA 编辑画布">
@@ -785,6 +926,7 @@ function App() {
             selectedNodeIds={selectedNodeIds}
             selectedConnectionId={selectedConnectionId}
             connectionMode={connectionMode}
+            panMode={panMode}
             snapSettings={snapSettings}
             gridVisible={gridVisible}
             onSelectionChange={selectNodes}
@@ -917,7 +1059,12 @@ function App() {
             <>
               <div className="panel-title">基础属性</div>
               {selectedNodes.length === 0 ? (
-                <p className="empty-selection">请选择组件、组合或连线。</p>
+                <div className="scene-inspector-summary">
+                  <div><span>场景</span><code>{scene.name}</code></div>
+                  <div><span>尺寸</span><code>{scene.width} × {scene.height}</code></div>
+                  <div><span>背景</span><code>{scene.background}</code></div>
+                  <div><span>下一切片</span><code>M1.2 场景设置</code></div>
+                </div>
               ) : selectedNodes.length > 1 ? (
                 <>
                   <div className="selection-summary">

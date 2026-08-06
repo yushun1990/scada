@@ -6,50 +6,17 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Apply workbench viewport patch
-        if: github.head_ref == 'agent/m0-m1-workbench-viewport'
-        run: python scripts/apply_workbench_viewport.py
-
-      - name: Complete workbench toolbar
-        if: github.head_ref == 'agent/m0-m1-workbench-viewport'
-        shell: python
-        run: |
-          from pathlib import Path
-
-          path = Path('src/App.tsx')
-          text = path.read_text()
-          toolbar_start = text.index('<div className="editor-toolbar"')
-          toolbar_end = text.index('</div>\n\n        <div className="header-actions">', toolbar_start)
-          click_marker = 'onClick={deleteSelection}'
-          marker_index = text.index(click_marker, toolbar_start, toolbar_end)
-          button_end = text.index('</button>', marker_index, toolbar_end) + len('</button>')
-          addition = '''
-            <button
-              type="button"
-              className="tool-button optional-tool"
-              disabled={selectedNodes.length === 0}
-              onClick={resetSelectedTransforms}
-            >
-              重置
-            </button>'''
-          path.write_text(text[:button_end] + addition + text[button_end:])
 
       - name: Install dependencies
         run: npm install
@@ -59,45 +26,3 @@ jobs:
 
       - name: Lint
         run: npm run lint
-
-      - name: Commit verified implementation
-        if: github.head_ref == 'agent/m0-m1-workbench-viewport'
-        shell: bash
-        run: |
-          rm .github/workflows/apply-workbench-viewport.yml
-          rm scripts/apply_workbench_viewport.py
-          cat > .github/workflows/ci.yml <<'YAML'
-          name: CI
-
-          on:
-            push:
-              branches: [main]
-            pull_request:
-              branches: [main]
-
-          jobs:
-            verify:
-              runs-on: ubuntu-latest
-              steps:
-                - name: Checkout
-                  uses: actions/checkout@v4
-
-                - name: Set up Node.js
-                  uses: actions/setup-node@v4
-                  with:
-                    node-version: 22
-
-                - name: Install dependencies
-                  run: npm install
-
-                - name: Build
-                  run: npm run build
-
-                - name: Lint
-                  run: npm run lint
-          YAML
-          git config user.name "scada-editor-bot"
-          git config user.email "scada-editor-bot@users.noreply.github.com"
-          git add src/App.tsx src/renderer/SceneRenderer.tsx src/editor/viewport.ts src/workbench.css .github/workflows scripts
-          git commit -m "feat: add workbench shell and viewport navigation"
-          git push origin "HEAD:${{ github.head_ref }}"
