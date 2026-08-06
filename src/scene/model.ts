@@ -118,7 +118,7 @@ export function createDefaultScene(): SceneDocument {
     name: 'pump-lab',
     width: 1280,
     height: 720,
-    background: '#0b1119',
+    background: '#edf1f5',
     nodes: [createPumpNode(1)],
   }
 }
