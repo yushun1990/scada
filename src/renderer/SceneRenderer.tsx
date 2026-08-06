@@ -44,7 +44,6 @@ import {
 } from '../scene/connection-routing'
 import {
   isGroupNode,
-  isPumpNode,
   type ConnectionEndpoint,
   type SceneConnection,
   type SceneDocument,
@@ -168,10 +167,10 @@ function findPortEndpoint(target: Konva.Node): ConnectionEndpoint | null {
     const id = current.id()
 
     if (id.startsWith(PORT_PREFIX)) {
-      const [, nodeId, portId] = id.split('::')
+      const [, nodeId, anchorId] = id.split('::')
 
-      if (nodeId && portId) {
-        return { nodeId, portId }
+      if (nodeId && anchorId) {
+        return { nodeId, anchorId }
       }
     }
 
@@ -310,7 +309,7 @@ function isConnectionVisible(scene: SceneDocument, connection: SceneConnection) 
 }
 
 function portKey(endpoint: ConnectionEndpoint) {
-  return `${endpoint.nodeId}::${endpoint.portId}`
+  return `${endpoint.nodeId}::${endpoint.anchorId}`
 }
 
 function endpointFromPortKey(key: string): ConnectionEndpoint | null {
@@ -322,7 +321,7 @@ function endpointFromPortKey(key: string): ConnectionEndpoint | null {
 
   return {
     nodeId: key.slice(0, separatorIndex),
-    portId: key.slice(separatorIndex + 2),
+    anchorId: key.slice(separatorIndex + 2),
   }
 }
 
@@ -644,12 +643,12 @@ export function SceneRenderer({
     }
 
     for (const node of scene.nodes) {
-      if (!isPumpNode(node) || !affectedNodeIds.has(node.id)) {
+      if (isGroupNode(node) || !affectedNodeIds.has(node.id)) {
         continue
       }
 
       for (const port of getNodePortDefinitions(node)) {
-        const endpoint = { nodeId: node.id, portId: port.id }
+        const endpoint = { nodeId: node.id, anchorId: port.id }
         const circle = portRefs.current.get(portKey(endpoint))
 
         if (!circle) {
@@ -1196,7 +1195,7 @@ export function SceneRenderer({
 
   function handlePortEnter(target: Konva.Circle, endpoint: ConnectionEndpoint) {
     const node = scene.nodes.find((candidate) => candidate.id === endpoint.nodeId)
-    const port = node ? getPortDefinition(node, endpoint.portId) : null
+    const port = node ? getPortDefinition(node, endpoint.anchorId) : null
     const position = getPortWorldPosition(scene, endpoint)
 
     if (!port || !position) {
@@ -1342,12 +1341,12 @@ export function SceneRenderer({
     let nearestDistanceSquared = RECONNECT_SNAP_RADIUS ** 2
 
     for (const node of scene.nodes) {
-      if (!isPumpNode(node) || !isNodeEffectivelyVisible(scene, node)) {
+      if (isGroupNode(node) || !isNodeEffectivelyVisible(scene, node)) {
         continue
       }
 
       for (const port of getNodePortDefinitions(node)) {
-        const endpoint = { nodeId: node.id, portId: port.id }
+        const endpoint = { nodeId: node.id, anchorId: port.id }
         const position = getPortWorldPosition(scene, endpoint)
 
         if (!position) {
@@ -1638,15 +1637,7 @@ export function SceneRenderer({
   const selectedTargetPosition = selectedConnection
     ? getPortWorldPosition(scene, selectedConnection.target)
     : null
-  const tooltipText = hoveredPort
-    ? `${hoveredPort.title} · ${
-        hoveredPort.direction === 'input'
-          ? '输入'
-          : hoveredPort.direction === 'output'
-            ? '输出'
-            : '双向'
-      }`
-    : ''
+  const tooltipText = hoveredPort ? hoveredPort.title : ''
   const tooltipWidth = Math.max(88, tooltipText.length * 12 + 18)
 
   return (
@@ -2009,13 +2000,13 @@ export function SceneRenderer({
           )}
 
           {mode === 'editor' &&
-            scene.nodes.filter(isPumpNode).flatMap((node) => {
+            scene.nodes.filter((node) => !isGroupNode(node)).flatMap((node) => {
               if (!isNodeEffectivelyVisible(scene, node)) {
                 return []
               }
 
               return getNodePortDefinitions(node).map((port) => {
-                const endpoint = { nodeId: node.id, portId: port.id }
+                const endpoint = { nodeId: node.id, anchorId: port.id }
                 const position = getPortWorldPosition(scene, endpoint)
 
                 if (!position) {
@@ -2036,9 +2027,7 @@ export function SceneRenderer({
                     x={position.x}
                     y={position.y}
                     radius={7}
-                    fill={
-                      port.direction === 'input' ? '#f59e0b' : '#0f766e'
-                    }
+                    fill="#475569"
                     stroke="#ffffff"
                     strokeWidth={2}
                     hitStrokeWidth={12}

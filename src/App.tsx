@@ -47,8 +47,9 @@ import {
   type RendererMode,
 } from './renderer/SceneRenderer'
 
-const STORAGE_KEY = 'scada-editor-lab.scene.v3'
+const STORAGE_KEY = 'scada-editor-lab.scene.v4'
 const LEGACY_STORAGE_KEYS = [
+  'scada-editor-lab.scene.v3',
   'scada-editor-lab.scene.v2',
   'scada-editor-lab.scene.v1',
 ]
@@ -122,7 +123,7 @@ function App() {
   )
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
   const [connectionMode, setConnectionMode] = useState(false)
-  const [message, setMessage] = useState('M2.3 正交连线与端点重连已启用')
+  const [message, setMessage] = useState('M2.3A 通用视觉锚点迁移已启用')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('base')
   const [gridVisible, setGridVisible] = useState(true)
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({
@@ -300,7 +301,7 @@ function App() {
     setSelectedNodeIds(result.childIds)
     setSelectedConnectionId(null)
     setInspectorTab('base')
-    setMessage(`已拆分组合，连线仍引用原始子组件端口`)
+    setMessage(`已拆分组合，连线仍引用原始子组件锚点`)
   }
 
   function createConnection(
@@ -308,7 +309,7 @@ function App() {
     target: ConnectionEndpoint,
   ) {
     if (hasDuplicateConnection(scene, source, target)) {
-      setMessage('这两个端口之间已经存在连接')
+      setMessage('这两个锚点之间已经存在连接')
       return
     }
 
@@ -353,12 +354,12 @@ function App() {
     }
 
     if (result.status === 'duplicate') {
-      setMessage('目标端口之间已经存在另一条连接')
+      setMessage('目标锚点之间已经存在另一条连接')
       return false
     }
 
     if (result.status === 'incompatible') {
-      setMessage('目标端口方向或介质类型不兼容')
+      setMessage('目标视觉锚点不可连接')
       return false
     }
 
@@ -653,11 +654,10 @@ function App() {
             {connectionMode ? '退出连线模式' : '进入连线模式'}
           </button>
           <div className="connection-legend">
-            <span><i className="port-dot input" />进水口</span>
-            <span><i className="port-dot output" />出水口</span>
+            <span><i className="port-dot output" />中性视觉锚点</span>
           </div>
           <p className="panel-description connection-help">
-            连线模式用于创建连接；选中已有连线后，可直接拖动两端的蓝色控制点重新连接。
+            连线模式会显示图片四周的通用锚点；选中已有连线后，可拖动两端控制点重新连接。
           </p>
 
           <div className="panel-title section-title">对齐</div>
@@ -758,8 +758,8 @@ function App() {
           />
 
           <div className="milestone-card">
-            <strong>M2.3 当前切片</strong>
-              <span>端口拖拽建立正交连接</span>
+            <strong>M2.3A 当前切片</strong>
+            <span>每个普通图片节点提供 17 个中性锚点</span>
             <span>连线选择、删除与样式设置</span>
             <span>起点和终点拖拽重连</span>
             <span>组合和变换后端点自动跟随</span>
@@ -773,9 +773,9 @@ function App() {
             </span>
             <span>
               {connectionMode
-                ? '拖动端口建立连接 · 橙色输入 · 绿色输出'
+                ? '拖动任意视觉锚点建立连接 · 不限制输入输出语义'
                 : selectedConnection
-                ? '拖动连线两端控制点可重连 · 绿色表示可放置端口'
+                ? '拖动连线两端控制点可重连 · 绿色表示可放置锚点'
                 : '组件吸附始终开启 · Shift/Ctrl 多选 · 空白拖动框选'}
             </span>
           </div>
@@ -790,7 +790,7 @@ function App() {
             onSelectionChange={selectNodes}
             onConnectionSelectionChange={selectConnection}
             onCreateConnection={createConnection}
-          onReconnectConnection={reconnectConnection}
+            onReconnectConnection={reconnectConnection}
             onTransformNodes={updateNodeTransforms}
           />
         </section>
@@ -899,11 +899,11 @@ function App() {
               <div className="property-summary">
                 <div>
                   <span>起点</span>
-                  <code>{selectedConnection.source.nodeId} / {selectedConnection.source.portId}</code>
+                  <code>{selectedConnection.source.nodeId} / {selectedConnection.source.anchorId}</code>
                 </div>
                 <div>
                   <span>终点</span>
-                  <code>{selectedConnection.target.nodeId} / {selectedConnection.target.portId}</code>
+                  <code>{selectedConnection.target.nodeId} / {selectedConnection.target.anchorId}</code>
                 </div>
                 <div>
                 <span>端点编辑</span>
