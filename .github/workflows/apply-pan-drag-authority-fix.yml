@@ -26,78 +26,28 @@ jobs:
           path = Path('src/renderer/SceneRenderer.tsx')
           text = path.read_text()
 
-          def replace_once(old: str, new: str) -> None:
-              global text
-              if old not in text:
-                  raise RuntimeError(f'Expected block not found:\n{old[:180]}')
-              text = text.replace(old, new, 1)
-
-          replace_once(
-              '''type PanSession = {
+          old_type = """type PanSession = {
             startPointer: Point
             startTransform: ViewportTransform
-          }'''.replace('          ', ''),
-              '''type PanSession = {
+          }"""
+          old_type = '\n'.join(line[10:] if line.startswith('          ') else line for line in old_type.splitlines())
+          new_type = """type PanSession = {
             startClientPointer: Point
             startTransform: ViewportTransform
-          }'''.replace('          ', ''),
-          )
+          }"""
+          new_type = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_type.splitlines())
+          if old_type not in text:
+              raise RuntimeError('PanSession shape not found')
+          text = text.replace(old_type, new_type, 1)
 
-          replace_once(
-              '''    const cancelTransientInteraction = () => {
-            pendingSelectionRef.current = null'''.replace('          ', ''),
-              '''    const cancelTransientInteraction = () => {
-            finishPan()
-            pendingSelectionRef.current = null'''.replace('          ', ''),
-          )
-
-          old_pan = '''  function beginPan(stage: Konva.Stage, nativeEvent: Event) {
-            const pointer = stage.getPointerPosition()
-          
-            if (!pointer) {
-              return false
-            }
-          
-            nativeEvent.preventDefault()
-            cancelPointerInteraction()
-            cancelReconnectSession()
-            panSessionRef.current = {
-              startPointer: pointer,
-              startTransform: { ...viewportTransformRef.current },
-            }
-            setStageCursor('grabbing')
-            return true
-          }
-          
-          function updatePan(stage: Konva.Stage) {
-            const session = panSessionRef.current
-            const pointer = stage.getPointerPosition()
-          
-            if (!session || !pointer) {
-              return false
-            }
-          
-            applyViewportTransform({
-              ...session.startTransform,
-              x: session.startTransform.x + pointer.x - session.startPointer.x,
-              y: session.startTransform.y + pointer.y - session.startPointer.y,
-            })
-            return true
-          }
-          
-          function finishPan() {
-            if (!panSessionRef.current) {
-              return false
-            }
-          
-            panSessionRef.current = null
-            setViewportTransform({ ...viewportTransformRef.current })
-            setStageCursor(spacePressedRef.current ? 'grab' : 'default')
-            return true
-          }'''
-          old_pan = '\n'.join(line[10:] if line.startswith('          ') else line for line in old_pan.splitlines())
-          new_pan = '''  function beginPan(nativeEvent: Event) {
+          pan_start = text.index('  function beginPan(')
+          pan_end = text.index('  function setStageCursor(', pan_start)
+          new_pan = """  function beginPan(nativeEvent: Event) {
             const mouseEvent = nativeEvent as MouseEvent
+          
+            if (panSessionRef.current) {
+              finishPan()
+            }
           
             nativeEvent.preventDefault()
             cancelPointerInteraction()
@@ -110,7 +60,8 @@ jobs:
               startTransform: { ...viewportTransformRef.current },
             }
             window.addEventListener('mousemove', handleWindowPanMove)
-            window.addEventListener('mouseup', handleWindowPanUp)
+            window.addEventListener('mouseup', handleWindowPanEnd)
+            window.addEventListener('blur', handleWindowPanEnd)
             setStageCursor('grabbing')
             return true
           }
@@ -140,7 +91,7 @@ jobs:
             updatePan({ x: event.clientX, y: event.clientY })
           }
           
-          function handleWindowPanUp() {
+          function handleWindowPanEnd() {
             finishPan()
           }
           
@@ -151,62 +102,52 @@ jobs:
           
             panSessionRef.current = null
             window.removeEventListener('mousemove', handleWindowPanMove)
-            window.removeEventListener('mouseup', handleWindowPanUp)
+            window.removeEventListener('mouseup', handleWindowPanEnd)
+            window.removeEventListener('blur', handleWindowPanEnd)
             setViewportTransform({ ...viewportTransformRef.current })
             setStageCursor(spacePressedRef.current ? 'grab' : 'default')
             return true
-          }'''
+          }
+          
+          """
           new_pan = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_pan.splitlines())
-          replace_once(old_pan, new_pan)
+          text = text[:pan_start] + new_pan + text[pan_end:]
 
           schedule_start = text.index('  function scheduleDragMove(target: Konva.Node) {')
           schedule_end = text.index('  function cancelScheduledDrag()', schedule_start)
-          text = (
-              text[:schedule_start]
-              + '''  function scheduleDragMove(target: Konva.Node) {
-            // Keep one authoritative position source during drag. Konva moves the node
-            // before onDragMove; resolve snapping + artboard bounds synchronously in
-            // the same event so no browser frame can paint the raw intermediate position.
+          new_schedule = """  function scheduleDragMove(target: Konva.Node) {
+            // Konva changes the draggable node before onDragMove. Resolve snapping and
+            // artboard bounds immediately in the same event. Delaying node correction
+            // to requestAnimationFrame creates two competing positions and visible flicker.
             processDragMove(target)
           }
           
-          '''.replace('          ', '')
-              + text[schedule_end:]
-          )
+          """
+          new_schedule = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_schedule.splitlines())
+          text = text[:schedule_start] + new_schedule + text[schedule_end:]
 
-          replace_once(
-              '''          if (stage && shouldStartPan(event.evt) && beginPan(stage, event.evt)) {
-            return
-          }'''.replace('          ', ''),
-              '''          if (shouldStartPan(event.evt) && beginPan(event.evt)) {
-            return
-          }'''.replace('          ', ''),
-          )
+          old_begin = '          if (stage && shouldStartPan(event.evt) && beginPan(stage, event.evt)) {'
+          new_begin = '          if (shouldStartPan(event.evt) && beginPan(event.evt)) {'
+          if old_begin not in text:
+              raise RuntimeError('Stage pan start handler not found')
+          text = text.replace(old_begin, new_begin, 1)
 
-          replace_once(
-              '''          if (updatePan(stage)) {
+          old_update = """          if (updatePan(stage)) {
             return
-          }'''.replace('          ', ''),
-              '''          if (
+          }"""
+          new_update = """          if (
             panSessionRef.current &&
             updatePan({ x: event.evt.clientX, y: event.evt.clientY })
           ) {
             return
-          }'''.replace('          ', ''),
-          )
+          }"""
+          if old_update not in text:
+              raise RuntimeError('Stage pan move handler not found')
+          text = text.replace(old_update, new_update, 1)
 
-          replace_once(
-              '''        onMouseLeave={() => {
-            finishPan()
-            if (pointerStatusRef.current) {
-              pointerStatusRef.current.textContent = 'X —  Y —'
-            }
-            setStageCursor('default')
-            setHoveredPort(null)
-            cancelReconnectSession()
-            cancelPointerInteraction()
-          }}'''.replace('          ', ''),
-              '''        onMouseLeave={() => {
+          leave_start = text.index('        onMouseLeave={() => {')
+          leave_end = text.index('        onDragStart=', leave_start)
+          new_leave = """        onMouseLeave={() => {
             if (pointerStatusRef.current) {
               pointerStatusRef.current.textContent = 'X —  Y —'
             }
@@ -216,8 +157,10 @@ jobs:
             setHoveredPort(null)
             cancelReconnectSession()
             cancelPointerInteraction()
-          }}'''.replace('          ', ''),
-          )
+          }}
+          """
+          new_leave = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_leave.splitlines())
+          text = text[:leave_start] + new_leave + text[leave_end:]
 
           path.write_text(text)
           PY
