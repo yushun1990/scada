@@ -123,12 +123,22 @@ export const SceneNodeRenderer = forwardRef<
       next?: Point,
     ) => Point | Konva.Group
 
-    // Konva owns the primary node position while native dragging is active.
-    // SceneRenderer still refreshes dependent visuals during drag, but any
-    // preview .position() write to this node is ignored until dragEnd. This
-    // removes the competing position source that caused pointer drift/flicker.
+    // Konva keeps ownership of native dragging. Most preview writes resolve to
+    // exactly the position Konva already applied, so they remain no-ops. When
+    // snapping changes the resolved preview coordinate, however, mirror only
+    // that correction through x/y. This keeps the dragged node, ports and
+    // connection routes on one coordinate while avoiding position() competing
+    // with Konva's drag bookkeeping on every mouse move.
     instance.position = ((next?: Point) => {
       if (next && instance.isDragging()) {
+        if (Math.abs(instance.x() - next.x) > 0.001) {
+          instance.x(next.x)
+        }
+
+        if (Math.abs(instance.y() - next.y) > 0.001) {
+          instance.y(next.y)
+        }
+
         return instance
       }
 
