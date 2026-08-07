@@ -435,6 +435,7 @@ export function SceneRenderer({
   const reconnectFrameRef = useRef<number | null>(null)
   const pendingReconnectHandleRef = useRef<Konva.Circle | null>(null)
   const reconnectCandidateKeyRef = useRef<string | null>(null)
+  const hoveredPortNodeIdRef = useRef<string | null>(null)
   const panSessionRef = useRef<PanSession | null>(null)
   const spacePressedRef = useRef(false)
   const viewportInitializedRef = useRef(false)
@@ -492,7 +493,6 @@ export function SceneRenderer({
     return () => observer.disconnect()
   }, [])
 
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code !== 'Space' || isEditableTarget(event.target)) {
@@ -526,11 +526,10 @@ export function SceneRenderer({
     const cancelTransientInteraction = () => {
       pendingSelectionRef.current = null
       marqueeSessionRef.current = null
-      connectionSessionRef.current = null
       setMarquee(null)
       setHoveredPort(null)
+      clearConnectionSession()
       cancelReconnectSession()
-      hideConnectionPreview()
       hideGuides()
     }
 
@@ -563,6 +562,7 @@ export function SceneRenderer({
     connectionSessionRef.current = null
     dragSessionRef.current = null
     dragPreviewRef.current = {}
+    hoveredPortNodeIdRef.current = null
     setMarquee(null)
     setHoveredPort(null)
     hideConnectionPreview()
@@ -570,14 +570,15 @@ export function SceneRenderer({
   }, [mode])
 
   useEffect(() => {
-  const session = reconnectSessionRef.current
+    const session = reconnectSessionRef.current
 
-  if (session && session.connection.id !== selectedConnectionId) {
-    cancelReconnectSession()
+    if (session && session.connection.id !== selectedConnectionId) {
+      cancelReconnectSession()
     }
   }, [selectedConnectionId])
 
   useEffect(() => {
+    setHoveredNodePorts(null)
     const transformer = transformerRef.current
 
     if (!transformer) {
@@ -603,6 +604,51 @@ export function SceneRenderer({
 
   function drawDynamicLayer() {
     dynamicLayerRef.current?.batchDraw()
+  }
+
+  function setHoveredNodePorts(nodeId: string | null) {
+    const nextNodeId =
+      mode === 'editor' &&
+      nodeId &&
+      !selectedNodeIds.includes(nodeId) &&
+      !connectionSessionRef.current &&
+      !reconnectSessionRef.current
+        ? nodeId
+        : null
+
+    if (hoveredPortNodeIdRef.current === nextNodeId) {
+      return
+    }
+
+    hoveredPortNodeIdRef.current = nextNodeId
+    const controlScale = 1 / viewportTransformRef.current.scale
+
+    for (const [key, circle] of portRefs.current) {
+      const endpoint = endpointFromPortKey(key)
+      const node = endpoint
+        ? scene.nodes.find((candidate) => candidate.id === endpoint.nodeId)
+        : null
+      const visible = Boolean(
+        endpoint &&
+          node &&
+          endpoint.nodeId === nextNodeId &&
+          isNodeEffectivelyVisible(scene, node),
+      )
+
+      circle.visible(visible)
+      circle.listening(visible)
+      circle.opacity(visible ? 0.82 : 0)
+      circle.radius(5 * controlScale)
+      circle.fill('#ffffff')
+      circle.stroke('#2563eb')
+      circle.strokeWidth(1.5 * controlScale)
+    }
+
+    if (!nextNodeId) {
+      setHoveredPort(null)
+    }
+
+    drawDynamicLayer()
   }
 
   function drawViewportLayers() {
@@ -879,11 +925,23 @@ export function SceneRenderer({
         }
 
         const position = getPortWorldPosition(scene, endpoint, overrides)
-        circle.visible(
-        Boolean(position) &&
-          isNodeEffectivelyVisible(scene, node) &&
-          (mode === 'editor' || Boolean(reconnectSessionRef.current)),
-      )
+        const effectiveVisible = isNodeEffectivelyVisible(scene, node)
+        const hoverVisible =
+          hoveredPortNodeIdRef.current === node.id &&
+          !selectedNodeIds.includes(node.id)
+        const connectionVisible = Boolean(connectionSessionRef.current)
+        const reconnectVisible = Boolean(reconnectSessionRef.current)
+        const visible = Boolean(
+          position &&
+            effectiveVisible &&
+            mode === 'editor' &&
+            (hoverVisible || connectionVisible || reconnectVisible),
+        )
+
+        circle.visible(visible)
+        circle.listening(
+          visible && !reconnectVisible && (hoverVisible || connectionVisible),
+        )
 
         if (position) {
           circle.position(position)
@@ -959,9 +1017,17 @@ export function SceneRenderer({
   function clearConnectionSession() {
     cancelScheduledConnectionPreview()
     connectionSessionRef.current = null
+    hoveredPortNodeIdRef.current = null
+    const controlScale = 1 / viewportTransformRef.current.scale
 
     for (const circle of portRefs.current.values()) {
+      circle.visible(false)
+      circle.listening(false)
       circle.opacity(0)
+      circle.radius(5 * controlScale)
+      circle.fill('#ffffff')
+      circle.stroke('#2563eb')
+      circle.strokeWidth(1.5 * controlScale)
     }
 
     hideConnectionPreview()
@@ -979,6 +1045,7 @@ export function SceneRenderer({
     }
 
     clearMarqueeSession()
+    setHoveredNodePorts(null)
     const nodeId = findSceneNodeId(target)
 
     if (!nodeId) {
@@ -1003,6 +1070,7 @@ export function SceneRenderer({
 
     clearMarqueeSession()
     clearConnectionSession()
+    setHoveredNodePorts(null)
     setHoveredPort(null)
     const nodeId = findSceneNodeId(target)
 
@@ -1328,12 +1396,26 @@ export function SceneRenderer({
     pendingSelectionRef.current = null
     clearMarqueeSession()
     setHoveredPort(null)
+    hoveredPortNodeIdRef.current = null
     connectionSessionRef.current = { source: endpoint }
+    const controlScale = 1 / viewportTransformRef.current.scale
 
-    for (const circle of portRefs.current.values()) {
-      circle.visible(true)
-      circle.listening(true)
-      circle.opacity(0.55)
+    for (const [key, circle] of portRefs.current) {
+      const candidateEndpoint = endpointFromPortKey(key)
+      const node = candidateEndpoint
+        ? scene.nodes.find((candidate) => candidate.id === candidateEndpoint.nodeId)
+        : null
+      const visible = Boolean(
+        node && isNodeEffectivelyVisible(scene, node),
+      )
+
+      circle.visible(visible)
+      circle.listening(visible)
+      circle.opacity(visible ? 0.55 : 0)
+      circle.radius(5 * controlScale)
+      circle.fill('#ffffff')
+      circle.stroke('#2563eb')
+      circle.strokeWidth(1.5 * controlScale)
     }
 
     const points = getConnectionPreviewRoutePoints(scene, endpoint, point)
@@ -1440,8 +1522,20 @@ export function SceneRenderer({
       return
     }
 
-    target.radius(9 / viewportTransformRef.current.scale)
-    target.strokeWidth(3 / viewportTransformRef.current.scale)
+    const connecting = connectionSessionRef.current
+    const validTarget = connecting
+      ? Boolean(normalizeConnectionEndpoints(scene, connecting.source, endpoint))
+      : false
+    const accent = connecting
+      ? validTarget
+        ? '#16a34a'
+        : '#dc2626'
+      : '#2563eb'
+
+    target.radius(7 / viewportTransformRef.current.scale)
+    target.fill(accent)
+    target.stroke('#ffffff')
+    target.strokeWidth(2 / viewportTransformRef.current.scale)
     target.opacity(1)
     setStageCursor('crosshair')
     setHoveredPort({
@@ -1455,13 +1549,17 @@ export function SceneRenderer({
   }
 
   function handlePortLeave(target: Konva.Circle) {
-  if (reconnectSessionRef.current) {
-    return
-  }
+    if (reconnectSessionRef.current) {
+      return
+    }
 
-    target.radius(7 / viewportTransformRef.current.scale)
-    target.strokeWidth(2 / viewportTransformRef.current.scale)
-    target.opacity(connectionSessionRef.current ? 0.55 : 0)
+    const controlScale = 1 / viewportTransformRef.current.scale
+    const hoverVisible = Boolean(hoveredPortNodeIdRef.current)
+    target.radius(5 * controlScale)
+    target.fill('#ffffff')
+    target.stroke('#2563eb')
+    target.strokeWidth(1.5 * controlScale)
+    target.opacity(connectionSessionRef.current ? 0.55 : hoverVisible ? 0.82 : 0)
     setStageCursor('default')
     setHoveredPort(null)
     drawDynamicLayer()
@@ -1496,13 +1594,16 @@ export function SceneRenderer({
   ) {
     const valid = isReconnectEndpointValid(session, endpoint)
     circle.opacity(valid ? 1 : 0.18)
-    circle.radius(7 / viewportTransformRef.current.scale)
-    circle.stroke('#ffffff')
-    circle.strokeWidth(2)
+    circle.radius(5 / viewportTransformRef.current.scale)
+    circle.fill('#ffffff')
+    circle.stroke(valid ? '#16a34a' : '#94a3b8')
+    circle.strokeWidth(1.5 / viewportTransformRef.current.scale)
     circle.listening(false)
   }
 
   function showReconnectPorts(session: ReconnectSession) {
+    hoveredPortNodeIdRef.current = null
+
     for (const [key, circle] of portRefs.current) {
       const endpoint = endpointFromPortKey(key)
 
@@ -1521,24 +1622,17 @@ export function SceneRenderer({
   }
 
   function restorePortPresentation() {
-    for (const [key, circle] of portRefs.current) {
-      const endpoint = endpointFromPortKey(key)
-      const node = endpoint
-        ? scene.nodes.find((candidate) => candidate.id === endpoint.nodeId)
-        : null
+    hoveredPortNodeIdRef.current = null
+    const controlScale = 1 / viewportTransformRef.current.scale
 
-      circle.visible(
-        Boolean(
-          mode === 'editor' &&
-            node &&
-            isNodeEffectivelyVisible(scene, node),
-        ),
-      )
-      circle.listening(mode === 'editor')
+    for (const circle of portRefs.current.values()) {
+      circle.visible(false)
+      circle.listening(false)
       circle.opacity(0)
-      circle.radius(7 / viewportTransformRef.current.scale)
-      circle.stroke('#ffffff')
-      circle.strokeWidth(2 / viewportTransformRef.current.scale)
+      circle.radius(5 * controlScale)
+      circle.fill('#ffffff')
+      circle.stroke('#2563eb')
+      circle.strokeWidth(1.5 * controlScale)
     }
   }
 
@@ -1566,9 +1660,10 @@ export function SceneRenderer({
 
       if (circle) {
         circle.opacity(1)
-        circle.radius(10 / viewportTransformRef.current.scale)
-        circle.stroke('#16a34a')
-        circle.strokeWidth(3)
+        circle.radius(8 / viewportTransformRef.current.scale)
+        circle.fill('#16a34a')
+        circle.stroke('#ffffff')
+        circle.strokeWidth(2 / viewportTransformRef.current.scale)
       }
     }
   }
@@ -1669,6 +1764,7 @@ export function SceneRenderer({
 
     clearMarqueeSession()
     clearConnectionSession()
+    setHoveredNodePorts(null)
     setHoveredPort(null)
     const session: ReconnectSession = {
       connection: selectedConnection,
@@ -1985,6 +2081,18 @@ export function SceneRenderer({
             return
           }
 
+          if (
+            !connectionSessionRef.current &&
+            !reconnectSessionRef.current &&
+            !marqueeSessionRef.current &&
+            !dragSessionRef.current
+          ) {
+            const portEndpoint = findPortEndpoint(event.target)
+            setHoveredNodePorts(
+              portEndpoint?.nodeId ?? findSceneNodeId(event.target),
+            )
+          }
+
           if (connectionSessionRef.current) {
             scheduleConnectionPreview(stage)
           } else {
@@ -2003,6 +2111,7 @@ export function SceneRenderer({
           if (!panSessionRef.current) {
             setStageCursor('default')
           }
+          setHoveredNodePorts(null)
           setHoveredPort(null)
           cancelReconnectSession()
           cancelPointerInteraction()
@@ -2024,14 +2133,14 @@ export function SceneRenderer({
         }}
       >
         <Layer ref={staticLayerRef} listening={false}>
-<Rect
-    x={0}
-    y={0}
-    width={viewport.width}
-    height={viewport.height}
-    fill="#d9dee5"
-    listening={false}
-  />
+          <Rect
+            x={0}
+            y={0}
+            width={viewport.width}
+            height={viewport.height}
+            fill="#d9dee5"
+            listening={false}
+          />
           <Group
             ref={staticViewportGroupRef}
             x={viewportTransform.x}
@@ -2039,44 +2148,44 @@ export function SceneRenderer({
             scaleX={viewportTransform.scale}
             scaleY={viewportTransform.scale}
           >
-          <Rect
-            x={0}
-            y={0}
-            width={scene.width}
-            height={scene.height}
-            fill={scene.background}
-            shadowColor="rgba(15, 23, 42, 0.28)"
-            shadowBlur={18 * visualControlScale}
-            shadowOffsetX={0}
-            shadowOffsetY={5 * visualControlScale}
-            listening={false}
-          />
+            <Rect
+              x={0}
+              y={0}
+              width={scene.width}
+              height={scene.height}
+              fill={scene.background}
+              shadowColor="rgba(15, 23, 42, 0.28)"
+              shadowBlur={18 * visualControlScale}
+              shadowOffsetX={0}
+              shadowOffsetY={5 * visualControlScale}
+              listening={false}
+            />
 
-          {verticalGridLines.map((x) => {
-            const isMajor = Math.round(x / gridSize) % 5 === 0
-            return (
-              <Line
-                key={`grid-x-${x}`}
-                points={[x, 0, x, scene.height]}
-                stroke={isMajor ? majorGridStroke : minorGridStroke}
-                strokeWidth={(isMajor ? 0.8 : 0.6) * visualControlScale}
-                perfectDrawEnabled={false}
-              />
-            )
-          })}
+            {verticalGridLines.map((x) => {
+              const isMajor = Math.round(x / gridSize) % 5 === 0
+              return (
+                <Line
+                  key={`grid-x-${x}`}
+                  points={[x, 0, x, scene.height]}
+                  stroke={isMajor ? majorGridStroke : minorGridStroke}
+                  strokeWidth={(isMajor ? 0.8 : 0.6) * visualControlScale}
+                  perfectDrawEnabled={false}
+                />
+              )
+            })}
 
-          {horizontalGridLines.map((y) => {
-            const isMajor = Math.round(y / gridSize) % 5 === 0
-            return (
-              <Line
-                key={`grid-y-${y}`}
-                points={[0, y, scene.width, y]}
-                stroke={isMajor ? majorGridStroke : minorGridStroke}
-                strokeWidth={(isMajor ? 0.8 : 0.6) * visualControlScale}
-                perfectDrawEnabled={false}
-              />
-            )
-          })}
+            {horizontalGridLines.map((y) => {
+              const isMajor = Math.round(y / gridSize) % 5 === 0
+              return (
+                <Line
+                  key={`grid-y-${y}`}
+                  points={[0, y, scene.width, y]}
+                  stroke={isMajor ? majorGridStroke : minorGridStroke}
+                  strokeWidth={(isMajor ? 0.8 : 0.6) * visualControlScale}
+                  perfectDrawEnabled={false}
+                />
+              )
+            })}
           </Group>
         </Layer>
 
@@ -2088,323 +2197,323 @@ export function SceneRenderer({
             scaleX={viewportTransform.scale}
             scaleY={viewportTransform.scale}
           >
-          {scene.connections.map((connection) => {
-            const points = getConnectionRoutePoints(scene, connection)
+            {scene.connections.map((connection) => {
+              const points = getConnectionRoutePoints(scene, connection)
 
-            if (!points || !isConnectionVisible(scene, connection)) {
-              return null
-            }
-
-            const selected = selectedConnectionId === connection.id
-            const dash =
-              connection.style.dash === 'dashed' ? [10, 7] : undefined
-
-            return (
-              <Line
-                key={connection.id}
-                ref={(instance) => {
-                  if (instance) {
-                    connectionRefs.current.set(connection.id, instance)
-                  } else {
-                    connectionRefs.current.delete(connection.id)
-                  }
-                }}
-                id={`${CONNECTION_PREFIX}${connection.id}`}
-                points={points}
-                stroke={selected ? '#2563eb' : connection.style.stroke}
-                strokeWidth={
-                  selected
-                    ? connection.style.strokeWidth + 2
-                    : connection.style.strokeWidth
-                }
-                dash={dash}
-                lineCap="round"
-                lineJoin="round"
-                hitStrokeWidth={18}
-                perfectDrawEnabled={false}
-                listening={mode === 'editor'}
-              />
-            )
-          })}
-
-          {rootNodes.map((node) => (
-            <SceneNodeRenderer
-              key={node.id}
-              ref={(instance) => {
-                if (instance) {
-                  nodeRefs.current.set(node.id, instance)
-                } else {
-                  nodeRefs.current.delete(node.id)
-                }
-              }}
-              scene={scene}
-              node={node}
-              transform={node.transform}
-              editorMode={mode === 'editor'}
-              selectable
-            />
-          ))}
-
-          <Transformer
-            ref={transformerRef}
-            enabledAnchors={[...CORNER_ANCHORS]}
-            rotateEnabled
-            flipEnabled={false}
-            keepRatio
-            shiftBehavior="none"
-            borderStroke="#2563eb"
-            borderStrokeWidth={1.5 * visualControlScale}
-            anchorFill="#2563eb"
-            anchorStroke="#ffffff"
-            anchorSize={9 * visualControlScale}
-            rotateAnchorOffset={24 * visualControlScale}
-            boundBoxFunc={(oldBox, newBox) => {
-              if (
-                Math.abs(newBox.width) < minimumTransformWidth ||
-                Math.abs(newBox.height) < minimumTransformHeight
-              ) {
-                return oldBox
+              if (!points || !isConnectionVisible(scene, connection)) {
+                return null
               }
 
-              const currentViewport = viewportTransformRef.current
-              const sceneLeft =
-                (newBox.x - currentViewport.x) / currentViewport.scale
-              const sceneTop =
-                (newBox.y - currentViewport.y) / currentViewport.scale
-              const sceneWidth = newBox.width / currentViewport.scale
-              const sceneHeight = newBox.height / currentViewport.scale
-
-              if (
-                sceneLeft < 0 ||
-                sceneTop < 0 ||
-                sceneLeft + sceneWidth > scene.width ||
-                sceneTop + sceneHeight > scene.height
-              ) {
-                return oldBox
-              }
-
-              return newBox
-            }}
-            onTransform={scheduleTransformPreview}
-            onTransformEnd={handleTransformEnd}
-          />
-
-          {selectedNodeIds.length > 1 &&
-            selectedNodes.map((node) => {
-              const bounds = getNodeBounds(scene, node)
+              const selected = selectedConnectionId === connection.id
+              const dash =
+                connection.style.dash === 'dashed' ? [10, 7] : undefined
 
               return (
-                <Rect
-                  key={node.id}
+                <Line
+                  key={connection.id}
                   ref={(instance) => {
                     if (instance) {
-                      selectionRectRefs.current.set(node.id, instance)
+                      connectionRefs.current.set(connection.id, instance)
                     } else {
-                      selectionRectRefs.current.delete(node.id)
+                      connectionRefs.current.delete(connection.id)
                     }
                   }}
-                  x={bounds.left}
-                  y={bounds.top}
-                  width={bounds.width}
-                  height={bounds.height}
-                  stroke="#2563eb"
-                  strokeWidth={1}
-                  dash={[5, 4]}
-                  listening={false}
+                  id={`${CONNECTION_PREFIX}${connection.id}`}
+                  points={points}
+                  stroke={selected ? '#2563eb' : connection.style.stroke}
+                  strokeWidth={
+                    selected
+                      ? connection.style.strokeWidth + 2
+                      : connection.style.strokeWidth
+                  }
+                  dash={dash}
+                  lineCap="round"
+                  lineJoin="round"
+                  hitStrokeWidth={18}
+                  perfectDrawEnabled={false}
+                  listening={mode === 'editor'}
                 />
               )
             })}
 
-          {selectionBounds && (
-            <Rect
-              ref={selectionBoundsRef}
-              x={selectionBounds.left}
-              y={selectionBounds.top}
-              width={selectionBounds.width}
-              height={selectionBounds.height}
-              stroke="#0284c7"
-              strokeWidth={1.5}
-              dash={[9, 5]}
-              listening={false}
-            />
-          )}
-
-          <Line
-            ref={verticalGuideRef}
-            points={[0, 0, 0, viewport.height]}
-            visible={false}
-            stroke="#db2777"
-            strokeWidth={1}
-            perfectDrawEnabled={false}
-            listening={false}
-          />
-          <Line
-            ref={horizontalGuideRef}
-            points={[0, 0, viewport.width, 0]}
-            visible={false}
-            stroke="#db2777"
-            strokeWidth={1}
-            perfectDrawEnabled={false}
-            listening={false}
-          />
-
-          {marqueeBounds && (
-            <Rect
-              x={marqueeBounds.left}
-              y={marqueeBounds.top}
-              width={marqueeBounds.width}
-              height={marqueeBounds.height}
-              fill="rgba(37, 99, 235, 0.12)"
-              stroke="#2563eb"
-              strokeWidth={1}
-              dash={[6, 4]}
-              listening={false}
-            />
-          )}
-
-          <Line
-            ref={connectionPreviewRef}
-            points={[0, 0, 0, 0]}
-            visible={false}
-            stroke="#0f766e"
-            strokeWidth={3}
-            dash={[8, 6]}
-            lineCap="round"
-            lineJoin="round"
-            perfectDrawEnabled={false}
-            listening={false}
-          />
-
-          {mode === 'editor' &&
-          selectedSourcePosition &&
-          selectedTargetPosition && (
-            <>
-              <Circle
-                ref={selectedSourceHandleRef}
-                id={`${CONNECTION_HANDLE_PREFIX}source`}
-                x={selectedSourcePosition.x}
-                y={selectedSourcePosition.y}
-                radius={7 * visualControlScale}
-                fill="#ffffff"
-                stroke="#2563eb"
-                strokeWidth={2}
-                hitStrokeWidth={12 * visualControlScale}
-                draggable
-                onMouseEnter={() => setStageCursor('grab')}
-                onMouseLeave={() => {
-                  if (!reconnectSessionRef.current) {
-                    setStageCursor('default')
+            {rootNodes.map((node) => (
+              <SceneNodeRenderer
+                key={node.id}
+                ref={(instance) => {
+                  if (instance) {
+                    nodeRefs.current.set(node.id, instance)
+                  } else {
+                    nodeRefs.current.delete(node.id)
                   }
                 }}
-                onDragStart={(event) =>
-                  beginReconnect('source', event.target as Konva.Circle)
-                }
-                onDragMove={(event) =>
-                  scheduleReconnectPreview(event.target as Konva.Circle)
-                }
-                onDragEnd={(event) =>
-                  finishReconnect(event.target as Konva.Circle)
-                }
+                scene={scene}
+                node={node}
+                transform={node.transform}
+                editorMode={mode === 'editor'}
+                selectable
               />
-              <Circle
-                ref={selectedTargetHandleRef}
-                id={`${CONNECTION_HANDLE_PREFIX}target`}
-                x={selectedTargetPosition.x}
-                y={selectedTargetPosition.y}
-                radius={7 * visualControlScale}
-                fill="#2563eb"
-                stroke="#ffffff"
-                strokeWidth={2}
-                hitStrokeWidth={12 * visualControlScale}
-                draggable
-                onMouseEnter={() => setStageCursor('grab')}
-                onMouseLeave={() => {
-                  if (!reconnectSessionRef.current) {
-                    setStageCursor('default')
-                  }
-                }}
-                onDragStart={(event) =>
-                  beginReconnect('target', event.target as Konva.Circle)
-                }
-                onDragMove={(event) =>
-                  scheduleReconnectPreview(event.target as Konva.Circle)
-                }
-                onDragEnd={(event) =>
-                  finishReconnect(event.target as Konva.Circle)
-                }
-              />
-            </>
-          )}
+            ))}
 
-          {mode === 'editor' &&
-            scene.nodes.filter((node) => !isGroupNode(node)).flatMap((node) => {
-              if (!isNodeEffectivelyVisible(scene, node)) {
-                return []
-              }
-
-              return getNodePortDefinitions(node).map((port) => {
-                const endpoint = { nodeId: node.id, anchorId: port.id }
-                const position = getPortWorldPosition(scene, endpoint)
-
-                if (!position) {
-                  return null
+            <Transformer
+              ref={transformerRef}
+              enabledAnchors={[...CORNER_ANCHORS]}
+              rotateEnabled
+              flipEnabled={false}
+              keepRatio
+              shiftBehavior="none"
+              borderStroke="#2563eb"
+              borderStrokeWidth={1.5 * visualControlScale}
+              anchorFill="#2563eb"
+              anchorStroke="#ffffff"
+              anchorSize={9 * visualControlScale}
+              rotateAnchorOffset={24 * visualControlScale}
+              boundBoxFunc={(oldBox, newBox) => {
+                if (
+                  Math.abs(newBox.width) < minimumTransformWidth ||
+                  Math.abs(newBox.height) < minimumTransformHeight
+                ) {
+                  return oldBox
                 }
+
+                const currentViewport = viewportTransformRef.current
+                const sceneLeft =
+                  (newBox.x - currentViewport.x) / currentViewport.scale
+                const sceneTop =
+                  (newBox.y - currentViewport.y) / currentViewport.scale
+                const sceneWidth = newBox.width / currentViewport.scale
+                const sceneHeight = newBox.height / currentViewport.scale
+
+                if (
+                  sceneLeft < 0 ||
+                  sceneTop < 0 ||
+                  sceneLeft + sceneWidth > scene.width ||
+                  sceneTop + sceneHeight > scene.height
+                ) {
+                  return oldBox
+                }
+
+                return newBox
+              }}
+              onTransform={scheduleTransformPreview}
+              onTransformEnd={handleTransformEnd}
+            />
+
+            {selectedNodeIds.length > 1 &&
+              selectedNodes.map((node) => {
+                const bounds = getNodeBounds(scene, node)
 
                 return (
-                  <Circle
-                    key={portKey(endpoint)}
+                  <Rect
+                    key={node.id}
                     ref={(instance) => {
                       if (instance) {
-                        portRefs.current.set(portKey(endpoint), instance)
+                        selectionRectRefs.current.set(node.id, instance)
                       } else {
-                        portRefs.current.delete(portKey(endpoint))
+                        selectionRectRefs.current.delete(node.id)
                       }
                     }}
-                    id={`${PORT_PREFIX}${node.id}::${port.id}`}
-                    x={position.x}
-                    y={position.y}
-                    radius={7 * visualControlScale}
-                    fill="#475569"
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                    hitStrokeWidth={12 * visualControlScale}
-                    perfectDrawEnabled={false}
-                    visible={mode === 'editor'}
-                    listening={mode === 'editor'}
-                    opacity={0}
-                    onMouseEnter={(event) =>
-                      handlePortEnter(event.target as Konva.Circle, endpoint)
-                    }
-                    onMouseLeave={(event) =>
-                      handlePortLeave(event.target as Konva.Circle)
-                    }
+                    x={bounds.left}
+                    y={bounds.top}
+                    width={bounds.width}
+                    height={bounds.height}
+                    stroke="#2563eb"
+                    strokeWidth={1}
+                    dash={[5, 4]}
+                    listening={false}
                   />
                 )
-              })
-            })}
+              })}
 
-          {hoveredPort && (
-            <Group listening={false}>
+            {selectionBounds && (
               <Rect
-                x={hoveredPort.x + 12}
-                y={hoveredPort.y - 34}
-                width={tooltipWidth}
-                height={26}
-                fill="#0f172a"
-                opacity={0.94}
-                cornerRadius={5}
-              />
-              <Text
-                x={hoveredPort.x + 20}
-                y={hoveredPort.y - 28}
-                width={tooltipWidth - 16}
-                text={tooltipText}
-                fill="#f8fafc"
-                fontSize={12}
+                ref={selectionBoundsRef}
+                x={selectionBounds.left}
+                y={selectionBounds.top}
+                width={selectionBounds.width}
+                height={selectionBounds.height}
+                stroke="#0284c7"
+                strokeWidth={1.5}
+                dash={[9, 5]}
                 listening={false}
               />
-            </Group>
-          )}
+            )}
+
+            <Line
+              ref={verticalGuideRef}
+              points={[0, 0, 0, viewport.height]}
+              visible={false}
+              stroke="#db2777"
+              strokeWidth={1}
+              perfectDrawEnabled={false}
+              listening={false}
+            />
+            <Line
+              ref={horizontalGuideRef}
+              points={[0, 0, viewport.width, 0]}
+              visible={false}
+              stroke="#db2777"
+              strokeWidth={1}
+              perfectDrawEnabled={false}
+              listening={false}
+            />
+
+            {marqueeBounds && (
+              <Rect
+                x={marqueeBounds.left}
+                y={marqueeBounds.top}
+                width={marqueeBounds.width}
+                height={marqueeBounds.height}
+                fill="rgba(37, 99, 235, 0.12)"
+                stroke="#2563eb"
+                strokeWidth={1}
+                dash={[6, 4]}
+                listening={false}
+              />
+            )}
+
+            <Line
+              ref={connectionPreviewRef}
+              points={[0, 0, 0, 0]}
+              visible={false}
+              stroke="#0f766e"
+              strokeWidth={3}
+              dash={[8, 6]}
+              lineCap="round"
+              lineJoin="round"
+              perfectDrawEnabled={false}
+              listening={false}
+            />
+
+            {mode === 'editor' &&
+            selectedSourcePosition &&
+            selectedTargetPosition && (
+              <>
+                <Circle
+                  ref={selectedSourceHandleRef}
+                  id={`${CONNECTION_HANDLE_PREFIX}source`}
+                  x={selectedSourcePosition.x}
+                  y={selectedSourcePosition.y}
+                  radius={7 * visualControlScale}
+                  fill="#ffffff"
+                  stroke="#2563eb"
+                  strokeWidth={2}
+                  hitStrokeWidth={12 * visualControlScale}
+                  draggable
+                  onMouseEnter={() => setStageCursor('grab')}
+                  onMouseLeave={() => {
+                    if (!reconnectSessionRef.current) {
+                      setStageCursor('default')
+                    }
+                  }}
+                  onDragStart={(event) =>
+                    beginReconnect('source', event.target as Konva.Circle)
+                  }
+                  onDragMove={(event) =>
+                    scheduleReconnectPreview(event.target as Konva.Circle)
+                  }
+                  onDragEnd={(event) =>
+                    finishReconnect(event.target as Konva.Circle)
+                  }
+                />
+                <Circle
+                  ref={selectedTargetHandleRef}
+                  id={`${CONNECTION_HANDLE_PREFIX}target`}
+                  x={selectedTargetPosition.x}
+                  y={selectedTargetPosition.y}
+                  radius={7 * visualControlScale}
+                  fill="#2563eb"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  hitStrokeWidth={12 * visualControlScale}
+                  draggable
+                  onMouseEnter={() => setStageCursor('grab')}
+                  onMouseLeave={() => {
+                    if (!reconnectSessionRef.current) {
+                      setStageCursor('default')
+                    }
+                  }}
+                  onDragStart={(event) =>
+                    beginReconnect('target', event.target as Konva.Circle)
+                  }
+                  onDragMove={(event) =>
+                    scheduleReconnectPreview(event.target as Konva.Circle)
+                  }
+                  onDragEnd={(event) =>
+                    finishReconnect(event.target as Konva.Circle)
+                  }
+                />
+              </>
+            )}
+
+            {mode === 'editor' &&
+              scene.nodes.filter((node) => !isGroupNode(node)).flatMap((node) => {
+                if (!isNodeEffectivelyVisible(scene, node)) {
+                  return []
+                }
+
+                return getNodePortDefinitions(node).map((port) => {
+                  const endpoint = { nodeId: node.id, anchorId: port.id }
+                  const position = getPortWorldPosition(scene, endpoint)
+
+                  if (!position) {
+                    return null
+                  }
+
+                  return (
+                    <Circle
+                      key={portKey(endpoint)}
+                      ref={(instance) => {
+                        if (instance) {
+                          portRefs.current.set(portKey(endpoint), instance)
+                        } else {
+                          portRefs.current.delete(portKey(endpoint))
+                        }
+                      }}
+                      id={`${PORT_PREFIX}${node.id}::${port.id}`}
+                      x={position.x}
+                      y={position.y}
+                      radius={5 * visualControlScale}
+                      fill="#ffffff"
+                      stroke="#2563eb"
+                      strokeWidth={1.5 * visualControlScale}
+                      hitStrokeWidth={10 * visualControlScale}
+                      perfectDrawEnabled={false}
+                      visible={false}
+                      listening={false}
+                      opacity={0}
+                      onMouseEnter={(event) =>
+                        handlePortEnter(event.target as Konva.Circle, endpoint)
+                      }
+                      onMouseLeave={(event) =>
+                        handlePortLeave(event.target as Konva.Circle)
+                      }
+                    />
+                  )
+                })
+              })}
+
+            {hoveredPort && (
+              <Group listening={false}>
+                <Rect
+                  x={hoveredPort.x + 12}
+                  y={hoveredPort.y - 34}
+                  width={tooltipWidth}
+                  height={26}
+                  fill="#0f172a"
+                  opacity={0.94}
+                  cornerRadius={5}
+                />
+                <Text
+                  x={hoveredPort.x + 20}
+                  y={hoveredPort.y - 28}
+                  width={tooltipWidth - 16}
+                  text={tooltipText}
+                  fill="#f8fafc"
+                  fontSize={12}
+                  listening={false}
+                />
+              </Group>
+            )}
           </Group>
         </Layer>
       </Stage>
