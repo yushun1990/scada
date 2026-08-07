@@ -1,0 +1,144 @@
+name: Apply cleanup
+
+on:
+  push:
+    branches:
+      - cleanup/remove-restore-and-pump-demo
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cleanup/remove-restore-and-pump-demo
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply cleanup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          app_path = Path('src/App.tsx')
+          app = app_path.read_text()
+
+          app = app.replace("import type { PumpState } from './assets/pump'\n", '')
+          app = app.replace('  collectSubtreeIds,\n', '')
+          app = app.replace('  type PumpSceneNode,\n', '')
+
+          app, count = re.subn(
+              r"const pumpStates: Array<\{.*?\n\]\n\n(?=const alignButtons)",
+              '',
+              app,
+              count=1,
+              flags=re.S,
+          )
+          assert count == 1, 'pumpStates block not found'
+
+          app, count = re.subn(
+              r"  const selectedSubtreeIds = collectSubtreeIds\(scene, selectedNodeIds\)\n.*?  const selectedGroupCount = selectedNodes\.filter\(isGroupNode\)\.length\n\n",
+              '',
+              app,
+              count=1,
+              flags=re.S,
+          )
+          assert count == 1, 'selected pump block not found'
+
+          app, count = re.subn(
+              r"  function setSelectedPumpState\(state: PumpState\) \{.*?\n  \}\n\n(?=  function updateSelectedBaseProperty)",
+              '',
+              app,
+              count=1,
+              flags=re.S,
+          )
+          assert count == 1, 'pump state handler not found'
+
+          app, count = re.subn(
+              r"  function restoreScene\(\) \{.*?\n  \}\n\n(?=  function exportScene)",
+              '',
+              app,
+              count=1,
+              flags=re.S,
+          )
+          assert count == 1, 'restoreScene handler not found'
+
+          old_restore_button = '            <button type="button" onClick={restoreScene}>恢复</button>\n'
+          assert old_restore_button in app, 'restore button not found'
+          app = app.replace(old_restore_button, '', 1)
+
+          app, count = re.subn(
+              r"\n\s+\{selectedPumpNodes\.length > 0 && \(\n.*?\n\s+\)\}\n",
+              '\n',
+              app,
+              count=2,
+              flags=re.S,
+          )
+          assert count == 2, f'expected 2 pump inspector blocks, removed {count}'
+
+          for stale in ('pumpStates', 'selectedPumpNodes', 'setSelectedPumpState', 'PumpState', 'PumpSceneNode', 'restoreScene'):
+              assert stale not in app, f'stale App.tsx symbol remains: {stale}'
+
+          app_path.write_text(app)
+
+          styles_path = Path('src/styles.css')
+          styles = styles_path.read_text()
+
+          styles = styles.replace(
+              '.component-item strong,\n.component-item small,\n.state-button strong,\n.state-button small {\n',
+              '.component-item strong,\n.component-item small {\n',
+          )
+          styles = styles.replace(
+              '.component-item strong,\n.state-button strong {\n',
+              '.component-item strong {\n',
+          )
+          styles = styles.replace(
+              '.component-item small,\n.state-button small {\n',
+              '.component-item small {\n',
+          )
+
+          styles, count = re.subn(
+              r"\n\.state-list \{.*?\n\.state-swatch \{.*?\n\}\n",
+              '\n',
+              styles,
+              count=1,
+              flags=re.S,
+          )
+          assert count == 1, 'state control CSS block not found'
+
+          mobile_state = "\n  .state-list {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }"
+          assert mobile_state in styles, 'mobile state-list CSS not found'
+          styles = styles.replace(mobile_state, '', 1)
+
+          for stale in ('.state-list', '.state-button', '.state-swatch'):
+              assert stale not in styles, f'stale styles remain: {stale}'
+
+          styles_path.write_text(styles)
+          PY
+
+      - name: Verify cleanup
+        run: |
+          ! grep -R -n -E 'pumpStates|selectedPumpNodes|setSelectedPumpState|state-button|state-list|state-swatch|restoreScene' src
+          npm ci
+          npm run build
+          npm run lint
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          rm .github/workflows/apply-cleanup.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/App.tsx src/styles.css .github/workflows/apply-cleanup.yml
+          git commit -m "cleanup: remove restore action and stale pump demo UI"
+          git push origin HEAD:cleanup/remove-restore-and-pump-demo
