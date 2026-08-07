@@ -1,21 +1,8 @@
 import type { ComponentProps } from '../component-system/definition'
-import {
-  PUMP_COMPONENT_TYPE,
-  builtInComponentRegistry,
-  pumpComponentDefinition,
-} from '../component-system/builtins'
+import { builtInComponentRegistry } from '../component-system/builtins'
 
 export const SCENE_VERSION = 4 as const
 export const GROUP_NODE_TYPE = 'core.group' as const
-
-/** @deprecated Use ComponentSceneNode and createComponentNode. */
-export const PUMP_NODE_TYPE = PUMP_COMPONENT_TYPE
-/** @deprecated Component geometry now comes from ComponentDefinition. */
-export const PUMP_ASPECT_RATIO =
-  pumpComponentDefinition.size.defaultWidth /
-  pumpComponentDefinition.size.defaultHeight
-/** @deprecated Component geometry now comes from ComponentDefinition. */
-export const PUMP_DEFAULT_WIDTH = pumpComponentDefinition.size.defaultWidth
 
 export type NodeTransform = {
   x: number
@@ -40,9 +27,6 @@ export type ComponentSceneNode = SceneNodeBase & {
   type: string
   props: ComponentProps
 }
-
-/** @deprecated Use ComponentSceneNode. */
-export type PumpSceneNode = ComponentSceneNode
 
 export type GroupSceneNode = SceneNodeBase & {
   type: typeof GROUP_NODE_TYPE
@@ -126,16 +110,6 @@ export function createComponentNode(
   }
 }
 
-/** @deprecated Use createComponentNode(PUMP_COMPONENT_TYPE, ...). */
-export function createPumpNode(index: number, offset = 0): ComponentSceneNode {
-  return createComponentNode(PUMP_COMPONENT_TYPE, index, offset)
-}
-
-/** @deprecated Compare component node types through the registry. */
-export function isPumpNode(node: SceneNode): node is ComponentSceneNode {
-  return isComponentNode(node) && node.type === PUMP_COMPONENT_TYPE
-}
-
 export function createGroupNode(
   index: number,
   transform: NodeTransform,
@@ -178,6 +152,8 @@ export function createSceneConnection(
 }
 
 export function createDefaultScene(): SceneDocument {
+  const defaultRegistration = builtInComponentRegistry.list()[0] ?? null
+
   return {
     version: SCENE_VERSION,
     id: createSceneId('scene'),
@@ -185,7 +161,9 @@ export function createDefaultScene(): SceneDocument {
     width: 1280,
     height: 720,
     background: '#edf1f5',
-    nodes: [createComponentNode(PUMP_COMPONENT_TYPE, 1)],
+    nodes: defaultRegistration
+      ? [createComponentNode(defaultRegistration.definition.type, 1)]
+      : [],
     connections: [],
   }
 }
