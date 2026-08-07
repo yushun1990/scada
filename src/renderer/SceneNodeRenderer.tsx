@@ -4,6 +4,10 @@ import { Group, Rect } from 'react-konva'
 import { PumpNode } from '../components/PumpNode'
 import { getNodeBounds } from '../scene/geometry'
 import {
+  clearLiveNodeTransform,
+  setLiveNodeTransform,
+} from '../scene/live-preview'
+import {
   isGroupNode,
   type NodeTransform,
   type SceneDocument,
@@ -117,6 +121,43 @@ export const SceneNodeRenderer = forwardRef<
     },
     [node, resolveDragPosition, scene, selectable, transform],
   )
+
+  useEffect(() => {
+    const instance = rootRef.current
+
+    if (!selectable || !instance) {
+      return
+    }
+
+    const syncLiveTransform = () => {
+      const width = isGroupNode(node)
+        ? node.props.designWidth * Math.abs(instance.scaleX())
+        : instance.width()
+      const height = isGroupNode(node)
+        ? node.props.designHeight * Math.abs(instance.scaleY())
+        : instance.height()
+
+      setLiveNodeTransform(node.id, {
+        x: instance.x(),
+        y: instance.y(),
+        width,
+        height,
+        rotation: instance.rotation(),
+      })
+    }
+    const clearLiveTransform = () => {
+      clearLiveNodeTransform(node.id)
+    }
+
+    instance.on('dragstart.live-anchor', syncLiveTransform)
+    instance.on('dragmove.live-anchor', syncLiveTransform)
+    instance.on('dragend.live-anchor', clearLiveTransform)
+
+    return () => {
+      instance.off('.live-anchor')
+      clearLiveNodeTransform(node.id)
+    }
+  }, [node, selectable])
 
   useEffect(() => {
     const instance = rootRef.current
