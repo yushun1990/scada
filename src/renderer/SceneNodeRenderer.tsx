@@ -1,7 +1,8 @@
-import { forwardRef } from 'react'
+import { forwardRef, useCallback, useEffect, useRef } from 'react'
 import type Konva from 'konva'
 import { Group, Rect } from 'react-konva'
 import { PumpNode } from '../components/PumpNode'
+import { getNodeBounds } from '../scene/geometry'
 import {
   isGroupNode,
   type NodeTransform,
@@ -19,6 +20,11 @@ export type SceneNodeRendererProps = {
   parentLocked?: boolean
 }
 
+type Point = {
+  x: number
+  y: number
+}
+
 export const SceneNodeRenderer = forwardRef<
   Konva.Group,
   SceneNodeRendererProps
@@ -34,10 +40,104 @@ export const SceneNodeRenderer = forwardRef<
   },
   ref,
 ) {
+  const rootRef = useRef<Konva.Group | null>(null)
   const effectiveVisible = parentVisible && node.visible
   const effectiveLocked = parentLocked || node.locked
   const displayVisible = editorMode || effectiveVisible
   const displayOpacity = effectiveVisible ? 1 : 0.2
+
+  const bindRootRef = useCallback(
+    (instance: Konva.Group | null) => {
+      rootRef.current = instance
+
+      if (typeof ref === 'function') {
+        ref(instance)
+      } else if (ref) {
+        ref.current = instance
+      }
+    },
+    [ref],
+  )
+
+  const constrainDragPosition = useCallback(
+    (absolutePosition: Point) => {
+      const instance = rootRef.current
+      const parent = instance?.getParent()
+
+      if (!selectable || !instance || !parent) {
+        return absolutePosition
+      }
+
+      const parentTransform = parent.getAbsoluteTransform().copy()
+      const localPosition = parentTransform
+        .copy()
+        .invert()
+        .point(absolutePosition)
+      const proposedTransform = {
+        ...transform,
+        x: localPosition.x,
+        y: localPosition.y,
+      }
+      const bounds = getNodeBounds(scene, node, {
+        [node.id]: proposedTransform,
+      })
+
+      // A node that is already larger than the artboard cannot be made valid by
+      // translating it. Keep its current origin rather than introducing jitter.
+      if (bounds.width > scene.width || bounds.height > scene.height) {
+        return parentTransform.point({ x: transform.x, y: transform.y })
+      }
+
+      let offsetX = 0
+      let offsetY = 0
+
+      if (bounds.left < 0) {
+        offsetX = -bounds.left
+      } else if (bounds.right > scene.width) {
+        offsetX = scene.width - bounds.right
+      }
+
+      if (bounds.top < 0) {
+        offsetY = -bounds.top
+      } else if (bounds.bottom > scene.height) {
+        offsetY = scene.height - bounds.bottom
+      }
+
+      return parentTransform.point({
+        x: localPosition.x + offsetX,
+        y: localPosition.y + offsetY,
+      })
+    },
+    [node, scene, selectable, transform],
+  )
+
+  useEffect(() => {
+    const instance = rootRef.current
+
+    if (!selectable || !instance) {
+      return
+    }
+
+    const originalPosition = instance.position
+
+    // Konva owns the primary node position while native dragging is active.
+    // SceneRenderer still refreshes dependent visuals during drag, but any
+    // preview .position() write to this node is ignored until dragEnd. This
+    // removes the competing position source that caused pointer drift/flicker.
+    instance.position = ((next?: Point) => {
+      if (next && instance.isDragging()) {
+        return instance
+      }
+
+      return next
+        ? originalPosition.call(instance, next)
+        : originalPosition.call(instance)
+    }) as typeof instance.position
+
+    return () => {
+      instance.position = originalPosition
+    }
+  }, [selectable])
 
   if (isGroupNode(node)) {
     const children = scene.nodes.filter(
@@ -48,7 +148,7 @@ export const SceneNodeRenderer = forwardRef<
 
     return (
       <Group
-        ref={ref}
+        ref={bindRootRef}
         id={selectable ? node.id : undefined}
         name={selectable ? 'scene-node' : undefined}
         x={transform.x}
@@ -59,6 +159,7 @@ export const SceneNodeRenderer = forwardRef<
         scaleX={scaleX}
         scaleY={scaleY}
         draggable={selectable && editorMode && !effectiveLocked}
+        dragBoundFunc={selectable ? constrainDragPosition : undefined}
         visible={displayVisible}
         opacity={displayOpacity}
         listening={selectable}
@@ -88,11 +189,12 @@ export const SceneNodeRenderer = forwardRef<
 
   return (
     <PumpNode
-      ref={ref}
+      ref={bindRootRef}
       nodeId={selectable ? node.id : undefined}
       state={node.props.state}
       {...transform}
       draggable={selectable && editorMode && !effectiveLocked}
+      dragBoundFunc={selectable ? constrainDragPosition : undefined}
       visible={displayVisible}
       opacity={displayOpacity}
       listening={selectable}
