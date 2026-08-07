@@ -1,9 +1,10 @@
 import {
   createDefaultPropsFromDefinition,
   type ComponentDefinition,
-  type ComponentRegistration,
 } from '../definition'
+import type { ComponentRegistration } from '../registration'
 import { DEFAULT_RECT_ANCHORS } from '../default-anchors'
+import { PumpComponentRenderer } from './PumpComponentRenderer'
 
 export const PUMP_COMPONENT_TYPE = 'pump.submersible' as const
 
@@ -21,9 +22,16 @@ export const pumpComponentDefinition: ComponentDefinition = {
   properties: {
     state: {
       title: '状态',
-      kind: 'string',
+      kind: 'select',
       defaultValue: 'green',
       bindable: true,
+      options: [
+        { label: '停止', value: 'gray' },
+        { label: '运行', value: 'green' },
+        { label: '手动', value: 'blue' },
+        { label: '警告', value: 'orange' },
+        { label: '报警', value: 'red' },
+      ],
     },
   },
   actions: {},
@@ -33,5 +41,6 @@ export const pumpComponentDefinition: ComponentDefinition = {
 
 export const pumpComponentRegistration: ComponentRegistration = {
   definition: pumpComponentDefinition,
+  renderer: PumpComponentRenderer,
   createDefaultProps: () => createDefaultPropsFromDefinition(pumpComponentDefinition),
 }
