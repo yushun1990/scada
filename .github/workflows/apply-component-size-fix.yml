@@ -1,0 +1,76 @@
+name: Apply component size fix
+
+on:
+  push:
+    branches:
+      - tune/component-default-and-min-size
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tune/component-default-and-min-size
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Make transformer minimum size zoom-aware
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/renderer/SceneRenderer.tsx')
+          text = path.read_text()
+          old = """              boundBoxFunc={(oldBox, newBox) => {
+                if (
+                  Math.abs(newBox.width) < minimumTransformWidth ||
+                  Math.abs(newBox.height) < minimumTransformHeight
+                ) {
+                  return oldBox
+                }
+
+                const currentViewport = viewportTransformRef.current
+"""
+          new = """              boundBoxFunc={(oldBox, newBox) => {
+                const currentViewport = viewportTransformRef.current
+                const minimumBoxWidth = minimumTransformWidth * currentViewport.scale
+                const minimumBoxHeight = minimumTransformHeight * currentViewport.scale
+
+                if (
+                  Math.abs(newBox.width) < minimumBoxWidth ||
+                  Math.abs(newBox.height) < minimumBoxHeight
+                ) {
+                  return oldBox
+                }
+
+"""
+          assert old in text, 'transformer minimum-size block not found'
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+          rm .github/workflows/apply-component-size-fix.yml
+
+      - name: Verify
+        run: |
+          npm ci
+          npm run build
+          npm run lint
+
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/renderer/SceneRenderer.tsx .github/workflows/apply-component-size-fix.yml
+          git commit -m "fix: make component minimum size independent of zoom"
+          git push origin HEAD:tune/component-default-and-min-size
