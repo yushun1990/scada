@@ -1,15 +1,20 @@
-import type { PumpState } from '../assets/pump'
+import type { ComponentProps } from '../component-system/definition'
 import {
   PUMP_COMPONENT_TYPE,
+  builtInComponentRegistry,
   pumpComponentDefinition,
 } from '../component-system/builtins'
 
 export const SCENE_VERSION = 4 as const
-export const PUMP_NODE_TYPE = PUMP_COMPONENT_TYPE
 export const GROUP_NODE_TYPE = 'core.group' as const
+
+/** @deprecated Use ComponentSceneNode and createComponentNode. */
+export const PUMP_NODE_TYPE = PUMP_COMPONENT_TYPE
+/** @deprecated Component geometry now comes from ComponentDefinition. */
 export const PUMP_ASPECT_RATIO =
   pumpComponentDefinition.size.defaultWidth /
   pumpComponentDefinition.size.defaultHeight
+/** @deprecated Component geometry now comes from ComponentDefinition. */
 export const PUMP_DEFAULT_WIDTH = pumpComponentDefinition.size.defaultWidth
 
 export type NodeTransform = {
@@ -31,12 +36,13 @@ type SceneNodeBase = {
   behaviors: []
 }
 
-export type PumpSceneNode = SceneNodeBase & {
-  type: typeof PUMP_NODE_TYPE
-  props: {
-    state: PumpState
-  }
+export type ComponentSceneNode = SceneNodeBase & {
+  type: string
+  props: ComponentProps
 }
+
+/** @deprecated Use ComponentSceneNode. */
+export type PumpSceneNode = ComponentSceneNode
 
 export type GroupSceneNode = SceneNodeBase & {
   type: typeof GROUP_NODE_TYPE
@@ -46,7 +52,7 @@ export type GroupSceneNode = SceneNodeBase & {
   }
 }
 
-export type SceneNode = PumpSceneNode | GroupSceneNode
+export type SceneNode = ComponentSceneNode | GroupSceneNode
 
 export type ConnectionEndpoint = {
   nodeId: string
@@ -84,37 +90,50 @@ export function createSceneId(prefix: string) {
   return `${prefix}-${suffix}`
 }
 
-export function isPumpNode(node: SceneNode): node is PumpSceneNode {
-  return node.type === PUMP_NODE_TYPE
-}
-
 export function isGroupNode(node: SceneNode): node is GroupSceneNode {
   return node.type === GROUP_NODE_TYPE
 }
 
-export function createPumpNode(index: number, offset = 0): PumpSceneNode {
-  const width = PUMP_DEFAULT_WIDTH
+export function isComponentNode(node: SceneNode): node is ComponentSceneNode {
+  return !isGroupNode(node)
+}
+
+export function createComponentNode(
+  componentType: string,
+  index: number,
+  offset = 0,
+): ComponentSceneNode {
+  const registration = builtInComponentRegistry.require(componentType)
+  const { definition } = registration
 
   return {
-    id: createSceneId('pump'),
-    type: PUMP_NODE_TYPE,
-    name: `潜水泵 ${index}`,
+    id: createSceneId('component'),
+    type: definition.type,
+    name: `${definition.title} ${index}`,
     parentId: null,
     visible: true,
     locked: false,
     transform: {
       x: 220 + offset,
       y: 48 + offset,
-      width,
-      height: width / PUMP_ASPECT_RATIO,
+      width: definition.size.defaultWidth,
+      height: definition.size.defaultHeight,
       rotation: 0,
     },
-    props: {
-      state: 'green',
-    },
+    props: registration.createDefaultProps(),
     bindings: [],
     behaviors: [],
   }
+}
+
+/** @deprecated Use createComponentNode(PUMP_COMPONENT_TYPE, ...). */
+export function createPumpNode(index: number, offset = 0): ComponentSceneNode {
+  return createComponentNode(PUMP_COMPONENT_TYPE, index, offset)
+}
+
+/** @deprecated Compare component node types through the registry. */
+export function isPumpNode(node: SceneNode): node is ComponentSceneNode {
+  return isComponentNode(node) && node.type === PUMP_COMPONENT_TYPE
 }
 
 export function createGroupNode(
@@ -166,7 +185,7 @@ export function createDefaultScene(): SceneDocument {
     width: 1280,
     height: 720,
     background: '#edf1f5',
-    nodes: [createPumpNode(1)],
+    nodes: [createComponentNode(PUMP_COMPONENT_TYPE, 1)],
     connections: [],
   }
 }
