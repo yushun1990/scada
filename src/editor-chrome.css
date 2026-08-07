@@ -60,21 +60,37 @@
   justify-content: flex-end;
 }
 
-/* Treat the three top-level tool families like three col-8 regions in a
-   24-column layout. The first two regions own a right border, so separators
-   land naturally at one-third and two-thirds of the toolbar. */
+/* Use a 24-column mental model for the three top-level tool families:
+   object operations = col-6, alignment/distribution = col-12,
+   grid/view settings = col-6. */
 .canvas-toolbar {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
   gap: 0;
 }
 
 .canvas-toolbar > .canvas-tool-group {
+  position: relative;
   width: 100%;
   min-width: 0;
   margin: 0;
   padding: 0 12px;
-  border-right: 1px solid #cbd5e1;
+  border-right: 0;
+}
+
+/* A native border-right always spans the full group height. Draw a shorter
+   divider at the exact column boundary instead, while keeping the same visual
+   semantics as a group border. */
+.canvas-toolbar > .canvas-tool-group:not(:last-child)::after {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 1px;
+  height: 18px;
+  transform: translateY(-50%);
+  background: #cbd5e1;
+  content: '';
+  pointer-events: none;
 }
 
 .canvas-toolbar > .canvas-tool-group:first-child {
@@ -89,7 +105,6 @@
 .canvas-toolbar > .canvas-tool-group:last-child {
   justify-content: flex-end;
   padding-right: 0;
-  border-right: 0;
 }
 
 /* Cancel the previous internal command-family separators. */
@@ -121,14 +136,13 @@
 }
 
 /* Keep the closed artboard selector compact while preserving full native
-   option text in the popup. The short label now participates in the same grid
-   cell as the select instead of being absolutely positioned, so it is truly
-   centered in the closed control. */
+   option text in the popup. The short label shares the select's grid cell so
+   it remains geometrically centered without absolute positioning. */
 .scene-size-control {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  width: 82px;
-  min-width: 82px;
+  width: 72px;
+  min-width: 72px;
 }
 
 .scene-size-control::before,
@@ -179,7 +193,7 @@
   width: 100%;
   min-width: 0;
   max-width: none;
-  padding-right: 22px;
+  padding-right: 18px;
   color: transparent;
 }
 
