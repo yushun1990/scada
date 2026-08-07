@@ -118,7 +118,10 @@ export const SceneNodeRenderer = forwardRef<
       return
     }
 
-    const originalPosition = instance.position
+    const originalPositionMethod = instance.position
+    const originalPosition = originalPositionMethod.bind(instance) as (
+      next?: Point,
+    ) => Point | Konva.Group
 
     // Konva owns the primary node position while native dragging is active.
     // SceneRenderer still refreshes dependent visuals during drag, but any
@@ -129,13 +132,11 @@ export const SceneNodeRenderer = forwardRef<
         return instance
       }
 
-      return next
-        ? originalPosition.call(instance, next)
-        : originalPosition.call(instance)
+      return originalPosition(next)
     }) as typeof instance.position
 
     return () => {
-      instance.position = originalPosition
+      instance.position = originalPositionMethod
     }
   }, [selectable])
 
