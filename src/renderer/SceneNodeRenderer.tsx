@@ -10,19 +10,20 @@ import {
   type SceneNode,
 } from '../scene/model'
 
+type Point = {
+  x: number
+  y: number
+}
+
 export type SceneNodeRendererProps = {
   scene: SceneDocument
   node: SceneNode
   transform: NodeTransform
   editorMode: boolean
   selectable: boolean
+  resolveDragPosition?: (nodeId: string, position: Point) => Point
   parentVisible?: boolean
   parentLocked?: boolean
-}
-
-type Point = {
-  x: number
-  y: number
 }
 
 export const SceneNodeRenderer = forwardRef<
@@ -35,6 +36,7 @@ export const SceneNodeRenderer = forwardRef<
     transform,
     editorMode,
     selectable,
+    resolveDragPosition,
     parentVisible = true,
     parentLocked = false,
   },
@@ -103,12 +105,17 @@ export const SceneNodeRenderer = forwardRef<
         offsetY = scene.height - bounds.bottom
       }
 
-      return parentTransform.point({
+      const boundedPosition = {
         x: localPosition.x + offsetX,
         y: localPosition.y + offsetY,
-      })
+      }
+      const resolvedPosition = resolveDragPosition
+        ? resolveDragPosition(node.id, boundedPosition)
+        : boundedPosition
+
+      return parentTransform.point(resolvedPosition)
     },
-    [node, scene, selectable, transform],
+    [node, resolveDragPosition, scene, selectable, transform],
   )
 
   useEffect(() => {
@@ -123,22 +130,13 @@ export const SceneNodeRenderer = forwardRef<
       next?: Point,
     ) => Point | Konva.Group
 
-    // Konva keeps ownership of native dragging. Most preview writes resolve to
-    // exactly the position Konva already applied, so they remain no-ops. When
-    // snapping changes the resolved preview coordinate, however, mirror only
-    // that correction through x/y. This keeps the dragged node, ports and
-    // connection routes on one coordinate while avoiding position() competing
-    // with Konva's drag bookkeeping on every mouse move.
+    // Konva owns the primary node position while native dragging is active.
+    // Dependent visuals may request the same preview position, but writing it
+    // back through position() competes with Konva's drag bookkeeping and causes
+    // the node to lag behind the pointer or flicker. Snapping is resolved in
+    // dragBoundFunc before Konva applies the position instead.
     instance.position = ((next?: Point) => {
       if (next && instance.isDragging()) {
-        if (Math.abs(instance.x() - next.x) > 0.001) {
-          instance.x(next.x)
-        }
-
-        if (Math.abs(instance.y() - next.y) > 0.001) {
-          instance.y(next.y)
-        }
-
         return instance
       }
 
