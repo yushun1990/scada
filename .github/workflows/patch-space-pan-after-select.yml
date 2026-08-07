@@ -1,0 +1,49 @@
+name: Apply space-pan select focus fix
+
+on:
+  push:
+    branches:
+      - fix/space-pan-after-select
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/space-pan-after-select
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Patch Space keyboard handling
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/renderer/SceneRenderer.tsx')
+          text = path.read_text()
+          old = """    const handleKeyDown = (event: KeyboardEvent) => {\n      if (event.code !== 'Space' || isEditableTarget(event.target)) {\n        return\n      }\n\n      event.preventDefault()\n      spacePressedRef.current = true\n      setStageCursor('grab')\n    }\n"""
+          new = """    const handleKeyDown = (event: KeyboardEvent) => {\n      if (event.code !== 'Space') {\n        return\n      }\n\n      // Native selects keep focus after choosing a value and would otherwise\n      // consume Space to reopen their popup. In the editor, Space is the\n      // viewport-pan shortcut, so release select focus and let panning win.\n      if (event.target instanceof HTMLSelectElement) {\n        event.preventDefault()\n        event.target.blur()\n      } else if (isEditableTarget(event.target)) {\n        return\n      } else {\n        event.preventDefault()\n      }\n\n      spacePressedRef.current = true\n      setStageCursor('grab')\n    }\n"""
+          if old not in text:
+              raise SystemExit('target keyboard handler was not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Lint
+        run: npm run lint
+      - name: Commit patch and remove temporary workflow
+        run: |
+          rm .github/workflows/patch-space-pan-after-select.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/renderer/SceneRenderer.tsx .github/workflows/patch-space-pan-after-select.yml
+          git commit -m "fix: keep Space pan after using toolbar selects"
+          git push origin HEAD:fix/space-pan-after-select
