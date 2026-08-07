@@ -60,6 +60,156 @@
   justify-content: flex-end;
 }
 
+/* Editor header uses the same hierarchy as a desktop design tool:
+   product identity on the left, mode switch centered in the viewport, and
+   document actions on the right. `header-actions` becomes layout-transparent
+   so its two child groups can occupy independent grid columns. */
+.editor-shell {
+  grid-template-rows: 60px minmax(0, 1fr);
+}
+
+.editor-header {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  padding: 0 18px;
+  border-bottom: 1px solid #dbe2ea;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
+}
+
+.editor-header .brand-block {
+  grid-column: 1;
+  min-width: 0;
+  gap: 11px;
+}
+
+.editor-header .brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #1d4ed8;
+  box-shadow: 0 1px 2px rgba(29, 78, 216, 0.22);
+  font-size: 13px;
+}
+
+.editor-header .brand-text {
+  gap: 2px;
+}
+
+.editor-header .brand-text strong {
+  color: #172033;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.editor-header .brand-text span {
+  color: #8b97a8;
+  font-size: 9px;
+  letter-spacing: 0.02em;
+}
+
+.editor-header .header-actions {
+  display: contents;
+}
+
+.editor-header .mode-switch {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #dde3ea;
+  border-radius: 8px;
+  background: #f1f4f8;
+  box-shadow: none;
+}
+
+.editor-header .mode-switch button {
+  min-width: 68px;
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  color: #667085;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.editor-header .mode-switch button:hover:not(.active) {
+  color: #344054;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.editor-header .mode-switch button.active {
+  color: #1d4ed8;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.11);
+  font-weight: 700;
+}
+
+.editor-header .document-toolbar {
+  display: inline-flex;
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.editor-header .document-toolbar button {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #667085;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Import/export are supporting actions; save is the deliberate primary action
+   and is visually placed last, matching common editor toolbars. */
+.editor-header .document-toolbar button:nth-of-type(2) {
+  order: 1;
+}
+
+.editor-header .document-toolbar button:nth-of-type(3) {
+  order: 2;
+}
+
+.editor-header .document-toolbar button:first-of-type {
+  order: 3;
+  min-width: 56px;
+  margin-left: 5px;
+  padding: 0 13px;
+  border-color: #1d4ed8;
+  color: #ffffff;
+  background: #2563eb;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.18);
+}
+
+.editor-header .document-toolbar button:not(:first-of-type):hover {
+  border-color: #e2e8f0;
+  color: #344054;
+  background: #f8fafc;
+}
+
+.editor-header .document-toolbar button:first-of-type:hover {
+  border-color: #1e40af;
+  color: #ffffff;
+  background: #1d4ed8;
+}
+
 /* Use a 24-column mental model for the three top-level tool families:
    object operations = col-6, alignment/distribution = col-12,
    grid/view settings = col-6. */
@@ -203,6 +353,20 @@
 }
 
 @media (max-width: 1120px) {
+  .editor-header {
+    grid-template-columns: minmax(170px, 1fr) auto minmax(170px, 1fr);
+    gap: 12px;
+    padding: 0 12px;
+  }
+
+  .editor-header .brand-text span {
+    display: none;
+  }
+
+  .editor-header .document-toolbar button {
+    padding-inline: 8px;
+  }
+
   .canvas-toast {
     max-width: 240px;
   }
@@ -214,6 +378,19 @@
 }
 
 @media (max-width: 880px) {
+  .editor-header {
+    grid-template-columns: minmax(130px, 1fr) auto minmax(130px, 1fr);
+  }
+
+  .editor-header .brand-mark {
+    display: none;
+  }
+
+  .editor-header .mode-switch button {
+    min-width: 58px;
+    padding-inline: 10px;
+  }
+
   .canvas-toast {
     display: none;
   }
