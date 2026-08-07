@@ -1,0 +1,121 @@
+name: Apply cleanup v2
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cleanup/remove-restore-and-pump-demo
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply cleanup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def remove_between(text: str, start_marker: str, end_marker: str) -> str:
+              start = text.index(start_marker)
+              end = text.index(end_marker, start)
+              return text[:start] + text[end:]
+
+          app_path = Path('src/App.tsx')
+          app = app_path.read_text()
+
+          app = app.replace("import type { PumpState } from './assets/pump'\n", '')
+          app = app.replace('  collectSubtreeIds,\n', '')
+          app = app.replace('  type PumpSceneNode,\n', '')
+          app = remove_between(app, 'const pumpStates:', 'const alignButtons')
+          app = remove_between(app, '  const selectedSubtreeIds =', '  const canGroup =')
+          app = remove_between(app, '  function setSelectedPumpState', '  function updateSelectedBaseProperty')
+          app = remove_between(app, '  function restoreScene', '  function exportScene')
+
+          restore_button = '            <button type="button" onClick={restoreScene}>恢复</button>\n'
+          assert restore_button in app
+          app = app.replace(restore_button, '', 1)
+
+          lines = app.splitlines(keepends=True)
+          output = []
+          removing = False
+          outer_indent = ''
+          removed = 0
+
+          for line in lines:
+              if not removing and '{selectedPumpNodes.length > 0 && (' in line:
+                  removing = True
+                  outer_indent = line[:len(line) - len(line.lstrip())]
+                  removed += 1
+                  continue
+
+              if removing:
+                  if line.rstrip('\n') == outer_indent + ')}':
+                      removing = False
+                      outer_indent = ''
+                  continue
+
+              output.append(line)
+
+          assert not removing
+          assert removed == 2, removed
+          app = ''.join(output)
+
+          for stale in ('pumpStates', 'selectedPumpNodes', 'setSelectedPumpState', 'PumpState', 'PumpSceneNode', 'restoreScene', 'selectedGroupCount'):
+              assert stale not in app, stale
+
+          app_path.write_text(app)
+
+          styles_path = Path('src/styles.css')
+          styles = styles_path.read_text()
+          styles = styles.replace(
+              '.component-item strong,\n.component-item small,\n.state-button strong,\n.state-button small {\n',
+              '.component-item strong,\n.component-item small {\n',
+          )
+          styles = styles.replace(
+              '.component-item strong,\n.state-button strong {\n',
+              '.component-item strong {\n',
+          )
+          styles = styles.replace(
+              '.component-item small,\n.state-button small {\n',
+              '.component-item small {\n',
+          )
+          styles = remove_between(styles, '\n.state-list {', '\n.property-summary {')
+          mobile_state = "\n  .state-list {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }"
+          assert mobile_state in styles
+          styles = styles.replace(mobile_state, '', 1)
+          for stale in ('.state-list', '.state-button', '.state-swatch'):
+              assert stale not in styles, stale
+          styles_path.write_text(styles)
+          PY
+
+      - name: Verify cleanup
+        run: |
+          ! grep -R -n -E 'pumpStates|selectedPumpNodes|setSelectedPumpState|state-button|state-list|state-swatch|restoreScene' src
+          npm ci
+          npm run build
+          npm run lint
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          rm .github/workflows/apply-cleanup-v2.yml
+          rm -f .cleanup-pr-marker .cleanup-pr-marker-2
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "cleanup: remove restore action and stale pump demo UI"
+          git push origin HEAD:cleanup/remove-restore-and-pump-demo
