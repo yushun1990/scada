@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - cleanup/remove-restore-and-pump-demo
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
