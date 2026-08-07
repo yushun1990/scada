@@ -60,35 +60,36 @@
   justify-content: flex-end;
 }
 
-/* Treat the three top-level canvas tool groups as three explicit grid columns:
-   object operations | alignment/distribution | grid/view settings.
-   The column gap owns the spacing, and each divider sits exactly at its center. */
+/* Treat the three top-level tool families like three col-8 regions in a
+   24-column layout. The first two regions own a right border, so separators
+   land naturally at one-third and two-thirds of the toolbar. */
 .canvas-toolbar {
-  --canvas-tool-column-gap: 20px;
   display: grid;
-  grid-template-columns: max-content max-content max-content;
-  column-gap: var(--canvas-tool-column-gap);
-  justify-content: start;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
 }
 
 .canvas-toolbar > .canvas-tool-group {
-  position: relative;
+  width: 100%;
   min-width: 0;
   margin: 0;
-  padding-right: 0;
-  border-right: 0;
+  padding: 0 12px;
+  border-right: 1px solid #cbd5e1;
 }
 
-.canvas-toolbar > .canvas-tool-group:not(:last-child)::after {
-  position: absolute;
-  top: 50%;
-  right: calc(var(--canvas-tool-column-gap) / -2);
-  width: 1px;
-  height: 20px;
-  transform: translate(50%, -50%);
-  background: #cbd5e1;
-  content: '';
-  pointer-events: none;
+.canvas-toolbar > .canvas-tool-group:first-child {
+  justify-content: flex-start;
+  padding-left: 0;
+}
+
+.canvas-toolbar > .canvas-tool-group:nth-child(2) {
+  justify-content: center;
+}
+
+.canvas-toolbar > .canvas-tool-group:last-child {
+  justify-content: flex-end;
+  padding-right: 0;
+  border-right: 0;
 }
 
 /* Cancel the previous internal command-family separators. */
@@ -119,22 +120,26 @@
   -webkit-appearance: none;
 }
 
-/* Keep the closed artboard selector compact: only the display-class name is
-   shown in the toolbar. The native popup still contains the full option text
-   (including the concrete pixel dimensions). */
+/* Keep the closed artboard selector compact while preserving full native
+   option text in the popup. The short label now participates in the same grid
+   cell as the select instead of being absolutely positioned, so it is truly
+   centered in the closed control. */
 .scene-size-control {
-  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   width: 82px;
   min-width: 82px;
 }
 
+.scene-size-control::before,
+.scene-size-control select {
+  grid-area: 1 / 1;
+}
+
 .scene-size-control::before {
-  position: absolute;
-  top: 50%;
-  right: 23px;
-  left: 7px;
   z-index: 1;
-  transform: translateY(-50%);
+  align-self: center;
+  justify-self: stretch;
   overflow: hidden;
   color: #334155;
   content: '尺寸';
@@ -176,8 +181,6 @@
   max-width: none;
   padding-right: 22px;
   color: transparent;
-  text-align: center;
-  text-align-last: center;
 }
 
 .scene-size-control select option {
