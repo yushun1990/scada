@@ -10,6 +10,11 @@ export const PUMP_ASPECT_RATIO = PUMP_DESIGN_WIDTH / PUMP_DESIGN_HEIGHT
 export const PUMP_MIN_WIDTH = 96
 export const PUMP_MIN_HEIGHT = PUMP_MIN_WIDTH / PUMP_ASPECT_RATIO
 
+type Point = {
+  x: number
+  y: number
+}
+
 export type PumpNodeProps = {
   nodeId?: string
   state: PumpState
@@ -19,6 +24,7 @@ export type PumpNodeProps = {
   height: number
   rotation: number
   draggable: boolean
+  dragBoundFunc?: (position: Point) => Point
   visible: boolean
   opacity: number
   listening: boolean
@@ -35,6 +41,7 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
       height,
       rotation,
       draggable,
+      dragBoundFunc,
       visible,
       opacity,
       listening,
@@ -54,6 +61,7 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
         height={height}
         rotation={rotation}
         draggable={draggable}
+        dragBoundFunc={dragBoundFunc}
         visible={visible}
         opacity={opacity}
         listening={listening}
