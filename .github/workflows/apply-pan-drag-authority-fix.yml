@@ -29,11 +29,7 @@ jobs:
 
           if '  startPointer: Point\n' not in text:
               raise RuntimeError('PanSession startPointer not found')
-          text = text.replace(
-              '  startPointer: Point\n',
-              '  startClientPointer: Point\n',
-              1,
-          )
+          text = text.replace('  startPointer: Point\n', '  startClientPointer: Point\n', 1)
 
           pan_start = text.index('  function beginPan(')
           pan_end = text.index('  function setStageCursor(', pan_start)
@@ -127,24 +123,26 @@ jobs:
           )
           text = text[:schedule_start] + new_schedule + text[schedule_end:]
 
-          text, begin_count = re.subn(
-              r'if \(stage && shouldStartPan\(event\.evt\) && beginPan\(stage, event\.evt\)\) \{',
-              'if (shouldStartPan(event.evt) && beginPan(event.evt)) {',
-              text,
-              count=1,
+          start_re = re.compile(
+              r'(?P<indent>[ \t]*)const stage = event\.target\.getStage\(\)\n\n'
+              r'(?P=indent)if \(stage && shouldStartPan\(event\.evt\) && beginPan\(stage, event\.evt\)\) \{'
           )
-          if begin_count != 1:
-              raise RuntimeError('Stage pan start handler not found')
+          start_match = start_re.search(text)
+          if not start_match:
+              raise RuntimeError('Stage pan start block not found')
+          indent = start_match.group('indent')
+          start_replacement = f'{indent}if (shouldStartPan(event.evt) && beginPan(event.evt)) {{'
+          text = text[:start_match.start()] + start_replacement + text[start_match.end():]
 
           pan_move_re = re.compile(
-              r'(?P<indent>\s*)if \(updatePan\(stage\)\) \{\s*return\s*\}',
+              r'(?P<indent>[ \t]*)if \(updatePan\(stage\)\) \{\s*return\s*\}',
               re.M,
           )
-          match = pan_move_re.search(text)
-          if not match:
+          move_match = pan_move_re.search(text)
+          if not move_match:
               raise RuntimeError('Stage pan move handler not found')
-          indent = match.group('indent')
-          replacement = (
+          indent = move_match.group('indent')
+          move_replacement = (
               f'{indent}if (\n'
               f'{indent}  panSessionRef.current &&\n'
               f'{indent}  updatePan({{ x: event.evt.clientX, y: event.evt.clientY }})\n'
@@ -152,7 +150,7 @@ jobs:
               f'{indent}  return\n'
               f'{indent}}}'
           )
-          text = text[:match.start()] + replacement + text[match.end():]
+          text = text[:move_match.start()] + move_replacement + text[move_match.end():]
 
           leave_start = text.index('        onMouseLeave={() => {')
           leave_end = text.index('        onDragStart=', leave_start)
