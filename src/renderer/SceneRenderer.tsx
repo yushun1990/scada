@@ -89,7 +89,7 @@ type Point = {
 }
 
 type PanSession = {
-  startPointer: Point
+  startClientPointer: Point
   startTransform: ViewportTransform
 }
 
@@ -685,51 +685,72 @@ export function SceneRenderer({
     return spacePressedRef.current || mouseEvent.button === 1
   }
 
-  function beginPan(stage: Konva.Stage, nativeEvent: Event) {
-    const pointer = stage.getPointerPosition()
+  function beginPan(nativeEvent: Event) {
+  const mouseEvent = nativeEvent as MouseEvent
 
-    if (!pointer) {
-      return false
-    }
-
-    nativeEvent.preventDefault()
-    cancelPointerInteraction()
-    cancelReconnectSession()
-    panSessionRef.current = {
-      startPointer: pointer,
-      startTransform: { ...viewportTransformRef.current },
-    }
-    setStageCursor('grabbing')
-    return true
+  if (panSessionRef.current) {
+    finishPan()
   }
 
-  function updatePan(stage: Konva.Stage) {
-    const session = panSessionRef.current
-    const pointer = stage.getPointerPosition()
+  nativeEvent.preventDefault()
+  cancelPointerInteraction()
+  cancelReconnectSession()
+  panSessionRef.current = {
+    startClientPointer: {
+      x: mouseEvent.clientX,
+      y: mouseEvent.clientY,
+    },
+    startTransform: { ...viewportTransformRef.current },
+  }
+  window.addEventListener('mousemove', handleWindowPanMove)
+  window.addEventListener('mouseup', handleWindowPanEnd)
+  window.addEventListener('blur', handleWindowPanEnd)
+  setStageCursor('grabbing')
+  return true
+}
 
-    if (!session || !pointer) {
-      return false
-    }
+function updatePan(clientPointer: Point) {
+  const session = panSessionRef.current
 
-    applyViewportTransform({
-      ...session.startTransform,
-      x: session.startTransform.x + pointer.x - session.startPointer.x,
-      y: session.startTransform.y + pointer.y - session.startPointer.y,
-    })
-    return true
+  if (!session) {
+    return false
   }
 
-  function finishPan() {
-    if (!panSessionRef.current) {
-      return false
-    }
+  applyViewportTransform({
+    ...session.startTransform,
+    x:
+      session.startTransform.x +
+      clientPointer.x -
+      session.startClientPointer.x,
+    y:
+      session.startTransform.y +
+      clientPointer.y -
+      session.startClientPointer.y,
+  })
+  return true
+}
 
-    panSessionRef.current = null
-    setViewportTransform({ ...viewportTransformRef.current })
-    setStageCursor(spacePressedRef.current ? 'grab' : 'default')
-    return true
+function handleWindowPanMove(event: MouseEvent) {
+  updatePan({ x: event.clientX, y: event.clientY })
+}
+
+function handleWindowPanEnd() {
+  finishPan()
+}
+
+function finishPan() {
+  if (!panSessionRef.current) {
+    return false
   }
 
+  panSessionRef.current = null
+  window.removeEventListener('mousemove', handleWindowPanMove)
+  window.removeEventListener('mouseup', handleWindowPanEnd)
+  window.removeEventListener('blur', handleWindowPanEnd)
+  setViewportTransform({ ...viewportTransformRef.current })
+  setStageCursor(spacePressedRef.current ? 'grab' : 'default')
+  return true
+}
   function setStageCursor(cursor: string) {
     const stage = dynamicLayerRef.current?.getStage()
 
@@ -1086,45 +1107,11 @@ export function SceneRenderer({
   }
 
   function scheduleDragMove(target: Konva.Node) {
-    const session = dragSessionRef.current
-    const draggedTransform = session?.initialTransforms[session.nodeId]
-
-    // Konva updates the dragged node before onDragMove. Clamp the real node
-    // immediately so no frame can render any part outside the fixed artboard.
-    if (session && draggedTransform) {
-      const rawDeltaX = target.x() - draggedTransform.x
-      const rawDeltaY = target.y() - draggedTransform.y
-      const boundedDeltaX = Math.min(
-        scene.width - session.initialBounds.right,
-        Math.max(-session.initialBounds.left, rawDeltaX),
-      )
-      const boundedDeltaY = Math.min(
-        scene.height - session.initialBounds.bottom,
-        Math.max(-session.initialBounds.top, rawDeltaY),
-      )
-
-      target.position({
-        x: draggedTransform.x + boundedDeltaX,
-        y: draggedTransform.y + boundedDeltaY,
-      })
-    }
-
-    pendingDragTargetRef.current = target
-
-    if (dragFrameRef.current !== null) {
-      return
-    }
-
-    dragFrameRef.current = requestAnimationFrame(() => {
-      dragFrameRef.current = null
-      const latestTarget = pendingDragTargetRef.current
-
-      if (latestTarget) {
-        processDragMove(latestTarget)
-      }
-    })
-  }
-
+  // Konva changes the draggable node before onDragMove. Resolve snapping and
+  // artboard bounds immediately in the same event. Delaying node correction
+  // to requestAnimationFrame creates two competing positions and visible flicker.
+  processDragMove(target)
+}
   function cancelScheduledDrag() {
     if (dragFrameRef.current !== null) {
       cancelAnimationFrame(dragFrameRef.current)
@@ -1923,9 +1910,7 @@ export function SceneRenderer({
           }
         }}
         onMouseDown={(event) => {
-          const stage = event.target.getStage()
-
-          if (stage && shouldStartPan(event.evt) && beginPan(stage, event.evt)) {
+          if (shouldStartPan(event.evt) && beginPan(event.evt)) {
             return
           }
 
@@ -1991,7 +1976,10 @@ export function SceneRenderer({
 
           updatePointerStatus(stage)
 
-          if (updatePan(stage)) {
+          if (
+            panSessionRef.current &&
+            updatePan({ x: event.evt.clientX, y: event.evt.clientY })
+          ) {
             return
           }
 
@@ -2007,16 +1995,16 @@ export function SceneRenderer({
           }
         }}
         onMouseLeave={() => {
-          finishPan()
-          if (pointerStatusRef.current) {
-            pointerStatusRef.current.textContent = 'X —  Y —'
-          }
-          setStageCursor('default')
-          setHoveredPort(null)
-          cancelReconnectSession()
-          cancelPointerInteraction()
-        }}
-        onDragStart={(event) => {
+  if (pointerStatusRef.current) {
+    pointerStatusRef.current.textContent = 'X —  Y —'
+  }
+  if (!panSessionRef.current) {
+    setStageCursor('default')
+  }
+  setHoveredPort(null)
+  cancelReconnectSession()
+  cancelPointerInteraction()
+}}        onDragStart={(event) => {
           if (!findConnectionHandleRole(event.target)) {
             handleDragStart(event.target)
           }
