@@ -1,0 +1,195 @@
+.component-editor-shell {
+  display: grid;
+  grid-template-rows: 58px minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+  background: #f3f5f8;
+}
+
+.component-editor-header {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) 180px;
+  align-items: center;
+  gap: 16px;
+  padding: 0 18px;
+  border-bottom: 1px solid #d8dee7;
+  background: #ffffff;
+}
+
+.component-editor-header > div {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+
+.component-editor-header strong {
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.component-editor-header span {
+  color: #8a96a8;
+  font-size: 10px;
+}
+
+.component-back-button,
+.component-save-button {
+  width: max-content;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.component-back-button {
+  padding: 7px 0;
+  border: 0;
+  color: #526174;
+  background: transparent;
+}
+
+.component-save-button {
+  justify-self: end;
+  padding: 8px 12px;
+  border: 1px solid #1d4ed8;
+  color: #ffffff;
+  background: #2563eb;
+  font-weight: 700;
+}
+
+.component-save-button:disabled {
+  border-color: #cbd5e1;
+  color: #94a3b8;
+  background: #f1f5f9;
+  cursor: default;
+}
+
+.component-editor-main {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.8fr) minmax(440px, 1.2fr);
+  gap: 20px;
+  min-height: 0;
+  padding: 28px;
+  overflow: auto;
+}
+
+.component-form-card,
+.component-code-card {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid #dce2ea;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.component-code-card {
+  display: grid;
+  grid-template-rows: auto minmax(320px, 1fr) auto;
+  gap: 18px;
+  min-height: 0;
+}
+
+.component-form-heading > span {
+  color: #2563eb;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.component-form-heading h1 {
+  margin: 7px 0 6px;
+  color: #1f2937;
+  font-size: 19px;
+}
+
+.component-form-heading p {
+  margin: 0;
+  color: #8490a2;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.component-readonly-note {
+  margin-top: 18px;
+  padding: 10px 12px;
+  border: 1px solid #d9e4f2;
+  border-radius: 7px;
+  color: #526a8d;
+  background: #f3f7fc;
+  font-size: 10px;
+}
+
+.component-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.component-form-grid label,
+.component-form-block {
+  display: grid;
+  gap: 6px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.component-form-grid input,
+.component-form-grid select,
+.component-form-block textarea {
+  width: 100%;
+  border: 1px solid #d4dbe5;
+  border-radius: 6px;
+  color: #334155;
+  background: #ffffff;
+  font: inherit;
+  font-weight: 500;
+}
+
+.component-form-grid input,
+.component-form-grid select {
+  height: 34px;
+  padding: 0 9px;
+}
+
+.component-form-block {
+  margin-top: 14px;
+}
+
+.component-form-block textarea {
+  padding: 9px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.component-code-editor {
+  width: 100%;
+  min-height: 360px;
+  padding: 16px;
+  resize: none;
+  border: 1px solid #cad3df;
+  border-radius: 8px;
+  outline: 0;
+  color: #d8e5f3;
+  background: #182230;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.65;
+  tab-size: 2;
+}
+
+.component-code-editor:focus {
+  border-color: #5b8ed8;
+}
+
+.component-editor-message {
+  color: #2563eb;
+  font-size: 10px;
+}
+
+@media (max-width: 920px) {
+  .component-editor-main {
+    grid-template-columns: 1fr;
+  }
+}
