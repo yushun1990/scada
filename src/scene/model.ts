@@ -1,10 +1,16 @@
 import type { PumpState } from '../assets/pump'
+import {
+  PUMP_COMPONENT_TYPE,
+  pumpComponentDefinition,
+} from '../component-system/builtins'
 
 export const SCENE_VERSION = 4 as const
-export const PUMP_NODE_TYPE = 'pump.submersible' as const
+export const PUMP_NODE_TYPE = PUMP_COMPONENT_TYPE
 export const GROUP_NODE_TYPE = 'core.group' as const
-export const PUMP_ASPECT_RATIO = 512 / 720
-export const PUMP_DEFAULT_WIDTH = 96
+export const PUMP_ASPECT_RATIO =
+  pumpComponentDefinition.size.defaultWidth /
+  pumpComponentDefinition.size.defaultHeight
+export const PUMP_DEFAULT_WIDTH = pumpComponentDefinition.size.defaultWidth
 
 export type NodeTransform = {
   x: number

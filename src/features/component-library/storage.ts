@@ -1,8 +1,11 @@
+import { builtInComponentRegistry } from '../../component-system/builtins'
+
 const COMPONENTS_STORAGE_KEY = 'scada-editor-lab.components.v1'
+const BUILT_IN_UPDATED_AT = '2026-08-07T00:00:00.000Z'
 
 export type ComponentStatus = 'draft' | 'ready'
 
-export type ComponentDefinition = {
+export type ComponentLibraryEntry = {
   id: string
   name: string
   type: string
@@ -16,28 +19,31 @@ export type ComponentDefinition = {
   builtIn: boolean
 }
 
-const BUILT_IN_COMPONENTS: ComponentDefinition[] = [
-  {
-    id: 'builtin-pump-submersible',
-    name: '潜水泵',
-    type: 'pump.submersible',
-    category: '设备',
-    description: '当前编辑器内置的潜水泵视觉组件。',
-    defaultWidth: 96,
-    defaultHeight: 135,
+function getBuiltInComponentId(type: string) {
+  return `builtin-${type.replace(/[^a-zA-Z0-9_-]+/g, '-')}`
+}
+
+const BUILT_IN_COMPONENTS: ComponentLibraryEntry[] =
+  builtInComponentRegistry.list().map(({ definition }) => ({
+    id: getBuiltInComponentId(definition.type),
+    name: definition.title,
+    type: definition.type,
+    category: definition.category,
+    description: definition.description,
+    defaultWidth: definition.size.defaultWidth,
+    defaultHeight: definition.size.defaultHeight,
     status: 'ready',
-    renderCode: '// Built-in renderer: src/assets/pump.tsx / scene node renderer',
-    updatedAt: '2026-08-07T00:00:00.000Z',
+    renderCode: `// Built-in runtime registration: ${definition.type}`,
+    updatedAt: BUILT_IN_UPDATED_AT,
     builtIn: true,
-  },
-]
+  }))
 
 function createComponentId() {
   const suffix = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
   return `component-${suffix}`
 }
 
-function readCustomComponents(): ComponentDefinition[] {
+function readCustomComponents(): ComponentLibraryEntry[] {
   const raw = window.localStorage.getItem(COMPONENTS_STORAGE_KEY)
 
   if (!raw) {
@@ -52,7 +58,7 @@ function readCustomComponents(): ComponentDefinition[] {
   }
 }
 
-function writeCustomComponents(components: ComponentDefinition[]) {
+function writeCustomComponents(components: ComponentLibraryEntry[]) {
   window.localStorage.setItem(COMPONENTS_STORAGE_KEY, JSON.stringify(components))
 }
 
@@ -70,7 +76,7 @@ export function getComponentDefinition(componentId: string) {
   return listComponentDefinitions().find((component) => component.id === componentId) ?? null
 }
 
-export function createComponentDraft(): ComponentDefinition {
+export function createComponentDraft(): ComponentLibraryEntry {
   const suffix = Date.now().toString(36)
   return {
     id: createComponentId(),
@@ -87,7 +93,7 @@ export function createComponentDraft(): ComponentDefinition {
   }
 }
 
-export function saveComponentDefinition(component: ComponentDefinition) {
+export function saveComponentDefinition(component: ComponentLibraryEntry) {
   if (component.builtIn) {
     throw new Error('内置组件当前不允许覆盖保存')
   }

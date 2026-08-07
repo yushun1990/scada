@@ -3,7 +3,7 @@ import {
   createComponentDraft,
   getComponentDefinition,
   saveComponentDefinition,
-  type ComponentDefinition,
+  type ComponentLibraryEntry,
   type ComponentStatus,
 } from './storage'
 import './component-editor.css'
@@ -14,13 +14,13 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
       ? createComponentDraft()
       : getComponentDefinition(componentId) ?? createComponentDraft(),
   [componentId])
-  const [component, setComponent] = useState<ComponentDefinition>(initial)
+  const [component, setComponent] = useState<ComponentLibraryEntry>(initial)
   const [message, setMessage] = useState('')
   const readOnly = component.builtIn
 
-  function update<K extends keyof ComponentDefinition>(
+  function update<K extends keyof ComponentLibraryEntry>(
     key: K,
-    value: ComponentDefinition[K],
+    value: ComponentLibraryEntry[K],
   ) {
     setComponent((current) => ({ ...current, [key]: value }))
     setMessage('')
