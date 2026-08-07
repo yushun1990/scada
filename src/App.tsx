@@ -44,9 +44,14 @@ import {
   type SceneNode,
 } from './scene/model'
 import {
-  applyTransformsAndExpandScene,
-  expandSceneToContainNodes,
+  applyTransformsWithinScene,
+  constrainSceneNodesToArtboard,
 } from './scene/scene-bounds'
+import {
+  getSceneSizePresetId,
+  resizeSceneToPreset,
+  SCENE_SIZE_PRESETS,
+} from './scene/scene-size'
 import { parseSceneDocument } from './scene/validation'
 import { useSceneHistory } from './scene/use-scene-history'
 import {
@@ -280,7 +285,7 @@ function App() {
       return
     }
 
-    commit((current) => applyTransformsAndExpandScene(current, updates))
+    commit((current) => applyTransformsWithinScene(current, updates))
   }
 
   function updateNodeTransform(nodeId: string, transform: NodeTransform) {
@@ -310,7 +315,7 @@ function App() {
     }
 
     const result = cloneSceneSubtrees(scene, selectedNodeIds)
-    commit(expandSceneToContainNodes(result.scene), {
+    commit(constrainSceneNodesToArtboard(result.scene), {
       selectedNodeIds: result.rootIds,
       selectedConnectionId: null,
     })
@@ -528,6 +533,24 @@ function App() {
           : '已垂直等距分布',
       )
     }
+  }
+
+  function changeSceneSize(presetId: string) {
+    const preset = SCENE_SIZE_PRESETS.find((item) => item.id === presetId)
+
+    if (!preset) {
+      return
+    }
+
+    const resized = resizeSceneToPreset(scene, preset)
+
+    if (!resized) {
+      setMessage('当前组件超出目标尺寸，无法缩小画板')
+      return
+    }
+
+    commit(resized)
+    setMessage(`画板已切换为 ${preset.width} × ${preset.height}`)
   }
 
   function saveScene() {
@@ -851,6 +874,23 @@ function App() {
                   />
                 )}
               </div>
+              <label className="scene-size-control" title="固定画板尺寸">
+                <span>画板</span>
+                <select
+                  aria-label="画板尺寸"
+                  value={getSceneSizePresetId(scene) ?? ''}
+                  onChange={(event) => changeSceneSize(event.target.value)}
+                >
+                  {!getSceneSizePresetId(scene) && (
+                    <option value="">自定义 · {scene.width} × {scene.height}</option>
+                  )}
+                  {SCENE_SIZE_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           </div>
 
@@ -1008,7 +1048,7 @@ function App() {
                 <div><span>场景</span><code>{scene.name}</code></div>
                 <div><span>尺寸</span><code>{scene.width} × {scene.height}</code></div>
                 <div><span>背景</span><code>{scene.background}</code></div>
-                <div><span>扩展</span><code>组件越界时自动向右/向下扩展</code></div>
+                <div><span>边界</span><code>固定画板 · 组件不可越界</code></div>
               </div>
             )}
 
