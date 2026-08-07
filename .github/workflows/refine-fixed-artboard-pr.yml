@@ -1,0 +1,52 @@
+name: Refine fixed artboard patch
+
+on:
+  pull_request:
+    types: [synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Refine editor boundary handling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/renderer/SceneRenderer.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          clip_block = '''            scaleX={viewportTransform.scale}\n            scaleY={viewportTransform.scale}\n            clipX={0}\n            clipY={0}\n            clipWidth={scene.width}\n            clipHeight={scene.height}\n          >'''
+          unclipped_block = '''            scaleX={viewportTransform.scale}\n            scaleY={viewportTransform.scale}\n          >'''
+          if clip_block not in text:
+              raise RuntimeError('Unable to locate dynamic viewport clip block')
+          text = text.replace(clip_block, unclipped_block, 1)
+
+          old_boundary = '''              if (\n                newBox.x < 0 ||\n                newBox.y < 0 ||\n                newBox.x + newBox.width > scene.width ||\n                newBox.y + newBox.height > scene.height\n              ) {\n                return oldBox\n              }'''
+          new_boundary = '''              const currentViewport = viewportTransformRef.current\n              const sceneLeft =\n                (newBox.x - currentViewport.x) / currentViewport.scale\n              const sceneTop =\n                (newBox.y - currentViewport.y) / currentViewport.scale\n              const sceneWidth = newBox.width / currentViewport.scale\n              const sceneHeight = newBox.height / currentViewport.scale\n\n              if (\n                sceneLeft < 0 ||\n                sceneTop < 0 ||\n                sceneLeft + sceneWidth > scene.width ||\n                sceneTop + sceneHeight > scene.height\n              ) {\n                return oldBox\n              }'''
+          if old_boundary not in text:
+              raise RuntimeError('Unable to locate transformer boundary block')
+          text = text.replace(old_boundary, new_boundary, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          npm ci
+          npm run build
+          npm run lint
+
+          rm .github/workflows/refine-fixed-artboard-pr.yml
+          git config user.name "scada-editor-bot"
+          git config user.email "scada-editor-bot@users.noreply.github.com"
+          git add src/renderer/SceneRenderer.tsx .github/workflows
+          git commit -m "fix: keep editor controls outside artboard clipping"
+          git push origin "HEAD:${{ github.head_ref }}"
