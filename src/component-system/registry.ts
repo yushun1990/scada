@@ -1,7 +1,5 @@
-import type {
-  ComponentDefinition,
-  ComponentRegistration,
-} from './definition'
+import type { ComponentDefinition } from './definition'
+import type { ComponentRegistration } from './registration'
 
 function assertDefinition(definition: ComponentDefinition) {
   if (!definition.type.trim()) {

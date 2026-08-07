@@ -70,11 +70,6 @@ export type ComponentDefinition = {
 
 export type ComponentProps = Record<string, ComponentScalarValue>
 
-export type ComponentRegistration = {
-  definition: ComponentDefinition
-  createDefaultProps: () => ComponentProps
-}
-
 export function createDefaultPropsFromDefinition(
   definition: ComponentDefinition,
 ): ComponentProps {

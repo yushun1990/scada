@@ -1,7 +1,7 @@
 import { forwardRef, useCallback, useEffect, useRef } from 'react'
 import type Konva from 'konva'
 import { Group, Rect } from 'react-konva'
-import { PumpNode } from '../components/PumpNode'
+import { builtInComponentRegistry } from '../component-system/builtins'
 import { getNodeBounds } from '../scene/geometry'
 import {
   clearLiveNodeTransform,
@@ -237,17 +237,49 @@ export const SceneNodeRenderer = forwardRef<
     )
   }
 
+  const registration = builtInComponentRegistry.get(node.type)
+  const ComponentRenderer = registration?.renderer
+  const commonRendererProps = {
+    nodeId: selectable ? node.id : undefined,
+    props: node.props,
+    ...transform,
+    draggable: selectable && editorMode && !effectiveLocked,
+    dragBoundFunc: selectable ? constrainDragPosition : undefined,
+    visible: displayVisible,
+    opacity: displayOpacity,
+    listening: selectable,
+  }
+
+  if (ComponentRenderer) {
+    return <ComponentRenderer ref={bindRootRef} {...commonRendererProps} />
+  }
+
+  // Keep an unavailable component selectable so a missing registration never
+  // makes scene content impossible to inspect or delete.
   return (
-    <PumpNode
+    <Group
       ref={bindRootRef}
-      nodeId={selectable ? node.id : undefined}
-      state={node.props.state}
-      {...transform}
-      draggable={selectable && editorMode && !effectiveLocked}
-      dragBoundFunc={selectable ? constrainDragPosition : undefined}
+      id={selectable ? node.id : undefined}
+      name={selectable ? 'scene-node' : undefined}
+      x={transform.x}
+      y={transform.y}
+      width={transform.width}
+      height={transform.height}
+      rotation={transform.rotation}
+      draggable={commonRendererProps.draggable}
+      dragBoundFunc={commonRendererProps.dragBoundFunc}
       visible={displayVisible}
       opacity={displayOpacity}
       listening={selectable}
-    />
+    >
+      <Rect
+        width={transform.width}
+        height={transform.height}
+        fill="rgba(239, 68, 68, 0.08)"
+        stroke="#dc2626"
+        dash={[6, 4]}
+        listening={selectable}
+      />
+    </Group>
   )
 })
