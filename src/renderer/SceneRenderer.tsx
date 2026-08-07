@@ -1180,30 +1180,23 @@ export function SceneRenderer({
       return
     }
 
-    const rawDelta = {
+    const authoritativeDelta = {
       x: target.x() - draggedTransform.x,
       y: target.y() - draggedTransform.y,
     }
-    const snapResult = computeSnap(
+    const guideSnapResult = computeSnap(
       scene,
       session.nodeIds,
       session.initialBounds,
-      rawDelta,
-      { ...snapSettings, threshold: snapSettings.threshold / viewportTransformRef.current.scale },
+      authoritativeDelta,
+      {
+        ...snapSettings,
+        threshold: snapSettings.threshold / viewportTransformRef.current.scale,
+      },
     )
-    const boundedDelta = {
-      x: Math.min(
-        scene.width - session.initialBounds.right,
-        Math.max(-session.initialBounds.left, snapResult.delta.x),
-      ),
-      y: Math.min(
-        scene.height - session.initialBounds.bottom,
-        Math.max(-session.initialBounds.top, snapResult.delta.y),
-      ),
-    }
-    const hitArtboardBoundary =
-      boundedDelta.x !== snapResult.delta.x ||
-      boundedDelta.y !== snapResult.delta.y
+    const guidesMatchAuthoritativePosition =
+      Math.abs(guideSnapResult.delta.x - authoritativeDelta.x) <= 0.001 &&
+      Math.abs(guideSnapResult.delta.y - authoritativeDelta.y) <= 0.001
     const updates: TransformUpdates = {}
 
     for (const nodeId of session.nodeIds) {
@@ -1215,18 +1208,22 @@ export function SceneRenderer({
 
       updates[nodeId] = {
         ...transform,
-        x: transform.x + boundedDelta.x,
-        y: transform.y + boundedDelta.y,
+        x: transform.x + authoritativeDelta.x,
+        y: transform.y + authoritativeDelta.y,
       }
     }
 
-    applyPreview(updates, hitArtboardBoundary ? [] : snapResult.guides, session.affectedNodeIds)
+    applyPreview(
+      updates,
+      guidesMatchAuthoritativePosition ? guideSnapResult.guides : [],
+      session.affectedNodeIds,
+    )
   }
 
   function scheduleDragMove(target: Konva.Node) {
-    // dragBoundFunc has already resolved snapping and artboard bounds before
-    // Konva applies this position. DragMove only mirrors that authoritative
-    // transform to the rest of the selection, ports, routes and guides.
+    // dragBoundFunc owns the dragged node position. DragMove must never resolve
+    // another position for ports or routes; it only mirrors target.x()/target.y()
+    // to dependent visuals and uses computeSnap for guide presentation.
     processDragMove(target)
   }
 
