@@ -1,0 +1,330 @@
+name: Apply fixed scene artboard patch
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Apply fixed-artboard implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              if old not in text:
+                  raise RuntimeError(f'Unable to locate {label}')
+              return text.replace(old, new, 1)
+
+          # 1. Scene boundary semantics: the scene is a fixed artboard, never auto-expanded.
+          Path('src/scene/scene-bounds.ts').write_text('''import {
+            getNodeBounds,
+            getRootNodes,
+            type TransformUpdates,
+          } from './geometry'
+          import type { NodeTransform, SceneDocument, SceneNode } from './model'
+
+          const BOUNDS_EPSILON = 0.001
+
+          function constrainNodeTransform(
+            scene: SceneDocument,
+            node: SceneNode,
+            transform: NodeTransform,
+            overrides: TransformUpdates,
+          ): NodeTransform {
+            const previewOverrides = {
+              ...overrides,
+              [node.id]: transform,
+            }
+            const bounds = getNodeBounds(scene, node, previewOverrides)
+
+            // Do not silently resize a component just to make an invalid transform fit.
+            // If its rotated bounds are larger than the artboard, reject that transform.
+            if (
+              bounds.width > scene.width + BOUNDS_EPSILON ||
+              bounds.height > scene.height + BOUNDS_EPSILON
+            ) {
+              return node.transform
+            }
+
+            const shiftX =
+              bounds.left < 0
+                ? -bounds.left
+                : bounds.right > scene.width
+                  ? scene.width - bounds.right
+                  : 0
+            const shiftY =
+              bounds.top < 0
+                ? -bounds.top
+                : bounds.bottom > scene.height
+                  ? scene.height - bounds.bottom
+                  : 0
+
+            if (Math.abs(shiftX) <= BOUNDS_EPSILON && Math.abs(shiftY) <= BOUNDS_EPSILON) {
+              return transform
+            }
+
+            return {
+              ...transform,
+              x: transform.x + shiftX,
+              y: transform.y + shiftY,
+            }
+          }
+
+          export function constrainTransformUpdates(
+            scene: SceneDocument,
+            updates: TransformUpdates,
+          ): TransformUpdates {
+            const constrained: TransformUpdates = { ...updates }
+
+            for (const node of getRootNodes(scene)) {
+              const proposed = constrained[node.id]
+
+              if (!proposed) {
+                continue
+              }
+
+              constrained[node.id] = constrainNodeTransform(
+                scene,
+                node,
+                proposed,
+                constrained,
+              )
+            }
+
+            return constrained
+          }
+
+          export function applyTransformsWithinScene(
+            scene: SceneDocument,
+            updates: TransformUpdates,
+          ): SceneDocument {
+            if (Object.keys(updates).length === 0) {
+              return scene
+            }
+
+            const constrained = constrainTransformUpdates(scene, updates)
+
+            return {
+              ...scene,
+              nodes: scene.nodes.map((node) =>
+                constrained[node.id]
+                  ? { ...node, transform: constrained[node.id] }
+                  : node,
+              ),
+            }
+          }
+
+          export function constrainSceneNodesToArtboard(
+            scene: SceneDocument,
+          ): SceneDocument {
+            const updates: TransformUpdates = Object.fromEntries(
+              getRootNodes(scene).map((node) => [node.id, node.transform]),
+            )
+
+            return applyTransformsWithinScene(scene, updates)
+          }
+          '''.replace('          ', ''), encoding='utf-8')
+
+          # 2. Fixed, user-selectable artboard presets.
+          Path('src/scene/scene-size.ts').write_text('''import { getRootNodes, getSelectionBounds } from './geometry'
+          import type { SceneDocument } from './model'
+
+          export type SceneSizePreset = {
+            id: string
+            label: string
+            width: number
+            height: number
+          }
+
+          export const SCENE_SIZE_PRESETS: readonly SceneSizePreset[] = [
+            { id: 'xga', label: 'XGA · 1024 × 768', width: 1024, height: 768 },
+            { id: 'hd', label: 'HD · 1280 × 720', width: 1280, height: 720 },
+            { id: 'fhd', label: 'Full HD · 1920 × 1080', width: 1920, height: 1080 },
+            { id: 'qhd', label: 'QHD · 2560 × 1440', width: 2560, height: 1440 },
+            { id: 'uhd', label: '4K · 3840 × 2160', width: 3840, height: 2160 },
+          ]
+
+          export function getSceneSizePresetId(scene: SceneDocument) {
+            return SCENE_SIZE_PRESETS.find(
+              (preset) => preset.width === scene.width && preset.height === scene.height,
+            )?.id ?? null
+          }
+
+          export function resizeSceneToPreset(
+            scene: SceneDocument,
+            preset: SceneSizePreset,
+          ): SceneDocument | null {
+            const rootIds = getRootNodes(scene).map((node) => node.id)
+            const bounds = getSelectionBounds(scene, rootIds)
+
+            if (
+              bounds &&
+              (bounds.left < 0 ||
+                bounds.top < 0 ||
+                bounds.right > preset.width ||
+                bounds.bottom > preset.height)
+            ) {
+              return null
+            }
+
+            return {
+              ...scene,
+              width: preset.width,
+              height: preset.height,
+            }
+          }
+          '''.replace('          ', ''), encoding='utf-8')
+
+          # 3. App wiring and artboard size selector.
+          app_path = Path('src/App.tsx')
+          app = app_path.read_text(encoding='utf-8')
+          app = replace_once(
+              app,
+              "import {\n  applyTransformsAndExpandScene,\n  expandSceneToContainNodes,\n} from './scene/scene-bounds'",
+              "import {\n  applyTransformsWithinScene,\n  constrainSceneNodesToArtboard,\n} from './scene/scene-bounds'\nimport {\n  getSceneSizePresetId,\n  resizeSceneToPreset,\n  SCENE_SIZE_PRESETS,\n} from './scene/scene-size'",
+              'scene bounds import',
+          )
+          app = replace_once(
+              app,
+              'commit((current) => applyTransformsAndExpandScene(current, updates))',
+              'commit((current) => applyTransformsWithinScene(current, updates))',
+              'transform commit',
+          )
+          app = replace_once(
+              app,
+              'commit(expandSceneToContainNodes(result.scene), {',
+              'commit(constrainSceneNodesToArtboard(result.scene), {',
+              'duplicate constraint',
+          )
+          app = replace_once(
+              app,
+              '''  function saveScene() {\n''',
+              '''  function changeSceneSize(presetId: string) {\n    const preset = SCENE_SIZE_PRESETS.find((item) => item.id === presetId)\n\n    if (!preset) {\n      return\n    }\n\n    const resized = resizeSceneToPreset(scene, preset)\n\n    if (!resized) {\n      setMessage('当前组件超出目标尺寸，无法缩小画板')\n      return\n    }\n\n    commit(resized)\n    setMessage(`画板已切换为 ${preset.width} × ${preset.height}`)\n  }\n\n  function saveScene() {\n''',
+              'scene size handler',
+          )
+          app = replace_once(
+              app,
+              '''                )}\n              </div>\n            </div>\n          </div>\n\n          {message && (''',
+              '''                )}\n              </div>\n              <label className="scene-size-control" title="固定画板尺寸">\n                <span>画板</span>\n                <select\n                  aria-label="画板尺寸"\n                  value={getSceneSizePresetId(scene) ?? ''}\n                  onChange={(event) => changeSceneSize(event.target.value)}\n                >\n                  {!getSceneSizePresetId(scene) && (\n                    <option value="">自定义 · {scene.width} × {scene.height}</option>\n                  )}\n                  {SCENE_SIZE_PRESETS.map((preset) => (\n                    <option key={preset.id} value={preset.id}>\n                      {preset.label}\n                    </option>\n                  ))}\n                </select>\n              </label>\n            </div>\n          </div>\n\n          {message && (''',
+              'artboard selector',
+          )
+          app = replace_once(
+              app,
+              '<div><span>扩展</span><code>组件越界时自动向右/向下扩展</code></div>',
+              '<div><span>边界</span><code>固定画板 · 组件不可越界</code></div>',
+              'scene summary boundary',
+          )
+          app_path.write_text(app, encoding='utf-8')
+
+          # 4. Renderer: infinite workspace around a fixed, zoomable artboard.
+          renderer_path = Path('src/renderer/SceneRenderer.tsx')
+          renderer = renderer_path.read_text(encoding='utf-8')
+
+          content_bounds_pattern = re.compile(
+              r"// 计算所有根节点内容的包围盒，用于「填满容器」视口计算。\n"
+              r"// 无节点时回退到场景画布尺寸。\n"
+              r"function getContentBounds\([\s\S]*?\n}\n\n"
+              r"// 计算当前视口在场景坐标系中可见的矩形区域。"
+          )
+          renderer, count = content_bounds_pattern.subn(
+              '''// 「适应」始终以固定画板为基准，而不是以组件内容包围盒为基准。\nfunction getContentBounds(scene: SceneDocument): ContentBounds {\n  return {\n    width: scene.width,\n    height: scene.height,\n    centerX: scene.width / 2,\n    centerY: scene.height / 2,\n  }\n}\n\n// 计算当前视口在场景坐标系中可见的矩形区域。''',
+              renderer,
+              count=1,
+          )
+          if count != 1:
+              raise RuntimeError('Unable to replace renderer content bounds')
+          renderer = replace_once(
+              renderer,
+              'const contentBounds = getContentBounds(scene, rootNodes)',
+              'const contentBounds = getContentBounds(scene)',
+              'renderer content bounds call',
+          )
+          renderer = replace_once(
+              renderer,
+              '''    const snapResult = computeSnap(\n      scene,\n      session.nodeIds,\n      session.initialBounds,\n      rawDelta,\n      { ...snapSettings, threshold: snapSettings.threshold / viewportTransformRef.current.scale },\n    )\n    const updates: TransformUpdates = {}\n\n    for (const nodeId of session.nodeIds) {''',
+              '''    const snapResult = computeSnap(\n      scene,\n      session.nodeIds,\n      session.initialBounds,\n      rawDelta,\n      { ...snapSettings, threshold: snapSettings.threshold / viewportTransformRef.current.scale },\n    )\n    const boundedDelta = {\n      x: Math.min(\n        scene.width - session.initialBounds.right,\n        Math.max(-session.initialBounds.left, snapResult.delta.x),\n      ),\n      y: Math.min(\n        scene.height - session.initialBounds.bottom,\n        Math.max(-session.initialBounds.top, snapResult.delta.y),\n      ),\n    }\n    const hitArtboardBoundary =\n      boundedDelta.x !== snapResult.delta.x ||\n      boundedDelta.y !== snapResult.delta.y\n    const updates: TransformUpdates = {}\n\n    for (const nodeId of session.nodeIds) {''',
+              'drag boundary delta',
+          )
+          renderer = replace_once(
+              renderer,
+              '''        x: transform.x + snapResult.delta.x,\n        y: transform.y + snapResult.delta.y,''',
+              '''        x: transform.x + boundedDelta.x,\n        y: transform.y + boundedDelta.y,''',
+              'drag bounded transform',
+          )
+          renderer = replace_once(
+              renderer,
+              'applyPreview(updates, snapResult.guides, session.affectedNodeIds)',
+              'applyPreview(updates, hitArtboardBoundary ? [] : snapResult.guides, session.affectedNodeIds)',
+              'drag boundary guides',
+          )
+          renderer = replace_once(
+              renderer,
+              '''  const gridSize = Math.max(4, snapSettings.gridSize)\n  const visibleRect = getVisibleSceneRect(viewport, viewportTransform)\n  // 网格无限延伸：覆盖视口可见的场景区域，而非固定画板边界。\n  const verticalGridLines = gridVisible\n    ? buildGridCoordinates(visibleRect.left, visibleRect.width, gridSize)\n    : []\n  const horizontalGridLines = gridVisible\n    ? buildGridCoordinates(visibleRect.top, visibleRect.height, gridSize)\n    : []''',
+              '''  const gridSize = Math.max(4, snapSettings.gridSize)\n  const visibleRect = getVisibleSceneRect(viewport, viewportTransform)\n  // 工作区可以无限平移，但网格只属于固定画板。\n  const verticalGridLines = gridVisible\n    ? buildGridCoordinates(0, scene.width, gridSize)\n    : []\n  const horizontalGridLines = gridVisible\n    ? buildGridCoordinates(0, scene.height, gridSize)\n    : []''',
+              'fixed artboard grid',
+          )
+          renderer = replace_once(
+              renderer,
+              '''          <Rect\n            x={visibleRect.left}\n            y={visibleRect.top}\n            width={visibleRect.width}\n            height={visibleRect.height}\n            fill={scene.background}\n            listening={false}\n          />\n\n          {verticalGridLines.map((x) => {''',
+              '''          <Rect\n            x={visibleRect.left}\n            y={visibleRect.top}\n            width={visibleRect.width}\n            height={visibleRect.height}\n            fill="#d9dee5"\n            listening={false}\n          />\n          <Rect\n            x={0}\n            y={0}\n            width={scene.width}\n            height={scene.height}\n            fill={scene.background}\n            shadowColor="rgba(15, 23, 42, 0.28)"\n            shadowBlur={18 * visualControlScale}\n            shadowOffsetX={0}\n            shadowOffsetY={5 * visualControlScale}\n            listening={false}\n          />\n\n          {verticalGridLines.map((x) => {''',
+              'workspace and artboard rects',
+          )
+          renderer = replace_once(
+              renderer,
+              'points={[x, visibleRect.top, x, visibleRect.top + visibleRect.height]}',
+              'points={[x, 0, x, scene.height]}',
+              'vertical fixed grid extent',
+          )
+          renderer = replace_once(
+              renderer,
+              'points={[visibleRect.left, y, visibleRect.left + visibleRect.width, y]}',
+              'points={[0, y, scene.width, y]}',
+              'horizontal fixed grid extent',
+          )
+          renderer = replace_once(
+              renderer,
+              '''          <Group\n            ref={dynamicViewportGroupRef}\n            x={viewportTransform.x}\n            y={viewportTransform.y}\n            scaleX={viewportTransform.scale}\n            scaleY={viewportTransform.scale}\n          >''',
+              '''          <Group\n            ref={dynamicViewportGroupRef}\n            x={viewportTransform.x}\n            y={viewportTransform.y}\n            scaleX={viewportTransform.scale}\n            scaleY={viewportTransform.scale}\n            clipX={0}\n            clipY={0}\n            clipWidth={scene.width}\n            clipHeight={scene.height}\n          >''',
+              'dynamic artboard clip',
+          )
+          renderer = replace_once(
+              renderer,
+              '''              if (\n                Math.abs(newBox.width) < minimumTransformWidth ||\n                Math.abs(newBox.height) < minimumTransformHeight\n              ) {\n                return oldBox\n              }\n\n              return newBox''',
+              '''              if (\n                Math.abs(newBox.width) < minimumTransformWidth ||\n                Math.abs(newBox.height) < minimumTransformHeight\n              ) {\n                return oldBox\n              }\n\n              if (\n                newBox.x < 0 ||\n                newBox.y < 0 ||\n                newBox.x + newBox.width > scene.width ||\n                newBox.y + newBox.height > scene.height\n              ) {\n                return oldBox\n              }\n\n              return newBox''',
+              'transform boundary box',
+          )
+          renderer_path.write_text(renderer, encoding='utf-8')
+
+          # 5. Compact selector styling in the persistent canvas toolbar.
+          css_path = Path('src/workbench.css')
+          css = css_path.read_text(encoding='utf-8')
+          marker = '''.grid-size-input:focus {\n  outline: none;\n  background: #f8fbff;\n}\n'''
+          styles = '''.grid-size-input:focus {\n  outline: none;\n  background: #f8fbff;\n}\n\n.scene-size-control {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  min-height: 30px;\n  padding-left: 7px;\n  border: 1px solid #d7e0e9;\n  border-radius: 6px;\n  color: #64748b;\n  background: #ffffff;\n  font-size: 10px;\n  white-space: nowrap;\n}\n\n.scene-size-control select {\n  height: 28px;\n  max-width: 176px;\n  padding: 0 22px 0 6px;\n  border: 0;\n  border-left: 1px solid #e2e8f0;\n  color: #334155;\n  background: #ffffff;\n  font-size: 11px;\n}\n\n.scene-size-control select:focus {\n  outline: none;\n  background: #f8fbff;\n}\n'''
+          css = replace_once(css, marker, styles, 'scene size CSS marker')
+          css_path.write_text(css, encoding='utf-8')
+          PY
+
+          npm ci
+          npm run build
+          npm run lint
+
+          rm .github/workflows/apply-fixed-artboard-pr.yml
+          git config user.name "scada-editor-bot"
+          git config user.email "scada-editor-bot@users.noreply.github.com"
+          git add src/App.tsx src/renderer/SceneRenderer.tsx src/scene/scene-bounds.ts src/scene/scene-size.ts src/workbench.css .github/workflows
+          git commit -m "fix: make scene a fixed bounded artboard"
+          git push origin "HEAD:${{ github.head_ref }}"
