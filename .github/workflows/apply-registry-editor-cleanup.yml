@@ -1,6 +1,8 @@
 name: Apply registry-driven editor migration
 
 on:
+  push:
+    branches: [refactor/registry-driven-editor-palette]
   pull_request:
     branches: [main]
 
@@ -27,7 +29,6 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          # Scene model: remove all pump compatibility APIs; default scene uses the first registered component.
           path = Path('src/scene/model.ts')
           text = path.read_text()
           text = text.replace("import {\n  PUMP_COMPONENT_TYPE,\n  builtInComponentRegistry,\n  pumpComponentDefinition,\n} from '../component-system/builtins'\n", "import { builtInComponentRegistry } from '../component-system/builtins'\n")
@@ -71,14 +72,12 @@ jobs:
           assert old in text
           path.write_text(text.replace(old, new, 1))
 
-          # Pump renderer component no longer exports editor sizing policy.
           path = Path('src/components/PumpNode.tsx')
           text = path.read_text()
           text = text.replace("import { pumpComponentDefinition } from '../component-system/builtins'\n", "")
           text = text.replace("export const PUMP_MIN_WIDTH = pumpComponentDefinition.size.minWidth\nexport const PUMP_MIN_HEIGHT = pumpComponentDefinition.size.minHeight\n", "")
           path.write_text(text)
 
-          # Editor palette and creation become registry-driven.
           path = Path('src/features/scada-editor/ScadaEditorPage.tsx')
           text = path.read_text()
           text = text.replace("import { loadScadaScene, saveScadaScene } from '../scada-works/storage'\n", "import { loadScadaScene, saveScadaScene } from '../scada-works/storage'\nimport { builtInComponentRegistry } from '../../component-system/builtins'\n")
@@ -164,7 +163,6 @@ jobs:
           assert old in text
           path.write_text(text.replace(old, new, 1))
 
-          # Transformer sizing policy comes from the selected component definition.
           path = Path('src/renderer/SceneRenderer.tsx')
           text = path.read_text()
           text = text.replace("import {\n  PUMP_MIN_HEIGHT,\n  PUMP_MIN_WIDTH,\n} from '../components/PumpNode'\n", "import { builtInComponentRegistry } from '../component-system/builtins'\n")
@@ -220,6 +218,8 @@ jobs:
           path.write_text(text.replace(old, new, 1))
 
           Path('.github/workflows/apply-registry-editor-cleanup.yml').unlink()
+          Path('.registry-migration-trigger').unlink(missing_ok=True)
+          Path('.registry-migration-trigger-2').unlink(missing_ok=True)
           PY
 
       - name: Verify
@@ -233,6 +233,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src .github/workflows/apply-registry-editor-cleanup.yml
+          git add -A
           git commit -m "refactor: drive editor components from registry"
           git push origin HEAD:refactor/registry-driven-editor-palette
