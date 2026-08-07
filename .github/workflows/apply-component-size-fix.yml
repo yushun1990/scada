@@ -1,9 +1,9 @@
 name: Apply component size fix
 
 on:
-  push:
+  pull_request:
     branches:
-      - tune/component-default-and-min-size
+      - main
 
 permissions:
   contents: write
