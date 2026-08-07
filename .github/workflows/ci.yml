@@ -62,7 +62,7 @@ jobs:
 
           git fetch origin main
           git checkout origin/main -- .github/workflows/ci.yml
-          rm -f .github/workflows/apply-component-size-fix.yml
+          rm -f .github/workflows/apply-component-size-fix.yml .ci-trigger
 
       - name: Install dependencies
         run: npm install
@@ -78,6 +78,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/renderer/SceneRenderer.tsx .github/workflows/ci.yml .github/workflows/apply-component-size-fix.yml
+          git add -A
           git commit -m "fix: make component minimum size independent of zoom"
           git push origin HEAD:tune/component-default-and-min-size
