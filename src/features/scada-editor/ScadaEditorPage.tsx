@@ -8,6 +8,7 @@ import {
   type ChangeEvent,
 } from 'react'
 import { loadScadaScene, saveScadaScene } from '../scada-works/storage'
+import { builtInComponentRegistry } from '../../component-system/builtins'
 import {
   hasDuplicateConnection,
   reconnectSceneConnection,
@@ -29,10 +30,9 @@ import {
   ungroupSceneNode,
 } from '../../scene/hierarchy'
 import {
-  createPumpNode,
+  createComponentNode,
   createSceneConnection,
   isGroupNode,
-  isPumpNode,
   type ConnectionEndpoint,
   type ConnectionRouting,
   type NodeTransform,
@@ -230,9 +230,14 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     updateNodeTransforms({ [nodeId]: transform })
   }
 
-  function addPump() {
-    const node = createPumpNode(
-      scene.nodes.filter(isPumpNode).length + 1,
+  function addComponent(componentType: string) {
+    const registration = builtInComponentRegistry.require(componentType)
+    const existingCount = scene.nodes.filter(
+      (node) => !isGroupNode(node) && node.type === componentType,
+    ).length
+    const node = createComponentNode(
+      componentType,
+      existingCount + 1,
       Math.min(rootNodes.length * 18, 120),
     )
 
@@ -244,7 +249,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
       { selectedNodeIds: [node.id], selectedConnectionId: null },
     )
     setMode('editor')
-    setMessage(`已添加 ${node.name}`)
+    setMessage(`已添加 ${registration.definition.title}`)
   }
 
   function duplicateSelectedNodes() {
@@ -585,19 +590,24 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
           {leftDockTab === 'components' && (
             <div className="dock-content">
               <div className="panel-title">基础组件</div>
-              <button
-                className="component-item active"
-                type="button"
-                onClick={addPump}
-              >
-                <span className="component-icon">P</span>
-                <span>
-                  <strong>添加潜水泵</strong>
-                  <small>pump.submersible</small>
-                </span>
-              </button>
+              {builtInComponentRegistry.list().map(({ definition }) => (
+                <button
+                  key={definition.type}
+                  className="component-item"
+                  type="button"
+                  onClick={() => addComponent(definition.type)}
+                >
+                  <span className="component-icon">
+                    {definition.title.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span>
+                    <strong>{definition.title}</strong>
+                    <small>{definition.type}</small>
+                  </span>
+                </button>
+              ))}
               <p className="panel-description component-dock-help">
-                后续组件注册表、搜索、分类和拖放入口统一放在这里。
+                组件面板直接来自 ComponentRegistry；新增内置注册项无需修改编辑器页面。
               </p>
             </div>
           )}
