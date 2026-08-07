@@ -6,7 +6,7 @@ import {
 } from '../scada-works/storage'
 import {
   listComponentDefinitions,
-  type ComponentDefinition,
+  type ComponentLibraryEntry,
 } from '../component-library/storage'
 import './workspace.css'
 
@@ -34,7 +34,7 @@ function buildHashUrl(path: string) {
 export function WorkspacePage() {
   const [activeModule, setActiveModule] = useState<WorkspaceModule>('works')
   const [works, setWorks] = useState<ScadaWorkSummary[]>(() => listScadaWorks())
-  const [components, setComponents] = useState<ComponentDefinition[]>(() =>
+  const [components, setComponents] = useState<ComponentLibraryEntry[]>(() =>
     listComponentDefinitions(),
   )
 
