@@ -2090,10 +2090,6 @@ export function SceneRenderer({
             y={viewportTransform.y}
             scaleX={viewportTransform.scale}
             scaleY={viewportTransform.scale}
-            clipX={0}
-            clipY={0}
-            clipWidth={scene.width}
-            clipHeight={scene.height}
           >
           {scene.connections.map((connection) => {
             const points = getConnectionRoutePoints(scene, connection)
@@ -2173,11 +2169,19 @@ export function SceneRenderer({
                 return oldBox
               }
 
+              const currentViewport = viewportTransformRef.current
+              const sceneLeft =
+                (newBox.x - currentViewport.x) / currentViewport.scale
+              const sceneTop =
+                (newBox.y - currentViewport.y) / currentViewport.scale
+              const sceneWidth = newBox.width / currentViewport.scale
+              const sceneHeight = newBox.height / currentViewport.scale
+
               if (
-                newBox.x < 0 ||
-                newBox.y < 0 ||
-                newBox.x + newBox.width > scene.width ||
-                newBox.y + newBox.height > scene.height
+                sceneLeft < 0 ||
+                sceneTop < 0 ||
+                sceneLeft + sceneWidth > scene.width ||
+                sceneTop + sceneHeight > scene.height
               ) {
                 return oldBox
               }
