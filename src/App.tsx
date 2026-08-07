@@ -7,7 +7,6 @@ import {
   useState,
   type ChangeEvent,
 } from 'react'
-import type { PumpState } from './assets/pump'
 import {
   hasDuplicateConnection,
   reconnectSceneConnection,
@@ -24,7 +23,6 @@ import {
 } from './scene/geometry'
 import {
   cloneSceneSubtrees,
-  collectSubtreeIds,
   deleteSceneNodes,
   groupSceneNodes,
   ungroupSceneNode,
@@ -38,7 +36,6 @@ import {
   type ConnectionEndpoint,
   type ConnectionRouting,
   type NodeTransform,
-  type PumpSceneNode,
   type SceneConnection,
   type SceneDocument,
   type SceneNode,
@@ -86,19 +83,6 @@ const LEGACY_STORAGE_KEYS = [
 
 type InspectorTab = 'properties' | 'actions' | 'events'
 type LeftDockTab = 'components' | 'layers' | 'assets'
-
-const pumpStates: Array<{
-  id: PumpState
-  name: string
-  description: string
-  swatch: string
-}> = [
-  { id: 'gray', name: '停止', description: '设备未运行', swatch: '#b8c4c0' },
-  { id: 'green', name: '运行', description: '设备运行正常', swatch: '#35e625' },
-  { id: 'blue', name: '手动', description: '人工控制状态', swatch: '#0788d4' },
-  { id: 'orange', name: '警告', description: '需要关注', swatch: '#f47a08' },
-  { id: 'red', name: '报警', description: '设备故障或报警', swatch: '#e80e17' },
-]
 
 const alignButtons: Array<{ mode: AlignMode; title: string; icon: typeof CopyIcon }> = [
   { mode: 'left', title: '左对齐', icon: AlignLeftIcon },
@@ -215,13 +199,6 @@ function App() {
   const selectedConnection = scene.connections.find(
     (connection) => connection.id === selectedConnectionId,
   ) ?? null
-
-  const selectedSubtreeIds = collectSubtreeIds(scene, selectedNodeIds)
-  const selectedPumpNodes = scene.nodes.filter(
-    (node): node is PumpSceneNode =>
-      selectedSubtreeIds.has(node.id) && isPumpNode(node),
-  )
-  const selectedGroupCount = selectedNodes.filter(isGroupNode).length
 
   const canGroup =
     selectedNodes.length >= 2 &&
@@ -439,29 +416,6 @@ function App() {
     return false
   }
 
-  function setSelectedPumpState(state: PumpState) {
-    if (selectedPumpNodes.length === 0) {
-      return
-    }
-
-    const selectedIdSet = new Set(selectedPumpNodes.map((node) => node.id))
-    commit((current) => ({
-      ...current,
-      nodes: current.nodes.map((node) =>
-        selectedIdSet.has(node.id) && isPumpNode(node)
-          ? {
-              ...node,
-              props: {
-                ...node.props,
-                state,
-              },
-            }
-          : node,
-      ),
-    }))
-    setMessage(`已批量更新 ${selectedPumpNodes.length} 个水泵状态`)
-  }
-
   function updateSelectedBaseProperty(
     property: 'visible' | 'locked',
     value: boolean,
@@ -558,27 +512,6 @@ function App() {
     setMessage('v4 场景已保存到浏览器')
   }
 
-  function restoreScene() {
-    const savedScene = getSavedScene()
-
-    if (!savedScene) {
-      setMessage('浏览器中没有已保存场景')
-      return
-    }
-
-    try {
-      const restoredScene = parseSceneDocument(savedScene)
-      resetHistory({
-        scene: restoredScene,
-        selectedNodeIds: getInitialSelectedIds(restoredScene),
-        selectedConnectionId: null,
-      })
-      setMessage('已恢复浏览器场景')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '场景恢复失败')
-    }
-  }
-
   function exportScene() {
     const blob = new Blob([JSON.stringify(scene, null, 2)], {
       type: 'application/json',
@@ -633,7 +566,6 @@ function App() {
         <div className="header-actions">
           <div className="document-toolbar" role="toolbar" aria-label="场景文档操作">
             <button type="button" onClick={saveScene}>保存</button>
-            <button type="button" onClick={restoreScene}>恢复</button>
             <button type="button" onClick={() => importInputRef.current?.click()}>导入</button>
             <button type="button" onClick={exportScene}>导出</button>
             <input
@@ -1080,37 +1012,6 @@ function App() {
                   </label>
                 </fieldset>
 
-                {selectedPumpNodes.length > 0 && (
-                  <fieldset className="inspector-group">
-                    <legend>组件状态</legend>
-                    <div className="property-scope">
-                      当前范围包含 <strong>{selectedPumpNodes.length}</strong> 个水泵。
-                      {selectedGroupCount > 0 && (
-                        <span>修改会递归应用到组合内的真实子组件。</span>
-                      )}
-                    </div>
-                    <div className="state-list">
-                      {pumpStates.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className={`state-button${selectedPumpNodes.every((node) => node.props.state === item.id) ? ' active' : ''}`}
-                          onClick={() => setSelectedPumpState(item.id)}
-                        >
-                          <span
-                            className="state-swatch"
-                            style={{ backgroundColor: item.swatch }}
-                            aria-hidden="true"
-                          />
-                          <span>
-                            <strong>{item.name}</strong>
-                            <small>{item.description}</small>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
               </div>
             )}
 
@@ -1179,31 +1080,6 @@ function App() {
                   </label>
                 </fieldset>
 
-                {selectedPumpNodes.length > 0 && (
-                  <fieldset className="inspector-group">
-                    <legend>组件状态</legend>
-                    <div className="state-list">
-                      {pumpStates.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className={`state-button${selectedPumpNodes.every((node) => node.props.state === item.id) ? ' active' : ''}`}
-                          onClick={() => setSelectedPumpState(item.id)}
-                        >
-                          <span
-                            className="state-swatch"
-                            style={{ backgroundColor: item.swatch }}
-                            aria-hidden="true"
-                          />
-                          <span>
-                            <strong>{item.name}</strong>
-                            <small>{item.description}</small>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
               </div>
             )}
 

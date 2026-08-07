@@ -182,19 +182,15 @@ input:focus-visible {
 }
 
 .component-item strong,
-.component-item small,
-.state-button strong,
-.state-button small {
+.component-item small {
   display: block;
 }
 
-.component-item strong,
-.state-button strong {
+.component-item strong {
   font-size: 13px;
 }
 
-.component-item small,
-.state-button small {
+.component-item small {
   margin-top: 3px;
   color: #64748b;
   font-size: 10px;
@@ -281,45 +277,6 @@ input:focus-visible {
   line-height: 1.65;
 }
 
-.state-list {
-  display: grid;
-  gap: 8px;
-}
-
-.state-button {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 7px;
-  color: #475569;
-  background: #ffffff;
-  cursor: pointer;
-  text-align: left;
-}
-
-.state-button:hover,
-.state-button.active {
-  border-color: #3b82f6;
-  color: #1e293b;
-  background: #eff6ff;
-}
-
-.state-button.active {
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
-}
-
-.state-swatch {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  border: 1px solid rgba(15, 23, 42, 0.16);
-  border-radius: 8px;
-  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.28);
-}
-
 .property-summary {
   display: grid;
   gap: 11px;
@@ -392,7 +349,4 @@ input:focus-visible {
     grid-row: 1;
   }
 
-  .state-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
