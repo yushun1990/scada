@@ -2004,7 +2004,8 @@ function finishPan() {
   setHoveredPort(null)
   cancelReconnectSession()
   cancelPointerInteraction()
-}}        onDragStart={(event) => {
+}}
+        onDragStart={(event) => {
           if (!findConnectionHandleRole(event.target)) {
             handleDragStart(event.target)
           }
