@@ -1,0 +1,261 @@
+name: Apply artboard interaction fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/apply-artboard-main-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Apply interaction fixes and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise RuntimeError(f'Expected block not found in {path}')
+              file.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'src/App.tsx',
+              '''              <label className="scene-size-control" title="固定画板尺寸">
+                <span>画板</span>
+                <select
+                  aria-label="画板尺寸"
+                  value={getSceneSizePresetId(scene) ?? ''}
+                  onChange={(event) => changeSceneSize(event.target.value)}
+                >
+                  {!getSceneSizePresetId(scene) && (
+                    <option value="">自定义 · {scene.width} × {scene.height}</option>
+                  )}
+                  {SCENE_SIZE_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+              </label>''',
+              '''              <div className="scene-size-control" title="固定画板尺寸">
+                <select
+                  aria-label="画板尺寸"
+                  value={getSceneSizePresetId(scene) ?? ''}
+                  onChange={(event) => changeSceneSize(event.target.value)}
+                >
+                  {!getSceneSizePresetId(scene) && (
+                    <option value="">自定义 · {scene.width} × {scene.height}</option>
+                  )}
+                  {SCENE_SIZE_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+              </div>''',
+          )
+
+          replace_once(
+              'src/workbench.css',
+              '''.scene-size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding-left: 7px;
+  border: 1px solid #d7e0e9;
+  border-radius: 6px;
+  color: #64748b;
+  background: #ffffff;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.scene-size-control select {
+  height: 28px;
+  max-width: 176px;
+  padding: 0 22px 0 6px;
+  border: 0;
+  border-left: 1px solid #e2e8f0;
+  color: #334155;
+  background: #ffffff;
+  font-size: 11px;
+}
+''',
+              '''.scene-size-control {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border: 1px solid #d7e0e9;
+  border-radius: 6px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.scene-size-control select {
+  height: 28px;
+  max-width: 176px;
+  padding: 0 24px 0 9px;
+  border: 0;
+  color: #334155;
+  background: #ffffff;
+  font-size: 11px;
+}
+''',
+          )
+
+          replace_once(
+              'src/workbench.css',
+              '''.konva-host {
+  background: #ffffff !important;
+}''',
+              '''.konva-host {
+  background: #d9dee5 !important;
+}''',
+          )
+
+          replace_once(
+              'src/renderer/SceneRenderer.tsx',
+              '''// 计算当前视口在场景坐标系中可见的矩形区域。
+// 用于无限画板：背景与网格只覆盖可见区域，随平移/缩放动态延伸。
+function getVisibleSceneRect(
+  viewport: { width: number; height: number },
+  transform: ViewportTransform,
+) {
+  const { scale } = transform
+  const safeScale = scale === 0 ? 1 : scale
+  return {
+    left: -transform.x / safeScale,
+    top: -transform.y / safeScale,
+    width: viewport.width / safeScale,
+    height: viewport.height / safeScale,
+  }
+}
+
+''',
+              '',
+          )
+
+          replace_once(
+              'src/renderer/SceneRenderer.tsx',
+              '''  const visibleRect = getVisibleSceneRect(viewport, viewportTransform)
+''',
+              '',
+          )
+
+          replace_once(
+              'src/renderer/SceneRenderer.tsx',
+              '''  function scheduleDragMove(target: Konva.Node) {
+    pendingDragTargetRef.current = target
+
+    if (dragFrameRef.current !== null) {
+      return
+    }
+''',
+              '''  function scheduleDragMove(target: Konva.Node) {
+    const session = dragSessionRef.current
+    const draggedTransform = session?.initialTransforms[session.nodeId]
+
+    // Konva moves the dragged node before onDragMove fires. Clamp that real node
+    // synchronously so no rendered frame can expose any part outside the artboard.
+    // Expensive snapping/connection refresh stays requestAnimationFrame-batched below.
+    if (session && draggedTransform) {
+      const rawDeltaX = target.x() - draggedTransform.x
+      const rawDeltaY = target.y() - draggedTransform.y
+      const boundedDeltaX = Math.min(
+        scene.width - session.initialBounds.right,
+        Math.max(-session.initialBounds.left, rawDeltaX),
+      )
+      const boundedDeltaY = Math.min(
+        scene.height - session.initialBounds.bottom,
+        Math.max(-session.initialBounds.top, rawDeltaY),
+      )
+
+      target.position({
+        x: draggedTransform.x + boundedDeltaX,
+        y: draggedTransform.y + boundedDeltaY,
+      })
+    }
+
+    pendingDragTargetRef.current = target
+
+    if (dragFrameRef.current !== null) {
+      return
+    }
+''',
+          )
+
+          replace_once(
+              'src/renderer/SceneRenderer.tsx',
+              '''        <Layer ref={staticLayerRef} listening={false}>
+          <Group
+            ref={staticViewportGroupRef}
+            x={viewportTransform.x}
+            y={viewportTransform.y}
+            scaleX={viewportTransform.scale}
+            scaleY={viewportTransform.scale}
+          >
+          <Rect
+            x={visibleRect.left}
+            y={visibleRect.top}
+            width={visibleRect.width}
+            height={visibleRect.height}
+            fill="#d9dee5"
+            listening={false}
+          />
+          <Rect
+            x={0}
+            y={0}
+            width={scene.width}
+            height={scene.height}
+            fill={scene.background}
+''',
+              '''        <Layer ref={staticLayerRef} listening={false}>
+          <Rect
+            x={0}
+            y={0}
+            width={viewport.width}
+            height={viewport.height}
+            fill="#d9dee5"
+            listening={false}
+          />
+          <Group
+            ref={staticViewportGroupRef}
+            x={viewportTransform.x}
+            y={viewportTransform.y}
+            scaleX={viewportTransform.scale}
+            scaleY={viewportTransform.scale}
+          >
+          <Rect
+            x={0}
+            y={0}
+            width={scene.width}
+            height={scene.height}
+            fill={scene.background}
+''',
+          )
+          PY
+
+          npm ci
+          npm run build
+          npm run lint
+
+          rm .github/workflows/apply-artboard-main-fix.yml
+          git config user.name "scada-editor-bot"
+          git config user.email "scada-editor-bot@users.noreply.github.com"
+          git add src/App.tsx src/renderer/SceneRenderer.tsx src/workbench.css .github/workflows/apply-artboard-main-fix.yml
+          git commit -m "fix: stabilize bounded artboard interactions"
+          git push origin HEAD:main
