@@ -1,6 +1,8 @@
 import './m2.css'
 import './workbench.css'
 import {
+  useCallback,
+  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -33,7 +35,6 @@ import {
   createSceneConnection,
   isGroupNode,
   isPumpNode,
-  PUMP_ASPECT_RATIO,
   type ConnectionEndpoint,
   type ConnectionRouting,
   type NodeTransform,
@@ -47,10 +48,29 @@ import {
   expandSceneToContainNodes,
 } from './scene/scene-bounds'
 import { parseSceneDocument } from './scene/validation'
+import { useSceneHistory } from './scene/use-scene-history'
 import {
   SceneRenderer,
   type RendererMode,
 } from './renderer/SceneRenderer'
+import {
+  AlignBottomIcon,
+  AlignCenterXIcon,
+  AlignCenterYIcon,
+  AlignLeftIcon,
+  AlignRightIcon,
+  AlignTopIcon,
+  CopyIcon,
+  DistributeHorizontalIcon,
+  DistributeVerticalIcon,
+  GridIcon,
+  GroupIcon,
+  RedoIcon,
+  SnapIcon,
+  TrashIcon,
+  UndoIcon,
+  UngroupIcon,
+} from './components/toolbar-icons'
 
 const STORAGE_KEY = 'scada-editor-lab.scene.v4'
 const LEGACY_STORAGE_KEYS = [
@@ -75,13 +95,13 @@ const pumpStates: Array<{
   { id: 'red', name: '报警', description: '设备故障或报警', swatch: '#e80e17' },
 ]
 
-const alignButtons: Array<{ mode: AlignMode; label: string; title: string }> = [
-  { mode: 'left', label: '左', title: '左对齐' },
-  { mode: 'center-x', label: '中X', title: '水平居中' },
-  { mode: 'right', label: '右', title: '右对齐' },
-  { mode: 'top', label: '上', title: '顶对齐' },
-  { mode: 'center-y', label: '中Y', title: '垂直居中' },
-  { mode: 'bottom', label: '下', title: '底对齐' },
+const alignButtons: Array<{ mode: AlignMode; title: string; icon: typeof CopyIcon }> = [
+  { mode: 'left', title: '左对齐', icon: AlignLeftIcon },
+  { mode: 'center-x', title: '水平居中', icon: AlignCenterXIcon },
+  { mode: 'right', title: '右对齐', icon: AlignRightIcon },
+  { mode: 'top', title: '顶对齐', icon: AlignTopIcon },
+  { mode: 'center-y', title: '垂直居中', icon: AlignCenterYIcon },
+  { mode: 'bottom', title: '底对齐', icon: AlignBottomIcon },
 ]
 
 function getInitialSelectedIds(scene: SceneDocument) {
@@ -123,13 +143,29 @@ function loadInitialScene() {
 
 function App() {
   const [mode, setMode] = useState<RendererMode>('editor')
-  const [scene, setScene] = useState(loadInitialScene)
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(
-    getInitialSelectedIds(scene),
-  )
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
+  const {
+    scene,
+    selectedNodeIds,
+    selectedConnectionId,
+    setScene,
+    setSelectedNodeIds,
+    setSelectedConnectionId,
+    commit,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    reset: resetHistory,
+  } = useSceneHistory(() => {
+    const initialScene = loadInitialScene()
+    return {
+      scene: initialScene,
+      selectedNodeIds: getInitialSelectedIds(initialScene),
+      selectedConnectionId: null,
+    }
+  })
   const [leftDockTab, setLeftDockTab] = useState<LeftDockTab>('components')
-  const [message, setMessage] = useState('编辑器布局与自动连线已启用')
+  const [message, setMessage] = useState('')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('properties')
   const [gridVisible, setGridVisible] = useState(true)
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({
@@ -140,6 +176,31 @@ function App() {
     threshold: 7,
   })
   const importInputRef = useRef<HTMLInputElement>(null)
+
+  // 撤销/重做键盘快捷键
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const isUndo =
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === 'z'
+      const isRedo =
+        (event.ctrlKey || event.metaKey) &&
+        (event.key.toLowerCase() === 'y' ||
+          (event.shiftKey && event.key.toLowerCase() === 'z'))
+
+      if (isUndo) {
+        event.preventDefault()
+        undo()
+      } else if (isRedo) {
+        event.preventDefault()
+        redo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [undo, redo])
 
   const rootNodes = getRootNodes(scene)
   const selectedNodes = selectedNodeIds
@@ -207,12 +268,19 @@ function App() {
     }))
   }
 
+  // 把当前场景固化为一个历史点（不改变场景内容）。
+  // 用于 Inspector 文本/数值输入：onChange 用 setScene 实时预览，
+  // onBlur 时调此函数固化一次，避免逐字符刷屏历史栈。
+  const commitScene = useCallback(() => {
+    commit()
+  }, [commit])
+
   function updateNodeTransforms(updates: TransformUpdates) {
     if (Object.keys(updates).length === 0) {
       return
     }
 
-    setScene((current) => applyTransformsAndExpandScene(current, updates))
+    commit((current) => applyTransformsAndExpandScene(current, updates))
   }
 
   function updateNodeTransform(nodeId: string, transform: NodeTransform) {
@@ -225,12 +293,13 @@ function App() {
       Math.min(rootNodes.length * 18, 120),
     )
 
-    setScene((current) => ({
-      ...current,
-      nodes: [...current.nodes, node],
-    }))
-    setSelectedNodeIds([node.id])
-    setSelectedConnectionId(null)
+    commit(
+      (current) => ({
+        ...current,
+        nodes: [...current.nodes, node],
+      }),
+      { selectedNodeIds: [node.id], selectedConnectionId: null },
+    )
     setMode('editor')
     setMessage(`已添加 ${node.name}`)
   }
@@ -241,21 +310,24 @@ function App() {
     }
 
     const result = cloneSceneSubtrees(scene, selectedNodeIds)
-    setScene(expandSceneToContainNodes(result.scene))
-    setSelectedNodeIds(result.rootIds)
-    setSelectedConnectionId(null)
+    commit(expandSceneToContainNodes(result.scene), {
+      selectedNodeIds: result.rootIds,
+      selectedConnectionId: null,
+    })
     setMessage(`已复制 ${result.rootIds.length} 个根节点及其内部连线`)
   }
 
   function deleteSelection() {
     if (selectedConnection) {
-      setScene((current) => ({
-        ...current,
-        connections: current.connections.filter(
-          (connection) => connection.id !== selectedConnection.id,
-        ),
-      }))
-      setSelectedConnectionId(null)
+      commit(
+        (current) => ({
+          ...current,
+          connections: current.connections.filter(
+            (connection) => connection.id !== selectedConnection.id,
+          ),
+        }),
+        { selectedConnectionId: null },
+      )
       setMessage(`已删除连线 ${selectedConnection.name}`)
       return
     }
@@ -264,8 +336,7 @@ function App() {
       return
     }
 
-    setScene(deleteSceneNodes(scene, selectedNodeIds))
-    setSelectedNodeIds([])
+    commit(deleteSceneNodes(scene, selectedNodeIds), { selectedNodeIds: [] })
     setMessage(`已删除 ${selectedNodes.length} 个选中节点及关联连线`)
   }
 
@@ -281,9 +352,10 @@ function App() {
       return
     }
 
-    setScene(result.scene)
-    setSelectedNodeIds([result.groupId])
-    setSelectedConnectionId(null)
+    commit(result.scene, {
+      selectedNodeIds: [result.groupId],
+      selectedConnectionId: null,
+    })
     setMessage('已组合节点，现有连线端点保持附着')
   }
 
@@ -293,9 +365,10 @@ function App() {
     }
 
     const result = ungroupSceneNode(scene, primaryNode.id)
-    setScene(result.scene)
-    setSelectedNodeIds(result.childIds)
-    setSelectedConnectionId(null)
+    commit(result.scene, {
+      selectedNodeIds: result.childIds,
+      selectedConnectionId: null,
+    })
     setMessage(`已拆分组合，连线仍引用原始子组件锚点`)
   }
 
@@ -314,12 +387,13 @@ function App() {
       target,
     )
 
-    setScene((current) => ({
-      ...current,
-      connections: [...current.connections, connection],
-    }))
-    setSelectedNodeIds([])
-    setSelectedConnectionId(connection.id)
+    commit(
+      (current) => ({
+        ...current,
+        connections: [...current.connections, connection],
+      }),
+      { selectedNodeIds: [], selectedConnectionId: connection.id },
+    )
     setMessage(`已创建 ${connection.name}`)
   }
 
@@ -336,8 +410,7 @@ function App() {
     )
 
     if (result.status === 'updated') {
-      setScene(result.scene)
-      setSelectedConnectionId(connectionId)
+      commit(result.scene, { selectedConnectionId: connectionId })
       setMessage(role === 'source' ? '已重新连接起点' : '已重新连接终点')
       return true
     }
@@ -361,39 +434,13 @@ function App() {
     return false
   }
 
-  function resetSelectedTransforms() {
-    if (selectedNodes.length === 0) {
-      return
-    }
-
-    const updates: TransformUpdates = {}
-
-    selectedNodes.forEach((node, index) => {
-      const width = isPumpNode(node) ? 256 : node.transform.width
-      const height = isPumpNode(node)
-        ? width / PUMP_ASPECT_RATIO
-        : node.transform.height
-
-      updates[node.id] = {
-        x: 160 + index * 36,
-        y: 48 + index * 28,
-        width,
-        height,
-        rotation: 0,
-      }
-    })
-
-    updateNodeTransforms(updates)
-    setMessage('已重置选中节点，连线端点同步更新')
-  }
-
   function setSelectedPumpState(state: PumpState) {
     if (selectedPumpNodes.length === 0) {
       return
     }
 
     const selectedIdSet = new Set(selectedPumpNodes.map((node) => node.id))
-    setScene((current) => ({
+    commit((current) => ({
       ...current,
       nodes: current.nodes.map((node) =>
         selectedIdSet.has(node.id) && isPumpNode(node)
@@ -415,7 +462,7 @@ function App() {
     value: boolean,
   ) {
     const selectedIdSet = new Set(selectedNodeIds)
-    setScene((current) => ({
+    commit((current) => ({
       ...current,
       nodes: current.nodes.map((node) =>
         selectedIdSet.has(node.id)
@@ -498,9 +545,11 @@ function App() {
 
     try {
       const restoredScene = parseSceneDocument(savedScene)
-      setScene(restoredScene)
-      setSelectedNodeIds(getInitialSelectedIds(restoredScene))
-      setSelectedConnectionId(null)
+      resetHistory({
+        scene: restoredScene,
+        selectedNodeIds: getInitialSelectedIds(restoredScene),
+        selectedConnectionId: null,
+      })
       setMessage('已恢复浏览器场景')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '场景恢复失败')
@@ -530,9 +579,11 @@ function App() {
 
     try {
       const importedScene = parseSceneDocument(await file.text())
-      setScene(importedScene)
-      setSelectedNodeIds(getInitialSelectedIds(importedScene))
-      setSelectedConnectionId(null)
+      resetHistory({
+        scene: importedScene,
+        selectedNodeIds: getInitialSelectedIds(importedScene),
+        selectedConnectionId: null,
+      })
       setMode('editor')
       setMessage(`已导入 ${file.name}`)
     } catch (error) {
@@ -549,47 +600,50 @@ function App() {
     <div className="editor-shell">
       <header className="editor-header">
         <div className="brand-block">
-          <strong>SCADA Editor</strong>
-          <span>通用组态编辑器</span>
+          <span className="brand-mark" aria-hidden="true">◆</span>
+          <div className="brand-text">
+            <strong>SCADA Editor</strong>
+            <span>通用组态编辑器</span>
+          </div>
         </div>
 
-        <span className="header-message">{message}</span>
+        <div className="header-actions">
+          <div className="document-toolbar" role="toolbar" aria-label="场景文档操作">
+            <button type="button" onClick={saveScene}>保存</button>
+            <button type="button" onClick={restoreScene}>恢复</button>
+            <button type="button" onClick={() => importInputRef.current?.click()}>导入</button>
+            <button type="button" onClick={exportScene}>导出</button>
+            <input
+              ref={importInputRef}
+              className="hidden-input"
+              type="file"
+              accept="application/json,.json"
+              onChange={(event) => {
+                void importScene(event)
+              }}
+            />
+          </div>
 
-        <div className="document-toolbar" role="toolbar" aria-label="场景文档操作">
-          <button type="button" onClick={saveScene}>保存</button>
-          <button type="button" onClick={restoreScene}>恢复</button>
-          <button type="button" onClick={() => importInputRef.current?.click()}>导入</button>
-          <button type="button" onClick={exportScene}>导出</button>
-          <input
-            ref={importInputRef}
-            className="hidden-input"
-            type="file"
-            accept="application/json,.json"
-            onChange={(event) => {
-              void importScene(event)
-            }}
-          />
-        </div>
-
-        <div className="mode-switch" role="group" aria-label="工作模式">
-          <button
-            type="button"
-            className={mode === 'editor' ? 'active' : ''}
-            onClick={() => setMode('editor')}
-          >
-            设计
-          </button>
-          <button
-            type="button"
-            className={mode === 'preview' ? 'active' : ''}
-            onClick={() => {
-              setMode('preview')
-              setSelectedNodeIds([])
-              setSelectedConnectionId(null)
-            }}
-          >
-            预览
-          </button>
+          <div className="mode-switch" role="group" aria-label="工作模式">
+            <button
+              type="button"
+              className={mode === 'editor' ? 'active' : ''}
+              onClick={() => setMode('editor')}
+            >
+              设计
+            </button>
+            <button
+              type="button"
+              className={mode === 'preview' ? 'active' : ''}
+              onClick={() => {
+                setMode('preview')
+                setSelectedNodeIds([])
+                setSelectedConnectionId(null)
+              }}
+            >
+              预览
+            </button>
+          </div>
         </div>
       </header>
 
@@ -648,36 +702,144 @@ function App() {
         </aside>
 
         <section className="canvas-area" aria-label="SCADA 编辑画布">
-          <div className="canvas-toolbar">
-            <div className="canvas-tool-strip" role="toolbar" aria-label="视图与网格">
-              <div className="canvas-tool-group view-tool-group">
-                <label className="canvas-toggle">
+          <div className="canvas-toolbar" role="toolbar" aria-label="画布工具栏">
+            <div className="canvas-tool-group">
+              <button
+                type="button"
+                className="icon-button"
+                title="复制选中对象"
+                aria-label="复制选中对象"
+                disabled={selectedNodes.length === 0}
+                onClick={duplicateSelectedNodes}
+              >
+                <CopyIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                title="删除选中对象"
+                aria-label="删除选中对象"
+                disabled={!hasSelection}
+                onClick={deleteSelection}
+              >
+                <TrashIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                title="组合选中对象"
+                aria-label="组合选中对象"
+                disabled={!canGroup}
+                onClick={groupSelectedNodes}
+              >
+                <GroupIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                title="拆分组合"
+                aria-label="拆分组合"
+                disabled={!canUngroup}
+                onClick={ungroupSelectedNode}
+              >
+                <UngroupIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                title="撤销 (Ctrl+Z)"
+                aria-label="撤销"
+                disabled={!canUndo}
+                onClick={undo}
+              >
+                <UndoIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                title="重做 (Ctrl+Shift+Z)"
+                aria-label="重做"
+                disabled={!canRedo}
+                onClick={redo}
+              >
+                <RedoIcon />
+              </button>
+            </div>
+
+            <div className="canvas-tool-group">
+              {alignButtons.map((item) => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.mode}
+                    type="button"
+                    className="icon-button"
+                    title={item.title}
+                    aria-label={item.title}
+                    disabled={selectedNodes.length < 2}
+                    onClick={() => applyAlignment(item.mode)}
+                  >
+                    <Icon />
+                  </button>
+                )
+              })}
+              <button
+                type="button"
+                className="icon-button"
+                title="水平等距分布"
+                aria-label="水平等距分布"
+                disabled={selectedNodes.length < 3}
+                onClick={() => applyDistribution('horizontal')}
+              >
+                <DistributeHorizontalIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                title="垂直等距分布"
+                aria-label="垂直等距分布"
+                disabled={selectedNodes.length < 3}
+                onClick={() => applyDistribution('vertical')}
+              >
+                <DistributeVerticalIcon />
+              </button>
+            </div>
+
+            <div className="canvas-tool-group view-tool-group">
+              <button
+                type="button"
+                className={`icon-button toggle-button${snapSettings.gridEnabled ? ' active' : ''}`}
+                title={snapSettings.gridEnabled ? '关闭吸附' : '开启吸附'}
+                aria-label="吸附到网格"
+                aria-pressed={snapSettings.gridEnabled}
+                onClick={() =>
+                  setSnapSettings((current) => ({
+                    ...current,
+                    gridEnabled: !current.gridEnabled,
+                  }))
+                }
+              >
+                <SnapIcon />
+              </button>
+              <div className="grid-control" title="网格显示与间距">
+                <button
+                  type="button"
+                  className={`icon-button toggle-button${gridVisible ? ' active' : ''}`}
+                  title={gridVisible ? '隐藏格线' : '显示格线'}
+                  aria-label="显示格线"
+                  aria-pressed={gridVisible}
+                  onClick={() => setGridVisible((current) => !current)}
+                >
+                  <GridIcon />
+                </button>
+                {gridVisible && (
                   <input
-                    type="checkbox"
-                    checked={gridVisible}
-                    onChange={(event) => setGridVisible(event.target.checked)}
-                  />
-                  <span>格线</span>
-                </label>
-                <label className="canvas-toggle">
-                  <input
-                    type="checkbox"
-                    checked={snapSettings.gridEnabled}
-                    onChange={(event) => {
-                      setSnapSettings((current) => ({
-                        ...current,
-                        gridEnabled: event.target.checked,
-                      }))
-                    }}
-                  />
-                  <span>网格吸附</span>
-                </label>
-                <label className="canvas-grid-size">
-                  <span>间距</span>
-                  <input
+                    className="grid-size-input"
                     type="number"
                     min="4"
                     max="128"
+                    title="网格间距"
+                    aria-label="网格间距"
                     value={snapSettings.gridSize}
                     onChange={(event) => {
                       const gridSize = Number(event.target.value)
@@ -687,10 +849,17 @@ function App() {
                       }
                     }}
                   />
-                </label>
+                )}
               </div>
             </div>
           </div>
+
+          {message && (
+            <div className="canvas-toast" role="status" aria-live="polite">
+              {message}
+            </div>
+          )}
+
           <SceneRenderer
             scene={scene}
             mode={mode}
@@ -707,87 +876,6 @@ function App() {
         </section>
 
         <aside className="property-panel">
-          <section className="base-inspector" aria-label="基础操作">
-            <div className="inspector-section-header">
-              <div>
-                <strong>基础</strong>
-                <span>
-                  {selectedConnection
-                    ? '连线操作'
-                    : selectedNodes.length > 0
-                      ? `${selectedNodes.length} 个对象`
-                      : '未选择对象'}
-                </span>
-              </div>
-            </div>
-
-            <div className="base-operation-list">
-              <fieldset className="inspector-group">
-                <legend>操作</legend>
-                <div className="base-command-row" role="toolbar" aria-label="对象操作">
-                  <button
-                    type="button"
-                    disabled={selectedNodes.length === 0}
-                    onClick={duplicateSelectedNodes}
-                  >
-                    复制
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!hasSelection}
-                    onClick={deleteSelection}
-                  >
-                    删除
-                  </button>
-                  <button
-                    type="button"
-                    disabled={selectedNodes.length === 0}
-                    onClick={resetSelectedTransforms}
-                  >
-                    重置
-                  </button>
-                  <button type="button" disabled={!canGroup} onClick={groupSelectedNodes}>
-                    组合
-                  </button>
-                  <button type="button" disabled={!canUngroup} onClick={ungroupSelectedNode}>
-                    拆分
-                  </button>
-                </div>
-              </fieldset>
-
-              <fieldset className="inspector-group">
-                <legend>对齐与分布</legend>
-                <div className="base-align-grid">
-                  {alignButtons.map((item) => (
-                    <button
-                      key={item.mode}
-                      type="button"
-                      title={item.title}
-                      disabled={selectedNodes.length < 2}
-                      onClick={() => applyAlignment(item.mode)}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    disabled={selectedNodes.length < 3}
-                    onClick={() => applyDistribution('horizontal')}
-                  >
-                    水平分布
-                  </button>
-                  <button
-                    type="button"
-                    disabled={selectedNodes.length < 3}
-                    onClick={() => applyDistribution('vertical')}
-                  >
-                    垂直分布
-                  </button>
-                </div>
-              </fieldset>
-            </div>
-          </section>
-
           <section className="semantic-inspector" aria-label="对象配置">
             <div className="inspector-tabs" role="tablist" aria-label="对象配置检查器">
               {([
@@ -821,6 +909,7 @@ function App() {
                           name,
                         }))
                       }}
+                      onBlur={commitScene}
                     />
                   </label>
                   <label className="property-field">
@@ -833,6 +922,7 @@ function App() {
                           ...connection,
                           routing,
                         }))
+                        commitScene()
                       }}
                     >
                       <option value="orthogonal">正交折线</option>
@@ -857,6 +947,7 @@ function App() {
                             style: { ...connection.style, stroke },
                           }))
                         }}
+                        onBlur={commitScene}
                       />
                     </label>
                     <label className="property-field compact">
@@ -876,6 +967,7 @@ function App() {
                             }))
                           }
                         }}
+                        onBlur={commitScene}
                       />
                     </label>
                   </div>
@@ -889,6 +981,7 @@ function App() {
                           ...connection,
                           style: { ...connection.style, dash },
                         }))
+                        commitScene()
                       }}
                     >
                       <option value="solid">实线</option>
@@ -994,6 +1087,7 @@ function App() {
                         const name = event.target.value
                         updateNode(primaryNode.id, (node) => ({ ...node, name }))
                       }}
+                      onBlur={commitScene}
                     />
                   </label>
                   <div className="property-summary compact-summary">

@@ -3,6 +3,7 @@ export const MIN_VIEWPORT_SCALE = 0.1
 export const MAX_VIEWPORT_SCALE = 8
 export const VIEWPORT_ZOOM_FACTOR = 1.15
 export const VIEWPORT_FIT_PADDING = 64
+export const VIEWPORT_FILL_PADDING = 24
 
 export type ViewportPoint = {
   x: number
@@ -85,6 +86,35 @@ export function fitSceneToViewport(
   )
 
   return centerSceneAtScale(viewport, scene, scale)
+}
+
+// 内容包围盒：用于按组件内容（而非场景画布边界）计算视口。
+export type ContentBounds = {
+  width: number
+  height: number
+  centerX: number
+  centerY: number
+}
+
+// 填满容器：按内容包围盒计算缩放，让内容撑满整个可视区
+// （短边刚好，长边溢出裁切），并让内容中心对齐画板中心。
+export function fillContentToViewport(
+  viewport: ViewportSize,
+  content: ContentBounds,
+  padding = VIEWPORT_FILL_PADDING,
+): ViewportTransform {
+  const availableWidth = Math.max(1, viewport.width - padding * 2)
+  const availableHeight = Math.max(1, viewport.height - padding * 2)
+  // 用 max 而非 min：填满而非适应。
+  const scale = clampViewportScale(
+    Math.max(availableWidth / content.width, availableHeight / content.height),
+  )
+
+  return {
+    x: viewport.width / 2 - content.centerX * scale,
+    y: viewport.height / 2 - content.centerY * scale,
+    scale,
+  }
 }
 
 export function isPointInsideScene(point: ViewportPoint, scene: ViewportSize) {

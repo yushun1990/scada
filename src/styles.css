@@ -251,24 +251,27 @@ input:focus-visible {
 
 .canvas-status {
   position: absolute;
-  right: 14px;
-  bottom: 14px;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 10px;
-  border: 1px solid rgba(148, 163, 184, 0.8);
-  border-radius: 7px;
+  padding: 6px 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.6);
+  border-radius: 0;
   color: #475569;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
-  pointer-events: none;
-  font-size: 10px;
+  background: rgba(248, 250, 252, 0.96);
+  font-size: 11px;
   backdrop-filter: blur(8px);
 }
 
 .canvas-status code {
-  color: #1e293b;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-size: 10px;
 }
 
 .panel-description {

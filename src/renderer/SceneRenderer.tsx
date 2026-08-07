@@ -52,9 +52,10 @@ import {
 import { SceneNodeRenderer } from './SceneNodeRenderer'
 import {
   centerSceneAtScale,
-  fitSceneToViewport,
+  fillContentToViewport,
   isPointInsideScene,
   scenePointFromViewport,
+  type ContentBounds,
   VIEWPORT_ZOOM_FACTOR,
   type ViewportTransform,
 } from '../editor/viewport'
@@ -373,6 +374,67 @@ function getPreviewTransform(node: SceneNode, group: Konva.Group) {
   }
 }
 
+// 计算所有根节点内容的包围盒，用于「填满容器」视口计算。
+// 无节点时回退到场景画布尺寸。
+function getContentBounds(
+  scene: SceneDocument,
+  rootNodes: SceneNode[],
+): ContentBounds {
+  if (rootNodes.length === 0) {
+    return {
+      width: scene.width,
+      height: scene.height,
+      centerX: scene.width / 2,
+      centerY: scene.height / 2,
+    }
+  }
+
+  const bounds = getSelectionBounds(
+    scene,
+    rootNodes.map((node) => node.id),
+  )
+
+  if (!bounds) {
+    return {
+      width: scene.width,
+      height: scene.height,
+      centerX: scene.width / 2,
+      centerY: scene.height / 2,
+    }
+  }
+
+  return {
+    width: Math.max(1, bounds.width),
+    height: Math.max(1, bounds.height),
+    centerX: bounds.centerX,
+    centerY: bounds.centerY,
+  }
+}
+
+// 计算当前视口在场景坐标系中可见的矩形区域。
+// 用于无限画板：背景与网格只覆盖可见区域，随平移/缩放动态延伸。
+function getVisibleSceneRect(
+  viewport: { width: number; height: number },
+  transform: ViewportTransform,
+) {
+  const { scale } = transform
+  const safeScale = scale === 0 ? 1 : scale
+  return {
+    left: -transform.x / safeScale,
+    top: -transform.y / safeScale,
+    width: viewport.width / safeScale,
+    height: viewport.height / safeScale,
+  }
+}
+
+// 生成覆盖 [start, start+extent] 区间的网格坐标（按 step 对齐）。
+function buildGridCoordinates(start: number, extent: number, step: number) {
+  const first = Math.floor(start / step) * step
+  const last = start + extent
+  const count = Math.ceil((last - first) / step) + 1
+  return Array.from({ length: count }, (_, index) => first + index * step)
+}
+
 export function SceneRenderer({
   scene,
   mode,
@@ -431,6 +493,7 @@ export function SceneRenderer({
   const [hoveredPort, setHoveredPort] = useState<HoveredPort | null>(null)
 
   const rootNodes = getRootNodes(scene)
+  const contentBounds = getContentBounds(scene, rootNodes)
   const selectedNodes = rootNodes.filter((node) =>
     selectedNodeIds.includes(node.id),
   )
@@ -463,10 +526,7 @@ export function SceneRenderer({
       if (!viewportInitializedRef.current) {
         viewportInitializedRef.current = true
         commitViewportTransform(
-          fitSceneToViewport(nextViewport, {
-            width: scene.width,
-            height: scene.height,
-          }),
+          fillContentToViewport(nextViewport, contentBounds),
         )
       }
     })
@@ -636,9 +696,7 @@ export function SceneRenderer({
   }
 
   function fitScene() {
-    commitViewportTransform(
-      fitSceneToViewport(viewport, { width: scene.width, height: scene.height }),
-    )
+    commitViewportTransform(fillContentToViewport(viewport, contentBounds))
   }
 
   function resetViewport() {
@@ -1812,17 +1870,13 @@ export function SceneRenderer({
       : PUMP_MIN_HEIGHT
 
   const gridSize = Math.max(4, snapSettings.gridSize)
+  const visibleRect = getVisibleSceneRect(viewport, viewportTransform)
+  // 网格无限延伸：覆盖视口可见的场景区域，而非固定画板边界。
   const verticalGridLines = gridVisible
-    ? Array.from(
-        { length: Math.ceil(scene.width / gridSize) + 1 },
-        (_, index) => index * gridSize,
-      )
+    ? buildGridCoordinates(visibleRect.left, visibleRect.width, gridSize)
     : []
   const horizontalGridLines = gridVisible
-    ? Array.from(
-        { length: Math.ceil(scene.height / gridSize) + 1 },
-        (_, index) => index * gridSize,
-      )
+    ? buildGridCoordinates(visibleRect.top, visibleRect.height, gridSize)
     : []
   const visualControlScale = 1 / viewportTransform.scale
   const darkBackground = isDarkBackground(scene.background)
@@ -1850,21 +1904,31 @@ export function SceneRenderer({
         width={viewport.width}
         height={viewport.height}
         onWheel={(event) => {
-          event.evt.preventDefault()
+          const evt = event.evt
+          evt.preventDefault()
           const stage = event.target.getStage()
-          const pointer = stage?.getPointerPosition()
+          const current = viewportTransformRef.current
 
-          if (!pointer) {
-            return
+          // Ctrl/Cmd + 滚轮 → 缩放；普通滚轮/触控板 → 平移
+          if (evt.ctrlKey || evt.metaKey) {
+            const pointer = stage?.getPointerPosition()
+
+            if (!pointer) {
+              return
+            }
+
+            const factor = evt.deltaY > 0
+              ? 1 / VIEWPORT_ZOOM_FACTOR
+              : VIEWPORT_ZOOM_FACTOR
+            zoomAtViewportPoint(pointer, current.scale * factor)
+          } else {
+            applyViewportTransform({
+              ...current,
+              x: current.x - evt.deltaX,
+              y: current.y - evt.deltaY,
+            })
+            setViewportTransform({ ...viewportTransformRef.current })
           }
-
-          const factor = event.evt.deltaY > 0
-            ? 1 / VIEWPORT_ZOOM_FACTOR
-            : VIEWPORT_ZOOM_FACTOR
-          zoomAtViewportPoint(
-            pointer,
-            viewportTransformRef.current.scale * factor,
-          )
         }}
         onMouseDown={(event) => {
           const stage = event.target.getStage()
@@ -1985,34 +2049,39 @@ export function SceneRenderer({
             scaleY={viewportTransform.scale}
           >
           <Rect
-            width={scene.width}
-            height={scene.height}
+            x={visibleRect.left}
+            y={visibleRect.top}
+            width={visibleRect.width}
+            height={visibleRect.height}
             fill={scene.background}
-            shadowColor="#0f172a"
-            shadowBlur={20 * visualControlScale}
-            shadowOpacity={0.2}
-            shadowOffsetY={5 * visualControlScale}
+            listening={false}
           />
 
-          {verticalGridLines.map((x, index) => (
-            <Line
-              key={`grid-x-${x}`}
-              points={[x, 0, x, scene.height]}
-              stroke={index % 5 === 0 ? majorGridStroke : minorGridStroke}
-              strokeWidth={(index % 5 === 0 ? 0.8 : 0.6) * visualControlScale}
-              perfectDrawEnabled={false}
-            />
-          ))}
+          {verticalGridLines.map((x) => {
+            const isMajor = Math.round(x / gridSize) % 5 === 0
+            return (
+              <Line
+                key={`grid-x-${x}`}
+                points={[x, visibleRect.top, x, visibleRect.top + visibleRect.height]}
+                stroke={isMajor ? majorGridStroke : minorGridStroke}
+                strokeWidth={(isMajor ? 0.8 : 0.6) * visualControlScale}
+                perfectDrawEnabled={false}
+              />
+            )
+          })}
 
-          {horizontalGridLines.map((y, index) => (
-            <Line
-              key={`grid-y-${y}`}
-              points={[0, y, scene.width, y]}
-              stroke={index % 5 === 0 ? majorGridStroke : minorGridStroke}
-              strokeWidth={(index % 5 === 0 ? 0.8 : 0.6) * visualControlScale}
-              perfectDrawEnabled={false}
-            />
-          ))}
+          {horizontalGridLines.map((y) => {
+            const isMajor = Math.round(y / gridSize) % 5 === 0
+            return (
+              <Line
+                key={`grid-y-${y}`}
+                points={[visibleRect.left, y, visibleRect.left + visibleRect.width, y]}
+                stroke={isMajor ? majorGridStroke : minorGridStroke}
+                strokeWidth={(isMajor ? 0.8 : 0.6) * visualControlScale}
+                perfectDrawEnabled={false}
+              />
+            )
+          })}
           </Group>
         </Layer>
 
@@ -2339,26 +2408,42 @@ export function SceneRenderer({
 
       <div className="canvas-status">
         <span className="canvas-status-group">
-          <span>
+          <span className="status-mode">
             {mode === 'preview'
               ? '预览'
               : connectionSessionRef.current
                 ? '连线'
                 : '选择'}
           </span>
+          <span className="status-selection">
+            {selectedConnectionId ? (
+              <>
+                <strong>{selectedConnection?.name ?? '连线'}</strong>
+                <code>{selectedConnection?.routing ?? 'connection'}</code>
+                <span className="status-hint">端点可重连</span>
+              </>
+            ) : selectedNodeIds.length > 1 ? (
+              <>
+                <strong>已选 {selectedNodeIds.length} 个对象</strong>
+              </>
+            ) : primaryNode ? (
+              <>
+                <strong>{primaryNode.name}</strong>
+                <code>{primaryNode.type}</code>
+                <span>
+                  {Math.round(primaryNode.transform.width)} ×{' '}
+                  {Math.round(primaryNode.transform.height)}
+                </span>
+                <span className="status-hint">
+                  @ {Math.round(primaryNode.transform.x)}, {Math.round(primaryNode.transform.y)}
+                  {isGroupNode(primaryNode) ? ' · 组合' : ''}
+                </span>
+              </>
+            ) : (
+              <span className="status-hint">未选择对象</span>
+            )}
+          </span>
           <span ref={pointerStatusRef} className="pointer-position">X —  Y —</span>
-          {selectedConnectionId ? (
-            <code>{selectedConnection?.routing ?? 'connection'} · 端点可重连</code>
-          ) : selectedNodeIds.length > 1 ? (
-            <code>{selectedNodeIds.length} 个对象</code>
-          ) : primaryNode ? (
-            <code>
-              {isGroupNode(primaryNode) ? '组合 · ' : ''}
-              {Math.round(primaryNode.transform.width)} ×{' '}
-              {Math.round(primaryNode.transform.height)} /{' '}
-              {Math.round(primaryNode.transform.rotation)}°
-            </code>
-          ) : null}
         </span>
         <span className="canvas-status-group scene-status-summary">
           <span className="zoom-status">{Math.round(viewportTransform.scale * 100)}%</span>
