@@ -495,11 +495,22 @@ export function SceneRenderer({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || isEditableTarget(event.target)) {
+      if (event.code !== 'Space') {
         return
       }
 
-      event.preventDefault()
+      // Native selects keep focus after choosing a value and would otherwise
+      // consume Space to reopen their popup. In the editor, Space is the
+      // viewport-pan shortcut, so release select focus and let panning win.
+      if (event.target instanceof HTMLSelectElement) {
+        event.preventDefault()
+        event.target.blur()
+      } else if (isEditableTarget(event.target)) {
+        return
+      } else {
+        event.preventDefault()
+      }
+
       spacePressedRef.current = true
       setStageCursor('grab')
     }
