@@ -3,48 +3,80 @@ import {
   getRootNodes,
   type TransformUpdates,
 } from './geometry'
-import type { SceneDocument } from './model'
+import type { NodeTransform, SceneDocument, SceneNode } from './model'
 
-export const SCENE_EXPANSION_PADDING = 48
-export const SCENE_EXPANSION_STEP = 128
+const BOUNDS_EPSILON = 0.001
 
-function expandDimension(current: number, required: number) {
-  if (required <= current) {
-    return current
-  }
-
-  return Math.ceil(required / SCENE_EXPANSION_STEP) * SCENE_EXPANSION_STEP
-}
-
-export function expandSceneToContainNodes(
+function constrainNodeTransform(
   scene: SceneDocument,
-): SceneDocument {
-  const rootNodes = getRootNodes(scene)
+  node: SceneNode,
+  transform: NodeTransform,
+  overrides: TransformUpdates,
+): NodeTransform {
+  const previewOverrides = {
+    ...overrides,
+    [node.id]: transform,
+  }
+  const bounds = getNodeBounds(scene, node, previewOverrides)
 
-  if (rootNodes.length === 0) {
-    return scene
+  // Do not silently resize a component just to make an invalid transform fit.
+  // If its rotated bounds are larger than the artboard, reject that transform.
+  if (
+    bounds.width > scene.width + BOUNDS_EPSILON ||
+    bounds.height > scene.height + BOUNDS_EPSILON
+  ) {
+    return node.transform
   }
 
-  const bounds = rootNodes.map((node) => getNodeBounds(scene, node))
-  const requiredWidth =
-    Math.max(...bounds.map((item) => item.right)) + SCENE_EXPANSION_PADDING
-  const requiredHeight =
-    Math.max(...bounds.map((item) => item.bottom)) + SCENE_EXPANSION_PADDING
-  const width = expandDimension(scene.width, requiredWidth)
-  const height = expandDimension(scene.height, requiredHeight)
+  const shiftX =
+    bounds.left < 0
+      ? -bounds.left
+      : bounds.right > scene.width
+        ? scene.width - bounds.right
+        : 0
+  const shiftY =
+    bounds.top < 0
+      ? -bounds.top
+      : bounds.bottom > scene.height
+        ? scene.height - bounds.bottom
+        : 0
 
-  if (width === scene.width && height === scene.height) {
-    return scene
+  if (Math.abs(shiftX) <= BOUNDS_EPSILON && Math.abs(shiftY) <= BOUNDS_EPSILON) {
+    return transform
   }
 
   return {
-    ...scene,
-    width,
-    height,
+    ...transform,
+    x: transform.x + shiftX,
+    y: transform.y + shiftY,
   }
 }
 
-export function applyTransformsAndExpandScene(
+export function constrainTransformUpdates(
+  scene: SceneDocument,
+  updates: TransformUpdates,
+): TransformUpdates {
+  const constrained: TransformUpdates = { ...updates }
+
+  for (const node of getRootNodes(scene)) {
+    const proposed = constrained[node.id]
+
+    if (!proposed) {
+      continue
+    }
+
+    constrained[node.id] = constrainNodeTransform(
+      scene,
+      node,
+      proposed,
+      constrained,
+    )
+  }
+
+  return constrained
+}
+
+export function applyTransformsWithinScene(
   scene: SceneDocument,
   updates: TransformUpdates,
 ): SceneDocument {
@@ -52,12 +84,24 @@ export function applyTransformsAndExpandScene(
     return scene
   }
 
-  return expandSceneToContainNodes({
+  const constrained = constrainTransformUpdates(scene, updates)
+
+  return {
     ...scene,
     nodes: scene.nodes.map((node) =>
-      updates[node.id]
-        ? { ...node, transform: updates[node.id] }
+      constrained[node.id]
+        ? { ...node, transform: constrained[node.id] }
         : node,
     ),
-  })
+  }
+}
+
+export function constrainSceneNodesToArtboard(
+  scene: SceneDocument,
+): SceneDocument {
+  const updates: TransformUpdates = Object.fromEntries(
+    getRootNodes(scene).map((node) => [node.id, node.transform]),
+  )
+
+  return applyTransformsWithinScene(scene, updates)
 }

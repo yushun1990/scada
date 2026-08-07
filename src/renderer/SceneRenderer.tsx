@@ -374,40 +374,13 @@ function getPreviewTransform(node: SceneNode, group: Konva.Group) {
   }
 }
 
-// 计算所有根节点内容的包围盒，用于「填满容器」视口计算。
-// 无节点时回退到场景画布尺寸。
-function getContentBounds(
-  scene: SceneDocument,
-  rootNodes: SceneNode[],
-): ContentBounds {
-  if (rootNodes.length === 0) {
-    return {
-      width: scene.width,
-      height: scene.height,
-      centerX: scene.width / 2,
-      centerY: scene.height / 2,
-    }
-  }
-
-  const bounds = getSelectionBounds(
-    scene,
-    rootNodes.map((node) => node.id),
-  )
-
-  if (!bounds) {
-    return {
-      width: scene.width,
-      height: scene.height,
-      centerX: scene.width / 2,
-      centerY: scene.height / 2,
-    }
-  }
-
+// 「适应」始终以固定画板为基准，而不是以组件内容包围盒为基准。
+function getContentBounds(scene: SceneDocument): ContentBounds {
   return {
-    width: Math.max(1, bounds.width),
-    height: Math.max(1, bounds.height),
-    centerX: bounds.centerX,
-    centerY: bounds.centerY,
+    width: scene.width,
+    height: scene.height,
+    centerX: scene.width / 2,
+    centerY: scene.height / 2,
   }
 }
 
@@ -493,7 +466,7 @@ export function SceneRenderer({
   const [hoveredPort, setHoveredPort] = useState<HoveredPort | null>(null)
 
   const rootNodes = getRootNodes(scene)
-  const contentBounds = getContentBounds(scene, rootNodes)
+  const contentBounds = getContentBounds(scene)
   const selectedNodes = rootNodes.filter((node) =>
     selectedNodeIds.includes(node.id),
   )
@@ -1096,6 +1069,19 @@ export function SceneRenderer({
       rawDelta,
       { ...snapSettings, threshold: snapSettings.threshold / viewportTransformRef.current.scale },
     )
+    const boundedDelta = {
+      x: Math.min(
+        scene.width - session.initialBounds.right,
+        Math.max(-session.initialBounds.left, snapResult.delta.x),
+      ),
+      y: Math.min(
+        scene.height - session.initialBounds.bottom,
+        Math.max(-session.initialBounds.top, snapResult.delta.y),
+      ),
+    }
+    const hitArtboardBoundary =
+      boundedDelta.x !== snapResult.delta.x ||
+      boundedDelta.y !== snapResult.delta.y
     const updates: TransformUpdates = {}
 
     for (const nodeId of session.nodeIds) {
@@ -1107,12 +1093,12 @@ export function SceneRenderer({
 
       updates[nodeId] = {
         ...transform,
-        x: transform.x + snapResult.delta.x,
-        y: transform.y + snapResult.delta.y,
+        x: transform.x + boundedDelta.x,
+        y: transform.y + boundedDelta.y,
       }
     }
 
-    applyPreview(updates, snapResult.guides, session.affectedNodeIds)
+    applyPreview(updates, hitArtboardBoundary ? [] : snapResult.guides, session.affectedNodeIds)
   }
 
   function scheduleDragMove(target: Konva.Node) {
@@ -1871,12 +1857,12 @@ export function SceneRenderer({
 
   const gridSize = Math.max(4, snapSettings.gridSize)
   const visibleRect = getVisibleSceneRect(viewport, viewportTransform)
-  // 网格无限延伸：覆盖视口可见的场景区域，而非固定画板边界。
+  // 工作区可以无限平移，但网格只属于固定画板。
   const verticalGridLines = gridVisible
-    ? buildGridCoordinates(visibleRect.left, visibleRect.width, gridSize)
+    ? buildGridCoordinates(0, scene.width, gridSize)
     : []
   const horizontalGridLines = gridVisible
-    ? buildGridCoordinates(visibleRect.top, visibleRect.height, gridSize)
+    ? buildGridCoordinates(0, scene.height, gridSize)
     : []
   const visualControlScale = 1 / viewportTransform.scale
   const darkBackground = isDarkBackground(scene.background)
@@ -2053,7 +2039,19 @@ export function SceneRenderer({
             y={visibleRect.top}
             width={visibleRect.width}
             height={visibleRect.height}
+            fill="#d9dee5"
+            listening={false}
+          />
+          <Rect
+            x={0}
+            y={0}
+            width={scene.width}
+            height={scene.height}
             fill={scene.background}
+            shadowColor="rgba(15, 23, 42, 0.28)"
+            shadowBlur={18 * visualControlScale}
+            shadowOffsetX={0}
+            shadowOffsetY={5 * visualControlScale}
             listening={false}
           />
 
@@ -2062,7 +2060,7 @@ export function SceneRenderer({
             return (
               <Line
                 key={`grid-x-${x}`}
-                points={[x, visibleRect.top, x, visibleRect.top + visibleRect.height]}
+                points={[x, 0, x, scene.height]}
                 stroke={isMajor ? majorGridStroke : minorGridStroke}
                 strokeWidth={(isMajor ? 0.8 : 0.6) * visualControlScale}
                 perfectDrawEnabled={false}
@@ -2075,7 +2073,7 @@ export function SceneRenderer({
             return (
               <Line
                 key={`grid-y-${y}`}
-                points={[visibleRect.left, y, visibleRect.left + visibleRect.width, y]}
+                points={[0, y, scene.width, y]}
                 stroke={isMajor ? majorGridStroke : minorGridStroke}
                 strokeWidth={(isMajor ? 0.8 : 0.6) * visualControlScale}
                 perfectDrawEnabled={false}
@@ -2167,6 +2165,23 @@ export function SceneRenderer({
               if (
                 Math.abs(newBox.width) < minimumTransformWidth ||
                 Math.abs(newBox.height) < minimumTransformHeight
+              ) {
+                return oldBox
+              }
+
+              const currentViewport = viewportTransformRef.current
+              const sceneLeft =
+                (newBox.x - currentViewport.x) / currentViewport.scale
+              const sceneTop =
+                (newBox.y - currentViewport.y) / currentViewport.scale
+              const sceneWidth = newBox.width / currentViewport.scale
+              const sceneHeight = newBox.height / currentViewport.scale
+
+              if (
+                sceneLeft < 0 ||
+                sceneTop < 0 ||
+                sceneLeft + sceneWidth > scene.width ||
+                sceneTop + sceneHeight > scene.height
               ) {
                 return oldBox
               }
