@@ -1,27 +1,23 @@
-import type { PumpState } from '../assets/pump'
+import type {
+  ComponentDefinition,
+  ComponentProps,
+  ComponentScalarValue,
+} from '../component-system/definition'
+import { builtInComponentRegistry } from '../component-system/builtins'
 import { getAnchorDefinition } from '../components/anchors'
 import {
   GROUP_NODE_TYPE,
-  PUMP_NODE_TYPE,
   SCENE_VERSION,
   isGroupNode,
+  type ComponentSceneNode,
   type ConnectionEndpoint,
   type ConnectionRouting,
   type GroupSceneNode,
   type NodeTransform,
-  type PumpSceneNode,
   type SceneConnection,
   type SceneDocument,
   type SceneNode,
 } from './model'
-
-const pumpStates = new Set<PumpState>([
-  'gray',
-  'green',
-  'blue',
-  'orange',
-  'red',
-])
 
 const LEGACY_DEFAULT_BACKGROUND = '#0b1119'
 const DEFAULT_EDITOR_BACKGROUND = '#edf1f5'
@@ -58,10 +54,6 @@ function parseTransform(value: unknown): NodeTransform | null {
     height: value.height,
     rotation: value.rotation,
   }
-}
-
-function isPumpState(value: unknown): value is PumpState {
-  return typeof value === 'string' && pumpStates.has(value as PumpState)
 }
 
 function isConnectionRouting(value: unknown): value is ConnectionRouting {
@@ -101,6 +93,54 @@ function parseBaseNode(value: Record<string, unknown>, version: number) {
   }
 }
 
+function isComponentPropertyValue(
+  definition: ComponentDefinition['properties'][string],
+  value: unknown,
+): value is ComponentScalarValue {
+  if (value === null) {
+    return definition.defaultValue === null
+  }
+
+  if (definition.kind === 'number') {
+    return isFiniteNumber(value)
+  }
+
+  if (definition.kind === 'boolean') {
+    return typeof value === 'boolean'
+  }
+
+  if (definition.kind === 'select') {
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      return false
+    }
+
+    return definition.options?.length
+      ? definition.options.some((option) => option.value === value)
+      : true
+  }
+
+  return typeof value === 'string'
+}
+
+function parseComponentProps(
+  definition: ComponentDefinition,
+  value: Record<string, unknown>,
+): ComponentProps | null {
+  const props: ComponentProps = {}
+
+  for (const [key, property] of Object.entries(definition.properties)) {
+    const candidate = key in value ? value[key] : property.defaultValue
+
+    if (!isComponentPropertyValue(property, candidate)) {
+      return null
+    }
+
+    props[key] = candidate
+  }
+
+  return props
+}
+
 function parseSceneNode(value: unknown, version: number): SceneNode | null {
   if (!isRecord(value)) {
     return null
@@ -110,16 +150,6 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
 
   if (!base || !isRecord(value.props)) {
     return null
-  }
-
-  if (value.type === PUMP_NODE_TYPE && isPumpState(value.props.state)) {
-    return {
-      ...base,
-      type: PUMP_NODE_TYPE,
-      props: {
-        state: value.props.state,
-      },
-    } satisfies PumpSceneNode
   }
 
   if (
@@ -140,7 +170,27 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
     } satisfies GroupSceneNode
   }
 
-  return null
+  if (typeof value.type !== 'string') {
+    return null
+  }
+
+  const registration = builtInComponentRegistry.get(value.type)
+
+  if (!registration) {
+    return null
+  }
+
+  const props = parseComponentProps(registration.definition, value.props)
+
+  if (!props) {
+    return null
+  }
+
+  return {
+    ...base,
+    type: registration.definition.type,
+    props,
+  } satisfies ComponentSceneNode
 }
 
 function migrateLegacyPortId(portId: string) {
