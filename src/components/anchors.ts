@@ -6,6 +6,7 @@ import {
   type SceneNode,
 } from '../scene/model'
 import { getWorldTransform, type TransformUpdates } from '../scene/geometry'
+import { withLiveTransformOverrides } from '../scene/live-preview'
 
 export type VisualAnchorRole = 'neutral' | 'source' | 'target' | 'both'
 
@@ -88,7 +89,11 @@ export function getAnchorWorldPosition(
   }
 
   const anchorDefinition = getAnchorDefinition(node, endpoint.anchorId)
-  const transform = getWorldTransform(scene, node.id, overrides)
+  const transform = getWorldTransform(
+    scene,
+    node.id,
+    withLiveTransformOverrides(overrides),
+  )
 
   if (!anchorDefinition || !transform) {
     return null
@@ -109,7 +114,11 @@ export function getAnchorWorldDirection(
   }
 
   const anchorDefinition = getAnchorDefinition(node, endpoint.anchorId)
-  const transform = getWorldTransform(scene, node.id, overrides)
+  const transform = getWorldTransform(
+    scene,
+    node.id,
+    withLiveTransformOverrides(overrides),
+  )
 
   if (!anchorDefinition || !transform) {
     return null
