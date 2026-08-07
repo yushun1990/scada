@@ -1063,6 +1063,54 @@ export function SceneRenderer({
     onSelectionChange(nextSelection)
   }
 
+  function resolveNodeDragPosition(nodeId: string, position: Point) {
+    const activeSession =
+      dragSessionRef.current?.nodeId === nodeId
+        ? dragSessionRef.current
+        : null
+    const node = rootNodes.find((candidate) => candidate.id === nodeId)
+    const draggedTransform =
+      activeSession?.initialTransforms[nodeId] ?? node?.transform
+    const nodeIds = activeSession?.nodeIds ?? (node ? [node.id] : [])
+    const initialBounds =
+      activeSession?.initialBounds ??
+      (nodeIds.length > 0 ? getSelectionBounds(scene, nodeIds) : null)
+
+    if (!draggedTransform || !initialBounds || nodeIds.length === 0) {
+      return position
+    }
+
+    const rawDelta = {
+      x: position.x - draggedTransform.x,
+      y: position.y - draggedTransform.y,
+    }
+    const snapResult = computeSnap(
+      scene,
+      nodeIds,
+      initialBounds,
+      rawDelta,
+      {
+        ...snapSettings,
+        threshold: snapSettings.threshold / viewportTransformRef.current.scale,
+      },
+    )
+    const boundedDelta = {
+      x: Math.min(
+        scene.width - initialBounds.right,
+        Math.max(-initialBounds.left, snapResult.delta.x),
+      ),
+      y: Math.min(
+        scene.height - initialBounds.bottom,
+        Math.max(-initialBounds.top, snapResult.delta.y),
+      ),
+    }
+
+    return {
+      x: draggedTransform.x + boundedDelta.x,
+      y: draggedTransform.y + boundedDelta.y,
+    }
+  }
+
   function handleDragStart(target: Konva.Node) {
     if (mode !== 'editor') {
       return
@@ -1176,9 +1224,9 @@ export function SceneRenderer({
   }
 
   function scheduleDragMove(target: Konva.Node) {
-    // Konva changes the draggable node before onDragMove. Resolve snapping and
-    // artboard bounds immediately in the same event. Delaying node correction
-    // to requestAnimationFrame creates two competing positions and visible flicker.
+    // dragBoundFunc has already resolved snapping and artboard bounds before
+    // Konva applies this position. DragMove only mirrors that authoritative
+    // transform to the rest of the selection, ports, routes and guides.
     processDragMove(target)
   }
 
@@ -2251,6 +2299,7 @@ export function SceneRenderer({
                 transform={node.transform}
                 editorMode={mode === 'editor'}
                 selectable
+                resolveDragPosition={resolveNodeDragPosition}
               />
             ))}
 
