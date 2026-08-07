@@ -31,7 +31,11 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
+
+          def remove_between(text: str, start_marker: str, end_marker: str) -> str:
+              start = text.index(start_marker)
+              end = text.index(end_marker, start)
+              return text[:start] + text[end:]
 
           app_path = Path('src/App.tsx')
           app = app_path.read_text()
@@ -39,57 +43,38 @@ jobs:
           app = app.replace("import type { PumpState } from './assets/pump'\n", '')
           app = app.replace('  collectSubtreeIds,\n', '')
           app = app.replace('  type PumpSceneNode,\n', '')
-
-          app, count = re.subn(
-              r"const pumpStates: Array<\{.*?\n\]\n\n(?=const alignButtons)",
-              '',
-              app,
-              count=1,
-              flags=re.S,
-          )
-          assert count == 1, 'pumpStates block not found'
-
-          app, count = re.subn(
-              r"  const selectedSubtreeIds = collectSubtreeIds\(scene, selectedNodeIds\)\n.*?  const selectedGroupCount = selectedNodes\.filter\(isGroupNode\)\.length\n\n",
-              '',
-              app,
-              count=1,
-              flags=re.S,
-          )
-          assert count == 1, 'selected pump block not found'
-
-          app, count = re.subn(
-              r"  function setSelectedPumpState\(state: PumpState\) \{.*?\n  \}\n\n(?=  function updateSelectedBaseProperty)",
-              '',
-              app,
-              count=1,
-              flags=re.S,
-          )
-          assert count == 1, 'pump state handler not found'
-
-          app, count = re.subn(
-              r"  function restoreScene\(\) \{.*?\n  \}\n\n(?=  function exportScene)",
-              '',
-              app,
-              count=1,
-              flags=re.S,
-          )
-          assert count == 1, 'restoreScene handler not found'
+          app = remove_between(app, 'const pumpStates:', 'const alignButtons')
+          app = remove_between(app, '  const selectedSubtreeIds =', '  const canGroup =')
+          app = remove_between(app, '  function setSelectedPumpState', '  function updateSelectedBaseProperty')
+          app = remove_between(app, '  function restoreScene', '  function exportScene')
 
           old_restore_button = '            <button type="button" onClick={restoreScene}>恢复</button>\n'
           assert old_restore_button in app, 'restore button not found'
           app = app.replace(old_restore_button, '', 1)
 
-          app, count = re.subn(
-              r"\n\s+\{selectedPumpNodes\.length > 0 && \(\n.*?\n\s+\)\}\n",
-              '\n',
-              app,
-              count=2,
-              flags=re.S,
-          )
-          assert count == 2, f'expected 2 pump inspector blocks, removed {count}'
+          lines = app.splitlines(keepends=True)
+          cleaned_lines = []
+          removing_pump_inspector = False
+          removed_blocks = 0
 
-          for stale in ('pumpStates', 'selectedPumpNodes', 'setSelectedPumpState', 'PumpState', 'PumpSceneNode', 'restoreScene'):
+          for line in lines:
+              if not removing_pump_inspector and '{selectedPumpNodes.length > 0 && (' in line:
+                  removing_pump_inspector = True
+                  removed_blocks += 1
+                  continue
+
+              if removing_pump_inspector:
+                  if line.strip() == ')}':
+                      removing_pump_inspector = False
+                  continue
+
+              cleaned_lines.append(line)
+
+          assert not removing_pump_inspector, 'unterminated pump inspector block'
+          assert removed_blocks == 2, f'expected 2 pump inspector blocks, removed {removed_blocks}'
+          app = ''.join(cleaned_lines)
+
+          for stale in ('pumpStates', 'selectedPumpNodes', 'setSelectedPumpState', 'PumpState', 'PumpSceneNode', 'restoreScene', 'selectedGroupCount'):
               assert stale not in app, f'stale App.tsx symbol remains: {stale}'
 
           app_path.write_text(app)
@@ -109,15 +94,7 @@ jobs:
               '.component-item small,\n.state-button small {\n',
               '.component-item small {\n',
           )
-
-          styles, count = re.subn(
-              r"\n\.state-list \{.*?\n\.state-swatch \{.*?\n\}\n",
-              '\n',
-              styles,
-              count=1,
-              flags=re.S,
-          )
-          assert count == 1, 'state control CSS block not found'
+          styles = remove_between(styles, '\n.state-list {', '\n.property-summary {')
 
           mobile_state = "\n  .state-list {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }"
           assert mobile_state in styles, 'mobile state-list CSS not found'
@@ -140,8 +117,9 @@ jobs:
         shell: bash
         run: |
           rm .github/workflows/apply-cleanup.yml
+          rm -f .cleanup-pr-marker .cleanup-pr-marker-2
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add src/App.tsx src/styles.css .github/workflows/apply-cleanup.yml
+          git add -A
           git commit -m "cleanup: remove restore action and stale pump demo UI"
           git push origin HEAD:cleanup/remove-restore-and-pump-demo
