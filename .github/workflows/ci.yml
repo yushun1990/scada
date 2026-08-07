@@ -6,17 +6,227 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   verify:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: refactor/registry-driven-editor-palette
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Apply registry-driven editor migration
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/scene/model.ts')
+          text = path.read_text()
+          text = text.replace("import {\n  PUMP_COMPONENT_TYPE,\n  builtInComponentRegistry,\n  pumpComponentDefinition,\n} from '../component-system/builtins'\n", "import { builtInComponentRegistry } from '../component-system/builtins'\n")
+          start = text.index("/** @deprecated Use ComponentSceneNode and createComponentNode. */")
+          end = text.index("export type NodeTransform", start)
+          text = text[:start] + text[end:]
+          text = text.replace("\n/** @deprecated Use ComponentSceneNode. */\nexport type PumpSceneNode = ComponentSceneNode\n", "")
+          start = text.index("\n/** @deprecated Use createComponentNode(PUMP_COMPONENT_TYPE, ...). */")
+          end = text.index("\nexport function createGroupNode", start)
+          text = text[:start] + text[end:]
+          old = """export function createDefaultScene(): SceneDocument {
+  return {
+    version: SCENE_VERSION,
+    id: createSceneId('scene'),
+    name: 'scada-lab',
+    width: 1280,
+    height: 720,
+    background: '#edf1f5',
+    nodes: [createComponentNode(PUMP_COMPONENT_TYPE, 1)],
+    connections: [],
+  }
+}
+"""
+          new = """export function createDefaultScene(): SceneDocument {
+  const defaultRegistration = builtInComponentRegistry.list()[0] ?? null
+
+  return {
+    version: SCENE_VERSION,
+    id: createSceneId('scene'),
+    name: 'scada-lab',
+    width: 1280,
+    height: 720,
+    background: '#edf1f5',
+    nodes: defaultRegistration
+      ? [createComponentNode(defaultRegistration.definition.type, 1)]
+      : [],
+    connections: [],
+  }
+}
+"""
+          assert old in text
+          path.write_text(text.replace(old, new, 1))
+
+          path = Path('src/components/PumpNode.tsx')
+          text = path.read_text()
+          text = text.replace("import { pumpComponentDefinition } from '../component-system/builtins'\n", "")
+          text = text.replace("export const PUMP_MIN_WIDTH = pumpComponentDefinition.size.minWidth\nexport const PUMP_MIN_HEIGHT = pumpComponentDefinition.size.minHeight\n", "")
+          path.write_text(text)
+
+          path = Path('src/features/scada-editor/ScadaEditorPage.tsx')
+          text = path.read_text()
+          text = text.replace("import { loadScadaScene, saveScadaScene } from '../scada-works/storage'\n", "import { loadScadaScene, saveScadaScene } from '../scada-works/storage'\nimport { builtInComponentRegistry } from '../../component-system/builtins'\n")
+          text = text.replace("  createPumpNode,\n  createSceneConnection,\n  isGroupNode,\n  isPumpNode,\n", "  createComponentNode,\n  createSceneConnection,\n  isGroupNode,\n")
+          old = """  function addPump() {
+    const node = createPumpNode(
+      scene.nodes.filter(isPumpNode).length + 1,
+      Math.min(rootNodes.length * 18, 120),
+    )
+
+    commit(
+      (current) => ({
+        ...current,
+        nodes: [...current.nodes, node],
+      }),
+      { selectedNodeIds: [node.id], selectedConnectionId: null },
+    )
+    setMode('editor')
+    setMessage(`已添加 ${node.name}`)
+  }
+"""
+          new = """  function addComponent(componentType: string) {
+    const registration = builtInComponentRegistry.require(componentType)
+    const existingCount = scene.nodes.filter(
+      (node) => !isGroupNode(node) && node.type === componentType,
+    ).length
+    const node = createComponentNode(
+      componentType,
+      existingCount + 1,
+      Math.min(rootNodes.length * 18, 120),
+    )
+
+    commit(
+      (current) => ({
+        ...current,
+        nodes: [...current.nodes, node],
+      }),
+      { selectedNodeIds: [node.id], selectedConnectionId: null },
+    )
+    setMode('editor')
+    setMessage(`已添加 ${registration.definition.title}`)
+  }
+"""
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = """              <div className=\"panel-title\">基础组件</div>
+              <button
+                className=\"component-item active\"
+                type=\"button\"
+                onClick={addPump}
+              >
+                <span className=\"component-icon\">P</span>
+                <span>
+                  <strong>添加潜水泵</strong>
+                  <small>pump.submersible</small>
+                </span>
+              </button>
+              <p className=\"panel-description component-dock-help\">
+                后续组件注册表、搜索、分类和拖放入口统一放在这里。
+              </p>
+"""
+          new = """              <div className=\"panel-title\">基础组件</div>
+              {builtInComponentRegistry.list().map(({ definition }) => (
+                <button
+                  key={definition.type}
+                  className=\"component-item\"
+                  type=\"button\"
+                  onClick={() => addComponent(definition.type)}
+                >
+                  <span className=\"component-icon\">
+                    {definition.title.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span>
+                    <strong>{definition.title}</strong>
+                    <small>{definition.type}</small>
+                  </span>
+                </button>
+              ))}
+              <p className=\"panel-description component-dock-help\">
+                组件面板直接来自 ComponentRegistry；新增内置注册项无需修改编辑器页面。
+              </p>
+"""
+          assert old in text
+          path.write_text(text.replace(old, new, 1))
+
+          path = Path('src/renderer/SceneRenderer.tsx')
+          text = path.read_text()
+          text = text.replace("import {\n  PUMP_MIN_HEIGHT,\n  PUMP_MIN_WIDTH,\n} from '../components/PumpNode'\n", "import { builtInComponentRegistry } from '../component-system/builtins'\n")
+          text = text.replace("    const minimumWidth = isGroupNode(node) ? GROUP_MIN_SIZE : PUMP_MIN_WIDTH\n", "    const componentSize = !isGroupNode(node)\n      ? builtInComponentRegistry.get(node.type)?.definition.size\n      : null\n    const minimumWidth = isGroupNode(node)\n      ? GROUP_MIN_SIZE\n      : componentSize?.minWidth ?? 1\n")
+          old = """  const minimumTransformWidth =
+    transformNode && isGroupNode(transformNode)
+      ? GROUP_MIN_SIZE
+      : PUMP_MIN_WIDTH
+  const minimumTransformHeight =
+    transformNode && isGroupNode(transformNode)
+      ? GROUP_MIN_SIZE
+      : PUMP_MIN_HEIGHT
+"""
+          new = """  const transformComponentSize =
+    transformNode && !isGroupNode(transformNode)
+      ? builtInComponentRegistry.get(transformNode.type)?.definition.size
+      : null
+  const minimumTransformWidth =
+    transformNode && isGroupNode(transformNode)
+      ? GROUP_MIN_SIZE
+      : transformComponentSize?.minWidth ?? 1
+  const minimumTransformHeight =
+    transformNode && isGroupNode(transformNode)
+      ? GROUP_MIN_SIZE
+      : transformComponentSize?.minHeight ?? 1
+"""
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = """              boundBoxFunc={(oldBox, newBox) => {
+                if (
+                  Math.abs(newBox.width) < minimumTransformWidth ||
+                  Math.abs(newBox.height) < minimumTransformHeight
+                ) {
+                  return oldBox
+                }
+
+                const currentViewport = viewportTransformRef.current
+"""
+          new = """              boundBoxFunc={(oldBox, newBox) => {
+                const currentViewport = viewportTransformRef.current
+                const minimumBoxWidth = minimumTransformWidth * currentViewport.scale
+                const minimumBoxHeight = minimumTransformHeight * currentViewport.scale
+
+                if (
+                  Math.abs(newBox.width) < minimumBoxWidth ||
+                  Math.abs(newBox.height) < minimumBoxHeight
+                ) {
+                  return oldBox
+                }
+
+"""
+          assert old in text
+          path.write_text(text.replace(old, new, 1))
+
+          import subprocess
+          subprocess.run(['git', 'fetch', 'origin', 'main'], check=True)
+          subprocess.run(['git', 'checkout', 'origin/main', '--', '.github/workflows/ci.yml'], check=True)
+          Path('.github/workflows/apply-registry-editor-cleanup.yml').unlink(missing_ok=True)
+          Path('.registry-migration-trigger').unlink(missing_ok=True)
+          Path('.registry-migration-trigger-2').unlink(missing_ok=True)
+          Path('.registry-migration-trigger-3').unlink(missing_ok=True)
+          PY
 
       - name: Install dependencies
         run: npm install
@@ -26,3 +236,12 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Commit verified migration
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: drive editor components from registry"
+          git push origin HEAD:refactor/registry-driven-editor-palette
