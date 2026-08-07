@@ -686,71 +686,72 @@ export function SceneRenderer({
   }
 
   function beginPan(nativeEvent: Event) {
-  const mouseEvent = nativeEvent as MouseEvent
+    const mouseEvent = nativeEvent as MouseEvent
 
-  if (panSessionRef.current) {
+    if (panSessionRef.current) {
+      finishPan()
+    }
+
+    nativeEvent.preventDefault()
+    cancelPointerInteraction()
+    cancelReconnectSession()
+    panSessionRef.current = {
+      startClientPointer: {
+        x: mouseEvent.clientX,
+        y: mouseEvent.clientY,
+      },
+      startTransform: { ...viewportTransformRef.current },
+    }
+    window.addEventListener('mousemove', handleWindowPanMove)
+    window.addEventListener('mouseup', handleWindowPanEnd)
+    window.addEventListener('blur', handleWindowPanEnd)
+    setStageCursor('grabbing')
+    return true
+  }
+
+  function updatePan(clientPointer: Point) {
+    const session = panSessionRef.current
+
+    if (!session) {
+      return false
+    }
+
+    applyViewportTransform({
+      ...session.startTransform,
+      x:
+        session.startTransform.x +
+        clientPointer.x -
+        session.startClientPointer.x,
+      y:
+        session.startTransform.y +
+        clientPointer.y -
+        session.startClientPointer.y,
+    })
+    return true
+  }
+
+  function handleWindowPanMove(event: MouseEvent) {
+    updatePan({ x: event.clientX, y: event.clientY })
+  }
+
+  function handleWindowPanEnd() {
     finishPan()
   }
 
-  nativeEvent.preventDefault()
-  cancelPointerInteraction()
-  cancelReconnectSession()
-  panSessionRef.current = {
-    startClientPointer: {
-      x: mouseEvent.clientX,
-      y: mouseEvent.clientY,
-    },
-    startTransform: { ...viewportTransformRef.current },
-  }
-  window.addEventListener('mousemove', handleWindowPanMove)
-  window.addEventListener('mouseup', handleWindowPanEnd)
-  window.addEventListener('blur', handleWindowPanEnd)
-  setStageCursor('grabbing')
-  return true
-}
+  function finishPan() {
+    if (!panSessionRef.current) {
+      return false
+    }
 
-function updatePan(clientPointer: Point) {
-  const session = panSessionRef.current
-
-  if (!session) {
-    return false
+    panSessionRef.current = null
+    window.removeEventListener('mousemove', handleWindowPanMove)
+    window.removeEventListener('mouseup', handleWindowPanEnd)
+    window.removeEventListener('blur', handleWindowPanEnd)
+    setViewportTransform({ ...viewportTransformRef.current })
+    setStageCursor(spacePressedRef.current ? 'grab' : 'default')
+    return true
   }
 
-  applyViewportTransform({
-    ...session.startTransform,
-    x:
-      session.startTransform.x +
-      clientPointer.x -
-      session.startClientPointer.x,
-    y:
-      session.startTransform.y +
-      clientPointer.y -
-      session.startClientPointer.y,
-  })
-  return true
-}
-
-function handleWindowPanMove(event: MouseEvent) {
-  updatePan({ x: event.clientX, y: event.clientY })
-}
-
-function handleWindowPanEnd() {
-  finishPan()
-}
-
-function finishPan() {
-  if (!panSessionRef.current) {
-    return false
-  }
-
-  panSessionRef.current = null
-  window.removeEventListener('mousemove', handleWindowPanMove)
-  window.removeEventListener('mouseup', handleWindowPanEnd)
-  window.removeEventListener('blur', handleWindowPanEnd)
-  setViewportTransform({ ...viewportTransformRef.current })
-  setStageCursor(spacePressedRef.current ? 'grab' : 'default')
-  return true
-}
   function setStageCursor(cursor: string) {
     const stage = dynamicLayerRef.current?.getStage()
 
@@ -1107,11 +1108,12 @@ function finishPan() {
   }
 
   function scheduleDragMove(target: Konva.Node) {
-  // Konva changes the draggable node before onDragMove. Resolve snapping and
-  // artboard bounds immediately in the same event. Delaying node correction
-  // to requestAnimationFrame creates two competing positions and visible flicker.
-  processDragMove(target)
-}
+    // Konva changes the draggable node before onDragMove. Resolve snapping and
+    // artboard bounds immediately in the same event. Delaying node correction
+    // to requestAnimationFrame creates two competing positions and visible flicker.
+    processDragMove(target)
+  }
+
   function cancelScheduledDrag() {
     if (dragFrameRef.current !== null) {
       cancelAnimationFrame(dragFrameRef.current)
@@ -1995,16 +1997,16 @@ function finishPan() {
           }
         }}
         onMouseLeave={() => {
-  if (pointerStatusRef.current) {
-    pointerStatusRef.current.textContent = 'X —  Y —'
-  }
-  if (!panSessionRef.current) {
-    setStageCursor('default')
-  }
-  setHoveredPort(null)
-  cancelReconnectSession()
-  cancelPointerInteraction()
-}}
+          if (pointerStatusRef.current) {
+            pointerStatusRef.current.textContent = 'X —  Y —'
+          }
+          if (!panSessionRef.current) {
+            setStageCursor('default')
+          }
+          setHoveredPort(null)
+          cancelReconnectSession()
+          cancelPointerInteraction()
+        }}
         onDragStart={(event) => {
           if (!findConnectionHandleRole(event.target)) {
             handleDragStart(event.target)
