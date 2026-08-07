@@ -1,0 +1,234 @@
+name: Apply pan and drag interaction fix
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'fix/pan-capture-and-drag-authority'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Apply event-model fixes and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/renderer/SceneRenderer.tsx')
+          text = path.read_text()
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              if old not in text:
+                  raise RuntimeError(f'Expected block not found:\n{old[:180]}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              '''type PanSession = {
+            startPointer: Point
+            startTransform: ViewportTransform
+          }'''.replace('          ', ''),
+              '''type PanSession = {
+            startClientPointer: Point
+            startTransform: ViewportTransform
+          }'''.replace('          ', ''),
+          )
+
+          replace_once(
+              '''    const cancelTransientInteraction = () => {
+            pendingSelectionRef.current = null'''.replace('          ', ''),
+              '''    const cancelTransientInteraction = () => {
+            finishPan()
+            pendingSelectionRef.current = null'''.replace('          ', ''),
+          )
+
+          old_pan = '''  function beginPan(stage: Konva.Stage, nativeEvent: Event) {
+            const pointer = stage.getPointerPosition()
+          
+            if (!pointer) {
+              return false
+            }
+          
+            nativeEvent.preventDefault()
+            cancelPointerInteraction()
+            cancelReconnectSession()
+            panSessionRef.current = {
+              startPointer: pointer,
+              startTransform: { ...viewportTransformRef.current },
+            }
+            setStageCursor('grabbing')
+            return true
+          }
+          
+          function updatePan(stage: Konva.Stage) {
+            const session = panSessionRef.current
+            const pointer = stage.getPointerPosition()
+          
+            if (!session || !pointer) {
+              return false
+            }
+          
+            applyViewportTransform({
+              ...session.startTransform,
+              x: session.startTransform.x + pointer.x - session.startPointer.x,
+              y: session.startTransform.y + pointer.y - session.startPointer.y,
+            })
+            return true
+          }
+          
+          function finishPan() {
+            if (!panSessionRef.current) {
+              return false
+            }
+          
+            panSessionRef.current = null
+            setViewportTransform({ ...viewportTransformRef.current })
+            setStageCursor(spacePressedRef.current ? 'grab' : 'default')
+            return true
+          }'''
+          old_pan = '\n'.join(line[10:] if line.startswith('          ') else line for line in old_pan.splitlines())
+          new_pan = '''  function beginPan(nativeEvent: Event) {
+            const mouseEvent = nativeEvent as MouseEvent
+          
+            nativeEvent.preventDefault()
+            cancelPointerInteraction()
+            cancelReconnectSession()
+            panSessionRef.current = {
+              startClientPointer: {
+                x: mouseEvent.clientX,
+                y: mouseEvent.clientY,
+              },
+              startTransform: { ...viewportTransformRef.current },
+            }
+            window.addEventListener('mousemove', handleWindowPanMove)
+            window.addEventListener('mouseup', handleWindowPanUp)
+            setStageCursor('grabbing')
+            return true
+          }
+          
+          function updatePan(clientPointer: Point) {
+            const session = panSessionRef.current
+          
+            if (!session) {
+              return false
+            }
+          
+            applyViewportTransform({
+              ...session.startTransform,
+              x:
+                session.startTransform.x +
+                clientPointer.x -
+                session.startClientPointer.x,
+              y:
+                session.startTransform.y +
+                clientPointer.y -
+                session.startClientPointer.y,
+            })
+            return true
+          }
+          
+          function handleWindowPanMove(event: MouseEvent) {
+            updatePan({ x: event.clientX, y: event.clientY })
+          }
+          
+          function handleWindowPanUp() {
+            finishPan()
+          }
+          
+          function finishPan() {
+            if (!panSessionRef.current) {
+              return false
+            }
+          
+            panSessionRef.current = null
+            window.removeEventListener('mousemove', handleWindowPanMove)
+            window.removeEventListener('mouseup', handleWindowPanUp)
+            setViewportTransform({ ...viewportTransformRef.current })
+            setStageCursor(spacePressedRef.current ? 'grab' : 'default')
+            return true
+          }'''
+          new_pan = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_pan.splitlines())
+          replace_once(old_pan, new_pan)
+
+          schedule_start = text.index('  function scheduleDragMove(target: Konva.Node) {')
+          schedule_end = text.index('  function cancelScheduledDrag()', schedule_start)
+          text = (
+              text[:schedule_start]
+              + '''  function scheduleDragMove(target: Konva.Node) {
+            // Keep one authoritative position source during drag. Konva moves the node
+            // before onDragMove; resolve snapping + artboard bounds synchronously in
+            // the same event so no browser frame can paint the raw intermediate position.
+            processDragMove(target)
+          }
+          
+          '''.replace('          ', '')
+              + text[schedule_end:]
+          )
+
+          replace_once(
+              '''          if (stage && shouldStartPan(event.evt) && beginPan(stage, event.evt)) {
+            return
+          }'''.replace('          ', ''),
+              '''          if (shouldStartPan(event.evt) && beginPan(event.evt)) {
+            return
+          }'''.replace('          ', ''),
+          )
+
+          replace_once(
+              '''          if (updatePan(stage)) {
+            return
+          }'''.replace('          ', ''),
+              '''          if (
+            panSessionRef.current &&
+            updatePan({ x: event.evt.clientX, y: event.evt.clientY })
+          ) {
+            return
+          }'''.replace('          ', ''),
+          )
+
+          replace_once(
+              '''        onMouseLeave={() => {
+            finishPan()
+            if (pointerStatusRef.current) {
+              pointerStatusRef.current.textContent = 'X —  Y —'
+            }
+            setStageCursor('default')
+            setHoveredPort(null)
+            cancelReconnectSession()
+            cancelPointerInteraction()
+          }}'''.replace('          ', ''),
+              '''        onMouseLeave={() => {
+            if (pointerStatusRef.current) {
+              pointerStatusRef.current.textContent = 'X —  Y —'
+            }
+            if (!panSessionRef.current) {
+              setStageCursor('default')
+            }
+            setHoveredPort(null)
+            cancelReconnectSession()
+            cancelPointerInteraction()
+          }}'''.replace('          ', ''),
+          )
+
+          path.write_text(text)
+          PY
+
+          npm ci
+          npm run build
+          npm run lint
+
+          rm .github/workflows/apply-pan-drag-authority-fix.yml
+          git config user.name "scada-editor-bot"
+          git config user.email "scada-editor-bot@users.noreply.github.com"
+          git add src/renderer/SceneRenderer.tsx .github/workflows/apply-pan-drag-authority-fix.yml
+          git commit -m "fix: make pan capture and drag positioning stable"
+          git push origin "HEAD:${{ github.head_ref }}"
