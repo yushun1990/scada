@@ -60,7 +60,6 @@ export const DEFAULT_RECT_ANCHORS: readonly VisualAnchorDefinition[] = [
   anchor('left-75', '左边 75%', 0, 0.75, -1, 0),
   anchor('left-center', '左边中心', 0, 0.5, -1, 0),
   anchor('left-25', '左边 25%', 0, 0.25, -1, 0),
-  anchor('center', '组件中心', 0.5, 0.5, 0, -1),
 ]
 
 const anchorsByType: Record<string, readonly VisualAnchorDefinition[]> = {}
