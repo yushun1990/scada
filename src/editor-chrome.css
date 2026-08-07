@@ -60,17 +60,21 @@
   justify-content: flex-end;
 }
 
-/* There are exactly three top-level canvas tool families:
+/* Treat the three top-level canvas tool groups as three explicit grid columns:
    object operations | alignment/distribution | grid/view settings.
-   Reserve a symmetric 20px gap between families and draw each divider in the
-   exact middle of that gap. */
+   The column gap owns the spacing, and each divider sits exactly at its center. */
 .canvas-toolbar {
-  gap: 0;
+  --canvas-tool-column-gap: 20px;
+  display: grid;
+  grid-template-columns: max-content max-content max-content;
+  column-gap: var(--canvas-tool-column-gap);
+  justify-content: start;
 }
 
 .canvas-toolbar > .canvas-tool-group {
   position: relative;
-  margin-right: 20px;
+  min-width: 0;
+  margin: 0;
   padding-right: 0;
   border-right: 0;
 }
@@ -78,17 +82,13 @@
 .canvas-toolbar > .canvas-tool-group:not(:last-child)::after {
   position: absolute;
   top: 50%;
-  right: -10px;
+  right: calc(var(--canvas-tool-column-gap) / -2);
   width: 1px;
   height: 20px;
   transform: translate(50%, -50%);
   background: #cbd5e1;
   content: '';
   pointer-events: none;
-}
-
-.canvas-toolbar > .canvas-tool-group:last-child {
-  margin-right: 0;
 }
 
 /* Cancel the previous internal command-family separators. */
