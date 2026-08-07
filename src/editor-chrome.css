@@ -62,17 +62,33 @@
 
 /* There are exactly three top-level canvas tool families:
    object operations | alignment/distribution | grid/view settings.
-   Dividers belong only between those groups, never inside the object group. */
+   Reserve a symmetric 20px gap between families and draw each divider in the
+   exact middle of that gap. */
+.canvas-toolbar {
+  gap: 0;
+}
+
 .canvas-toolbar > .canvas-tool-group {
-  margin-right: 2px;
-  padding-right: 12px;
-  border-right: 1px solid #cbd5e1;
+  position: relative;
+  margin-right: 20px;
+  padding-right: 0;
+  border-right: 0;
+}
+
+.canvas-toolbar > .canvas-tool-group:not(:last-child)::after {
+  position: absolute;
+  top: 50%;
+  right: -10px;
+  width: 1px;
+  height: 20px;
+  transform: translate(50%, -50%);
+  background: #cbd5e1;
+  content: '';
+  pointer-events: none;
 }
 
 .canvas-toolbar > .canvas-tool-group:last-child {
   margin-right: 0;
-  padding-right: 0;
-  border-right: 0;
 }
 
 /* Cancel the previous internal command-family separators. */
@@ -86,20 +102,37 @@
   content: none;
 }
 
+/* Number input is a compact value field, not a spinner control. Firefox needs
+   appearance:textfield while Chromium additionally needs the pseudo-elements
+   disabled. */
+.grid-size-input[type='number'] {
+  width: 34px;
+  padding: 0 2px;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  text-align: center;
+}
+
+.grid-size-input[type='number']::-webkit-inner-spin-button,
+.grid-size-input[type='number']::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
 /* Keep the closed artboard selector compact: only the display-class name is
    shown in the toolbar. The native popup still contains the full option text
    (including the concrete pixel dimensions). */
 .scene-size-control {
   position: relative;
-  width: 94px;
-  min-width: 94px;
+  width: 82px;
+  min-width: 82px;
 }
 
 .scene-size-control::before {
   position: absolute;
   top: 50%;
-  right: 25px;
-  left: 9px;
+  right: 23px;
+  left: 7px;
   z-index: 1;
   transform: translateY(-50%);
   overflow: hidden;
@@ -107,6 +140,7 @@
   content: '尺寸';
   font-size: 11px;
   line-height: 28px;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
@@ -140,11 +174,15 @@
   width: 100%;
   min-width: 0;
   max-width: none;
+  padding-right: 22px;
   color: transparent;
+  text-align: center;
+  text-align-last: center;
 }
 
 .scene-size-control select option {
   color: #334155;
+  text-align: left;
 }
 
 @media (max-width: 1120px) {
