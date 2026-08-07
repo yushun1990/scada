@@ -22,33 +22,28 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('src/renderer/SceneRenderer.tsx')
           text = path.read_text()
 
-          old_type = """type PanSession = {
-            startPointer: Point
-            startTransform: ViewportTransform
-          }"""
-          old_type = '\n'.join(line[10:] if line.startswith('          ') else line for line in old_type.splitlines())
-          new_type = """type PanSession = {
-            startClientPointer: Point
-            startTransform: ViewportTransform
-          }"""
-          new_type = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_type.splitlines())
-          if old_type not in text:
-              raise RuntimeError('PanSession shape not found')
-          text = text.replace(old_type, new_type, 1)
+          if '  startPointer: Point\n' not in text:
+              raise RuntimeError('PanSession startPointer not found')
+          text = text.replace(
+              '  startPointer: Point\n',
+              '  startClientPointer: Point\n',
+              1,
+          )
 
           pan_start = text.index('  function beginPan(')
           pan_end = text.index('  function setStageCursor(', pan_start)
-          new_pan = """  function beginPan(nativeEvent: Event) {
+          new_pan = '''  function beginPan(nativeEvent: Event) {
             const mouseEvent = nativeEvent as MouseEvent
-          
+
             if (panSessionRef.current) {
               finishPan()
             }
-          
+
             nativeEvent.preventDefault()
             cancelPointerInteraction()
             cancelReconnectSession()
@@ -65,14 +60,14 @@ jobs:
             setStageCursor('grabbing')
             return true
           }
-          
+
           function updatePan(clientPointer: Point) {
             const session = panSessionRef.current
-          
+
             if (!session) {
               return false
             }
-          
+
             applyViewportTransform({
               ...session.startTransform,
               x:
@@ -86,20 +81,20 @@ jobs:
             })
             return true
           }
-          
+
           function handleWindowPanMove(event: MouseEvent) {
             updatePan({ x: event.clientX, y: event.clientY })
           }
-          
+
           function handleWindowPanEnd() {
             finishPan()
           }
-          
+
           function finishPan() {
             if (!panSessionRef.current) {
               return false
             }
-          
+
             panSessionRef.current = null
             window.removeEventListener('mousemove', handleWindowPanMove)
             window.removeEventListener('mouseup', handleWindowPanEnd)
@@ -108,46 +103,60 @@ jobs:
             setStageCursor(spacePressedRef.current ? 'grab' : 'default')
             return true
           }
-          
-          """
-          new_pan = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_pan.splitlines())
+
+          '''
+          new_pan = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in new_pan.splitlines()
+          )
           text = text[:pan_start] + new_pan + text[pan_end:]
 
           schedule_start = text.index('  function scheduleDragMove(target: Konva.Node) {')
           schedule_end = text.index('  function cancelScheduledDrag()', schedule_start)
-          new_schedule = """  function scheduleDragMove(target: Konva.Node) {
+          new_schedule = '''  function scheduleDragMove(target: Konva.Node) {
             // Konva changes the draggable node before onDragMove. Resolve snapping and
             // artboard bounds immediately in the same event. Delaying node correction
             // to requestAnimationFrame creates two competing positions and visible flicker.
             processDragMove(target)
           }
-          
-          """
-          new_schedule = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_schedule.splitlines())
+
+          '''
+          new_schedule = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in new_schedule.splitlines()
+          )
           text = text[:schedule_start] + new_schedule + text[schedule_end:]
 
-          old_begin = '          if (stage && shouldStartPan(event.evt) && beginPan(stage, event.evt)) {'
-          new_begin = '          if (shouldStartPan(event.evt) && beginPan(event.evt)) {'
-          if old_begin not in text:
+          text, begin_count = re.subn(
+              r'if \(stage && shouldStartPan\(event\.evt\) && beginPan\(stage, event\.evt\)\) \{',
+              'if (shouldStartPan(event.evt) && beginPan(event.evt)) {',
+              text,
+              count=1,
+          )
+          if begin_count != 1:
               raise RuntimeError('Stage pan start handler not found')
-          text = text.replace(old_begin, new_begin, 1)
 
-          old_update = """          if (updatePan(stage)) {
-            return
-          }"""
-          new_update = """          if (
-            panSessionRef.current &&
-            updatePan({ x: event.evt.clientX, y: event.evt.clientY })
-          ) {
-            return
-          }"""
-          if old_update not in text:
+          pan_move_re = re.compile(
+              r'(?P<indent>\s*)if \(updatePan\(stage\)\) \{\s*return\s*\}',
+              re.M,
+          )
+          match = pan_move_re.search(text)
+          if not match:
               raise RuntimeError('Stage pan move handler not found')
-          text = text.replace(old_update, new_update, 1)
+          indent = match.group('indent')
+          replacement = (
+              f'{indent}if (\n'
+              f'{indent}  panSessionRef.current &&\n'
+              f'{indent}  updatePan({{ x: event.evt.clientX, y: event.evt.clientY }})\n'
+              f'{indent}) {{\n'
+              f'{indent}  return\n'
+              f'{indent}}}'
+          )
+          text = text[:match.start()] + replacement + text[match.end():]
 
           leave_start = text.index('        onMouseLeave={() => {')
           leave_end = text.index('        onDragStart=', leave_start)
-          new_leave = """        onMouseLeave={() => {
+          new_leave = '''        onMouseLeave={() => {
             if (pointerStatusRef.current) {
               pointerStatusRef.current.textContent = 'X —  Y —'
             }
@@ -158,8 +167,11 @@ jobs:
             cancelReconnectSession()
             cancelPointerInteraction()
           }}
-          """
-          new_leave = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_leave.splitlines())
+          '''
+          new_leave = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in new_leave.splitlines()
+          )
           text = text[:leave_start] + new_leave + text[leave_end:]
 
           path.write_text(text)
