@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import Konva from 'konva'
 import App from './App'
 import './styles.css'
+import './editor-chrome.css'
 
 // A SCADA editor favors stable interaction cost over retina-level canvas
 // backing stores. This prevents every full-size layer from scaling its pixel

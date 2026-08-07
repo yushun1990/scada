@@ -1,0 +1,88 @@
+/* Editor chrome polish: keep transient status in the footer and make toolbar
+   grouping visually explicit without coupling it to scene rendering. */
+
+.canvas-area {
+  position: relative;
+}
+
+/* Reserve real space for the status bar instead of drawing the Konva stage
+   underneath it. ResizeObserver reads the content box, so the Stage height
+   naturally excludes this footer area. */
+.konva-host {
+  padding-bottom: 32px;
+}
+
+.canvas-status {
+  z-index: 5;
+}
+
+/* Action feedback belongs to the footer status area, not the page header. */
+.canvas-toast {
+  top: auto;
+  bottom: 7px;
+  left: 50%;
+  z-index: 6;
+  max-width: min(360px, 28vw);
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  color: #64748b;
+  line-height: 18px;
+}
+
+.canvas-status > .canvas-status-group:first-child,
+.canvas-status > .scene-status-summary {
+  max-width: 38%;
+  overflow: hidden;
+}
+
+.scene-status-summary {
+  justify-content: flex-end;
+}
+
+/* The first toolbar block contains three distinct command families:
+   copy/delete | group/ungroup | undo/redo. Give each family its own divider
+   instead of showing a single misleading divider after redo. */
+.canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(3),
+.canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(5) {
+  position: relative;
+  margin-left: 10px;
+}
+
+.canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(3)::before,
+.canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(5)::before {
+  position: absolute;
+  top: 50%;
+  left: -7px;
+  width: 1px;
+  height: 18px;
+  transform: translateY(-50%);
+  background: #cbd5e1;
+  content: '';
+  pointer-events: none;
+}
+
+@media (max-width: 1120px) {
+  .canvas-toast {
+    max-width: 240px;
+  }
+
+  .canvas-status > .canvas-status-group:first-child,
+  .canvas-status > .scene-status-summary {
+    max-width: 34%;
+  }
+}
+
+@media (max-width: 880px) {
+  .canvas-toast {
+    display: none;
+  }
+
+  .canvas-status > .canvas-status-group:first-child,
+  .canvas-status > .scene-status-summary {
+    max-width: 48%;
+  }
+}

@@ -159,26 +159,22 @@ export function SnapIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
-// 逆时针弧形箭头：撤销
+// 标准左向回转箭头：撤销
 export function UndoIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <path d="M9 7H6a1 1 0 0 0-1 1v3" />
-      <path d="M5 8l4.5 4.5" opacity="0.55" />
-      <path d="M9 7c4.5 0 8 3 8 7.5a7.5 7.5 0 0 1-7.5 7.5" />
-      <path d="M13.5 19.5l3 2.5 3-2.5" opacity="0.55" />
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
     </svg>
   )
 }
 
-// 顺时针弧形箭头：重做
+// 标准右向回转箭头：重做
 export function RedoIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <path d="M15 7h3a1 1 0 0 1 1 1v3" />
-      <path d="M19 8l-4.5 4.5" opacity="0.55" />
-      <path d="M15 7c-4.5 0-8 3-8 7.5a7.5 7.5 0 0 0 7.5 7.5" />
-      <path d="M10.5 19.5l-3 2.5-3-2.5" opacity="0.55" />
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
     </svg>
   )
 }
