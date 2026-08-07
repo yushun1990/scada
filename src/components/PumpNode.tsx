@@ -2,11 +2,14 @@ import { forwardRef } from 'react'
 import type Konva from 'konva'
 import { Group, Image as KonvaImage } from 'react-konva'
 import { pumpStateSources, type PumpState } from '../assets/pump'
+import { pumpComponentDefinition } from '../component-system/builtins'
 import { useCachedImage } from './image-cache'
 
 export const PUMP_DESIGN_WIDTH = 512
 export const PUMP_DESIGN_HEIGHT = 720
 export const PUMP_ASPECT_RATIO = PUMP_DESIGN_WIDTH / PUMP_DESIGN_HEIGHT
+export const PUMP_MIN_WIDTH = pumpComponentDefinition.size.minWidth
+export const PUMP_MIN_HEIGHT = pumpComponentDefinition.size.minHeight
 
 type Point = {
   x: number
