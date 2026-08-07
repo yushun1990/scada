@@ -1,14 +1,31 @@
 /* Editor chrome polish: keep transient status in the footer and make toolbar
    grouping visually explicit without coupling it to scene rendering. */
 
+/* The editor is a desktop workbench. Keep the shell pinned to the viewport so
+   a taller inspector state (for example multi-selection) cannot grow the grid
+   and push the footer status bar below the visible window. */
+.editor-shell {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-main {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .canvas-area {
   position: relative;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Reserve real space for the status bar instead of drawing the Konva stage
    underneath it. ResizeObserver reads the content box, so the Stage height
    naturally excludes this footer area. */
 .konva-host {
+  min-height: 0;
   padding-bottom: 32px;
 }
 
@@ -43,26 +60,91 @@
   justify-content: flex-end;
 }
 
-/* The first toolbar block contains three distinct command families:
-   copy/delete | group/ungroup | undo/redo. Give each family its own divider
-   instead of showing a single misleading divider after redo. */
+/* There are exactly three top-level canvas tool families:
+   object operations | alignment/distribution | grid/view settings.
+   Dividers belong only between those groups, never inside the object group. */
+.canvas-toolbar > .canvas-tool-group {
+  margin-right: 2px;
+  padding-right: 12px;
+  border-right: 1px solid #cbd5e1;
+}
+
+.canvas-toolbar > .canvas-tool-group:last-child {
+  margin-right: 0;
+  padding-right: 0;
+  border-right: 0;
+}
+
+/* Cancel the previous internal command-family separators. */
 .canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(3),
 .canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(5) {
-  position: relative;
-  margin-left: 10px;
+  margin-left: 0;
 }
 
 .canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(3)::before,
 .canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(5)::before {
+  content: none;
+}
+
+/* Keep the closed artboard selector compact: only the display-class name is
+   shown in the toolbar. The native popup still contains the full option text
+   (including the concrete pixel dimensions). */
+.scene-size-control {
+  position: relative;
+  width: 94px;
+  min-width: 94px;
+}
+
+.scene-size-control::before {
   position: absolute;
   top: 50%;
-  left: -7px;
-  width: 1px;
-  height: 18px;
+  right: 25px;
+  left: 9px;
+  z-index: 1;
   transform: translateY(-50%);
-  background: #cbd5e1;
-  content: '';
+  overflow: hidden;
+  color: #334155;
+  content: '尺寸';
+  font-size: 11px;
+  line-height: 28px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   pointer-events: none;
+}
+
+.scene-size-control:has(option[value='xga']:checked)::before {
+  content: 'XGA';
+}
+
+.scene-size-control:has(option[value='hd']:checked)::before {
+  content: 'HD';
+}
+
+.scene-size-control:has(option[value='fhd']:checked)::before {
+  content: 'Full HD';
+}
+
+.scene-size-control:has(option[value='qhd']:checked)::before {
+  content: 'QHD';
+}
+
+.scene-size-control:has(option[value='uhd']:checked)::before {
+  content: '4K';
+}
+
+.scene-size-control:has(option[value='']:checked)::before {
+  content: '自定义';
+}
+
+.scene-size-control select {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  color: transparent;
+}
+
+.scene-size-control select option {
+  color: #334155;
 }
 
 @media (max-width: 1120px) {
