@@ -4,6 +4,7 @@ export const SCENE_VERSION = 4 as const
 export const PUMP_NODE_TYPE = 'pump.submersible' as const
 export const GROUP_NODE_TYPE = 'core.group' as const
 export const PUMP_ASPECT_RATIO = 512 / 720
+export const PUMP_DEFAULT_WIDTH = 96
 
 export type NodeTransform = {
   x: number
@@ -86,7 +87,7 @@ export function isGroupNode(node: SceneNode): node is GroupSceneNode {
 }
 
 export function createPumpNode(index: number, offset = 0): PumpSceneNode {
-  const width = 256
+  const width = PUMP_DEFAULT_WIDTH
 
   return {
     id: createSceneId('pump'),

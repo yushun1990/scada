@@ -7,7 +7,7 @@ import { useCachedImage } from './image-cache'
 export const PUMP_DESIGN_WIDTH = 512
 export const PUMP_DESIGN_HEIGHT = 720
 export const PUMP_ASPECT_RATIO = PUMP_DESIGN_WIDTH / PUMP_DESIGN_HEIGHT
-export const PUMP_MIN_WIDTH = 96
+export const PUMP_MIN_WIDTH = 40
 export const PUMP_MIN_HEIGHT = PUMP_MIN_WIDTH / PUMP_ASPECT_RATIO
 
 type Point = {
