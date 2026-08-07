@@ -1,4 +1,6 @@
 export * from './definition'
+export * from './renderer'
+export * from './registration'
 export * from './default-anchors'
 export * from './registry'
 export * from './builtins'
