@@ -8,6 +8,7 @@ export type SceneSizePreset = {
   height: number
 }
 
+// Keep the document model on a small set of explicit display-oriented artboard sizes.
 export const SCENE_SIZE_PRESETS: readonly SceneSizePreset[] = [
   { id: 'xga', label: 'XGA · 1024 × 768', width: 1024, height: 768 },
   { id: 'hd', label: 'HD · 1280 × 720', width: 1280, height: 720 },
