@@ -339,23 +339,18 @@
 .scene-size-control {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   min-height: 30px;
-  padding-left: 7px;
   border: 1px solid #d7e0e9;
   border-radius: 6px;
-  color: #64748b;
   background: #ffffff;
-  font-size: 10px;
-  white-space: nowrap;
+  overflow: hidden;
 }
 
 .scene-size-control select {
   height: 28px;
   max-width: 176px;
-  padding: 0 22px 0 6px;
+  padding: 0 24px 0 9px;
   border: 0;
-  border-left: 1px solid #e2e8f0;
   color: #334155;
   background: #ffffff;
   font-size: 11px;
@@ -379,7 +374,7 @@
 }
 
 .konva-host {
-  background: #ffffff !important;
+  background: #d9dee5 !important;
 }
 
 .viewport-controls {

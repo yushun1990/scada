@@ -874,8 +874,7 @@ function App() {
                   />
                 )}
               </div>
-              <label className="scene-size-control" title="固定画板尺寸">
-                <span>画板</span>
+              <div className="scene-size-control" title="固定画板尺寸">
                 <select
                   aria-label="画板尺寸"
                   value={getSceneSizePresetId(scene) ?? ''}
@@ -890,7 +889,7 @@ function App() {
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
             </div>
           </div>
 

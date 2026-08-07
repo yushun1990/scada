@@ -384,22 +384,6 @@ function getContentBounds(scene: SceneDocument): ContentBounds {
   }
 }
 
-// 计算当前视口在场景坐标系中可见的矩形区域。
-// 用于无限画板：背景与网格只覆盖可见区域，随平移/缩放动态延伸。
-function getVisibleSceneRect(
-  viewport: { width: number; height: number },
-  transform: ViewportTransform,
-) {
-  const { scale } = transform
-  const safeScale = scale === 0 ? 1 : scale
-  return {
-    left: -transform.x / safeScale,
-    top: -transform.y / safeScale,
-    width: viewport.width / safeScale,
-    height: viewport.height / safeScale,
-  }
-}
-
 // 生成覆盖 [start, start+extent] 区间的网格坐标（按 step 对齐）。
 function buildGridCoordinates(start: number, extent: number, step: number) {
   const first = Math.floor(start / step) * step
@@ -1102,6 +1086,29 @@ export function SceneRenderer({
   }
 
   function scheduleDragMove(target: Konva.Node) {
+    const session = dragSessionRef.current
+    const draggedTransform = session?.initialTransforms[session.nodeId]
+
+    // Konva updates the dragged node before onDragMove. Clamp the real node
+    // immediately so no frame can render any part outside the fixed artboard.
+    if (session && draggedTransform) {
+      const rawDeltaX = target.x() - draggedTransform.x
+      const rawDeltaY = target.y() - draggedTransform.y
+      const boundedDeltaX = Math.min(
+        scene.width - session.initialBounds.right,
+        Math.max(-session.initialBounds.left, rawDeltaX),
+      )
+      const boundedDeltaY = Math.min(
+        scene.height - session.initialBounds.bottom,
+        Math.max(-session.initialBounds.top, rawDeltaY),
+      )
+
+      target.position({
+        x: draggedTransform.x + boundedDeltaX,
+        y: draggedTransform.y + boundedDeltaY,
+      })
+    }
+
     pendingDragTargetRef.current = target
 
     if (dragFrameRef.current !== null) {
@@ -1856,7 +1863,6 @@ export function SceneRenderer({
       : PUMP_MIN_HEIGHT
 
   const gridSize = Math.max(4, snapSettings.gridSize)
-  const visibleRect = getVisibleSceneRect(viewport, viewportTransform)
   // 工作区可以无限平移，但网格只属于固定画板。
   const verticalGridLines = gridVisible
     ? buildGridCoordinates(0, scene.width, gridSize)
@@ -2027,6 +2033,14 @@ export function SceneRenderer({
         }}
       >
         <Layer ref={staticLayerRef} listening={false}>
+<Rect
+    x={0}
+    y={0}
+    width={viewport.width}
+    height={viewport.height}
+    fill="#d9dee5"
+    listening={false}
+  />
           <Group
             ref={staticViewportGroupRef}
             x={viewportTransform.x}
@@ -2034,14 +2048,6 @@ export function SceneRenderer({
             scaleX={viewportTransform.scale}
             scaleY={viewportTransform.scale}
           >
-          <Rect
-            x={visibleRect.left}
-            y={visibleRect.top}
-            width={visibleRect.width}
-            height={visibleRect.height}
-            fill="#d9dee5"
-            listening={false}
-          />
           <Rect
             x={0}
             y={0}
