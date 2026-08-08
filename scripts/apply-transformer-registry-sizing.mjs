@@ -36,9 +36,13 @@ const blobSha = execFileSync('git', ['hash-object', path], { encoding: 'utf8' })
 console.log(`VERIFIED_SCENE_RENDERER_BLOB=${blobSha}`)
 const payload = gzipSync(Buffer.from(text, 'utf8'), { level: 9 }).toString('base64')
 const chunkSize = 6000
-const chunkCount = Math.ceil(payload.length / chunkSize)
-console.log(`VERIFIED_GZIP_CHUNKS=${chunkCount}`)
-for (let index = 0; index < chunkCount; index += 1) {
-  const chunk = payload.slice(index * chunkSize, (index + 1) * chunkSize)
-  console.log(`VERIFIED_GZIP_${String(index).padStart(2, '0')}=${chunk}`)
+console.log(`VERIFIED_GZIP_LENGTH=${payload.length}`)
+for (let index = 0; index < 3; index += 1) {
+  console.log(`VERIFIED_GZIP_${String(index).padStart(2, '0')}=${payload.slice(index * chunkSize, (index + 1) * chunkSize)}`)
+}
+const tail = payload.slice(chunkSize * 3)
+console.log(`VERIFIED_GZIP_TAIL_LENGTH=${tail.length}`)
+for (let index = 0; index < 3; index += 1) {
+  const start = index * 448
+  console.log(`VERIFIED_GZIP_TAIL_${index}=${tail.slice(start, start + 448)}`)
 }
