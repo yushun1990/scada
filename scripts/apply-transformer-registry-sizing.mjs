@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { gzipSync } from 'node:zlib'
 
 const path = 'src/renderer/SceneRenderer.tsx'
 let text = readFileSync(path, 'utf8')
@@ -33,16 +32,13 @@ for (const [from, to] of replacements) {
 
 writeFileSync(path, text)
 const blobSha = execFileSync('git', ['hash-object', path], { encoding: 'utf8' }).trim()
+if (blobSha !== '5815e1655a1b4443a59404b25184dba5ee57738f') {
+  throw new Error(`Unexpected SceneRenderer blob: ${blobSha}`)
+}
 console.log(`VERIFIED_SCENE_RENDERER_BLOB=${blobSha}`)
-const payload = gzipSync(Buffer.from(text, 'utf8'), { level: 9 }).toString('base64')
-const chunkSize = 6000
-console.log(`VERIFIED_GZIP_LENGTH=${payload.length}`)
-for (let index = 0; index < 3; index += 1) {
-  console.log(`VERIFIED_GZIP_${String(index).padStart(2, '0')}=${payload.slice(index * chunkSize, (index + 1) * chunkSize)}`)
-}
-const tail = payload.slice(chunkSize * 3)
-console.log(`VERIFIED_GZIP_TAIL_LENGTH=${tail.length}`)
-for (let index = 0; index < 3; index += 1) {
-  const start = index * 448
-  console.log(`VERIFIED_GZIP_TAIL_${index}=${tail.slice(start, start + 448)}`)
-}
+
+execFileSync('git', ['config', 'user.name', 'github-actions[bot]'])
+execFileSync('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'])
+execFileSync('git', ['add', path])
+execFileSync('git', ['commit', '-m', 'refactor: read transformer sizing from registry'], { stdio: 'inherit' })
+execFileSync('git', ['push', 'origin', 'HEAD:refactor/registry-transformer-sizing'], { stdio: 'inherit' })
