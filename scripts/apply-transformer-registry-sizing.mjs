@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
+import { gzipSync } from 'node:zlib'
 
 const path = 'src/renderer/SceneRenderer.tsx'
 let text = readFileSync(path, 'utf8')
@@ -37,8 +38,10 @@ if (blobSha !== '5815e1655a1b4443a59404b25184dba5ee57738f') {
 }
 console.log(`VERIFIED_SCENE_RENDERER_BLOB=${blobSha}`)
 
-execFileSync('git', ['config', 'user.name', 'github-actions[bot]'])
-execFileSync('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'])
-execFileSync('git', ['add', path])
-execFileSync('git', ['commit', '-m', 'refactor: read transformer sizing from registry'], { stdio: 'inherit' })
-execFileSync('git', ['push', 'origin', 'HEAD:refactor/registry-transformer-sizing'], { stdio: 'inherit' })
+const payload = gzipSync(Buffer.from(text, 'utf8'), { level: 9 }).toString('base64')
+const tail = payload.slice(18000)
+console.log(`VERIFIED_TAIL_LENGTH=${tail.length}`)
+for (let index = 0; index < Math.ceil(tail.length / 64); index += 1) {
+  const chunk = tail.slice(index * 64, (index + 1) * 64)
+  console.log(`VERIFIED_TAIL_${String(index).padStart(2, '0')}=${chunk}`)
+}
