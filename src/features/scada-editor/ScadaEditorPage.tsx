@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { loadScadaScene, saveScadaScene } from '../scada-works/storage'
 import { builtInComponentRegistry } from '../../component-system/builtins'
+import { ComponentPropertiesInspector } from './ComponentPropertiesInspector'
 import {
   hasDuplicateConnection,
   reconnectSceneConnection,
@@ -160,6 +161,10 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   const selectedConnection = scene.connections.find(
     (connection) => connection.id === selectedConnectionId,
   ) ?? null
+  const primaryComponentRegistration =
+    primaryNode && !isGroupNode(primaryNode)
+      ? builtInComponentRegistry.get(primaryNode.type)
+      : null
 
   const canGroup =
     selectedNodes.length >= 2 &&
@@ -395,6 +400,37 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
           : node,
       ),
     }))
+  }
+
+  function updatePrimaryComponentProperty(
+    key: string,
+    value: string | number | boolean | null,
+    commitImmediately: boolean,
+  ) {
+    if (!primaryNode || isGroupNode(primaryNode)) {
+      return
+    }
+
+    const updateScene = (current: SceneDocument): SceneDocument => ({
+      ...current,
+      nodes: current.nodes.map((node) =>
+        node.id === primaryNode.id && !isGroupNode(node)
+          ? {
+              ...node,
+              props: {
+                ...node.props,
+                [key]: value,
+              },
+            }
+          : node,
+      ),
+    })
+
+    if (commitImmediately) {
+      commit(updateScene)
+    } else {
+      setScene(updateScene)
+    }
   }
 
   function updatePrimaryTransformField(
@@ -1006,6 +1042,15 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     <div><span>父级</span><code>{primaryNode.parentId ?? 'scene-root'}</code></div>
                   </div>
                 </fieldset>
+
+                {primaryComponentRegistration && !isGroupNode(primaryNode) && (
+                  <ComponentPropertiesInspector
+                    definition={primaryComponentRegistration.definition}
+                    values={primaryNode.props}
+                    onChange={updatePrimaryComponentProperty}
+                    onCommit={commitScene}
+                  />
+                )}
 
                 <fieldset className="inspector-group">
                   <legend>几何</legend>
