@@ -31,13 +31,14 @@ for (const [from, to] of replacements) {
 }
 
 writeFileSync(path, text)
-
+execFileSync('git', ['config', 'user.name', 'github-actions[bot]'])
+execFileSync('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'])
+execFileSync('git', ['add', path])
+execFileSync('git', ['commit', '-m', 'refactor: read transformer sizing from registry'], { stdio: 'inherit' })
+const blobSha = execFileSync('git', ['rev-parse', `HEAD:${path}`], { encoding: 'utf8' }).trim()
+console.log(`VERIFIED_SCENE_RENDERER_BLOB=${blobSha}`)
 try {
-  execFileSync('git', ['config', 'user.name', 'github-actions[bot]'])
-  execFileSync('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'])
-  execFileSync('git', ['add', path])
-  execFileSync('git', ['commit', '-m', 'refactor: read transformer sizing from registry'], { stdio: 'inherit' })
   execFileSync('git', ['push', 'origin', 'HEAD:refactor/registry-transformer-sizing'], { stdio: 'inherit' })
-} catch (error) {
+} catch {
   console.warn('CI workspace was patched successfully, but pushing the generated source was not permitted.')
 }
