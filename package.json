@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint .",
+    "postinstall": "node scripts/emit-transformer-patch.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
