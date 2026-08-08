@@ -10,10 +10,7 @@ import {
   Text,
   Transformer,
 } from 'react-konva'
-import {
-  PUMP_MIN_HEIGHT,
-  PUMP_MIN_WIDTH,
-} from '../components/PumpNode'
+import { builtInComponentRegistry } from '../component-system/builtins'
 import {
   getNodePortDefinitions,
   getPortDefinition,
@@ -1327,7 +1324,15 @@ export function SceneRenderer({
 
     const preview = getPreviewTransform(node, group)
     const aspectRatio = node.transform.width / node.transform.height
-    const minimumWidth = isGroupNode(node) ? GROUP_MIN_SIZE : PUMP_MIN_WIDTH
+    const componentSize = !isGroupNode(node)
+      ? builtInComponentRegistry.get(node.type)?.definition.size
+      : null
+    const minimumWidth = isGroupNode(node)
+      ? Math.max(GROUP_MIN_SIZE, GROUP_MIN_SIZE * aspectRatio)
+      : Math.max(
+          componentSize?.minWidth ?? 1,
+          (componentSize?.minHeight ?? 1) * aspectRatio,
+        )
     const nextWidth = Math.max(minimumWidth, preview.width)
     const nextHeight = nextWidth / aspectRatio
 
@@ -1994,14 +1999,18 @@ export function SceneRenderer({
       : null
   const marqueeBounds = marquee ? normalizeMarquee(marquee) : null
   const transformNode = selectedNodeIds.length === 1 ? primaryNode : null
+  const transformComponentSize =
+    transformNode && !isGroupNode(transformNode)
+      ? builtInComponentRegistry.get(transformNode.type)?.definition.size
+      : null
   const minimumTransformWidth =
     transformNode && isGroupNode(transformNode)
       ? GROUP_MIN_SIZE
-      : PUMP_MIN_WIDTH
+      : transformComponentSize?.minWidth ?? 1
   const minimumTransformHeight =
     transformNode && isGroupNode(transformNode)
       ? GROUP_MIN_SIZE
-      : PUMP_MIN_HEIGHT
+      : transformComponentSize?.minHeight ?? 1
 
   const gridSize = Math.max(4, snapSettings.gridSize)
   // 工作区可以无限平移，但网格只属于固定画板。
@@ -2325,14 +2334,18 @@ export function SceneRenderer({
               anchorSize={9 * visualControlScale}
               rotateAnchorOffset={24 * visualControlScale}
               boundBoxFunc={(oldBox, newBox) => {
+                const currentViewport = viewportTransformRef.current
+                const minimumBoxWidth =
+                  minimumTransformWidth * currentViewport.scale
+                const minimumBoxHeight =
+                  minimumTransformHeight * currentViewport.scale
+
                 if (
-                  Math.abs(newBox.width) < minimumTransformWidth ||
-                  Math.abs(newBox.height) < minimumTransformHeight
+                  Math.abs(newBox.width) < minimumBoxWidth ||
+                  Math.abs(newBox.height) < minimumBoxHeight
                 ) {
                   return oldBox
                 }
-
-                const currentViewport = viewportTransformRef.current
                 const sceneLeft =
                   (newBox.x - currentViewport.x) / currentViewport.scale
                 const sceneTop =
