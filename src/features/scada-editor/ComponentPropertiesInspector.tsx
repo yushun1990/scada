@@ -26,7 +26,6 @@ function renderPropertyInput(
   property: ComponentPropertyDefinition,
   value: ComponentScalarValue,
   onChange: ComponentPropertiesInspectorProps['onChange'],
-  onCommit: ComponentPropertiesInspectorProps['onCommit'],
 ) {
   if (property.kind === 'boolean') {
     return (
@@ -73,16 +72,16 @@ function renderPropertyInput(
       <label key={key} className="property-field">
         <span>{property.title}</span>
         <input
+          key={`${key}:${String(value)}`}
           type="number"
-          value={typeof value === 'number' ? value : ''}
-          onChange={(event) => {
-            const nextValue = Number(event.target.value)
+          defaultValue={typeof value === 'number' ? value : ''}
+          onBlur={(event) => {
+            const nextValue = Number(event.currentTarget.value)
 
-            if (Number.isFinite(nextValue)) {
-              onChange(key, nextValue, false)
+            if (event.currentTarget.value !== '' && Number.isFinite(nextValue)) {
+              onChange(key, nextValue, true)
             }
           }}
-          onBlur={onCommit}
         />
         {property.description && <small>{property.description}</small>}
       </label>
@@ -94,11 +93,11 @@ function renderPropertyInput(
       <label key={key} className="property-field">
         <span>{property.title}</span>
         <input
+          key={`${key}:${String(value)}`}
           className="color-input"
           type="color"
-          value={typeof value === 'string' ? value : '#000000'}
-          onChange={(event) => onChange(key, event.target.value, false)}
-          onBlur={onCommit}
+          defaultValue={typeof value === 'string' ? value : '#000000'}
+          onBlur={(event) => onChange(key, event.currentTarget.value, true)}
         />
         {property.description && <small>{property.description}</small>}
       </label>
@@ -109,9 +108,9 @@ function renderPropertyInput(
     <label key={key} className="property-field">
       <span>{property.title}</span>
       <input
-        value={valueForTextInput(value)}
-        onChange={(event) => onChange(key, event.target.value, false)}
-        onBlur={onCommit}
+        key={`${key}:${String(value)}`}
+        defaultValue={valueForTextInput(value)}
+        onBlur={(event) => onChange(key, event.currentTarget.value, true)}
       />
       {property.description && <small>{property.description}</small>}
     </label>
@@ -122,7 +121,6 @@ export function ComponentPropertiesInspector({
   definition,
   values,
   onChange,
-  onCommit,
 }: ComponentPropertiesInspectorProps) {
   const properties = Object.entries(definition.properties)
 
@@ -139,7 +137,6 @@ export function ComponentPropertiesInspector({
           property,
           values[key] ?? property.defaultValue,
           onChange,
-          onCommit,
         ),
       )}
     </fieldset>
