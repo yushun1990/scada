@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { gzipSync } from 'node:zlib'
 
@@ -39,9 +40,14 @@ if (blobSha !== '5815e1655a1b4443a59404b25184dba5ee57738f') {
 console.log(`VERIFIED_SCENE_RENDERER_BLOB=${blobSha}`)
 
 const payload = gzipSync(Buffer.from(text, 'utf8'), { level: 9 }).toString('base64')
-const tail = payload.slice(18000)
-console.log(`VERIFIED_TAIL_LENGTH=${tail.length}`)
-for (let index = 0; index < Math.ceil(tail.length / 64); index += 1) {
-  const chunk = tail.slice(index * 64, (index + 1) * 64)
-  console.log(`VERIFIED_TAIL_${String(index).padStart(2, '0')}=${chunk}`)
+const chunks = [
+  payload.slice(0, 6000),
+  payload.slice(6000, 12000),
+  payload.slice(12000, 18000),
+  payload.slice(18000),
+]
+for (let index = 0; index < chunks.length; index += 1) {
+  const digest = createHash('sha256').update(chunks[index]).digest('hex')
+  console.log(`VERIFIED_CHUNK_${index}_LENGTH=${chunks[index].length}`)
+  console.log(`VERIFIED_CHUNK_${index}_SHA256=${digest}`)
 }
