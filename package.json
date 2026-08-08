@@ -10,7 +10,6 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint .",
-    "postinstall": "node scripts/apply-transformer-registry-sizing.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
