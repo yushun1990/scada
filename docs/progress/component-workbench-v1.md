@@ -75,7 +75,7 @@ SCADA Workbench
 | M6 entry gate | **accepted · 2026-08-09** | M5.7 Event -> Action manual smoke passed; Runtime foundation closed |
 | M6.1 Package-backed public contract | merged · PR #50 · `8fd82dc826c30600a4e9740355700b611bf36634` · CI #305 ✅ | Component Library package draft owns the real serializable `ComponentDefinition`; Workbench authors Properties / Actions / Events / Anchors |
 | M6.2 Layer Tree foundation | **accepted · 2026-08-09** · PR #52 · `e9919343d42d1334f2ba2ccd927469db50943d56` · CI #310 ✅ | Serialized private Group / SVG / Image / Vector / Text tree; add/nest/reorder/rename/delete/save/reopen manual smoke passed |
-| M6.2.1 Workbench UX architecture | implementation complete · PR pending · manual smoke pending | Replaces the long-form editor with explicit Visual / Component / Property / Action / Event / Anchor workspaces and a Layers → Canvas → Inspector design shell |
+| M6.2.1 Workbench UX architecture | merged · PR #54 · `c43a23c2b6aeeb6a95b52f40d21bcdea199a7133` · CI #314 ✅ · manual smoke pending | Replaces the long-form editor with explicit Visual / Component / Property / Action / Event / Anchor workspaces and a Layers → Canvas → Inspector design shell |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
@@ -188,19 +188,21 @@ Confirmed:
 
 ## M6.2.1 Component Workbench UX architecture
 
+Tracking: PR #54, merged as `c43a23c2b6aeeb6a95b52f40d21bcdea199a7133` after CI #314 passed Build and Lint.
+
 ### Why this slice was inserted
 
 The M6.2 functionality worked, but the Component Workbench was still organized as one long stack of large forms. Continuing to add Style, Rules, Animation and Script to that structure would make the authoring experience increasingly difficult to understand.
 
 This slice therefore changes interaction architecture before adding new component capability.
 
-### Completed in code
+### Completed
 
 - Replaced the vertically stacked editor with explicit top-level workspaces: `设计 / 组件 / 属性 / 方法 / 事件 / 锚点`.
 - The current workspace is always visible and carries a clear `Private Implementation` or `Public Contract` boundary indicator.
 - Component metadata/size authoring moved into the dedicated `组件` workspace.
 - Properties, Actions, Events and Anchors each receive a dedicated public-contract workspace instead of being hidden behind a second nested tab system.
-- `ComponentContractEditor` is now controlled by the parent workbench tab rather than owning its own navigation state.
+- `ComponentContractEditor` is controlled by the parent workbench tab rather than owning its own navigation state.
 - The visual workspace is reorganized into the intended IDE geometry:
 
 ```text
@@ -210,7 +212,7 @@ what exists        where it is designed      selected item details
 ```
 
 - Layer creation and hierarchy navigation stay in the left pane.
-- The center pane now establishes a persistent component-artboard workspace with design dimensions and selected-layer context.
+- The center pane establishes a persistent component-artboard workspace with design dimensions and selected-layer context.
 - The center pane deliberately remains a renderer placeholder in M6.2.1; actual composite visual rendering is reserved for M6.3 so UX restructuring does not become a renderer rewrite.
 - Selected-layer identity, hierarchy, geometry, visibility, opacity and kind-specific fields move to the right Inspector.
 - Layer reordering remains available from the Inspector while sibling order continues to represent z-order.
@@ -237,8 +239,9 @@ This makes M6.3+ additive instead of forcing another structural UI rewrite later
 
 ### Verification status
 
-- Build and Lint must pass before merge.
-- Manual browser smoke should verify workspace switching, existing Layer Tree operations, save/reopen, and that no existing public-contract editing capability disappeared.
+- PR #54 merged after CI #314 passed Build and Lint.
+- Final diff contains only Component Workbench UI files plus this progress record; no package schema, Scene, Runtime, Registry or SCADA Workbench file changed.
+- Manual browser smoke is still required for workspace switching, existing Layer Tree operations, save/reopen, and public-contract editing before M6.2.1 is marked accepted.
 
 ### Deliberately deferred
 
