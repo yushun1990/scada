@@ -76,7 +76,7 @@ SCADA Workbench
 | M6.1 Package-backed public contract | merged · PR #50 · `8fd82dc826c30600a4e9740355700b611bf36634` · CI #305 ✅ | Component Library package draft owns the real serializable `ComponentDefinition`; Workbench authors Properties / Actions / Events / Anchors |
 | M6.2 Layer Tree foundation | **accepted · 2026-08-09** · PR #52 · `e9919343d42d1334f2ba2ccd927469db50943d56` · CI #310 ✅ | Serialized private Group / SVG / Image / Vector / Text tree; add/nest/reorder/rename/delete/save/reopen manual smoke passed |
 | M6.2.1 Workbench UX architecture | merged · PR #54 · `c43a23c2b6aeeb6a95b52f40d21bcdea199a7133` · CI #314 ✅ · superseded before final acceptance | Removed the long-form editor and established the first Layers → Canvas → Inspector IDE shell |
-| M6.2.2 Workbench layout convergence | implementation complete · PR pending · manual smoke pending | Align Component Workbench with SCADA Workbench: top Design/Preview, left Layers, center Canvas, right Base/Properties/Actions/Events; Anchors live in Base |
+| M6.2.2 Workbench layout convergence | merged · PR #56 · `9976672680d9dd95fd8ed6281810e44dec7dee26` · CI #319 ✅ · manual smoke pending | Align Component Workbench with SCADA Workbench: top Design/Preview, left Layers, center Canvas, right Base/Properties/Actions/Events; Anchors live in Base |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
@@ -214,6 +214,8 @@ Therefore M6.2.1 remains a useful structural step, but its exact navigation is s
 
 ## M6.2.2 Component Workbench layout convergence
 
+Tracking: PR #56, merged as `9976672680d9dd95fd8ed6281810e44dec7dee26`. CI #318 found a TypeScript nullable-Layer narrowing issue in callbacks; the Inspector was refactored to pass the guarded Layer as an explicit non-null value, and CI #319 then passed Build and Lint.
+
 ### Goal
 
 Make Component Workbench and SCADA Workbench share the same interaction grammar:
@@ -228,7 +230,7 @@ Right inspector       Properties/Actions/...  Base/Properties/Actions/Events
 
 The two workbenches still edit different things, but users should not need to learn two unrelated application layouts.
 
-### Completed in code
+### Completed
 
 - Component Workbench now imports and reuses the same shared `m2.css` / `workbench.css` layout primitives as SCADA Editor.
 - Header follows the SCADA layout and exposes `设计 / 预览` as the only top-level mode switch.
@@ -282,8 +284,11 @@ Anchors belong to the component-root Base inspector.
 
 ### Verification status
 
-- Build and Lint must pass before merge.
-- Manual browser smoke after merge should verify:
+- CI #318 correctly rejected the first implementation because callback closures still saw the selected Layer as nullable.
+- The Layer Inspector was split so a guarded non-null Layer is passed explicitly into the callback-owning content component.
+- CI #319 then passed both Build and Lint.
+- PR #56 was squash merged as `9976672680d9dd95fd8ed6281810e44dec7dee26`.
+- Manual browser smoke is still required for:
   - Design / Preview switching
   - Layer creation and selection from the left dock
   - component-root selection
