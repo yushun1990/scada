@@ -75,7 +75,8 @@ SCADA Workbench
 | M6 entry gate | **accepted · 2026-08-09** | M5.7 Event -> Action manual smoke passed; Runtime foundation closed |
 | M6.1 Package-backed public contract | merged · PR #50 · `8fd82dc826c30600a4e9740355700b611bf36634` · CI #305 ✅ | Component Library package draft owns the real serializable `ComponentDefinition`; Workbench authors Properties / Actions / Events / Anchors |
 | M6.2 Layer Tree foundation | **accepted · 2026-08-09** · PR #52 · `e9919343d42d1334f2ba2ccd927469db50943d56` · CI #310 ✅ | Serialized private Group / SVG / Image / Vector / Text tree; add/nest/reorder/rename/delete/save/reopen manual smoke passed |
-| M6.2.1 Workbench UX architecture | merged · PR #54 · `c43a23c2b6aeeb6a95b52f40d21bcdea199a7133` · CI #314 ✅ · manual smoke pending | Replaces the long-form editor with explicit Visual / Component / Property / Action / Event / Anchor workspaces and a Layers → Canvas → Inspector design shell |
+| M6.2.1 Workbench UX architecture | merged · PR #54 · `c43a23c2b6aeeb6a95b52f40d21bcdea199a7133` · CI #314 ✅ · superseded before final acceptance | Removed the long-form editor and established the first Layers → Canvas → Inspector IDE shell |
+| M6.2.2 Workbench layout convergence | implementation complete · PR pending · manual smoke pending | Align Component Workbench with SCADA Workbench: top Design/Preview, left Layers, center Canvas, right Base/Properties/Actions/Events; Anchors live in Base |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
@@ -194,64 +195,114 @@ Tracking: PR #54, merged as `c43a23c2b6aeeb6a95b52f40d21bcdea199a7133` after CI 
 
 The M6.2 functionality worked, but the Component Workbench was still organized as one long stack of large forms. Continuing to add Style, Rules, Animation and Script to that structure would make the authoring experience increasingly difficult to understand.
 
-This slice therefore changes interaction architecture before adding new component capability.
-
 ### Completed
 
-- Replaced the vertically stacked editor with explicit top-level workspaces: `设计 / 组件 / 属性 / 方法 / 事件 / 锚点`.
-- The current workspace is always visible and carries a clear `Private Implementation` or `Public Contract` boundary indicator.
-- Component metadata/size authoring moved into the dedicated `组件` workspace.
-- Properties, Actions, Events and Anchors each receive a dedicated public-contract workspace instead of being hidden behind a second nested tab system.
-- `ComponentContractEditor` is controlled by the parent workbench tab rather than owning its own navigation state.
-- The visual workspace is reorganized into the intended IDE geometry:
+- Removed the vertically stacked editor.
+- Established the first explicit `Layers -> Component Canvas -> Inspector` visual-authoring shell.
+- Separated component metadata and public Properties / Actions / Events / Anchors from private Layer authoring.
+- Moved selected-layer identity, hierarchy, geometry, visibility, opacity and type-specific fields into a dedicated Inspector.
+- Hid the ambiguous `implementationDraft` text area from the primary authoring flow while preserving the persisted compatibility field.
+- No package schema, Runtime, Scene, Registry publication or SCADA Workbench semantics changed.
+
+### Superseded before final acceptance
+
+PR #54 passed CI, but before its manual UX smoke was accepted the workbench interaction model was reviewed again against the existing SCADA Editor.
+
+The stronger conclusion is that Component Workbench should not have a separate top-level navigation model such as `设计 / 组件 / 属性 / 方法 / 事件 / 锚点`. The application should reuse one consistent spatial language across both editors.
+
+Therefore M6.2.1 remains a useful structural step, but its exact navigation is superseded by M6.2.2 rather than being marked Accepted.
+
+## M6.2.2 Component Workbench layout convergence
+
+### Goal
+
+Make Component Workbench and SCADA Workbench share the same interaction grammar:
 
 ```text
-Layers            Component Canvas            Inspector
-  ↓                      ↓                        ↓
-what exists        where it is designed      selected item details
+                     SCADA Workbench          Component Workbench
+Top mode             Design / Preview         Design / Preview
+Left dock            Components/Layers/etc.   Internal Layers
+Center                Scene Canvas             Component Canvas
+Right inspector       Properties/Actions/...  Base/Properties/Actions/Events
 ```
 
-- Layer creation and hierarchy navigation stay in the left pane.
-- The center pane establishes a persistent component-artboard workspace with design dimensions and selected-layer context.
-- The center pane deliberately remains a renderer placeholder in M6.2.1; actual composite visual rendering is reserved for M6.3 so UX restructuring does not become a renderer rewrite.
-- Selected-layer identity, hierarchy, geometry, visibility, opacity and kind-specific fields move to the right Inspector.
-- Layer reordering remains available from the Inspector while sibling order continues to represent z-order.
-- The old `implementationDraft` field remains in persisted packages for compatibility but is no longer presented as a primary component-development surface.
-- The Component workspace explicitly explains that M6.5 will replace the ambiguous implementation text with the real Controlled Script workspace.
-- No component package schema, runtime semantics, Scene model, SCADA Workbench behavior or Registry publication behavior changes in this slice.
+The two workbenches still edit different things, but users should not need to learn two unrelated application layouts.
+
+### Completed in code
+
+- Component Workbench now imports and reuses the same shared `m2.css` / `workbench.css` layout primitives as SCADA Editor.
+- Header follows the SCADA layout and exposes `设计 / 预览` as the only top-level mode switch.
+- Save remains a document action in the header rather than another workspace tab.
+- The previous top-level `设计 / 组件 / 属性 / 方法 / 事件 / 锚点` navigation is removed.
+- Main layout is permanently three-column:
+
+```text
+Left: internal Layer Tree
+Center: Component Canvas
+Right: contextual Inspector
+```
+
+- The left Layer Tree now includes an explicit component-root row in addition to private visual layers.
+- Selecting the component root switches the Base inspector to component identity, status, description, size and Anchors.
+- Selecting a private Layer switches the same Base inspector to layer identity, hierarchy, geometry, visibility, opacity and kind-specific data.
+- Selecting a Layer automatically returns the right inspector to `基础信息`, matching the contextual-inspector mental model.
+- Right inspector tabs are reduced to exactly `基础信息 / 属性 / 方法 / 事件`.
+- Properties / Actions / Events always represent the public Component contract, regardless of which private Layer is selected.
+- Anchors are no longer a top-level tab; they are edited inside component Base information because they are public geometry/attachment metadata rather than runtime interaction values.
+- Layer creation stays exclusively in the left dock; z-order movement, deletion and precise Layer editing stay in Base inspector.
+- Design mode allows package authoring; Preview mode locks authoring controls while preserving navigation and selection context.
+- The center artboard remains a deliberate placeholder until M6.3 provides the real Composite Renderer; M6.2.2 does not fake SVG/Image/Vector rendering.
+- Native built-ins use the same shell but remain read-only and expose their component root rather than reverse-engineered internal layers.
+- Existing `implementationDraft` persistence remains untouched and hidden from the primary UI.
+- No Component Package schema, Scene model, Runtime behavior, Registry publication path or SCADA Workbench behavior changes in this slice.
 
 ### Interaction invariant
 
-The workbench now follows one stable mental model:
+The stable Component Workbench interaction model is now:
 
 ```text
-Design workspace
-  Layers -> Canvas -> Inspector
+Header
+  Design / Preview
 
-Public contract workspaces
-  Component / Properties / Actions / Events / Anchors
+Left
+  Component root
+  Internal Layer Tree
 
-Future private implementation workspaces
-  Styles / Rules / Animation / Script
+Center
+  Component Canvas
+
+Right
+  Base information     -> component root OR selected private Layer
+  Properties           -> public component Properties
+  Actions              -> public component Actions
+  Events               -> public component Events
 ```
 
-This makes M6.3+ additive instead of forcing another structural UI rewrite later.
+Anchors belong to the component-root Base inspector.
 
 ### Verification status
 
-- PR #54 merged after CI #314 passed Build and Lint.
-- Final diff contains only Component Workbench UI files plus this progress record; no package schema, Scene, Runtime, Registry or SCADA Workbench file changed.
-- Manual browser smoke is still required for workspace switching, existing Layer Tree operations, save/reopen, and public-contract editing before M6.2.1 is marked accepted.
+- Build and Lint must pass before merge.
+- Manual browser smoke after merge should verify:
+  - Design / Preview switching
+  - Layer creation and selection from the left dock
+  - component-root selection
+  - Base inspector switching between component and Layer context
+  - Anchors editable under component Base
+  - public Properties / Actions / Events still editable in Design mode
+  - Preview locks all authoring controls
+  - save/reopen retains existing package data
 
 ### Deliberately deferred
 
-- no actual Composite Renderer on the center canvas yet
-- no drag/resize/rotate editing on the component canvas yet
+- no actual Composite Renderer yet
+- no canvas drag/resize/rotate yet
+- no real runtime component preview yet
 - no asset browser/import UI yet
-- no Style / Rule / Animation panels yet
-- no Controlled Script editor yet
-- no final visual polish, shortcuts, context menus, resizable docks or panel persistence yet
+- no Style / Rule / Animation inspector sections yet
+- no Controlled Script workspace yet
+- no final pixel-level polish, shortcuts, context menus, resizable docks or panel persistence yet
 
 ## Next checkpoint
 
-After the M6.2.1 browser smoke passes, continue **M6.3 Visual style + rule foundation** on top of this stable workbench shell. M6.3 should plug actual composite rendering and typed style/rule authoring into the existing Canvas and Inspector rather than inventing another editor structure.
+After M6.2.2 manual smoke is accepted, continue **M6.3 Visual style + rule foundation** on this shared SCADA-like shell. M6.3 should plug the real Composite Renderer and typed visual styling/rules into the existing center Canvas and right Inspector without introducing another navigation architecture.

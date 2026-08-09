@@ -6,13 +6,36 @@ import {
   type VisualVectorPrimitive,
 } from '../../component-system/visual'
 
+export type ComponentWorkbenchMode = 'editor' | 'preview'
+
 type ComponentVisualTreeEditorProps = {
   visual: ComponentVisualDefinition
   readOnly: boolean
   componentTitle: string
+  selectedLayerId: string | null
+  onSelectionChange: (layerId: string | null) => void
+  onChange: (visual: ComponentVisualDefinition) => void
+}
+
+type ComponentVisualCanvasProps = {
+  visual: ComponentVisualDefinition
+  componentTitle: string
   designWidth: number
   designHeight: number
+  selectedLayerId: string | null
+  mode: ComponentWorkbenchMode
+}
+
+type ComponentVisualLayerInspectorProps = {
+  visual: ComponentVisualDefinition
+  readOnly: boolean
+  selectedLayerId: string
+  onSelectionChange: (layerId: string | null) => void
   onChange: (visual: ComponentVisualDefinition) => void
+}
+
+type LayerInspectorContentProps = Omit<ComponentVisualLayerInspectorProps, 'selectedLayerId'> & {
+  layer: ComponentVisualLayer
 }
 
 type FlatLayer = {
@@ -36,13 +59,14 @@ const VECTOR_PRIMITIVES: Array<[VisualVectorPrimitive, string]> = [
   ['path', 'Path'],
 ]
 
-function layerKindLabel(kind: VisualLayerKind) {
+export function layerKindLabel(kind: VisualLayerKind) {
   return LAYER_KIND_LABELS.find(([candidate]) => candidate === kind)?.[1] ?? kind
 }
 
 function nextLayerId(kind: VisualLayerKind, layers: readonly ComponentVisualLayer[]) {
   const ids = new Set(layers.map((layer) => layer.id))
   let index = 1
+
   while (ids.has(`${kind}${index}`)) index += 1
   return `${kind}${index}`
 }
@@ -152,45 +176,17 @@ export function ComponentVisualTreeEditor({
   visual,
   readOnly,
   componentTitle,
-  designWidth,
-  designHeight,
+  selectedLayerId,
+  onSelectionChange,
   onChange,
 }: ComponentVisualTreeEditorProps) {
-  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(
-    visual.layers[0]?.id ?? null,
-  )
   const [addKind, setAddKind] = useState<VisualLayerKind>('group')
-
-  useEffect(() => {
-    if (selectedLayerId && !visual.layers.some((layer) => layer.id === selectedLayerId)) {
-      setSelectedLayerId(visual.layers[0]?.id ?? null)
-    }
-  }, [selectedLayerId, visual.layers])
-
   const flattened = useMemo(() => flattenLayers(visual.layers), [visual.layers])
   const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
-  const selectedDescendantIds = selectedLayer
-    ? collectDescendantIds(visual.layers, selectedLayer.id)
-    : new Set<string>()
-  const parentOptions = visual.layers.filter(
-    (layer) =>
-      layer.kind === 'group' &&
-      (!selectedLayer || !selectedDescendantIds.has(layer.id)),
-  )
-  const artboardScale = Math.min(
-    1,
-    420 / Math.max(1, designWidth),
-    320 / Math.max(1, designHeight),
-  )
 
-  function updateLayers(layers: readonly ComponentVisualLayer[]) {
-    onChange({ ...visual, layers })
-  }
-
-  function updateSelected(nextLayer: ComponentVisualLayer) {
-    if (!selectedLayer) return
-    updateLayers(replaceLayer(visual.layers, selectedLayer.id, nextLayer))
-  }
+  useEffect(() => {
+    if (selectedLayerId && !selectedLayer) onSelectionChange(null)
+  }, [onSelectionChange, selectedLayer, selectedLayerId])
 
   function addLayer() {
     if (readOnly || visual.mode !== 'composite') return
@@ -201,106 +197,21 @@ export function ComponentVisualTreeEditor({
       : selectedLayer?.parentId ?? null
     const layer = createLayer(addKind, id, parentId)
 
-    updateLayers([...visual.layers, layer])
-    setSelectedLayerId(id)
-  }
-
-  function removeSelected() {
-    if (!selectedLayer || readOnly) return
-
-    const deleted = collectDescendantIds(visual.layers, selectedLayer.id)
-    const nextLayers = visual.layers.filter((layer) => !deleted.has(layer.id))
-    updateLayers(nextLayers)
-    setSelectedLayerId(
-      nextLayers.find((layer) => layer.parentId === selectedLayer.parentId)?.id ??
-      nextLayers[0]?.id ??
-      null,
-    )
-  }
-
-  function renameSelected(nextValue: string) {
-    if (!selectedLayer || readOnly) return
-
-    const nextId = nextValue.trim()
-    if (
-      !nextId ||
-      nextId === selectedLayer.id ||
-      visual.layers.some((layer) => layer.id === nextId)
-    ) {
-      return
-    }
-
-    const previousId = selectedLayer.id
-    const nextLayers = visual.layers.map((layer) => {
-      if (layer.id === previousId) {
-        return { ...layer, id: nextId } as ComponentVisualLayer
-      }
-      if (layer.parentId === previousId) {
-        return { ...layer, parentId: nextId } as ComponentVisualLayer
-      }
-      return layer
-    })
-
-    updateLayers(nextLayers)
-    setSelectedLayerId(nextId)
-  }
-
-  function moveSelected(direction: -1 | 1) {
-    if (!selectedLayer || readOnly) return
-
-    const siblings = visual.layers.filter(
-      (layer) => layer.parentId === selectedLayer.parentId,
-    )
-    const siblingIndex = siblings.findIndex((layer) => layer.id === selectedLayer.id)
-    const targetSibling = siblings[siblingIndex + direction]
-    if (!targetSibling) return
-
-    const currentIndex = visual.layers.findIndex((layer) => layer.id === selectedLayer.id)
-    const targetIndex = visual.layers.findIndex((layer) => layer.id === targetSibling.id)
-    const nextLayers = [...visual.layers]
-    nextLayers[currentIndex] = targetSibling
-    nextLayers[targetIndex] = selectedLayer
-    updateLayers(nextLayers)
-  }
-
-  function updateTransform(
-    field: keyof ComponentVisualLayer['transform'],
-    value: number,
-  ) {
-    if (!selectedLayer || !Number.isFinite(value)) return
-
-    updateSelected({
-      ...selectedLayer,
-      transform: { ...selectedLayer.transform, [field]: value },
-    } as ComponentVisualLayer)
-  }
-
-  if (visual.mode === 'native') {
-    return (
-      <section className="component-workspace-card native-visual-card">
-        <div className="component-form-heading">
-          <span>PRIVATE VISUAL / NATIVE</span>
-          <h1>Native 视觉实现</h1>
-          <p>这个内置组件由可信 Renderer 实现。Workbench 只展示公开契约，不反向解析 React / Konva 内部结构。</p>
-        </div>
-        <div className="component-readonly-note">
-          Native component 不保存 Composite Layer Tree。
-        </div>
-      </section>
-    )
+    onChange({ ...visual, layers: [...visual.layers, layer] })
+    onSelectionChange(id)
   }
 
   return (
-    <section className="component-visual-workbench" aria-label="组件视觉设计">
-      <aside className="visual-layers-pane">
-        <div className="workbench-pane-heading">
-          <div>
-            <strong>Layers</strong>
-            <span>{visual.layers.length} 个图层</span>
-          </div>
+    <div className="component-layer-dock">
+      <div className="component-layer-dock-heading">
+        <div>
+          <strong>图层</strong>
+          <span>{visual.mode === 'native' ? 'Native Renderer' : `${visual.layers.length} 个内部图层`}</span>
         </div>
+      </div>
 
-        <div className="visual-add-row">
+      {visual.mode === 'composite' && (
+        <div className="component-layer-add-row">
           <select
             aria-label="新增图层类型"
             value={addKind}
@@ -313,273 +224,363 @@ export function ComponentVisualTreeEditor({
           </select>
           <button type="button" disabled={readOnly} onClick={addLayer}>＋</button>
         </div>
+      )}
 
-        <div className="visual-tree-panel">
-          {flattened.map(({ layer, depth }) => (
-            <button
-              key={layer.id}
-              type="button"
-              className={`visual-tree-row${selectedLayerId === layer.id ? ' active' : ''}`}
-              style={{ paddingLeft: `${10 + depth * 15}px` }}
-              onClick={() => setSelectedLayerId(layer.id)}
-            >
-              <span className="visual-layer-disclosure">
-                {layer.kind === 'group' ? '▾' : '·'}
-              </span>
-              <span className="visual-layer-kind">{layerKindLabel(layer.kind)}</span>
-              <span className="visual-layer-name">{layer.name}</span>
-              {!layer.visible && <small>隐藏</small>}
-            </button>
-          ))}
-          {flattened.length === 0 && (
-            <div className="visual-tree-empty">
-              从 Group、SVG、位图、矢量图形或文本开始构建组件。
+      <div className="component-layer-tree">
+        <button
+          type="button"
+          className={`component-layer-root${selectedLayerId === null ? ' active' : ''}`}
+          onClick={() => onSelectionChange(null)}
+        >
+          <span className="component-layer-root-icon">◆</span>
+          <span>
+            <strong>{componentTitle}</strong>
+            <small>组件根 · Public Contract</small>
+          </span>
+        </button>
+
+        {visual.mode === 'composite' && flattened.map(({ layer, depth }) => (
+          <button
+            key={layer.id}
+            type="button"
+            className={`component-layer-row${selectedLayerId === layer.id ? ' active' : ''}`}
+            style={{ paddingLeft: `${12 + depth * 15}px` }}
+            onClick={() => onSelectionChange(layer.id)}
+          >
+            <span className="component-layer-disclosure">{layer.kind === 'group' ? '▾' : '·'}</span>
+            <span className="component-layer-kind">{layerKindLabel(layer.kind)}</span>
+            <span className="component-layer-name">{layer.name}</span>
+            {!layer.visible && <small>隐藏</small>}
+          </button>
+        ))}
+
+        {visual.mode === 'composite' && flattened.length === 0 && (
+          <div className="component-layer-empty">
+            选择组件根查看基础信息，或添加 Group / SVG / 位图 / 矢量图形 / 文本开始构建视觉。
+          </div>
+        )}
+
+        {visual.mode === 'native' && (
+          <div className="component-layer-empty">
+            内置组件使用可信 Native Renderer，不反向解析 React / Konva 内部图层。
+          </div>
+        )}
+      </div>
+
+      {visual.mode === 'composite' && (
+        <p className="component-layer-help">
+          选中 Group 后新增图层会成为它的子层；同一父级的顺序即 z-order。
+        </p>
+      )}
+    </div>
+  )
+}
+
+export function ComponentVisualCanvas({
+  visual,
+  componentTitle,
+  designWidth,
+  designHeight,
+  selectedLayerId,
+  mode,
+}: ComponentVisualCanvasProps) {
+  const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
+  const artboardScale = Math.min(
+    1,
+    520 / Math.max(1, designWidth),
+    380 / Math.max(1, designHeight),
+  )
+
+  return (
+    <>
+      <div className="canvas-toolbar component-canvas-toolbar" role="toolbar" aria-label="组件画布工具栏">
+        <div className="canvas-toolbar-summary">
+          <strong>组件画布</strong>
+          <span>{designWidth} × {designHeight}</span>
+          <span>{visual.mode === 'native' ? 'Native Visual' : `${visual.layers.length} Layers`}</span>
+          {selectedLayer && <span>选中：{selectedLayer.name}</span>}
+        </div>
+        <span className="component-canvas-phase">
+          {mode === 'preview' ? '预览模式 · Composite Renderer 接入 M6.3' : '设计模式 · Renderer 接入 M6.3'}
+        </span>
+      </div>
+
+      <div className={`component-canvas-stage ${mode}`}>
+        <div
+          className="component-artboard"
+          style={{
+            width: `${designWidth * artboardScale}px`,
+            height: `${designHeight * artboardScale}px`,
+          }}
+        >
+          <div className="component-artboard-placeholder">
+            <strong>{componentTitle}</strong>
+            <span>{visual.mode === 'native' ? 'Native Renderer' : 'Composite Visual'}</span>
+            {mode === 'preview' ? (
+              <small>预览模式已锁定编辑；真实视觉运行预览将在 M6.3 接入这里。</small>
+            ) : selectedLayer ? (
+              <small>当前图层：{selectedLayer.name} · {layerKindLabel(selectedLayer.kind)}</small>
+            ) : (
+              <small>当前选择：组件根。左侧选择内部图层后可在右侧编辑它。</small>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+export function ComponentVisualLayerInspector(props: ComponentVisualLayerInspectorProps) {
+  const layer = props.visual.layers.find((candidate) => candidate.id === props.selectedLayerId)
+
+  if (!layer) {
+    return <div className="component-layer-empty">所选图层已不存在，请重新选择。</div>
+  }
+
+  return <LayerInspectorContent {...props} layer={layer} />
+}
+
+function LayerInspectorContent({
+  visual,
+  readOnly,
+  layer,
+  onSelectionChange,
+  onChange,
+}: LayerInspectorContentProps) {
+  const descendantIds = collectDescendantIds(visual.layers, layer.id)
+  const parentOptions = visual.layers.filter(
+    (candidate) => candidate.kind === 'group' && !descendantIds.has(candidate.id),
+  )
+
+  function updateLayers(layers: readonly ComponentVisualLayer[]) {
+    onChange({ ...visual, layers })
+  }
+
+  function updateLayer(nextLayer: ComponentVisualLayer) {
+    updateLayers(replaceLayer(visual.layers, layer.id, nextLayer))
+  }
+
+  function renameLayer(nextValue: string) {
+    if (readOnly) return
+
+    const nextId = nextValue.trim()
+    if (
+      !nextId ||
+      nextId === layer.id ||
+      visual.layers.some((candidate) => candidate.id === nextId)
+    ) return
+
+    const previousId = layer.id
+    updateLayers(visual.layers.map((candidate) => {
+      if (candidate.id === previousId) {
+        return { ...candidate, id: nextId } as ComponentVisualLayer
+      }
+      if (candidate.parentId === previousId) {
+        return { ...candidate, parentId: nextId } as ComponentVisualLayer
+      }
+      return candidate
+    }))
+    onSelectionChange(nextId)
+  }
+
+  function removeLayer() {
+    if (readOnly) return
+
+    const deleted = collectDescendantIds(visual.layers, layer.id)
+    updateLayers(visual.layers.filter((candidate) => !deleted.has(candidate.id)))
+    onSelectionChange(null)
+  }
+
+  function moveLayer(direction: -1 | 1) {
+    if (readOnly) return
+
+    const siblings = visual.layers.filter((candidate) => candidate.parentId === layer.parentId)
+    const siblingIndex = siblings.findIndex((candidate) => candidate.id === layer.id)
+    const target = siblings[siblingIndex + direction]
+    if (!target) return
+
+    const currentIndex = visual.layers.findIndex((candidate) => candidate.id === layer.id)
+    const targetIndex = visual.layers.findIndex((candidate) => candidate.id === target.id)
+    const nextLayers = [...visual.layers]
+    nextLayers[currentIndex] = target
+    nextLayers[targetIndex] = layer
+    updateLayers(nextLayers)
+  }
+
+  function updateTransform(
+    field: keyof ComponentVisualLayer['transform'],
+    value: number,
+  ) {
+    if (!Number.isFinite(value)) return
+
+    updateLayer({
+      ...layer,
+      transform: { ...layer.transform, [field]: value },
+    } as ComponentVisualLayer)
+  }
+
+  return (
+    <div className="property-section-list component-layer-inspector">
+      <fieldset className="inspector-group">
+        <legend>图层</legend>
+        <div className="component-layer-inspector-title">
+          <div>
+            <strong>{layer.name}</strong>
+            <span>{layerKindLabel(layer.kind)} · {layer.id}</span>
+          </div>
+          {!readOnly && (
+            <div className="component-layer-actions">
+              <button type="button" title="上移" onClick={() => moveLayer(-1)}>↑</button>
+              <button type="button" title="下移" onClick={() => moveLayer(1)}>↓</button>
+              <button type="button" className="danger" onClick={removeLayer}>删除</button>
             </div>
           )}
         </div>
 
-        <div className="visual-layers-help">
-          选中 Group 后新增图层会自动成为它的子层；同级顺序即 z-order。
-        </div>
-      </aside>
-
-      <div className="visual-canvas-pane">
-        <div className="visual-canvas-toolbar">
-          <div>
-            <strong>组件画布</strong>
-            <span>{designWidth} × {designHeight}</span>
-          </div>
-          <span className="visual-canvas-badge">Renderer 接入 M6.3</span>
-        </div>
-
-        <div className="visual-canvas-stage">
-          <div
-            className="visual-canvas-artboard"
-            style={{
-              width: `${designWidth * artboardScale}px`,
-              height: `${designHeight * artboardScale}px`,
-            }}
+        <label className="property-field">
+          <span>ID</span>
+          <LayerIdInput value={layer.id} disabled={readOnly} onCommit={renameLayer} />
+        </label>
+        <label className="property-field">
+          <span>名称</span>
+          <input
+            value={layer.name}
+            disabled={readOnly}
+            onChange={(event) => updateLayer({ ...layer, name: event.target.value } as ComponentVisualLayer)}
+          />
+        </label>
+        <label className="property-field">
+          <span>父级</span>
+          <select
+            value={layer.parentId ?? ''}
+            disabled={readOnly}
+            onChange={(event) => updateLayer({
+              ...layer,
+              parentId: event.target.value || null,
+            } as ComponentVisualLayer)}
           >
-            <div className="visual-canvas-placeholder">
-              <strong>{componentTitle}</strong>
-              <span>Composite Visual</span>
-              {selectedLayer ? (
-                <small>当前图层：{selectedLayer.name} · {layerKindLabel(selectedLayer.kind)}</small>
-              ) : (
-                <small>从左侧选择或添加一个图层</small>
-              )}
-            </div>
-          </div>
+            <option value="">Visual Root</option>
+            {parentOptions.map((group) => (
+              <option key={group.id} value={group.id}>{group.name}</option>
+            ))}
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset className="inspector-group">
+        <legend>几何</legend>
+        <div className="property-grid component-layer-geometry-grid">
+          {([
+            ['x', 'X'],
+            ['y', 'Y'],
+            ['width', 'W'],
+            ['height', 'H'],
+            ['rotation', '旋转'],
+            ['scaleX', 'Scale X'],
+            ['scaleY', 'Scale Y'],
+          ] as Array<[keyof ComponentVisualLayer['transform'], string]>).map(([field, label]) => (
+            <label key={field} className="property-field compact">
+              <span>{label}</span>
+              <input
+                type="number"
+                step={field.startsWith('scale') ? '0.1' : '1'}
+                value={layer.transform[field]}
+                disabled={readOnly}
+                onChange={(event) => updateTransform(field, Number(event.target.value))}
+              />
+            </label>
+          ))}
         </div>
+      </fieldset>
 
-        <div className="visual-canvas-footer">
-          这一刀先固定 Workbench 的空间模型；真实 SVG / 位图 / Vector / Text 渲染将在 M6.3 接入同一画布。
-        </div>
-      </div>
+      <fieldset className="inspector-group inspector-toggle-group">
+        <legend>显示</legend>
+        <label className="checkbox-field property-toggle">
+          <input
+            type="checkbox"
+            checked={layer.visible}
+            disabled={readOnly}
+            onChange={(event) => updateLayer({ ...layer, visible: event.target.checked } as ComponentVisualLayer)}
+          />
+          <span>可见</span>
+        </label>
+        <label className="property-field compact">
+          <span>透明度</span>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.05"
+            value={layer.opacity}
+            disabled={readOnly}
+            onChange={(event) => updateLayer({ ...layer, opacity: Number(event.target.value) } as ComponentVisualLayer)}
+          />
+        </label>
+      </fieldset>
 
-      <aside className="visual-inspector-pane">
-        <div className="workbench-pane-heading">
-          <div>
-            <strong>Inspector</strong>
-            <span>{selectedLayer ? `${layerKindLabel(selectedLayer.kind)} · ${selectedLayer.id}` : '未选择图层'}</span>
-          </div>
-        </div>
+      {(layer.kind === 'svg' || layer.kind === 'image') && (
+        <fieldset className="inspector-group">
+          <legend>资源</legend>
+          <label className="property-field">
+            <span>资源引用</span>
+            <input
+              value={layer.assetRef}
+              disabled={readOnly}
+              placeholder={layer.kind === 'svg' ? 'assets/pump-body.svg' : 'assets/vendor-logo.png'}
+              onChange={(event) => updateLayer({ ...layer, assetRef: event.target.value })}
+            />
+          </label>
+          <p className="component-inspector-help">当前只保存 assetRef；资源上传/管理将在后续切片接入。</p>
+        </fieldset>
+      )}
 
-        {!selectedLayer && (
-          <div className="visual-tree-empty">选择左侧图层后，在这里编辑它的局部属性。</div>
-        )}
+      {layer.kind === 'vector' && (
+        <fieldset className="inspector-group">
+          <legend>矢量图形</legend>
+          <label className="property-field">
+            <span>图元</span>
+            <select
+              value={layer.primitive}
+              disabled={readOnly}
+              onChange={(event) => updateLayer({
+                ...layer,
+                primitive: event.target.value as VisualVectorPrimitive,
+                pathData: event.target.value === 'path' ? layer.pathData ?? '' : undefined,
+              })}
+            >
+              {VECTOR_PRIMITIVES.map(([primitive, label]) => (
+                <option key={primitive} value={primitive}>{label}</option>
+              ))}
+            </select>
+          </label>
+          {layer.primitive === 'path' && (
+            <label className="property-field">
+              <span>Path Data</span>
+              <textarea
+                rows={4}
+                value={layer.pathData ?? ''}
+                disabled={readOnly}
+                onChange={(event) => updateLayer({ ...layer, pathData: event.target.value })}
+              />
+            </label>
+          )}
+        </fieldset>
+      )}
 
-        {selectedLayer && (
-          <div className="visual-layer-inspector">
-            <div className="visual-layer-inspector-head">
-              <div>
-                <strong>{selectedLayer.name}</strong>
-                <span>{selectedLayer.id}</span>
-              </div>
-              {!readOnly && (
-                <div className="visual-layer-actions">
-                  <button type="button" onClick={() => moveSelected(-1)}>↑</button>
-                  <button type="button" onClick={() => moveSelected(1)}>↓</button>
-                  <button type="button" className="danger" onClick={removeSelected}>删除</button>
-                </div>
-              )}
-            </div>
-
-            <div className="visual-inspector-section">
-              <h3>标识与层级</h3>
-              <label>
-                <span>ID</span>
-                <LayerIdInput
-                  value={selectedLayer.id}
-                  disabled={readOnly}
-                  onCommit={renameSelected}
-                />
-              </label>
-              <label>
-                <span>名称</span>
-                <input
-                  value={selectedLayer.name}
-                  disabled={readOnly}
-                  onChange={(event) => updateSelected({
-                    ...selectedLayer,
-                    name: event.target.value,
-                  } as ComponentVisualLayer)}
-                />
-              </label>
-              <label>
-                <span>父级</span>
-                <select
-                  value={selectedLayer.parentId ?? ''}
-                  disabled={readOnly}
-                  onChange={(event) => updateSelected({
-                    ...selectedLayer,
-                    parentId: event.target.value || null,
-                  } as ComponentVisualLayer)}
-                >
-                  <option value="">Visual Root</option>
-                  {parentOptions.map((group) => (
-                    <option key={group.id} value={group.id}>{group.name}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="visual-inspector-section">
-              <h3>几何</h3>
-              <div className="visual-transform-grid">
-                {([
-                  ['x', 'X'],
-                  ['y', 'Y'],
-                  ['width', '宽'],
-                  ['height', '高'],
-                  ['rotation', '旋转'],
-                  ['scaleX', 'Scale X'],
-                  ['scaleY', 'Scale Y'],
-                ] as Array<[keyof ComponentVisualLayer['transform'], string]>).map(([field, label]) => (
-                  <label key={field}>
-                    <span>{label}</span>
-                    <input
-                      type="number"
-                      step={field.startsWith('scale') ? '0.1' : '1'}
-                      value={selectedLayer.transform[field]}
-                      disabled={readOnly}
-                      onChange={(event) => updateTransform(field, Number(event.target.value))}
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="visual-inspector-section">
-              <h3>显示</h3>
-              <label className="contract-checkbox">
-                <input
-                  type="checkbox"
-                  checked={selectedLayer.visible}
-                  disabled={readOnly}
-                  onChange={(event) => updateSelected({
-                    ...selectedLayer,
-                    visible: event.target.checked,
-                  } as ComponentVisualLayer)}
-                />
-                <span>可见</span>
-              </label>
-              <label>
-                <span>透明度</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={selectedLayer.opacity}
-                  disabled={readOnly}
-                  onChange={(event) => updateSelected({
-                    ...selectedLayer,
-                    opacity: Number(event.target.value),
-                  } as ComponentVisualLayer)}
-                />
-              </label>
-            </div>
-
-            {(selectedLayer.kind === 'svg' || selectedLayer.kind === 'image') && (
-              <div className="visual-inspector-section">
-                <h3>资源</h3>
-                <label>
-                  <span>资源引用</span>
-                  <input
-                    value={selectedLayer.assetRef}
-                    disabled={readOnly}
-                    placeholder={selectedLayer.kind === 'svg'
-                      ? 'assets/pump-body.svg'
-                      : 'assets/vendor-logo.png'}
-                    onChange={(event) => updateSelected({
-                      ...selectedLayer,
-                      assetRef: event.target.value,
-                    })}
-                  />
-                </label>
-                <small>当前只保存 assetRef；资源上传/管理将在后续切片接入。</small>
-              </div>
-            )}
-
-            {selectedLayer.kind === 'vector' && (
-              <div className="visual-inspector-section">
-                <h3>矢量图形</h3>
-                <label>
-                  <span>图元</span>
-                  <select
-                    value={selectedLayer.primitive}
-                    disabled={readOnly}
-                    onChange={(event) => updateSelected({
-                      ...selectedLayer,
-                      primitive: event.target.value as VisualVectorPrimitive,
-                      pathData: event.target.value === 'path'
-                        ? selectedLayer.pathData ?? ''
-                        : undefined,
-                    })}
-                  >
-                    {VECTOR_PRIMITIVES.map(([primitive, label]) => (
-                      <option key={primitive} value={primitive}>{label}</option>
-                    ))}
-                  </select>
-                </label>
-                {selectedLayer.primitive === 'path' && (
-                  <label>
-                    <span>Path Data</span>
-                    <textarea
-                      rows={4}
-                      value={selectedLayer.pathData ?? ''}
-                      disabled={readOnly}
-                      onChange={(event) => updateSelected({
-                        ...selectedLayer,
-                        pathData: event.target.value,
-                      })}
-                    />
-                  </label>
-                )}
-              </div>
-            )}
-
-            {selectedLayer.kind === 'text' && (
-              <div className="visual-inspector-section">
-                <h3>文本</h3>
-                <label>
-                  <span>内容</span>
-                  <textarea
-                    rows={4}
-                    value={selectedLayer.text}
-                    disabled={readOnly}
-                    onChange={(event) => updateSelected({
-                      ...selectedLayer,
-                      text: event.target.value,
-                    })}
-                  />
-                </label>
-              </div>
-            )}
-          </div>
-        )}
-      </aside>
-    </section>
+      {layer.kind === 'text' && (
+        <fieldset className="inspector-group">
+          <legend>文本</legend>
+          <label className="property-field">
+            <span>内容</span>
+            <textarea
+              rows={4}
+              value={layer.text}
+              disabled={readOnly}
+              onChange={(event) => updateLayer({ ...layer, text: event.target.value })}
+            />
+          </label>
+        </fieldset>
+      )}
+    </div>
   )
 }

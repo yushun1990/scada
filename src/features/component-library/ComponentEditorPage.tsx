@@ -1,10 +1,14 @@
+import '../../m2.css'
+import '../../workbench.css'
 import { useMemo, useState } from 'react'
 import type { ComponentDefinition } from '../../component-system/definition'
+import { ComponentContractEditor } from './ComponentContractEditor'
 import {
-  ComponentContractEditor,
-  type ComponentContractTab,
-} from './ComponentContractEditor'
-import { ComponentVisualTreeEditor } from './ComponentVisualTreeEditor'
+  ComponentVisualCanvas,
+  ComponentVisualLayerInspector,
+  ComponentVisualTreeEditor,
+  type ComponentWorkbenchMode,
+} from './ComponentVisualTreeEditor'
 import {
   createComponentDraft,
   getComponentDefinition,
@@ -14,15 +18,13 @@ import {
 } from './storage'
 import './component-editor.css'
 
-type WorkbenchTab = 'visual' | 'component' | ComponentContractTab
+type InspectorTab = 'base' | 'properties' | 'actions' | 'events'
 
-const WORKBENCH_TABS: Array<[WorkbenchTab, string]> = [
-  ['visual', '设计'],
-  ['component', '组件'],
+const INSPECTOR_TABS: Array<[InspectorTab, string]> = [
+  ['base', '基础信息'],
   ['properties', '属性'],
   ['actions', '方法'],
   ['events', '事件'],
-  ['anchors', '锚点'],
 ]
 
 export function ComponentEditorPage({ componentId }: { componentId: string }) {
@@ -32,9 +34,12 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
       : getComponentDefinition(componentId) ?? createComponentDraft(),
   [componentId])
   const [component, setComponent] = useState<ComponentLibraryEntry>(initial)
-  const [activeTab, setActiveTab] = useState<WorkbenchTab>('visual')
+  const [mode, setMode] = useState<ComponentWorkbenchMode>('editor')
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null)
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('base')
   const [message, setMessage] = useState('')
-  const readOnly = component.builtIn
+  const builtInReadOnly = component.builtIn
+  const editingDisabled = builtInReadOnly || mode === 'preview'
   const { definition } = component
 
   function updatePackage<K extends keyof ComponentLibraryEntry>(
@@ -67,220 +72,251 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     })
   }
 
+  function selectLayer(layerId: string | null) {
+    setSelectedLayerId(layerId)
+    setInspectorTab('base')
+  }
+
   function save() {
     try {
       const saved = saveComponentDefinition(component)
       setComponent(saved)
-      setMessage('已保存')
+      setMessage('组件已保存')
       window.location.hash = `#/components/${encodeURIComponent(saved.id)}`
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '组件保存失败')
     }
   }
 
-  const tabCounts: Partial<Record<WorkbenchTab, number>> = {
-    properties: Object.keys(definition.properties).length,
-    actions: Object.keys(definition.actions).length,
-    events: Object.keys(definition.events).length,
-    anchors: definition.anchors.length,
-    visual: component.visual.layers.length,
-  }
-
   return (
-    <div className="component-editor-shell">
-      <header className="component-editor-header">
-        <button
-          type="button"
-          className="component-back-button"
-          onClick={() => { window.location.hash = '#/' }}
-        >
-          ← 组件库
-        </button>
-
-        <div className="component-header-title">
-          <strong>{definition.title}</strong>
-          <span>{definition.type}</span>
-        </div>
-
-        <div className="component-header-actions">
-          {message && <span className="component-editor-message" role="status">{message}</span>}
-          <span className={`component-status-pill ${component.status}`}>
-            {readOnly ? '内置' : component.status === 'ready' ? '可用' : '草稿'}
-          </span>
+    <div className="editor-shell component-editor-shell">
+      <header className="editor-header component-editor-header">
+        <div className="brand-block component-brand-block">
           <button
             type="button"
-            className="component-save-button"
-            disabled={readOnly}
-            onClick={save}
+            className="component-back-button"
+            onClick={() => { window.location.hash = '#/' }}
           >
-            保存组件
+            ←
           </button>
+          <span className="brand-mark" aria-hidden="true">C</span>
+          <div className="brand-text">
+            <strong>Component Editor</strong>
+            <span>{definition.title} · {definition.type}</span>
+          </div>
+        </div>
+
+        <div className="header-actions">
+          {message && <span className="header-message" role="status">{message}</span>}
+          <span className={`component-status-pill ${component.status}`}>
+            {builtInReadOnly ? '内置' : component.status === 'ready' ? '可用' : '草稿'}
+          </span>
+          <div className="document-toolbar" role="toolbar" aria-label="组件文档操作">
+            <button type="button" disabled={builtInReadOnly} onClick={save}>保存</button>
+          </div>
+          <div className="mode-switch" role="group" aria-label="组件工作模式">
+            <button
+              type="button"
+              className={mode === 'editor' ? 'active' : ''}
+              onClick={() => setMode('editor')}
+            >
+              设计
+            </button>
+            <button
+              type="button"
+              className={mode === 'preview' ? 'active' : ''}
+              onClick={() => setMode('preview')}
+            >
+              预览
+            </button>
+          </div>
         </div>
       </header>
 
-      <nav className="component-workbench-nav" aria-label="组件开发工作区">
-        {WORKBENCH_TABS.map(([tab, label]) => (
-          <button
-            key={tab}
-            type="button"
-            className={activeTab === tab ? 'active' : ''}
-            onClick={() => setActiveTab(tab)}
-          >
-            {label}
-            {tabCounts[tab] !== undefined && <small>{tabCounts[tab]}</small>}
-          </button>
-        ))}
-        <span className="component-workbench-boundary">
-          {activeTab === 'visual' ? 'Private Implementation' : 'Public Contract'}
-        </span>
-      </nav>
-
-      <main className={`component-editor-main ${activeTab === 'visual' ? 'visual-mode' : ''}`}>
-        {activeTab === 'visual' && (
+      <main className="editor-main component-editor-main">
+        <aside className="component-panel component-layer-panel" aria-label="组件内部图层">
           <ComponentVisualTreeEditor
             visual={component.visual}
-            readOnly={readOnly}
+            readOnly={editingDisabled}
+            componentTitle={definition.title}
+            selectedLayerId={selectedLayerId}
+            onSelectionChange={selectLayer}
+            onChange={(visual) => updatePackage('visual', visual)}
+          />
+        </aside>
+
+        <section className="canvas-area component-canvas-area" aria-label="组件设计画布">
+          <ComponentVisualCanvas
+            visual={component.visual}
             componentTitle={definition.title}
             designWidth={definition.size.defaultWidth}
             designHeight={definition.size.defaultHeight}
-            onChange={(visual) => updatePackage('visual', visual)}
+            selectedLayerId={selectedLayerId}
+            mode={mode}
           />
-        )}
+        </section>
 
-        {activeTab === 'component' && (
-          <section className="component-workspace-card component-form-card">
-            <div className="component-form-heading">
-              <span>PACKAGE / DEFINITION</span>
-              <h1>组件基本信息</h1>
-              <p>这里维护组件稳定身份与尺寸。Properties / Actions / Events / Anchors 分别在独立工作区维护。</p>
+        <aside className="property-panel component-property-panel">
+          <section className="semantic-inspector component-semantic-inspector" aria-label="组件配置">
+            <div className="inspector-tabs" role="tablist" aria-label="组件配置检查器">
+              {INSPECTOR_TABS.map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={inspectorTab === tab ? 'active' : ''}
+                  onClick={() => setInspectorTab(tab)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
-            {readOnly && (
-              <div className="component-readonly-note">
-                内置组件是 Registry Definition 的只读视图；Native Renderer / Action Handler 仍由可信应用代码注册。
+            {inspectorTab === 'base' && selectedLayerId !== null && (
+              <ComponentVisualLayerInspector
+                visual={component.visual}
+                readOnly={editingDisabled}
+                selectedLayerId={selectedLayerId}
+                onSelectionChange={selectLayer}
+                onChange={(visual) => updatePackage('visual', visual)}
+              />
+            )}
+
+            {inspectorTab === 'base' && selectedLayerId === null && (
+              <div className="property-section-list component-root-inspector">
+                <fieldset className="inspector-group">
+                  <legend>组件</legend>
+                  {builtInReadOnly && (
+                    <div className="component-readonly-note">
+                      内置组件是 Registry Definition 的只读视图；Native Renderer / Action Handler 仍由可信应用代码注册。
+                    </div>
+                  )}
+                  <label className="property-field">
+                    <span>名称</span>
+                    <input
+                      value={definition.title}
+                      disabled={editingDisabled}
+                      onChange={(event) => updateDefinitionField('title', event.target.value)}
+                    />
+                  </label>
+                  <label className="property-field">
+                    <span>类型标识</span>
+                    <input
+                      value={definition.type}
+                      disabled={editingDisabled}
+                      onChange={(event) => updateDefinitionField('type', event.target.value)}
+                    />
+                  </label>
+                  <label className="property-field">
+                    <span>分类</span>
+                    <input
+                      value={definition.category}
+                      disabled={editingDisabled}
+                      onChange={(event) => updateDefinitionField('category', event.target.value)}
+                    />
+                  </label>
+                  <label className="property-field">
+                    <span>状态</span>
+                    <select
+                      value={component.status}
+                      disabled={editingDisabled}
+                      onChange={(event) => updatePackage(
+                        'status',
+                        event.target.value as ComponentStatus,
+                      )}
+                    >
+                      <option value="draft">草稿</option>
+                      <option value="ready">可用</option>
+                    </select>
+                  </label>
+                  <label className="property-field">
+                    <span>说明</span>
+                    <textarea
+                      rows={4}
+                      value={definition.description}
+                      disabled={editingDisabled}
+                      onChange={(event) => updateDefinitionField('description', event.target.value)}
+                    />
+                  </label>
+                </fieldset>
+
+                <fieldset className="inspector-group">
+                  <legend>尺寸</legend>
+                  <div className="property-grid">
+                    {([
+                      ['defaultWidth', '默认宽'],
+                      ['defaultHeight', '默认高'],
+                      ['minWidth', '最小宽'],
+                      ['minHeight', '最小高'],
+                    ] as Array<[keyof ComponentDefinition['size'], string]>).map(([field, label]) => (
+                      <label key={field} className="property-field compact">
+                        <span>{label}</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={definition.size[field]}
+                          disabled={editingDisabled}
+                          onChange={(event) => updateSize(field, Number(event.target.value))}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset className="inspector-group component-anchor-group">
+                  <legend>连接锚点</legend>
+                  <p className="component-inspector-help">
+                    锚点属于组件公开几何接口，但与 Property / Action / Event 不同，因此统一放在组件基础信息中维护。
+                  </p>
+                  <div className="component-anchor-editor">
+                    <ComponentContractEditor
+                      definition={definition}
+                      readOnly={editingDisabled}
+                      tab="anchors"
+                      onChange={updateDefinition}
+                    />
+                  </div>
+                </fieldset>
+
+                <fieldset className="inspector-group">
+                  <legend>实现边界</legend>
+                  <div className="component-implementation-note">
+                    <strong>{component.visual.mode === 'native' ? 'Native Renderer' : 'Composite Visual'}</strong>
+                    <span>
+                      内部 Layer、未来 Rules / Animation / Script 都属于私有实现；SCADA Workbench 只消费公开 Properties / Actions / Events / Anchors。
+                    </span>
+                  </div>
+                </fieldset>
               </div>
             )}
 
-            <div className="component-definition-summary">
-              <span>Package v{component.version}</span>
-              <span>{component.visual.mode === 'native' ? 'Native Visual' : `${component.visual.layers.length} Layers`}</span>
-              <span>{Object.keys(definition.properties).length} Properties</span>
-              <span>{Object.keys(definition.actions).length} Actions</span>
-              <span>{Object.keys(definition.events).length} Events</span>
-              <span>{definition.anchors.length} Anchors</span>
-            </div>
-
-            <div className="component-form-grid">
-              <label>
-                <span>名称</span>
-                <input
-                  value={definition.title}
-                  readOnly={readOnly}
-                  onChange={(event) => updateDefinitionField('title', event.target.value)}
-                />
-              </label>
-              <label>
-                <span>类型标识</span>
-                <input
-                  value={definition.type}
-                  readOnly={readOnly}
-                  onChange={(event) => updateDefinitionField('type', event.target.value)}
-                />
-              </label>
-              <label>
-                <span>分类</span>
-                <input
-                  value={definition.category}
-                  readOnly={readOnly}
-                  onChange={(event) => updateDefinitionField('category', event.target.value)}
-                />
-              </label>
-              <label>
-                <span>状态</span>
-                <select
-                  value={component.status}
-                  disabled={readOnly}
-                  onChange={(event) => updatePackage(
-                    'status',
-                    event.target.value as ComponentStatus,
-                  )}
-                >
-                  <option value="draft">草稿</option>
-                  <option value="ready">可用</option>
-                </select>
-              </label>
-              <label>
-                <span>默认宽度</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={definition.size.defaultWidth}
-                  readOnly={readOnly}
-                  onChange={(event) => updateSize('defaultWidth', Number(event.target.value))}
-                />
-              </label>
-              <label>
-                <span>默认高度</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={definition.size.defaultHeight}
-                  readOnly={readOnly}
-                  onChange={(event) => updateSize('defaultHeight', Number(event.target.value))}
-                />
-              </label>
-              <label>
-                <span>最小宽度</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={definition.size.minWidth}
-                  readOnly={readOnly}
-                  onChange={(event) => updateSize('minWidth', Number(event.target.value))}
-                />
-              </label>
-              <label>
-                <span>最小高度</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={definition.size.minHeight}
-                  readOnly={readOnly}
-                  onChange={(event) => updateSize('minHeight', Number(event.target.value))}
-                />
-              </label>
-            </div>
-
-            <label className="component-form-block">
-              <span>说明</span>
-              <textarea
-                rows={4}
-                value={definition.description}
-                readOnly={readOnly}
-                onChange={(event) => updateDefinitionField('description', event.target.value)}
+            {inspectorTab === 'properties' && (
+              <ComponentContractEditor
+                definition={definition}
+                readOnly={editingDisabled}
+                tab="properties"
+                onChange={updateDefinition}
               />
-            </label>
+            )}
 
-            <div className="component-implementation-note">
-              <strong>实现代码入口暂不展示</strong>
-              <span>
-                旧 implementationDraft 仍保留在 Package 中用于兼容，但不会在主界面误导组件开发流程；M6.5 将由正式 Controlled Script 工作区替代。
-              </span>
-            </div>
+            {inspectorTab === 'actions' && (
+              <ComponentContractEditor
+                definition={definition}
+                readOnly={editingDisabled}
+                tab="actions"
+                onChange={updateDefinition}
+              />
+            )}
+
+            {inspectorTab === 'events' && (
+              <ComponentContractEditor
+                definition={definition}
+                readOnly={editingDisabled}
+                tab="events"
+                onChange={updateDefinition}
+              />
+            )}
           </section>
-        )}
-
-        {(activeTab === 'properties' ||
-          activeTab === 'actions' ||
-          activeTab === 'events' ||
-          activeTab === 'anchors') && (
-          <ComponentContractEditor
-            definition={definition}
-            readOnly={readOnly}
-            tab={activeTab}
-            onChange={updateDefinition}
-          />
-        )}
+        </aside>
       </main>
     </div>
   )
