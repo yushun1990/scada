@@ -28,7 +28,7 @@ The gate is not complete unless runtime updates remain outside authored `SceneDo
 
 | Slice | Status | Result |
 | --- | --- | --- |
-| M5.1 RuntimeValueStore | complete in current slice | Runtime-only immutable observable value store, independent of scene/history |
+| M5.1 RuntimeValueStore | implementation complete · PR #40 | Runtime-only immutable observable value store, independent of scene/history |
 | M5.2 DataBinding + effective props | pending | Runtime values override bindable properties without mutating authored props |
 | M5.3 Preview runtime lifecycle | pending | Preview owns runtime start/stop and subscriptions |
 | M5.4 Mock data source | pending | Deterministic mock values/generators feed RuntimeValueStore |
@@ -38,6 +38,8 @@ The gate is not complete unless runtime updates remain outside authored `SceneDo
 | M5.7 Minimal behavior flow | pending | Event -> action/property runtime path |
 
 ## M5.1 RuntimeValueStore
+
+Tracking: PR #40, based on `main` after roadmap sync merge `1854ba54acc5031bad185a4604630c1f97e43440`.
 
 ### Completed
 
