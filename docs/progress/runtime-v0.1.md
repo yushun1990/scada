@@ -32,8 +32,8 @@ The gate is not complete unless runtime updates remain outside authored `SceneDo
 | M5.2 DataBinding + effective props | merged · PR #41 · `1ccef65f546400be77026989c125a58feecc2e25` | Persisted generic bindings and runtime override resolver without authored-prop mutation |
 | M5.3 Preview runtime lifecycle | merged · PR #42 · `46db2b6c98257abd7059e238fd4e80904ec07e40` | Preview-only runtime lease, subscription, stop and clear lifecycle |
 | M5.4 Mock data source | merged · PR #43 · `287bddcd83bc300f52c0db9288326fb26080d14c` | Deterministic runtime data-source contract and indicator state-cycle source |
-| M5.5 Minimal binding UI | implementation complete · PR #44 | Schema-compatible bindable Property UI persists DataBinding through editor history |
-| Runnable Runtime v0.1 gate | code path complete · PR #44 · visual smoke test pending | `indicator.status.state <- mock.indicator.state` reaches Preview renderer without authored-prop mutation |
+| M5.5 Minimal binding UI | merged · PR #44 · `bb3e28d106358bdc9fe55cab3959bb13b3af493f` | Schema-compatible bindable Property UI persists DataBinding through editor history |
+| Runnable Runtime v0.1 gate | **accepted · 2026-08-09** | Manual visual acceptance confirmed the complete `indicator.status.state <- mock.indicator.state` Preview loop |
 | M5.6 Action/Event runtime kernel | pending | Generic invoke/emit contract |
 | M5.7 Minimal behavior flow | pending | Event -> action/property runtime path |
 
@@ -166,11 +166,11 @@ DataBinding / effective props
 
 ## M5.5 Minimal binding UI and runnable gate
 
-Tracking: PR #44, based on `main` after M5.4 merge `287bddcd83bc300f52c0db9288326fb26080d14c`.
+Tracking: PR #44, merged as `bb3e28d106358bdc9fe55cab3959bb13b3af493f`.
 
-### Completed in code
+### Completed
 
-- Preview mock values now publish discoverable source metadata separately from the data-source execution contract.
+- Preview mock values publish discoverable source metadata separately from the data-source execution contract.
 - The schema-driven component Inspector renders a binding selector only for Properties declared with `bindable: true`.
 - Runtime source options are filtered by the target Property schema and complete source value domain; no component type branch decides compatibility.
 - The `mock.indicator.state` source is compatible with `indicator.status.state` because all four generated values are valid select options.
@@ -181,7 +181,7 @@ Tracking: PR #44, based on `main` after M5.4 merge `287bddcd83bc300f52c0db928832
 - Runtime source updates never call the binding configuration command and therefore remain outside editor history.
 - SCADA Workbench exposes only public Property + data-source selection; component visual internals and runtime implementation details remain hidden.
 
-### Runnable path now present
+### Runnable path
 
 ```text
 Designer
@@ -209,13 +209,27 @@ runtime stops / clears
 authored state visible again
 ```
 
-### Verification status
+### Acceptance — 2026-08-09
 
-- Build and lint are the automated gate for this repository and are required before merge.
-- The code path is complete, but a browser visual smoke test must still confirm the visible four-state cycle after selecting the binding in the Inspector.
-- Until that visual smoke test is performed, the Runtime v0.1 acceptance gate is recorded as code-complete rather than fully accepted.
+Manual visual acceptance passed after PR #44 was merged.
 
-### Not included
+Confirmed acceptance criteria:
+
+- a public bindable component Property can be configured from the SCADA Inspector
+- `indicator.status.state` can bind to the compatible mock state-cycle source
+- entering Preview starts runtime evaluation and the deterministic mock sequence
+- runtime value changes visibly drive the component renderer
+- authored component props remain the persisted fallback rather than being overwritten by runtime data
+- leaving Preview stops runtime activity and restores the authored visual state
+- runtime value changes do not create editor undo/redo history entries
+- binding configuration itself remains undoable/redoable
+- the binding path remains schema-driven and contains no `indicator.status` or `pump.submersible` branch in generic binding orchestration
+
+**Result: the first runnable SCADA Runtime v0.1 gate is accepted.**
+
+The project has therefore crossed the planned boundary from a static scene editor into a runnable SCADA experiment.
+
+### Deferred after the gate
 
 - No general data-source browser or production source-management UI yet.
 - No manual/toggle/ramp/sine mock editors yet.
@@ -223,4 +237,19 @@ authored state visible again
 
 ## Next slice
 
-After the Runtime v0.1 visual smoke test, continue with **M5.6 Action/Event runtime kernel**. The next runtime abstraction must keep Action/Event implementation independent of visual anchors and must preserve the Component Workbench public-contract/private-implementation boundary.
+**M5.6 Action/Event runtime kernel.**
+
+Now that the Property-binding runtime gate is accepted, the next runtime abstraction can establish generic Action invocation and Event emission while preserving these boundaries:
+
+```text
+ComponentDefinition
+  declares Action / Event public contract
+        ↓
+Runtime kernel
+  invokes / emits by node id + contract name
+        ↓
+Component implementation
+  Native now, configured/script implementation later
+```
+
+Action/Event runtime semantics must remain independent of visual `SceneConnection` anchors and must not require the complete Component Workbench Script Runtime yet.
