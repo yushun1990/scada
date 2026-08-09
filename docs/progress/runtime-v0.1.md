@@ -34,8 +34,8 @@ The gate is not complete unless runtime updates remain outside authored `SceneDo
 | M5.4 Mock data source | merged · PR #43 · `287bddcd83bc300f52c0db9288326fb26080d14c` | Deterministic runtime data-source contract and indicator state-cycle source |
 | M5.5 Minimal binding UI | merged · PR #44 · `bb3e28d106358bdc9fe55cab3959bb13b3af493f` | Schema-compatible bindable Property UI persists DataBinding through editor history |
 | Runnable Runtime v0.1 gate | **accepted · 2026-08-09** | Manual visual acceptance confirmed the complete `indicator.status.state <- mock.indicator.state` Preview loop |
-| M5.6 Action/Event runtime kernel | implementation complete · PR #46 | Generic contract-validated Action invocation and Event emission with Native handler boundary |
-| M5.7 Minimal behavior flow | pending | Event -> action/property runtime path |
+| M5.6 Action/Event runtime kernel | merged · PR #46 · `872bf6d54cc7437b713109c7e1c6ad60388a77ef` | Generic contract-validated Action invocation and Event emission with Native handler boundary |
+| M5.7 Minimal behavior flow | implementation complete · PR #47 · manual smoke pending | Persisted Event -> Action behavior routing with schema-driven authoring UI and Preview execution |
 
 ## M5.1 RuntimeValueStore
 
@@ -236,16 +236,16 @@ The project has therefore crossed the planned boundary from a static scene edito
 
 ## M5.6 Action/Event runtime kernel
 
-Tracking: PR #46, based on `main` after Runtime v0.1 acceptance merge `1285225b060f91235572e889af3707da67a9e31d`.
+Tracking: PR #46, merged as `872bf6d54cc7437b713109c7e1c6ad60388a77ef`.
 
-### Completed in code
+### Completed
 
 - Kept `ComponentDefinition.actions` and `ComponentDefinition.events` as serializable public contract declarations.
 - Added optional `ComponentRegistration.actions` as the trusted Native implementation boundary.
 - Added a controlled `ComponentActionHandlerContext` containing only instance identity, effective component props, and `emit()`.
 - Native handlers receive no raw `SceneDocument` mutation API, `RuntimeValueStore`, Konva node, DOM object, or browser global through the runtime contract.
 - ComponentRegistry rejects Native Action handlers that are not declared in the corresponding public Definition.
-- Preview Runtime now owns the active `SceneDocument` for the duration of its lease session, allowing interaction APIs to resolve instances by node id.
+- Preview Runtime owns the active `SceneDocument` for the duration of its lease session, allowing interaction APIs to resolve instances by node id.
 - Added `PreviewRuntime.invokeAction(nodeId, actionName, input?)` with component-instance, public-contract, and implementation validation.
 - Added `PreviewRuntime.emitEvent(nodeId, eventName, payload?)` with public Event validation.
 - Added `PreviewRuntime.subscribeEvents(listener)` and immutable event records containing sequence, timestamp, node identity, component type, event name, and payload.
@@ -276,26 +276,84 @@ Definition.events.startRequested
 Runtime Event subscribers
 ```
 
-### Not included
+## M5.7 Minimal Event -> Action behavior flow
 
-- No persisted Behavior graph yet.
-- No Event -> Action routing yet.
-- No Event -> Property assignment yet.
-- No user-authored script implementation yet.
-- No assumption that calling a device command means the device state has already changed.
+Tracking: PR #47, based on `main` after M5.6 merge `872bf6d54cc7437b713109c7e1c6ad60388a77ef`.
 
-## Next slice
+### Completed in code
 
-**M5.7 Minimal behavior flow.**
+- Bumped `SceneDocument` to version 6 for the first persisted Behavior contract.
+- Added `EventActionBehavior` on component instances: a source component Event triggers one target component Action.
+- Existing v1-v5 scenes continue to load and migrate with empty behaviors.
+- Scene validation requires the source Definition to declare the trigger Event and the target component Definition to declare the target Action.
+- Behavior ids are globally unique and malformed or dangling target references are rejected on scene import.
+- Group nodes cannot own runtime Behaviors in v6.
+- Deleting a component also removes Behavior effects that target the deleted component, preventing dangling runtime references.
+- Component duplication deliberately starts with empty bindings and behaviors so copying a visual subtree does not silently duplicate automation semantics.
+- Preview Runtime now dispatches matching source-node Behaviors after a public Event is emitted and reuses the M5.6 `invokeAction` path for the effect.
+- Added a synchronous behavior-dispatch depth limit of 32 to prevent simple Event -> Action -> Event cycles from freezing Preview.
+- Added schema-driven `ComponentInteractionsInspector` for SCADA Workbench use.
+- The Actions tab lists the selected component public Actions and allows execution only in Preview when a current Runtime implementation exists.
+- The Events tab lists the selected component public Events and allows Designer configuration of one target executable Action per Event.
+- Behavior configuration uses the normal editor `commit()` path and is therefore undoable/redoable; Runtime dispatch never rewrites authored scene configuration.
+- Entering Preview retains the logical selected component for the right-side interaction Inspector, while `SceneRenderer` still disables Transformer and editing interactions in Preview.
+- Runtime Events are surfaced through the existing canvas message area to make the minimal interaction path observable without adding a dedicated diagnostics console yet.
+- No component type branch was added to behavior orchestration; both authoring and Runtime resolve public contracts through ComponentRegistry.
+- Behavior semantics remain independent of visual Anchors and `SceneConnection`.
 
-The next slice should persist and execute one deliberately small behavior model using the M5.6 kernel:
+### Runtime path
 
 ```text
-source component Event
+source Component Event
         ↓
-Behavior
+sourceNode.behaviors
         ↓
-target Action
+PreviewRuntime.dispatchBehaviors
+        ↓
+invokeAction(targetNodeId, action)
+        ↓
+target Component Runtime implementation
+        ↓
+optional target Event
 ```
 
-and/or a runtime-only Property assignment where the target Property schema validates the assigned value. The behavior model must remain separate from visual `SceneConnection` and must not require the full Component Workbench Rule/Script system.
+### Manual smoke path
+
+Use two pump instances because the pump currently provides the first executable Native Action/Event contract:
+
+```text
+Designer
+  Pump A / Events
+  启动请求 -> Pump B · 启动
+        ↓
+Preview
+  keep Pump A selected logically
+  Pump A / Actions / 启动 / 执行
+        ↓
+Pump A emits startRequested
+        ↓
+Behavior invokes Pump B.start
+        ↓
+Pump B emits startRequested
+        ↓
+canvas runtime message reports the target event
+```
+
+### Verification status
+
+- Build and lint are required before PR #47 can merge.
+- The behavior model, runtime dispatch, and SCADA authoring path are code-complete.
+- A browser manual smoke test is still required before the M5.7 behavior slice is marked accepted.
+
+### Deliberately deferred
+
+- No condition/expression evaluation yet.
+- No Event -> Property assignment yet.
+- No Action parameters UI yet.
+- No user-authored Script Runtime yet.
+- No dedicated Behavior graph/editor or semantic behavior wires.
+- No async runtime scheduler/queue yet; the first dispatch is synchronous with a bounded recursion guard.
+
+## Next checkpoint
+
+After the M5.7 manual smoke test, the first M5 Runtime foundation is complete enough to move into **M6 Component Workbench v1** without reopening the public-contract/runtime boundaries established here.
