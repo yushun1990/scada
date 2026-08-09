@@ -28,8 +28,8 @@ The gate is not complete unless runtime updates remain outside authored `SceneDo
 
 | Slice | Status | Result |
 | --- | --- | --- |
-| M5.1 RuntimeValueStore | implementation complete · PR #40 | Runtime-only immutable observable value store, independent of scene/history |
-| M5.2 DataBinding + effective props | pending | Runtime values override bindable properties without mutating authored props |
+| M5.1 RuntimeValueStore | merged · PR #40 · `2e5ea96501cdc89347792511d3e8833c955b8678` | Runtime-only immutable observable value store, independent of scene/history |
+| M5.2 DataBinding + effective props | implementation complete · PR #41 | Persisted generic bindings and runtime override resolver without authored-prop mutation |
 | M5.3 Preview runtime lifecycle | pending | Preview owns runtime start/stop and subscriptions |
 | M5.4 Mock data source | pending | Deterministic mock values/generators feed RuntimeValueStore |
 | M5.5 Minimal binding UI | pending | SCADA user binds only exposed bindable properties |
@@ -39,7 +39,7 @@ The gate is not complete unless runtime updates remain outside authored `SceneDo
 
 ## M5.1 RuntimeValueStore
 
-Tracking: PR #40, based on `main` after roadmap sync merge `1854ba54acc5031bad185a4604630c1f97e43440`.
+Tracking: PR #40, merged as `2e5ea96501cdc89347792511d3e8833c955b8678`.
 
 ### Completed
 
@@ -55,42 +55,61 @@ Tracking: PR #40, based on `main` after roadmap sync merge `1854ba54acc5031bad18
 
 ### Architectural result
 
-The runtime state boundary now starts as:
-
 ```text
 External / Mock source
         ↓
 RuntimeValueStore
         ↓ immutable runtime snapshot
-Binding / Preview consumers (next slices)
+Binding / Preview consumers
 ```
 
 There is deliberately no path from `RuntimeValueStore` back into authored scene state.
 
+## M5.2 DataBinding + effective props
+
+Tracking: PR #41, based on `main` after M5.1 merge `2e5ea96501cdc89347792511d3e8833c955b8678`.
+
+### Completed
+
+- Bumped `SceneDocument` to version 5 for the first persisted binding contract.
+- Added generic `DataBinding` with a runtime-value source key and target component Property.
+- Existing v1-v4 scenes continue to load and migrate with empty bindings.
+- v5 scene validation rejects malformed binding ids/keys, non-bindable target Properties, duplicate binding ids, and multiple bindings targeting the same Property.
+- Promoted component Property value validation into the component-system layer so persisted props and runtime overrides share one type/enum rule.
+- Added `resolveEffectiveComponentProps` with deterministic precedence: definition default, authored scene props, then valid runtime binding override.
+- Invalid or type-incompatible runtime values fall back to authored/default values instead of leaking invalid data into component renderers.
+- `SceneNodeRenderer` now accepts an optional runtime snapshot and computes effective props immediately before invoking a registered component renderer.
+- Nested group children receive the same runtime snapshot.
+- The current `SceneRenderer` still supplies no runtime snapshot, so Designer rendering remains authored-state-only until M5.3.
+- No component type special cases were added.
+
+### Architectural result
+
+```text
+ComponentDefinition defaults
+           +
+SceneNode.props (authored)
+           +
+SceneNode.bindings (persisted mapping)
+           +
+RuntimeValueSnapshot (runtime-only)
+           ↓
+resolveEffectiveComponentProps
+           ↓
+ComponentRenderer props
+```
+
+`SceneNode.props` remains the authored source of truth. Runtime evaluation creates effective values instead of rewriting scene configuration.
+
 ### Not included
 
-- No `DataBinding` model yet.
-- No effective-props resolver yet.
-- No Preview integration yet.
-- No mock timer/generator yet.
-- No UI yet.
-
-Keeping these out of M5.1 makes the first runtime primitive independently reviewable and prevents runtime lifecycle concerns from leaking into the store.
+- Preview does not yet create or subscribe to a RuntimeValueStore.
+- No MockDataSource or generator yet.
+- No binding editor UI yet.
+- No Action/Event runtime yet.
 
 ## Next slice
 
-**M5.2 DataBinding + effective component props.**
+**M5.3 Preview runtime lifecycle.**
 
-The next implementation must prove a generic resolver with this precedence:
-
-```text
-ComponentDefinition default
-        ↓
-SceneNode authored props
-        ↓
-Runtime binding override
-        ↓
-Effective props passed to renderer
-```
-
-The resolver must not special-case `indicator.status` or `pump.submersible` and must not mutate authored props.
+The next implementation must make Preview own the runtime lifecycle and pass a subscribed runtime snapshot into `SceneRenderer`/`SceneNodeRenderer`, while Designer remains disconnected from runtime state.

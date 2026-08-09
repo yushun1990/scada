@@ -1,7 +1,7 @@
-import type {
-  ComponentDefinition,
-  ComponentProps,
-  ComponentScalarValue,
+import {
+  isComponentPropertyValue,
+  type ComponentDefinition,
+  type ComponentProps,
 } from '../component-system/definition'
 import { builtInComponentRegistry } from '../component-system/builtins'
 import { getAnchorDefinition } from '../components/anchors'
@@ -12,6 +12,7 @@ import {
   type ComponentSceneNode,
   type ConnectionEndpoint,
   type ConnectionRouting,
+  type DataBinding,
   type GroupSceneNode,
   type NodeTransform,
   type SceneConnection,
@@ -88,38 +89,8 @@ function parseBaseNode(value: Record<string, unknown>, version: number) {
     visible: value.visible ?? true,
     locked: value.locked ?? false,
     transform,
-    bindings: [] as [],
     behaviors: [] as [],
   }
-}
-
-function isComponentPropertyValue(
-  definition: ComponentDefinition['properties'][string],
-  value: unknown,
-): value is ComponentScalarValue {
-  if (value === null) {
-    return definition.defaultValue === null
-  }
-
-  if (definition.kind === 'number') {
-    return isFiniteNumber(value)
-  }
-
-  if (definition.kind === 'boolean') {
-    return typeof value === 'boolean'
-  }
-
-  if (definition.kind === 'select') {
-    if (typeof value !== 'string' && typeof value !== 'number') {
-      return false
-    }
-
-    return definition.options?.length
-      ? definition.options.some((option) => option.value === value)
-      : true
-  }
-
-  return typeof value === 'string'
 }
 
 function parseComponentProps(
@@ -141,6 +112,58 @@ function parseComponentProps(
   return props
 }
 
+function parseDataBindings(
+  definition: ComponentDefinition,
+  value: unknown[],
+  version: number,
+): DataBinding[] | null {
+  if (version < 5) {
+    return []
+  }
+
+  const bindings: DataBinding[] = []
+  const ids = new Set<string>()
+  const properties = new Set<string>()
+
+  for (const candidate of value) {
+    if (
+      !isRecord(candidate) ||
+      typeof candidate.id !== 'string' ||
+      candidate.id.trim().length === 0 ||
+      typeof candidate.property !== 'string' ||
+      !isRecord(candidate.source) ||
+      candidate.source.kind !== 'runtime-value' ||
+      typeof candidate.source.key !== 'string' ||
+      candidate.source.key.trim().length === 0
+    ) {
+      return null
+    }
+
+    const property = definition.properties[candidate.property]
+
+    if (!property?.bindable) {
+      return null
+    }
+
+    if (ids.has(candidate.id) || properties.has(candidate.property)) {
+      return null
+    }
+
+    ids.add(candidate.id)
+    properties.add(candidate.property)
+    bindings.push({
+      id: candidate.id,
+      property: candidate.property,
+      source: {
+        kind: 'runtime-value',
+        key: candidate.source.key,
+      },
+    })
+  }
+
+  return bindings
+}
+
 function parseSceneNode(value: unknown, version: number): SceneNode | null {
   if (!isRecord(value)) {
     return null
@@ -148,7 +171,7 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
 
   const base = parseBaseNode(value, version)
 
-  if (!base || !isRecord(value.props)) {
+  if (!base || !isRecord(value.props) || !Array.isArray(value.bindings)) {
     return null
   }
 
@@ -160,6 +183,10 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
     value.props.designWidth > 0 &&
     value.props.designHeight > 0
   ) {
+    if (version >= 5 && value.bindings.length > 0) {
+      return null
+    }
+
     return {
       ...base,
       type: GROUP_NODE_TYPE,
@@ -167,6 +194,7 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
         designWidth: value.props.designWidth,
         designHeight: value.props.designHeight,
       },
+      bindings: [],
     } satisfies GroupSceneNode
   }
 
@@ -181,8 +209,13 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
   }
 
   const props = parseComponentProps(registration.definition, value.props)
+  const bindings = parseDataBindings(
+    registration.definition,
+    value.bindings,
+    version,
+  )
 
-  if (!props) {
+  if (!props || !bindings) {
     return null
   }
 
@@ -190,6 +223,7 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
     ...base,
     type: registration.definition.type,
     props,
+    bindings,
   } satisfies ComponentSceneNode
 }
 
@@ -342,6 +376,7 @@ export function parseSceneDocument(json: string): SceneDocument {
     sourceVersion === 1 ||
     sourceVersion === 2 ||
     sourceVersion === 3 ||
+    sourceVersion === 4 ||
     sourceVersion === SCENE_VERSION
 
   if (
