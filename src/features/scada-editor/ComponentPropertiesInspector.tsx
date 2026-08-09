@@ -1,17 +1,23 @@
-import type {
-  ComponentDefinition,
-  ComponentPropertyDefinition,
-  ComponentScalarValue,
+import {
+  isComponentPropertyValue,
+  type ComponentDefinition,
+  type ComponentPropertyDefinition,
+  type ComponentScalarValue,
 } from '../../component-system/definition'
+import type { PreviewRuntimeValueSourceDefinition } from '../../runtime'
+import type { DataBinding } from '../../scene/model'
 
 type ComponentPropertiesInspectorProps = {
   definition: ComponentDefinition
   values: Readonly<Record<string, ComponentScalarValue>>
+  bindings: readonly DataBinding[]
+  runtimeSources: readonly PreviewRuntimeValueSourceDefinition[]
   onChange: (
     key: string,
     value: ComponentScalarValue,
     commitImmediately: boolean,
   ) => void
+  onBindingChange: (key: string, runtimeKey: string | null) => void
   onCommit: () => void
 }
 
@@ -29,7 +35,7 @@ function renderPropertyInput(
 ) {
   if (property.kind === 'boolean') {
     return (
-      <label key={key} className="checkbox-field property-toggle">
+      <label className="checkbox-field property-toggle">
         <input
           type="checkbox"
           checked={value === true}
@@ -42,7 +48,7 @@ function renderPropertyInput(
 
   if (property.kind === 'select') {
     return (
-      <label key={key} className="property-field">
+      <label className="property-field">
         <span>{property.title}</span>
         <select
           value={valueForTextInput(value)}
@@ -69,7 +75,7 @@ function renderPropertyInput(
 
   if (property.kind === 'number') {
     return (
-      <label key={key} className="property-field">
+      <label className="property-field">
         <span>{property.title}</span>
         <input
           key={`${key}:${String(value)}`}
@@ -90,7 +96,7 @@ function renderPropertyInput(
 
   if (property.kind === 'color') {
     return (
-      <label key={key} className="property-field">
+      <label className="property-field">
         <span>{property.title}</span>
         <input
           key={`${key}:${String(value)}`}
@@ -105,7 +111,7 @@ function renderPropertyInput(
   }
 
   return (
-    <label key={key} className="property-field">
+    <label className="property-field">
       <span>{property.title}</span>
       <input
         key={`${key}:${String(value)}`}
@@ -117,10 +123,24 @@ function renderPropertyInput(
   )
 }
 
+function getCompatibleRuntimeSources(
+  property: ComponentPropertyDefinition,
+  runtimeSources: readonly PreviewRuntimeValueSourceDefinition[],
+) {
+  return runtimeSources.filter(
+    (source) =>
+      source.values.length > 0 &&
+      source.values.every((value) => isComponentPropertyValue(property, value)),
+  )
+}
+
 export function ComponentPropertiesInspector({
   definition,
   values,
+  bindings,
+  runtimeSources,
   onChange,
+  onBindingChange,
 }: ComponentPropertiesInspectorProps) {
   const properties = Object.entries(definition.properties)
 
@@ -131,14 +151,52 @@ export function ComponentPropertiesInspector({
   return (
     <fieldset className="inspector-group">
       <legend>组件属性</legend>
-      {properties.map(([key, property]) =>
-        renderPropertyInput(
-          key,
-          property,
-          values[key] ?? property.defaultValue,
-          onChange,
-        ),
-      )}
+      {properties.map(([key, property]) => {
+        const binding = bindings.find((candidate) => candidate.property === key)
+        const compatibleSources = property.bindable
+          ? getCompatibleRuntimeSources(property, runtimeSources)
+          : []
+        const knownBinding = binding
+          ? compatibleSources.some(
+              (source) => source.key === binding.source.key,
+            )
+          : false
+
+        return (
+          <div key={key}>
+            {renderPropertyInput(
+              key,
+              property,
+              values[key] ?? property.defaultValue,
+              onChange,
+            )}
+
+            {property.bindable && (
+              <label className="property-field">
+                <span>数据绑定</span>
+                <select
+                  value={binding?.source.key ?? ''}
+                  onChange={(event) =>
+                    onBindingChange(key, event.target.value || null)
+                  }
+                >
+                  <option value="">未绑定 · 使用设计值</option>
+                  {binding && !knownBinding && (
+                    <option value={binding.source.key}>
+                      {binding.source.key}
+                    </option>
+                  )}
+                  {compatibleSources.map((source) => (
+                    <option key={source.key} value={source.key}>
+                      {source.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        )
+      })}
     </fieldset>
   )
 }
