@@ -10,6 +10,24 @@ export type SequenceMockDataSourceOptions = {
   intervalMs: number
 }
 
+export type PreviewRuntimeValueSourceDefinition = {
+  id: string
+  key: string
+  title: string
+  values: readonly RuntimeValue[]
+  intervalMs: number
+}
+
+export const DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES: readonly PreviewRuntimeValueSourceDefinition[] = [
+  {
+    id: 'mock.indicator.state-cycle',
+    key: MOCK_INDICATOR_STATE_KEY,
+    title: '模拟状态循环 · 停止 / 运行 / 警告 / 报警',
+    values: ['off', 'normal', 'warning', 'alarm'],
+    intervalMs: 1200,
+  },
+]
+
 export function createSequenceMockDataSource(
   options: SequenceMockDataSourceOptions,
 ): RuntimeDataSource {
@@ -40,12 +58,7 @@ export function createSequenceMockDataSource(
 }
 
 export function createDefaultPreviewMockSources(): RuntimeDataSource[] {
-  return [
-    createSequenceMockDataSource({
-      id: 'mock.indicator.state-cycle',
-      key: MOCK_INDICATOR_STATE_KEY,
-      values: ['off', 'normal', 'warning', 'alarm'],
-      intervalMs: 1200,
-    }),
-  ]
+  return DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES.map((source) =>
+    createSequenceMockDataSource(source),
+  )
 }
