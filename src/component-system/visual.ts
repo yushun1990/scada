@@ -95,17 +95,25 @@ function assertTransform(value: unknown, layerId: string) {
     throw new Error(`Visual Layer ${layerId} 缺少 transform`)
   }
 
-  for (const field of ['x', 'y', 'width', 'height', 'rotation', 'scaleX', 'scaleY'] as const) {
-    if (!isFiniteNumber(value[field])) {
-      throw new Error(`Visual Layer ${layerId} 的 ${field} 必须是有限数字`)
-    }
+  const { x, y, width, height, rotation, scaleX, scaleY } = value
+
+  if (
+    !isFiniteNumber(x) ||
+    !isFiniteNumber(y) ||
+    !isFiniteNumber(width) ||
+    !isFiniteNumber(height) ||
+    !isFiniteNumber(rotation) ||
+    !isFiniteNumber(scaleX) ||
+    !isFiniteNumber(scaleY)
+  ) {
+    throw new Error(`Visual Layer ${layerId} 的 transform 必须全部是有限数字`)
   }
 
-  if (value.width <= 0 || value.height <= 0) {
+  if (width <= 0 || height <= 0) {
     throw new Error(`Visual Layer ${layerId} 的 width / height 必须大于 0`)
   }
 
-  if (value.scaleX === 0 || value.scaleY === 0) {
+  if (scaleX === 0 || scaleY === 0) {
     throw new Error(`Visual Layer ${layerId} 的 scale 不能为 0`)
   }
 }
