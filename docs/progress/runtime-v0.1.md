@@ -35,7 +35,7 @@ The gate is not complete unless runtime updates remain outside authored `SceneDo
 | M5.5 Minimal binding UI | merged · PR #44 · `bb3e28d106358bdc9fe55cab3959bb13b3af493f` | Schema-compatible bindable Property UI persists DataBinding through editor history |
 | Runnable Runtime v0.1 gate | **accepted · 2026-08-09** | Manual visual acceptance confirmed the complete `indicator.status.state <- mock.indicator.state` Preview loop |
 | M5.6 Action/Event runtime kernel | merged · PR #46 · `872bf6d54cc7437b713109c7e1c6ad60388a77ef` | Generic contract-validated Action invocation and Event emission with Native handler boundary |
-| M5.7 Minimal behavior flow | implementation complete · PR #47 · manual smoke pending | Persisted Event -> Action behavior routing with schema-driven authoring UI and Preview execution |
+| M5.7 Minimal behavior flow | merged · PR #47 · `acdbd552b2efa8a5110527b07fc14560fdf3b3eb` · manual smoke pending | Persisted Event -> Action behavior routing with schema-driven authoring UI and Preview execution |
 
 ## M5.1 RuntimeValueStore
 
@@ -278,7 +278,7 @@ Runtime Event subscribers
 
 ## M5.7 Minimal Event -> Action behavior flow
 
-Tracking: PR #47, based on `main` after M5.6 merge `872bf6d54cc7437b713109c7e1c6ad60388a77ef`.
+Tracking: PR #47, merged as `acdbd552b2efa8a5110527b07fc14560fdf3b3eb`.
 
 ### Completed in code
 
@@ -290,7 +290,7 @@ Tracking: PR #47, based on `main` after M5.6 merge `872bf6d54cc7437b713109c7e1c6
 - Group nodes cannot own runtime Behaviors in v6.
 - Deleting a component also removes Behavior effects that target the deleted component, preventing dangling runtime references.
 - Component duplication deliberately starts with empty bindings and behaviors so copying a visual subtree does not silently duplicate automation semantics.
-- Preview Runtime now dispatches matching source-node Behaviors after a public Event is emitted and reuses the M5.6 `invokeAction` path for the effect.
+- Preview Runtime dispatches matching source-node Behaviors after a public Event is emitted and reuses the M5.6 `invokeAction` path for the effect.
 - Added a synchronous behavior-dispatch depth limit of 32 to prevent simple Event -> Action -> Event cycles from freezing Preview.
 - Added schema-driven `ComponentInteractionsInspector` for SCADA Workbench use.
 - The Actions tab lists the selected component public Actions and allows execution only in Preview when a current Runtime implementation exists.
@@ -341,8 +341,8 @@ canvas runtime message reports the target event
 
 ### Verification status
 
-- Build and lint are required before PR #47 can merge.
-- The behavior model, runtime dispatch, and SCADA authoring path are code-complete.
+- PR #47 merged after CI #297 passed Build and Lint.
+- The behavior model, runtime dispatch, and SCADA authoring path are code-complete on `main`.
 - A browser manual smoke test is still required before the M5.7 behavior slice is marked accepted.
 
 ### Deliberately deferred
