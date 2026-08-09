@@ -34,6 +34,10 @@ type ComponentVisualLayerInspectorProps = {
   onChange: (visual: ComponentVisualDefinition) => void
 }
 
+type LayerInspectorContentProps = Omit<ComponentVisualLayerInspectorProps, 'selectedLayerId'> & {
+  layer: ComponentVisualLayer
+}
+
 type FlatLayer = {
   layer: ComponentVisualLayer
   depth: number
@@ -63,10 +67,7 @@ function nextLayerId(kind: VisualLayerKind, layers: readonly ComponentVisualLaye
   const ids = new Set(layers.map((layer) => layer.id))
   let index = 1
 
-  while (ids.has(`${kind}${index}`)) {
-    index += 1
-  }
-
+  while (ids.has(`${kind}${index}`)) index += 1
   return `${kind}${index}`
 }
 
@@ -184,9 +185,7 @@ export function ComponentVisualTreeEditor({
   const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
 
   useEffect(() => {
-    if (selectedLayerId && !selectedLayer) {
-      onSelectionChange(null)
-    }
+    if (selectedLayerId && !selectedLayer) onSelectionChange(null)
   }, [onSelectionChange, selectedLayer, selectedLayerId])
 
   function addLayer() {
@@ -248,9 +247,7 @@ export function ComponentVisualTreeEditor({
             style={{ paddingLeft: `${12 + depth * 15}px` }}
             onClick={() => onSelectionChange(layer.id)}
           >
-            <span className="component-layer-disclosure">
-              {layer.kind === 'group' ? '▾' : '·'}
-            </span>
+            <span className="component-layer-disclosure">{layer.kind === 'group' ? '▾' : '·'}</span>
             <span className="component-layer-kind">{layerKindLabel(layer.kind)}</span>
             <span className="component-layer-name">{layer.name}</span>
             {!layer.visible && <small>隐藏</small>}
@@ -308,7 +305,7 @@ export function ComponentVisualCanvas({
         </span>
       </div>
 
-      <div className={`component-canvas-stage ${mode === 'preview' ? 'preview' : 'editor'}`}>
+      <div className={`component-canvas-stage ${mode}`}>
         <div
           className="component-artboard"
           style={{
@@ -333,84 +330,80 @@ export function ComponentVisualCanvas({
   )
 }
 
-export function ComponentVisualLayerInspector({
-  visual,
-  readOnly,
-  selectedLayerId,
-  onSelectionChange,
-  onChange,
-}: ComponentVisualLayerInspectorProps) {
-  const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
+export function ComponentVisualLayerInspector(props: ComponentVisualLayerInspectorProps) {
+  const layer = props.visual.layers.find((candidate) => candidate.id === props.selectedLayerId)
 
-  if (!selectedLayer) {
+  if (!layer) {
     return <div className="component-layer-empty">所选图层已不存在，请重新选择。</div>
   }
 
-  const selectedDescendantIds = collectDescendantIds(visual.layers, selectedLayer.id)
+  return <LayerInspectorContent {...props} layer={layer} />
+}
+
+function LayerInspectorContent({
+  visual,
+  readOnly,
+  layer,
+  onSelectionChange,
+  onChange,
+}: LayerInspectorContentProps) {
+  const descendantIds = collectDescendantIds(visual.layers, layer.id)
   const parentOptions = visual.layers.filter(
-    (layer) => layer.kind === 'group' && !selectedDescendantIds.has(layer.id),
+    (candidate) => candidate.kind === 'group' && !descendantIds.has(candidate.id),
   )
 
   function updateLayers(layers: readonly ComponentVisualLayer[]) {
     onChange({ ...visual, layers })
   }
 
-  function updateSelected(nextLayer: ComponentVisualLayer) {
-    updateLayers(replaceLayer(visual.layers, selectedLayer.id, nextLayer))
+  function updateLayer(nextLayer: ComponentVisualLayer) {
+    updateLayers(replaceLayer(visual.layers, layer.id, nextLayer))
   }
 
-  function renameSelected(nextValue: string) {
+  function renameLayer(nextValue: string) {
     if (readOnly) return
 
     const nextId = nextValue.trim()
     if (
       !nextId ||
-      nextId === selectedLayer.id ||
-      visual.layers.some((layer) => layer.id === nextId)
-    ) {
-      return
-    }
+      nextId === layer.id ||
+      visual.layers.some((candidate) => candidate.id === nextId)
+    ) return
 
-    const previousId = selectedLayer.id
-    const nextLayers = visual.layers.map((layer) => {
-      if (layer.id === previousId) {
-        return { ...layer, id: nextId } as ComponentVisualLayer
+    const previousId = layer.id
+    updateLayers(visual.layers.map((candidate) => {
+      if (candidate.id === previousId) {
+        return { ...candidate, id: nextId } as ComponentVisualLayer
       }
-
-      if (layer.parentId === previousId) {
-        return { ...layer, parentId: nextId } as ComponentVisualLayer
+      if (candidate.parentId === previousId) {
+        return { ...candidate, parentId: nextId } as ComponentVisualLayer
       }
-
-      return layer
-    })
-
-    updateLayers(nextLayers)
+      return candidate
+    }))
     onSelectionChange(nextId)
   }
 
-  function removeSelected() {
+  function removeLayer() {
     if (readOnly) return
 
-    const deleted = collectDescendantIds(visual.layers, selectedLayer.id)
-    updateLayers(visual.layers.filter((layer) => !deleted.has(layer.id)))
+    const deleted = collectDescendantIds(visual.layers, layer.id)
+    updateLayers(visual.layers.filter((candidate) => !deleted.has(candidate.id)))
     onSelectionChange(null)
   }
 
-  function moveSelected(direction: -1 | 1) {
+  function moveLayer(direction: -1 | 1) {
     if (readOnly) return
 
-    const siblings = visual.layers.filter(
-      (layer) => layer.parentId === selectedLayer.parentId,
-    )
-    const siblingIndex = siblings.findIndex((layer) => layer.id === selectedLayer.id)
-    const targetSibling = siblings[siblingIndex + direction]
-    if (!targetSibling) return
+    const siblings = visual.layers.filter((candidate) => candidate.parentId === layer.parentId)
+    const siblingIndex = siblings.findIndex((candidate) => candidate.id === layer.id)
+    const target = siblings[siblingIndex + direction]
+    if (!target) return
 
-    const currentIndex = visual.layers.findIndex((layer) => layer.id === selectedLayer.id)
-    const targetIndex = visual.layers.findIndex((layer) => layer.id === targetSibling.id)
+    const currentIndex = visual.layers.findIndex((candidate) => candidate.id === layer.id)
+    const targetIndex = visual.layers.findIndex((candidate) => candidate.id === target.id)
     const nextLayers = [...visual.layers]
-    nextLayers[currentIndex] = targetSibling
-    nextLayers[targetIndex] = selectedLayer
+    nextLayers[currentIndex] = target
+    nextLayers[targetIndex] = layer
     updateLayers(nextLayers)
   }
 
@@ -420,9 +413,9 @@ export function ComponentVisualLayerInspector({
   ) {
     if (!Number.isFinite(value)) return
 
-    updateSelected({
-      ...selectedLayer,
-      transform: { ...selectedLayer.transform, [field]: value },
+    updateLayer({
+      ...layer,
+      transform: { ...layer.transform, [field]: value },
     } as ComponentVisualLayer)
   }
 
@@ -432,44 +425,37 @@ export function ComponentVisualLayerInspector({
         <legend>图层</legend>
         <div className="component-layer-inspector-title">
           <div>
-            <strong>{selectedLayer.name}</strong>
-            <span>{layerKindLabel(selectedLayer.kind)} · {selectedLayer.id}</span>
+            <strong>{layer.name}</strong>
+            <span>{layerKindLabel(layer.kind)} · {layer.id}</span>
           </div>
           {!readOnly && (
             <div className="component-layer-actions">
-              <button type="button" title="上移" onClick={() => moveSelected(-1)}>↑</button>
-              <button type="button" title="下移" onClick={() => moveSelected(1)}>↓</button>
-              <button type="button" className="danger" onClick={removeSelected}>删除</button>
+              <button type="button" title="上移" onClick={() => moveLayer(-1)}>↑</button>
+              <button type="button" title="下移" onClick={() => moveLayer(1)}>↓</button>
+              <button type="button" className="danger" onClick={removeLayer}>删除</button>
             </div>
           )}
         </div>
 
         <label className="property-field">
           <span>ID</span>
-          <LayerIdInput
-            value={selectedLayer.id}
-            disabled={readOnly}
-            onCommit={renameSelected}
-          />
+          <LayerIdInput value={layer.id} disabled={readOnly} onCommit={renameLayer} />
         </label>
         <label className="property-field">
           <span>名称</span>
           <input
-            value={selectedLayer.name}
+            value={layer.name}
             disabled={readOnly}
-            onChange={(event) => updateSelected({
-              ...selectedLayer,
-              name: event.target.value,
-            } as ComponentVisualLayer)}
+            onChange={(event) => updateLayer({ ...layer, name: event.target.value } as ComponentVisualLayer)}
           />
         </label>
         <label className="property-field">
           <span>父级</span>
           <select
-            value={selectedLayer.parentId ?? ''}
+            value={layer.parentId ?? ''}
             disabled={readOnly}
-            onChange={(event) => updateSelected({
-              ...selectedLayer,
+            onChange={(event) => updateLayer({
+              ...layer,
               parentId: event.target.value || null,
             } as ComponentVisualLayer)}
           >
@@ -498,7 +484,7 @@ export function ComponentVisualLayerInspector({
               <input
                 type="number"
                 step={field.startsWith('scale') ? '0.1' : '1'}
-                value={selectedLayer.transform[field]}
+                value={layer.transform[field]}
                 disabled={readOnly}
                 onChange={(event) => updateTransform(field, Number(event.target.value))}
               />
@@ -512,12 +498,9 @@ export function ComponentVisualLayerInspector({
         <label className="checkbox-field property-toggle">
           <input
             type="checkbox"
-            checked={selectedLayer.visible}
+            checked={layer.visible}
             disabled={readOnly}
-            onChange={(event) => updateSelected({
-              ...selectedLayer,
-              visible: event.target.checked,
-            } as ComponentVisualLayer)}
+            onChange={(event) => updateLayer({ ...layer, visible: event.target.checked } as ComponentVisualLayer)}
           />
           <span>可见</span>
         </label>
@@ -528,51 +511,41 @@ export function ComponentVisualLayerInspector({
             min="0"
             max="1"
             step="0.05"
-            value={selectedLayer.opacity}
+            value={layer.opacity}
             disabled={readOnly}
-            onChange={(event) => updateSelected({
-              ...selectedLayer,
-              opacity: Number(event.target.value),
-            } as ComponentVisualLayer)}
+            onChange={(event) => updateLayer({ ...layer, opacity: Number(event.target.value) } as ComponentVisualLayer)}
           />
         </label>
       </fieldset>
 
-      {(selectedLayer.kind === 'svg' || selectedLayer.kind === 'image') && (
+      {(layer.kind === 'svg' || layer.kind === 'image') && (
         <fieldset className="inspector-group">
           <legend>资源</legend>
           <label className="property-field">
             <span>资源引用</span>
             <input
-              value={selectedLayer.assetRef}
+              value={layer.assetRef}
               disabled={readOnly}
-              placeholder={selectedLayer.kind === 'svg'
-                ? 'assets/pump-body.svg'
-                : 'assets/vendor-logo.png'}
-              onChange={(event) => updateSelected({
-                ...selectedLayer,
-                assetRef: event.target.value,
-              })}
+              placeholder={layer.kind === 'svg' ? 'assets/pump-body.svg' : 'assets/vendor-logo.png'}
+              onChange={(event) => updateLayer({ ...layer, assetRef: event.target.value })}
             />
           </label>
           <p className="component-inspector-help">当前只保存 assetRef；资源上传/管理将在后续切片接入。</p>
         </fieldset>
       )}
 
-      {selectedLayer.kind === 'vector' && (
+      {layer.kind === 'vector' && (
         <fieldset className="inspector-group">
           <legend>矢量图形</legend>
           <label className="property-field">
             <span>图元</span>
             <select
-              value={selectedLayer.primitive}
+              value={layer.primitive}
               disabled={readOnly}
-              onChange={(event) => updateSelected({
-                ...selectedLayer,
+              onChange={(event) => updateLayer({
+                ...layer,
                 primitive: event.target.value as VisualVectorPrimitive,
-                pathData: event.target.value === 'path'
-                  ? selectedLayer.pathData ?? ''
-                  : undefined,
+                pathData: event.target.value === 'path' ? layer.pathData ?? '' : undefined,
               })}
             >
               {VECTOR_PRIMITIVES.map(([primitive, label]) => (
@@ -580,36 +553,30 @@ export function ComponentVisualLayerInspector({
               ))}
             </select>
           </label>
-          {selectedLayer.primitive === 'path' && (
+          {layer.primitive === 'path' && (
             <label className="property-field">
               <span>Path Data</span>
               <textarea
                 rows={4}
-                value={selectedLayer.pathData ?? ''}
+                value={layer.pathData ?? ''}
                 disabled={readOnly}
-                onChange={(event) => updateSelected({
-                  ...selectedLayer,
-                  pathData: event.target.value,
-                })}
+                onChange={(event) => updateLayer({ ...layer, pathData: event.target.value })}
               />
             </label>
           )}
         </fieldset>
       )}
 
-      {selectedLayer.kind === 'text' && (
+      {layer.kind === 'text' && (
         <fieldset className="inspector-group">
           <legend>文本</legend>
           <label className="property-field">
             <span>内容</span>
             <textarea
               rows={4}
-              value={selectedLayer.text}
+              value={layer.text}
               disabled={readOnly}
-              onChange={(event) => updateSelected({
-                ...selectedLayer,
-                text: event.target.value,
-              })}
+              onChange={(event) => updateLayer({ ...layer, text: event.target.value })}
             />
           </label>
         </fieldset>
