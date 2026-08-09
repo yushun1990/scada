@@ -1,8 +1,14 @@
-import { forwardRef, useCallback, useEffect, useRef } from 'react'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+} from 'react'
 import type Konva from 'konva'
 import { Group, Rect } from 'react-konva'
 import { builtInComponentRegistry } from '../component-system/builtins'
-import { resolveEffectiveComponentProps } from '../runtime'
+import { previewRuntime, resolveEffectiveComponentProps } from '../runtime'
 import type { RuntimeValueSnapshot } from '../runtime'
 import { getNodeBounds } from '../scene/geometry'
 import {
@@ -22,6 +28,8 @@ type Point = {
 }
 
 const EMPTY_RUNTIME_VALUES: RuntimeValueSnapshot = Object.freeze({})
+const subscribeToNothing = () => () => undefined
+const getEmptyRuntimeValues = () => EMPTY_RUNTIME_VALUES
 
 export type SceneNodeRendererProps = {
   scene: SceneDocument
@@ -48,7 +56,7 @@ export const SceneNodeRenderer = forwardRef<
     resolveDragPosition,
     parentVisible = true,
     parentLocked = false,
-    runtimeValues = EMPTY_RUNTIME_VALUES,
+    runtimeValues,
   },
   ref,
 ) {
@@ -57,6 +65,23 @@ export const SceneNodeRenderer = forwardRef<
   const effectiveLocked = parentLocked || node.locked
   const displayVisible = editorMode || effectiveVisible
   const displayOpacity = effectiveVisible ? 1 : 0.2
+  const previewRuntimeActive =
+    runtimeValues === undefined && selectable && !editorMode
+
+  useEffect(() => {
+    if (!previewRuntimeActive) {
+      return
+    }
+
+    return previewRuntime.acquire()
+  }, [previewRuntimeActive])
+
+  const previewRuntimeValues = useSyncExternalStore(
+    previewRuntimeActive ? previewRuntime.values.subscribe : subscribeToNothing,
+    previewRuntimeActive ? previewRuntime.values.getSnapshot : getEmptyRuntimeValues,
+    getEmptyRuntimeValues,
+  )
+  const effectiveRuntimeValues = runtimeValues ?? previewRuntimeValues
 
   const bindRootRef = useCallback(
     (instance: Konva.Group | null) => {
@@ -237,7 +262,7 @@ export const SceneNodeRenderer = forwardRef<
             selectable={false}
             parentVisible={effectiveVisible}
             parentLocked={effectiveLocked}
-            runtimeValues={runtimeValues}
+            runtimeValues={effectiveRuntimeValues}
           />
         ))}
       </Group>
@@ -251,7 +276,7 @@ export const SceneNodeRenderer = forwardRef<
         registration.definition,
         node.props,
         node.bindings,
-        runtimeValues,
+        effectiveRuntimeValues,
       )
     : node.props
   const commonRendererProps = {
