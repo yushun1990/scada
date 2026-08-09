@@ -31,9 +31,9 @@ The gate is not complete unless runtime updates remain outside authored `SceneDo
 | M5.1 RuntimeValueStore | merged · PR #40 · `2e5ea96501cdc89347792511d3e8833c955b8678` | Runtime-only immutable observable value store, independent of scene/history |
 | M5.2 DataBinding + effective props | merged · PR #41 · `1ccef65f546400be77026989c125a58feecc2e25` | Persisted generic bindings and runtime override resolver without authored-prop mutation |
 | M5.3 Preview runtime lifecycle | merged · PR #42 · `46db2b6c98257abd7059e238fd4e80904ec07e40` | Preview-only runtime lease, subscription, stop and clear lifecycle |
-| M5.4 Mock data source | implementation complete · PR #43 | Deterministic runtime data-source contract and indicator state-cycle source |
-| M5.5 Minimal binding UI | pending | SCADA user binds only exposed bindable properties |
-| Runnable Runtime v0.1 gate | pending | Mock value visibly drives `indicator.status` in Preview |
+| M5.4 Mock data source | merged · PR #43 · `287bddcd83bc300f52c0db9288326fb26080d14c` | Deterministic runtime data-source contract and indicator state-cycle source |
+| M5.5 Minimal binding UI | implementation complete · PR #44 | Schema-compatible bindable Property UI persists DataBinding through editor history |
+| Runnable Runtime v0.1 gate | code path complete · PR #44 · visual smoke test pending | `indicator.status.state <- mock.indicator.state` reaches Preview renderer without authored-prop mutation |
 | M5.6 Action/Event runtime kernel | pending | Generic invoke/emit contract |
 | M5.7 Minimal behavior flow | pending | Event -> action/property runtime path |
 
@@ -136,14 +136,14 @@ Last Preview root release
 
 ## M5.4 Mock data source
 
-Tracking: PR #43, based on `main` after M5.3 merge `46db2b6c98257abd7059e238fd4e80904ec07e40`.
+Tracking: PR #43, merged as `287bddcd83bc300f52c0db9288326fb26080d14c`.
 
 ### Completed
 
 - Added renderer-independent `RuntimeDataSource` and stop contracts.
 - Added `createSequenceMockDataSource` as the first deterministic generator.
 - Sequence sources validate that at least one value exists and that the interval is positive.
-- Preview Runtime now owns source start/stop together with its existing lease lifecycle.
+- Preview Runtime owns source start/stop together with its existing lease lifecycle.
 - Source startup failure rolls back already-started sources and clears transient runtime state.
 - The default Preview Runtime exposes `mock.indicator.state`.
 - `mock.indicator.state` cycles deterministically through `off -> normal -> warning -> alarm` every 1200 ms.
@@ -164,27 +164,63 @@ RuntimeValueStore
 DataBinding / effective props
 ```
 
+## M5.5 Minimal binding UI and runnable gate
+
+Tracking: PR #44, based on `main` after M5.4 merge `287bddcd83bc300f52c0db9288326fb26080d14c`.
+
+### Completed in code
+
+- Preview mock values now publish discoverable source metadata separately from the data-source execution contract.
+- The schema-driven component Inspector renders a binding selector only for Properties declared with `bindable: true`.
+- Runtime source options are filtered by the target Property schema and complete source value domain; no component type branch decides compatibility.
+- The `mock.indicator.state` source is compatible with `indicator.status.state` because all four generated values are valid select options.
+- The same source is not offered to the pump state Property because its select value domain is different.
+- Binding creation and removal persist in `ComponentSceneNode.bindings` and use the normal editor `commit()` path, so the configuration itself is undoable/redoable.
+- Rebinding preserves the existing binding id; unbinding removes only the target Property binding.
+- The Inspector still exposes the authored Property value as the fallback used when no valid runtime value is present.
+- Runtime source updates never call the binding configuration command and therefore remain outside editor history.
+- SCADA Workbench exposes only public Property + data-source selection; component visual internals and runtime implementation details remain hidden.
+
+### Runnable path now present
+
+```text
+Designer
+  indicator.status.state = authored fallback
+  Data binding = mock.indicator.state
+        ↓
+Preview
+  PreviewRuntime starts source
+        ↓
+mock.indicator.state
+  off -> normal -> warning -> alarm
+        ↓
+RuntimeValueStore snapshot
+        ↓
+resolveEffectiveComponentProps
+        ↓
+StatusIndicatorComponentRenderer
+        ↓
+visual state changes
+        ↓
+return Designer
+        ↓
+runtime stops / clears
+        ↓
+authored state visible again
+```
+
+### Verification status
+
+- Build and lint are the automated gate for this repository and are required before merge.
+- The code path is complete, but a browser visual smoke test must still confirm the visible four-state cycle after selecting the binding in the Inspector.
+- Until that visual smoke test is performed, the Runtime v0.1 acceptance gate is recorded as code-complete rather than fully accepted.
+
 ### Not included
 
-- No binding editor UI yet, so scene components do not consume the mock key unless a binding already exists in scene JSON.
-- Additional manual/toggle/ramp/sine generators remain follow-up additions after the first runnable gate proves the source contract.
+- No general data-source browser or production source-management UI yet.
+- No manual/toggle/ramp/sine mock editors yet.
 - No Action/Event runtime yet.
 
 ## Next slice
 
-**M5.5 Minimal binding UI + first runnable Runtime v0.1 gate.**
-
-The next implementation must let a SCADA Workbench user bind an exposed `bindable` Property to the known mock runtime key without seeing component internals. The acceptance path is:
-
-```text
-indicator.status.state
-        <- mock.indicator.state
-        ↓
-enter Preview
-        ↓
-off / normal / warning / alarm cycle
-        ↓
-visible indicator changes automatically
-```
-
-Returning to Designer must restore the authored `state` value and runtime updates must not create editor history entries.
+After the Runtime v0.1 visual smoke test, continue with **M5.6 Action/Event runtime kernel**. The next runtime abstraction must keep Action/Event implementation independent of visual anchors and must preserve the Component Workbench public-contract/private-implementation boundary.
