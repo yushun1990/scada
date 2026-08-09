@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { loadScadaScene, saveScadaScene } from '../scada-works/storage'
 import { builtInComponentRegistry } from '../../component-system/builtins'
+import { DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES } from '../../runtime'
 import { ComponentPropertiesInspector } from './ComponentPropertiesInspector'
 import {
   hasDuplicateConnection,
@@ -33,6 +34,7 @@ import {
 import {
   createComponentNode,
   createSceneConnection,
+  createSceneId,
   isGroupNode,
   type ConnectionEndpoint,
   type ConnectionRouting,
@@ -431,6 +433,64 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     } else {
       setScene(updateScene)
     }
+  }
+
+  function updatePrimaryComponentBinding(
+    key: string,
+    runtimeKey: string | null,
+  ) {
+    if (
+      !primaryNode ||
+      isGroupNode(primaryNode) ||
+      !primaryComponentRegistration?.definition.properties[key]?.bindable
+    ) {
+      return
+    }
+
+    const existingBinding = primaryNode.bindings.find(
+      (binding) => binding.property === key,
+    )
+
+    if ((existingBinding?.source.key ?? null) === runtimeKey) {
+      return
+    }
+
+    const bindingId = existingBinding?.id ?? createSceneId('binding')
+
+    commit((current) => ({
+      ...current,
+      nodes: current.nodes.map((node) => {
+        if (node.id !== primaryNode.id || isGroupNode(node)) {
+          return node
+        }
+
+        const bindings = node.bindings.filter(
+          (binding) => binding.property !== key,
+        )
+
+        if (runtimeKey) {
+          bindings.push({
+            id: bindingId,
+            property: key,
+            source: {
+              kind: 'runtime-value',
+              key: runtimeKey,
+            },
+          })
+        }
+
+        return {
+          ...node,
+          bindings,
+        }
+      }),
+    }))
+
+    setMessage(
+      runtimeKey
+        ? `已绑定 ${key} → ${runtimeKey}`
+        : `已取消 ${key} 的数据绑定`,
+    )
   }
 
   function updatePrimaryTransformField(
@@ -1047,7 +1107,10 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                   <ComponentPropertiesInspector
                     definition={primaryComponentRegistration.definition}
                     values={primaryNode.props}
+                    bindings={primaryNode.bindings}
+                    runtimeSources={DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES}
                     onChange={updatePrimaryComponentProperty}
+                    onBindingChange={updatePrimaryComponentBinding}
                     onCommit={commitScene}
                   />
                 )}
