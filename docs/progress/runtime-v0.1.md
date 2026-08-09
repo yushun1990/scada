@@ -34,7 +34,7 @@ The gate is not complete unless runtime updates remain outside authored `SceneDo
 | M5.4 Mock data source | merged · PR #43 · `287bddcd83bc300f52c0db9288326fb26080d14c` | Deterministic runtime data-source contract and indicator state-cycle source |
 | M5.5 Minimal binding UI | merged · PR #44 · `bb3e28d106358bdc9fe55cab3959bb13b3af493f` | Schema-compatible bindable Property UI persists DataBinding through editor history |
 | Runnable Runtime v0.1 gate | **accepted · 2026-08-09** | Manual visual acceptance confirmed the complete `indicator.status.state <- mock.indicator.state` Preview loop |
-| M5.6 Action/Event runtime kernel | pending | Generic invoke/emit contract |
+| M5.6 Action/Event runtime kernel | implementation complete · PR #46 | Generic contract-validated Action invocation and Event emission with Native handler boundary |
 | M5.7 Minimal behavior flow | pending | Event -> action/property runtime path |
 
 ## M5.1 RuntimeValueStore
@@ -233,23 +233,69 @@ The project has therefore crossed the planned boundary from a static scene edito
 
 - No general data-source browser or production source-management UI yet.
 - No manual/toggle/ramp/sine mock editors yet.
-- No Action/Event runtime yet.
+
+## M5.6 Action/Event runtime kernel
+
+Tracking: PR #46, based on `main` after Runtime v0.1 acceptance merge `1285225b060f91235572e889af3707da67a9e31d`.
+
+### Completed in code
+
+- Kept `ComponentDefinition.actions` and `ComponentDefinition.events` as serializable public contract declarations.
+- Added optional `ComponentRegistration.actions` as the trusted Native implementation boundary.
+- Added a controlled `ComponentActionHandlerContext` containing only instance identity, effective component props, and `emit()`.
+- Native handlers receive no raw `SceneDocument` mutation API, `RuntimeValueStore`, Konva node, DOM object, or browser global through the runtime contract.
+- ComponentRegistry rejects Native Action handlers that are not declared in the corresponding public Definition.
+- Preview Runtime now owns the active `SceneDocument` for the duration of its lease session, allowing interaction APIs to resolve instances by node id.
+- Added `PreviewRuntime.invokeAction(nodeId, actionName, input?)` with component-instance, public-contract, and implementation validation.
+- Added `PreviewRuntime.emitEvent(nodeId, eventName, payload?)` with public Event validation.
+- Added `PreviewRuntime.subscribeEvents(listener)` and immutable event records containing sequence, timestamp, node identity, component type, event name, and payload.
+- Action handlers receive effective runtime props, so future implementations observe the same Property state that the renderer sees.
+- Added pump `start` / `stop` public Actions and `startRequested` / `stopRequested` public Events as the first Native contract proof.
+- Pump Native handlers emit request Events only; they deliberately do not mutate authored props or pretend that a physical device has changed state.
+- Action/Event semantics remain independent of visual Anchors and `SceneConnection`.
+
+### Runtime path
+
+```text
+invokeAction(nodeId, "start")
+        ↓
+active Preview SceneDocument
+        ↓
+component instance + ComponentRegistry
+        ↓
+Definition.actions.start
+        ↓
+Registration.actions.start
+        ↓
+controlled Native handler
+        ↓
+emit("startRequested")
+        ↓
+Definition.events.startRequested
+        ↓
+Runtime Event subscribers
+```
+
+### Not included
+
+- No persisted Behavior graph yet.
+- No Event -> Action routing yet.
+- No Event -> Property assignment yet.
+- No user-authored script implementation yet.
+- No assumption that calling a device command means the device state has already changed.
 
 ## Next slice
 
-**M5.6 Action/Event runtime kernel.**
+**M5.7 Minimal behavior flow.**
 
-Now that the Property-binding runtime gate is accepted, the next runtime abstraction can establish generic Action invocation and Event emission while preserving these boundaries:
+The next slice should persist and execute one deliberately small behavior model using the M5.6 kernel:
 
 ```text
-ComponentDefinition
-  declares Action / Event public contract
+source component Event
         ↓
-Runtime kernel
-  invokes / emits by node id + contract name
+Behavior
         ↓
-Component implementation
-  Native now, configured/script implementation later
+target Action
 ```
 
-Action/Event runtime semantics must remain independent of visual `SceneConnection` anchors and must not require the complete Component Workbench Script Runtime yet.
+and/or a runtime-only Property assignment where the target Property schema validates the assigned value. The behavior model must remain separate from visual `SceneConnection` and must not require the full Component Workbench Rule/Script system.
