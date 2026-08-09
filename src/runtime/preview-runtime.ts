@@ -5,6 +5,8 @@ import { resolveEffectiveComponentProps } from './effective-component-props'
 import { createDefaultPreviewMockSources } from './mock-data-source'
 import { RuntimeValueStore } from './runtime-value-store'
 
+const MAX_BEHAVIOR_DISPATCH_DEPTH = 32
+
 export type ComponentRuntimeEvent = {
   sequence: number
   timestamp: number
@@ -28,6 +30,7 @@ export class PreviewRuntime {
   private leaseCount = 0
   private running = false
   private eventSequence = 0
+  private behaviorDispatchDepth = 0
 
   constructor(sources: readonly RuntimeDataSource[] = []) {
     this.sources = [...sources]
@@ -135,6 +138,7 @@ export class PreviewRuntime {
       listener(event)
     }
 
+    this.dispatchBehaviors(event)
     return event
   }
 
@@ -143,6 +147,47 @@ export class PreviewRuntime {
 
     return () => {
       this.eventListeners.delete(listener)
+    }
+  }
+
+  private dispatchBehaviors(event: ComponentRuntimeEvent) {
+    if (!this.scene) {
+      return
+    }
+
+    if (this.behaviorDispatchDepth >= MAX_BEHAVIOR_DISPATCH_DEPTH) {
+      throw new Error(
+        `Runtime behavior dispatch exceeded ${MAX_BEHAVIOR_DISPATCH_DEPTH} nested steps`,
+      )
+    }
+
+    const sourceNode = this.scene.nodes.find(
+      (candidate) => candidate.id === event.nodeId,
+    )
+
+    if (!sourceNode || isGroupNode(sourceNode)) {
+      return
+    }
+
+    const matchingBehaviors = sourceNode.behaviors.filter(
+      (behavior) => behavior.trigger.event === event.eventName,
+    )
+
+    if (matchingBehaviors.length === 0) {
+      return
+    }
+
+    this.behaviorDispatchDepth += 1
+
+    try {
+      for (const behavior of matchingBehaviors) {
+        this.invokeAction(
+          behavior.effect.targetNodeId,
+          behavior.effect.action,
+        )
+      }
+    } finally {
+      this.behaviorDispatchDepth -= 1
     }
   }
 
@@ -166,6 +211,7 @@ export class PreviewRuntime {
   private start() {
     this.values.clear()
     this.eventSequence = 0
+    this.behaviorDispatchDepth = 0
     this.running = true
     const sourceStops: RuntimeDataSourceStop[] = []
 
@@ -195,6 +241,7 @@ export class PreviewRuntime {
     this.running = false
     this.values.clear()
     this.scene = null
+    this.behaviorDispatchDepth = 0
   }
 }
 
