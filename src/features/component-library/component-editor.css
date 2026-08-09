@@ -75,7 +75,8 @@
 
 .component-form-card,
 .component-code-card,
-.component-contract-card {
+.component-contract-card,
+.component-visual-card {
   min-width: 0;
   padding: 24px;
   border: 1px solid #dce2ea;
@@ -84,9 +85,13 @@
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
+.component-visual-card,
+.component-code-card {
+  grid-column: 1 / -1;
+}
+
 .component-code-card {
   display: grid;
-  grid-column: 1 / -1;
   grid-template-rows: auto minmax(220px, 1fr) auto;
   gap: 18px;
   min-height: 0;
@@ -149,7 +154,9 @@
 .component-form-grid label,
 .component-form-block,
 .contract-grid label,
-.contract-block-field {
+.contract-block-field,
+.visual-transform-grid label,
+.visual-state-row > label:not(.contract-checkbox) {
   display: grid;
   gap: 6px;
   color: #64748b;
@@ -162,7 +169,11 @@
 .component-form-block textarea,
 .contract-grid input,
 .contract-grid select,
-.contract-block-field textarea {
+.contract-block-field input,
+.contract-block-field select,
+.contract-block-field textarea,
+.visual-transform-grid input,
+.visual-state-row input[type="number"] {
   width: 100%;
   border: 1px solid #d4dbe5;
   border-radius: 6px;
@@ -175,7 +186,11 @@
 .component-form-grid input,
 .component-form-grid select,
 .contract-grid input,
-.contract-grid select {
+.contract-grid select,
+.contract-block-field input,
+.contract-block-field select,
+.visual-transform-grid input,
+.visual-state-row input[type="number"] {
   height: 34px;
   padding: 0 9px;
 }
@@ -189,6 +204,13 @@
 .contract-block-field textarea {
   padding: 9px;
   resize: vertical;
+  line-height: 1.5;
+}
+
+.contract-block-field small {
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 500;
   line-height: 1.5;
 }
 
@@ -317,6 +339,203 @@
   font-weight: 700;
 }
 
+.visual-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 9px;
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.visual-editor-toolbar select,
+.visual-editor-toolbar button {
+  height: 32px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.visual-editor-toolbar select {
+  min-width: 120px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  background: #ffffff;
+}
+
+.visual-editor-toolbar button {
+  padding: 0 10px;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  background: #eff6ff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.visual-editor-toolbar button:disabled {
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  cursor: default;
+}
+
+.visual-editor-toolbar > span {
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 9px;
+}
+
+.visual-editor-body {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.34fr) minmax(420px, 0.66fr);
+  min-height: 360px;
+  margin-top: 12px;
+  border: 1px solid #dce3ec;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.visual-tree-panel {
+  min-width: 0;
+  padding: 8px;
+  border-right: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.visual-tree-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 34px;
+  padding-top: 5px;
+  padding-right: 8px;
+  padding-bottom: 5px;
+  border: 0;
+  border-radius: 5px;
+  color: #475569;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.visual-tree-row:hover {
+  background: #eef2f7;
+}
+
+.visual-tree-row.active {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.visual-layer-kind {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visual-layer-name {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visual-tree-row small {
+  color: #94a3b8;
+  font-size: 8px;
+}
+
+.visual-tree-empty {
+  padding: 24px 16px;
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.visual-layer-inspector {
+  min-width: 0;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.visual-layer-inspector-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.visual-layer-inspector-head > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.visual-layer-inspector-head strong {
+  overflow: hidden;
+  color: #334155;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visual-layer-inspector-head span {
+  color: #94a3b8;
+  font-size: 9px;
+}
+
+.visual-layer-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.visual-layer-actions button {
+  padding: 5px 7px;
+  border: 1px solid #d9e1eb;
+  border-radius: 5px;
+  color: #526174;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.visual-layer-actions button.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.visual-transform-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #eef2f7;
+}
+
+.visual-state-row {
+  display: grid;
+  grid-template-columns: minmax(100px, auto) minmax(120px, 180px);
+  align-items: end;
+  gap: 16px;
+  margin-top: 14px;
+}
+
 .component-code-editor {
   width: 100%;
   min-height: 220px;
@@ -356,8 +575,20 @@ textarea[readonly] {
     grid-template-columns: 1fr;
   }
 
+  .component-visual-card,
   .component-code-card {
     grid-column: auto;
+  }
+
+  .visual-editor-body {
+    grid-template-columns: 1fr;
+  }
+
+  .visual-tree-panel {
+    max-height: 260px;
+    overflow: auto;
+    border-right: 0;
+    border-bottom: 1px solid #e2e8f0;
   }
 }
 
@@ -372,11 +603,25 @@ textarea[readonly] {
 
   .component-form-grid,
   .contract-grid,
-  .contract-grid-three {
+  .contract-grid-three,
+  .visual-transform-grid {
     grid-template-columns: 1fr;
   }
 
   .component-contract-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .visual-editor-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .visual-editor-toolbar > span {
+    margin-left: 0;
+  }
+
+  .visual-state-row {
+    grid-template-columns: 1fr;
   }
 }
