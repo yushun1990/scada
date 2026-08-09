@@ -1,14 +1,33 @@
+import { builtInComponentRegistry } from '../component-system/builtins'
+import { isGroupNode, type SceneDocument } from '../scene/model'
 import type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
+import { resolveEffectiveComponentProps } from './effective-component-props'
 import { createDefaultPreviewMockSources } from './mock-data-source'
 import { RuntimeValueStore } from './runtime-value-store'
+
+export type ComponentRuntimeEvent = {
+  sequence: number
+  timestamp: number
+  nodeId: string
+  componentType: string
+  eventName: string
+  payload?: unknown
+}
+
+export type ComponentRuntimeEventListener = (
+  event: ComponentRuntimeEvent,
+) => void
 
 export class PreviewRuntime {
   readonly values = new RuntimeValueStore()
 
   private readonly sources: readonly RuntimeDataSource[]
+  private readonly eventListeners = new Set<ComponentRuntimeEventListener>()
   private sourceStops: RuntimeDataSourceStop[] = []
+  private scene: SceneDocument | null = null
   private leaseCount = 0
   private running = false
+  private eventSequence = 0
 
   constructor(sources: readonly RuntimeDataSource[] = []) {
     this.sources = [...sources]
@@ -18,11 +37,24 @@ export class PreviewRuntime {
     return this.running
   }
 
-  acquire() {
+  acquire(scene: SceneDocument) {
+    if (this.scene && this.scene.id !== scene.id) {
+      throw new Error(
+        `Preview runtime is already active for scene ${this.scene.id}`,
+      )
+    }
+
     this.leaseCount += 1
+    this.scene = scene
 
     if (this.leaseCount === 1) {
-      this.start()
+      try {
+        this.start()
+      } catch (error) {
+        this.leaseCount = 0
+        this.scene = null
+        throw error
+      }
     }
 
     let released = false
@@ -41,8 +73,99 @@ export class PreviewRuntime {
     }
   }
 
+  invokeAction(nodeId: string, actionName: string, input?: unknown) {
+    const target = this.requireComponentTarget(nodeId)
+    const action = target.registration.definition.actions[actionName]
+
+    if (!action) {
+      throw new Error(
+        `Component ${target.node.type} does not declare action ${actionName}`,
+      )
+    }
+
+    const handler = target.registration.actions?.[actionName]
+
+    if (!handler) {
+      throw new Error(
+        `Component ${target.node.type} action ${actionName} has no runtime implementation`,
+      )
+    }
+
+    const props = Object.freeze(
+      resolveEffectiveComponentProps(
+        target.registration.definition,
+        target.node.props,
+        target.node.bindings,
+        this.values.getSnapshot(),
+      ),
+    )
+
+    return handler(
+      {
+        nodeId,
+        componentType: target.node.type,
+        props,
+        emit: (eventName, payload) => {
+          this.emitEvent(nodeId, eventName, payload)
+        },
+      },
+      input,
+    )
+  }
+
+  emitEvent(nodeId: string, eventName: string, payload?: unknown) {
+    const target = this.requireComponentTarget(nodeId)
+
+    if (!target.registration.definition.events[eventName]) {
+      throw new Error(
+        `Component ${target.node.type} does not declare event ${eventName}`,
+      )
+    }
+
+    const event: ComponentRuntimeEvent = Object.freeze({
+      sequence: ++this.eventSequence,
+      timestamp: Date.now(),
+      nodeId,
+      componentType: target.node.type,
+      eventName,
+      payload,
+    })
+
+    for (const listener of [...this.eventListeners]) {
+      listener(event)
+    }
+
+    return event
+  }
+
+  subscribeEvents(listener: ComponentRuntimeEventListener) {
+    this.eventListeners.add(listener)
+
+    return () => {
+      this.eventListeners.delete(listener)
+    }
+  }
+
+  private requireComponentTarget(nodeId: string) {
+    if (!this.running || !this.scene) {
+      throw new Error('Preview runtime is not running')
+    }
+
+    const node = this.scene.nodes.find((candidate) => candidate.id === nodeId)
+
+    if (!node || isGroupNode(node)) {
+      throw new Error(`Runtime component node does not exist: ${nodeId}`)
+    }
+
+    return {
+      node,
+      registration: builtInComponentRegistry.require(node.type),
+    }
+  }
+
   private start() {
     this.values.clear()
+    this.eventSequence = 0
     this.running = true
     const sourceStops: RuntimeDataSourceStop[] = []
 
@@ -71,6 +194,7 @@ export class PreviewRuntime {
     this.sourceStops = []
     this.running = false
     this.values.clear()
+    this.scene = null
   }
 }
 
