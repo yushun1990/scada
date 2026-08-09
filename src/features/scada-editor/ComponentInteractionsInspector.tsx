@@ -66,13 +66,16 @@ function getActionTargets(scene: SceneDocument) {
       return []
     }
 
-    return Object.entries(registration.definition.actions).map(
-      ([actionName, action]) => ({
-        nodeId: candidate.id,
-        nodeName: candidate.name,
-        action: actionName,
-        actionTitle: action.title,
-      }),
+    return Object.entries(registration.definition.actions).flatMap(
+      ([actionName, action]) =>
+        registration.actions?.[actionName]
+          ? [{
+              nodeId: candidate.id,
+              nodeName: candidate.name,
+              action: actionName,
+              actionTitle: action.title,
+            }]
+          : [],
     )
   })
 }
@@ -87,6 +90,7 @@ export function ComponentInteractionsInspector({
   onBehaviorChange,
 }: ComponentInteractionsInspectorProps) {
   if (tab === 'actions') {
+    const registration = builtInComponentRegistry.get(node.type)
     const actions = Object.entries(definition.actions)
 
     if (actions.length === 0) {
@@ -102,21 +106,25 @@ export function ComponentInteractionsInspector({
       <div className="property-section-list">
         <fieldset className="inspector-group">
           <legend>组件方法</legend>
-          {actions.map(([actionName, action]) => (
-            <div key={actionName} className="property-field">
-              <span>{action.title}</span>
-              <button
-                type="button"
-                disabled={!previewActive}
-                onClick={() => onInvokeAction(actionName)}
-              >
-                执行
-              </button>
-              {action.description && <small>{action.description}</small>}
-            </div>
-          ))}
+          {actions.map(([actionName, action]) => {
+            const executable = Boolean(registration?.actions?.[actionName])
+
+            return (
+              <div key={actionName} className="property-field">
+                <span>{action.title}</span>
+                <button
+                  type="button"
+                  disabled={!previewActive || !executable}
+                  onClick={() => onInvokeAction(actionName)}
+                >
+                  {executable ? '执行' : '未实现'}
+                </button>
+                {action.description && <small>{action.description}</small>}
+              </div>
+            )
+          })}
           {!previewActive && (
-            <small>进入预览后可执行组件公开方法。</small>
+            <small>进入预览后可执行当前 Runtime 已实现的公开方法。</small>
           )}
         </fieldset>
       </div>
@@ -150,6 +158,13 @@ export function ComponentInteractionsInspector({
                 action: behavior.effect.action,
               })
             : ''
+          const knownTarget = behavior
+            ? actionTargets.some(
+                (target) =>
+                  target.nodeId === behavior.effect.targetNodeId &&
+                  target.action === behavior.effect.action,
+              )
+            : true
 
           return (
             <label key={eventName} className="property-field">
@@ -165,6 +180,11 @@ export function ComponentInteractionsInspector({
                 }
               >
                 <option value="">不触发方法</option>
+                {behavior && !knownTarget && (
+                  <option value={selectedTarget}>
+                    {behavior.effect.targetNodeId} · {behavior.effect.action}
+                  </option>
+                )}
                 {actionTargets.map((target) => (
                   <option
                     key={`${target.nodeId}:${target.action}`}
