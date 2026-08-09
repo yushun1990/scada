@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ComponentDefinition } from '../../component-system/definition'
 import { ComponentContractEditor } from './ComponentContractEditor'
+import { ComponentVisualTreeEditor } from './ComponentVisualTreeEditor'
 import {
   createComponentDraft,
   getComponentDefinition,
@@ -108,6 +109,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             <span>{Object.keys(definition.actions).length} Actions</span>
             <span>{Object.keys(definition.events).length} Events</span>
             <span>{definition.anchors.length} Anchors</span>
+            <span>{component.visual.mode === 'native' ? 'Native Visual' : `${component.visual.layers.length} Layers`}</span>
           </div>
 
           <div className="component-form-grid">
@@ -205,11 +207,17 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
           onChange={updateDefinition}
         />
 
+        <ComponentVisualTreeEditor
+          visual={component.visual}
+          readOnly={readOnly}
+          onChange={(visual) => updatePackage('visual', visual)}
+        />
+
         <section className="component-code-card">
           <div className="component-form-heading">
             <span>PRIVATE IMPLEMENTATION DRAFT</span>
             <h1>实现草稿</h1>
-            <p>这里暂时只保存文本，不执行代码。后续 Visual Layer / Rules / Controlled Script 会进入明确的私有实现模型和受控 Runtime API。</p>
+            <p>这里暂时只保存文本，不执行代码。Visual Layer 已有独立结构；后续 Rules / Animation / Controlled Script 会继续进入明确的私有实现模型和受控 Runtime API。</p>
           </div>
           <textarea
             className="component-code-editor"

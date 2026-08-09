@@ -74,7 +74,7 @@ SCADA Workbench
 | --- | --- | --- |
 | M6 entry gate | **accepted · 2026-08-09** | M5.7 Event -> Action manual smoke passed; Runtime foundation closed |
 | M6.1 Package-backed public contract | merged · PR #50 · `8fd82dc826c30600a4e9740355700b611bf36634` · CI #305 ✅ | Component Library package draft owns the real serializable `ComponentDefinition`; Workbench authors Properties / Actions / Events / Anchors |
-| M6.2 Layer Tree foundation | next | Heterogeneous private visual tree with Group / SVG / Image / Vector / Text |
+| M6.2 Layer Tree foundation | implementation complete · PR pending · manual smoke pending | Serialized private Group / SVG / Image / Vector / Text tree with hierarchy and basic authoring |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
@@ -123,28 +123,67 @@ shared component-system validation
 save / later publish
 ```
 
-The Component Workbench is now authoring the same public schema that the generic component kernel understands. The remaining gap is private visual implementation and publication, not another definition translation layer.
+## M6.2 Layer Tree foundation
+
+Tracking: implementation branch `feat/component-visual-layer-tree`, based on `main` after M6.1 checkpoint merge `b2e18827aade529c4e2dc3376e5e511344ddfab2`.
+
+### Completed in code
+
+- Added versioned `ComponentVisualDefinition` as private package implementation data.
+- Visual mode is explicit: built-in components use `native`; user-authored composite components use `composite`.
+- Added heterogeneous visual-layer union for `Group`, `SVG`, `Image`, `Vector`, and `Text`.
+- Every layer owns stable identity, name, parent id, local x/y/width/height/rotation/scale, visibility, and opacity.
+- SVG and bitmap layers persist an `assetRef`; actual asset import/storage is deliberately deferred.
+- Vector layers identify a primitive (`rect`, `circle`, `ellipse`, `line`, or `path`) and may persist path data.
+- Text layers persist their component-private text content.
+- Layer-tree validation rejects duplicate ids, invalid transforms, invalid opacity, missing parents, non-Group parents, and hierarchy cycles.
+- Native visual packages cannot accidentally contain composite layers.
+- Existing M6.1 v2 custom packages that do not yet have a `visual` field are normalized to an empty composite tree without another storage-key migration.
+- Built-in package views expose `native` visual mode and do not attempt to reverse-engineer React/Konva renderer internals.
+- Added `ComponentVisualTreeEditor` to Component Workbench.
+- Component developers can add all five layer kinds and freely mix them in one component.
+- Selecting a Group and adding a layer makes the new layer a child of that Group; otherwise the new layer inherits the current sibling parent/root context.
+- The editor renders hierarchy indentation while preserving serialized sibling order as z-order.
+- Layers can be moved up/down among siblings, re-parented to valid Groups, renamed, hidden, made translucent, transformed, or deleted.
+- Renaming a Layer id also rewrites direct child `parentId` references so hierarchy identity remains stable.
+- Parent selection excludes the current layer and all descendants, preventing authoring a hierarchy cycle through the UI.
+- Deleting a Group removes its complete private visual subtree rather than leaving dangling children.
+- Kind-specific Inspector fields are shown only where relevant: assetRef for SVG/Image, primitive/path data for Vector, text for Text.
+- Layer Tree remains entirely private implementation data and is not added to `ComponentDefinition` or exposed to SCADA Workbench.
+- No renderer, SceneDocument, Runtime binding, Action/Event behavior, or custom-component publication path consumes these layers yet.
+
+### Architecture result
+
+```text
+Component package
+├── ComponentDefinition        public contract
+└── ComponentVisualDefinition  private implementation
+    └── Layer Tree
+        ├── Group
+        │   ├── SVG
+        │   └── Vector
+        ├── Image
+        └── Text
+```
+
+A single SVG or bitmap is now simply a one-layer composite component. Mixed SVG + bitmap + vector + text composition uses the same model.
+
+### Verification status
+
+- TypeScript Build and Lint must pass before the implementation merges.
+- A browser smoke test should verify add/nest/reorder/rename/delete/save/reopen behavior before M6.2 is marked accepted.
 
 ### Deliberately deferred
 
-- no internal/private state editor yet
-- no Action parameter or Event payload schema yet because the kernel Definition does not expose those schemas yet
-- no Layer Tree yet
-- no asset import yet
-- no Visual Rules or animation yet
-- no Controlled Script execution yet
-- no custom package registration in the SCADA component palette/runtime yet
+- no binary/SVG asset import or project asset manager yet
+- no actual visual rendering/preview of user-authored layers yet
+- no fill/stroke/shadow/gradient/filter style model yet
+- no property-driven visual rules yet
+- no animation definition/runtime yet
+- no runtime layer creation/removal API
+- no Controlled Script / Visual API yet
+- no publication into the SCADA Registry yet
 
 ## Next checkpoint
 
-**M6.2 Layer Tree foundation** should introduce the first private implementation model without changing the public contract:
-
-```text
-ComponentDefinition   public / stable
-        +
-Visual Layer Tree     private implementation
-        ↓
-Group / SVG / Image / Vector / Text
-```
-
-The first Layer Tree slice should focus on stable serialized structure and basic authoring, not advanced animation or script behavior.
+After the M6.2 browser smoke passes, **M6.3 Visual style + rule foundation** should add typed renderer-independent appearance and the first declarative Property -> visual-layer mapping without requiring scripts.
