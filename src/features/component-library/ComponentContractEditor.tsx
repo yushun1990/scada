@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import type {
-  ComponentActionDefinition,
   ComponentDefinition,
-  ComponentEventDefinition,
   ComponentPropertyDefinition,
   ComponentPropertyKind,
   ComponentPropertyOption,
@@ -11,6 +9,7 @@ import type {
 } from '../../component-system/definition'
 
 type ContractTab = 'properties' | 'actions' | 'events' | 'anchors'
+type InteractionDefinition = { title: string; description?: string }
 
 type ComponentContractEditorProps = {
   definition: ComponentDefinition
@@ -45,22 +44,10 @@ function nextUniqueKey(prefix: string, keys: readonly string[]) {
 }
 
 function defaultValueForKind(kind: ComponentPropertyKind) {
-  if (kind === 'number') {
-    return 0
-  }
-
-  if (kind === 'boolean') {
-    return false
-  }
-
-  if (kind === 'color') {
-    return '#2563eb'
-  }
-
-  if (kind === 'select') {
-    return 'value1'
-  }
-
+  if (kind === 'number') return 0
+  if (kind === 'boolean') return false
+  if (kind === 'color') return '#2563eb'
+  if (kind === 'select') return 'value1'
   return ''
 }
 
@@ -70,6 +57,26 @@ function createProperty(kind: ComponentPropertyKind = 'string'): ComponentProper
     kind,
     defaultValue: defaultValueForKind(kind),
     bindable: false,
+    options: kind === 'select'
+      ? [{ label: '选项 1', value: 'value1' }]
+      : undefined,
+  }
+}
+
+function convertPropertyKind(
+  property: ComponentPropertyDefinition,
+  kind: ComponentPropertyKind,
+): ComponentPropertyDefinition {
+  if (property.kind === kind) {
+    return property
+  }
+
+  return {
+    title: property.title,
+    description: property.description,
+    bindable: property.bindable,
+    kind,
+    defaultValue: defaultValueForKind(kind),
     options: kind === 'select'
       ? [{ label: '选项 1', value: 'value1' }]
       : undefined,
@@ -87,10 +94,7 @@ function parseOptionValue(value: string): string | number {
 
   if (/^-?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
     const numeric = Number(trimmed)
-
-    if (Number.isFinite(numeric)) {
-      return numeric
-    }
+    if (Number.isFinite(numeric)) return numeric
   }
 
   return trimmed
@@ -130,6 +134,28 @@ function replaceRecordKey<T>(
       value,
     ]),
   ) as Record<string, T>
+}
+
+function ContractKeyInput({
+  value,
+  disabled,
+  onCommit,
+}: {
+  value: string
+  disabled: boolean
+  onCommit: (value: string) => void
+}) {
+  return (
+    <input
+      key={value}
+      defaultValue={value}
+      disabled={disabled}
+      onBlur={(event) => onCommit(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur()
+      }}
+    />
+  )
 }
 
 function PropertyDefaultEditor({
@@ -210,6 +236,68 @@ function PropertyDefaultEditor({
   )
 }
 
+function InteractionList({
+  label,
+  emptyLabel,
+  items,
+  readOnly,
+  onRename,
+  onUpdate,
+  onRemove,
+  onAdd,
+}: {
+  label: string
+  emptyLabel: string
+  items: Readonly<Record<string, InteractionDefinition>>
+  readOnly: boolean
+  onRename: (oldKey: string, nextKey: string) => void
+  onUpdate: (key: string, value: InteractionDefinition) => void
+  onRemove: (key: string) => void
+  onAdd: () => void
+}) {
+  return (
+    <div className="contract-list">
+      {Object.entries(items).map(([key, item]) => (
+        <article className="contract-item" key={key}>
+          <div className="contract-item-head">
+            <strong>{item.title || key}</strong>
+            {!readOnly && <button type="button" onClick={() => onRemove(key)}>删除</button>}
+          </div>
+          <div className="contract-grid">
+            <label>
+              <span>Key</span>
+              <ContractKeyInput
+                value={key}
+                disabled={readOnly}
+                onCommit={(nextKey) => onRename(key, nextKey)}
+              />
+            </label>
+            <label>
+              <span>标题</span>
+              <input
+                value={item.title}
+                disabled={readOnly}
+                onChange={(event) => onUpdate(key, { ...item, title: event.target.value })}
+              />
+            </label>
+          </div>
+          <label className="contract-block-field">
+            <span>说明</span>
+            <textarea
+              rows={2}
+              value={item.description ?? ''}
+              disabled={readOnly}
+              onChange={(event) => onUpdate(key, { ...item, description: event.target.value })}
+            />
+          </label>
+        </article>
+      ))}
+      {Object.keys(items).length === 0 && <div className="contract-empty">{emptyLabel}</div>}
+      {!readOnly && <button className="contract-add-button" type="button" onClick={onAdd}>+ 添加{label}</button>}
+    </div>
+  )
+}
+
 export function ComponentContractEditor({
   definition,
   readOnly,
@@ -220,10 +308,7 @@ export function ComponentContractEditor({
   function updateProperty(key: string, property: ComponentPropertyDefinition) {
     onChange({
       ...definition,
-      properties: {
-        ...definition.properties,
-        [key]: property,
-      },
+      properties: { ...definition.properties, [key]: property },
     })
   }
 
@@ -244,20 +329,14 @@ export function ComponentContractEditor({
     const key = nextUniqueKey('property', Object.keys(definition.properties))
     onChange({
       ...definition,
-      properties: {
-        ...definition.properties,
-        [key]: createProperty(),
-      },
+      properties: { ...definition.properties, [key]: createProperty() },
     })
   }
 
-  function updateAction(key: string, action: ComponentActionDefinition) {
+  function updateAction(key: string, action: InteractionDefinition) {
     onChange({
       ...definition,
-      actions: {
-        ...definition.actions,
-        [key]: action,
-      },
+      actions: { ...definition.actions, [key]: action },
     })
   }
 
@@ -278,20 +357,14 @@ export function ComponentContractEditor({
     const key = nextUniqueKey('action', Object.keys(definition.actions))
     onChange({
       ...definition,
-      actions: {
-        ...definition.actions,
-        [key]: { title: '新方法' },
-      },
+      actions: { ...definition.actions, [key]: { title: '新方法' } },
     })
   }
 
-  function updateEvent(key: string, event: ComponentEventDefinition) {
+  function updateEvent(key: string, event: InteractionDefinition) {
     onChange({
       ...definition,
-      events: {
-        ...definition.events,
-        [key]: event,
-      },
+      events: { ...definition.events, [key]: event },
     })
   }
 
@@ -312,10 +385,7 @@ export function ComponentContractEditor({
     const key = nextUniqueKey('event', Object.keys(definition.events))
     onChange({
       ...definition,
-      events: {
-        ...definition.events,
-        [key]: { title: '新事件' },
-      },
+      events: { ...definition.events, [key]: { title: '新事件' } },
     })
   }
 
@@ -336,10 +406,7 @@ export function ComponentContractEditor({
   }
 
   function addAnchor() {
-    const id = nextUniqueKey(
-      'anchor',
-      definition.anchors.map((anchor) => anchor.id),
-    )
+    const id = nextUniqueKey('anchor', definition.anchors.map((anchor) => anchor.id))
     onChange({
       ...definition,
       anchors: [
@@ -395,17 +462,15 @@ export function ComponentContractEditor({
             <article className="contract-item" key={key}>
               <div className="contract-item-head">
                 <strong>{property.title || key}</strong>
-                {!readOnly && (
-                  <button type="button" onClick={() => removeProperty(key)}>删除</button>
-                )}
+                {!readOnly && <button type="button" onClick={() => removeProperty(key)}>删除</button>}
               </div>
               <div className="contract-grid">
                 <label>
                   <span>Key</span>
-                  <input
+                  <ContractKeyInput
                     value={key}
                     disabled={readOnly}
-                    onChange={(event) => renameProperty(key, event.target.value)}
+                    onCommit={(nextKey) => renameProperty(key, nextKey)}
                   />
                 </label>
                 <label>
@@ -421,10 +486,10 @@ export function ComponentContractEditor({
                   <select
                     value={property.kind}
                     disabled={readOnly}
-                    onChange={(event) => {
-                      const kind = event.target.value as ComponentPropertyKind
-                      updateProperty(key, createProperty(kind))
-                    }}
+                    onChange={(event) => updateProperty(
+                      key,
+                      convertPropertyKind(property, event.target.value as ComponentPropertyKind),
+                    )}
                   >
                     {PROPERTY_KIND_LABELS.map(([kind, label]) => (
                       <option key={kind} value={kind}>{label}</option>
@@ -498,67 +563,35 @@ export function ComponentContractEditor({
       )}
 
       {tab === 'actions' && (
-        <div className="contract-list">
-          {Object.entries(definition.actions).map(([key, action]) => (
-            <article className="contract-item" key={key}>
-              <div className="contract-item-head">
-                <strong>{action.title || key}</strong>
-                {!readOnly && <button type="button" onClick={() => removeAction(key)}>删除</button>}
-              </div>
-              <div className="contract-grid">
-                <label>
-                  <span>Key</span>
-                  <input value={key} disabled={readOnly} onChange={(event) => renameAction(key, event.target.value)} />
-                </label>
-                <label>
-                  <span>标题</span>
-                  <input value={action.title} disabled={readOnly} onChange={(event) => updateAction(key, { ...action, title: event.target.value })} />
-                </label>
-              </div>
-              <label className="contract-block-field">
-                <span>说明</span>
-                <textarea rows={2} value={action.description ?? ''} disabled={readOnly} onChange={(event) => updateAction(key, { ...action, description: event.target.value })} />
-              </label>
-            </article>
-          ))}
-          {Object.keys(definition.actions).length === 0 && <div className="contract-empty">尚未定义公开 Action。</div>}
-          {!readOnly && <button className="contract-add-button" type="button" onClick={addAction}>+ 添加方法</button>}
-        </div>
+        <InteractionList
+          label="方法"
+          emptyLabel="尚未定义公开 Action。"
+          items={definition.actions}
+          readOnly={readOnly}
+          onRename={renameAction}
+          onUpdate={updateAction}
+          onRemove={removeAction}
+          onAdd={addAction}
+        />
       )}
 
       {tab === 'events' && (
-        <div className="contract-list">
-          {Object.entries(definition.events).map(([key, event]) => (
-            <article className="contract-item" key={key}>
-              <div className="contract-item-head">
-                <strong>{event.title || key}</strong>
-                {!readOnly && <button type="button" onClick={() => removeEvent(key)}>删除</button>}
-              </div>
-              <div className="contract-grid">
-                <label>
-                  <span>Key</span>
-                  <input value={key} disabled={readOnly} onChange={(changeEvent) => renameEvent(key, changeEvent.target.value)} />
-                </label>
-                <label>
-                  <span>标题</span>
-                  <input value={event.title} disabled={readOnly} onChange={(changeEvent) => updateEvent(key, { ...event, title: changeEvent.target.value })} />
-                </label>
-              </div>
-              <label className="contract-block-field">
-                <span>说明</span>
-                <textarea rows={2} value={event.description ?? ''} disabled={readOnly} onChange={(changeEvent) => updateEvent(key, { ...event, description: changeEvent.target.value })} />
-              </label>
-            </article>
-          ))}
-          {Object.keys(definition.events).length === 0 && <div className="contract-empty">尚未定义公开 Event。</div>}
-          {!readOnly && <button className="contract-add-button" type="button" onClick={addEvent}>+ 添加事件</button>}
-        </div>
+        <InteractionList
+          label="事件"
+          emptyLabel="尚未定义公开 Event。"
+          items={definition.events}
+          readOnly={readOnly}
+          onRename={renameEvent}
+          onUpdate={updateEvent}
+          onRemove={removeEvent}
+          onAdd={addEvent}
+        />
       )}
 
       {tab === 'anchors' && (
         <div className="contract-list">
           {definition.anchors.map((anchor, index) => (
-            <article className="contract-item" key={`${anchor.id}:${index}`}>
+            <article className="contract-item" key={index}>
               <div className="contract-item-head">
                 <strong>{anchor.title || anchor.id}</strong>
                 {!readOnly && <button type="button" onClick={() => removeAnchor(index)}>删除</button>}
