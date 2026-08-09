@@ -1,6 +1,13 @@
 import { builtInComponentRegistry } from '../../component-system/builtins'
 import type { ComponentDefinition } from '../../component-system/definition'
 import { assertComponentDefinition } from '../../component-system/validation'
+import {
+  assertComponentVisualDefinition,
+  cloneComponentVisual,
+  createEmptyCompositeVisual,
+  createNativeVisual,
+  type ComponentVisualDefinition,
+} from '../../component-system/visual'
 
 const COMPONENTS_STORAGE_KEY = 'scada-editor-lab.components.v2'
 const LEGACY_COMPONENTS_STORAGE_KEY = 'scada-editor-lab.components.v1'
@@ -14,6 +21,7 @@ export type ComponentLibraryEntry = {
   version: typeof COMPONENT_PACKAGE_VERSION
   id: string
   definition: ComponentDefinition
+  visual: ComponentVisualDefinition
   status: ComponentStatus
   implementationDraft: string
   updatedAt: string
@@ -81,6 +89,7 @@ const BUILT_IN_COMPONENTS: ComponentLibraryEntry[] =
     version: COMPONENT_PACKAGE_VERSION,
     id: getBuiltInComponentId(definition.type),
     definition: cloneDefinition(definition),
+    visual: createNativeVisual(),
     status: 'ready',
     implementationDraft: `// Built-in runtime registration: ${definition.type}`,
     updatedAt: BUILT_IN_UPDATED_AT,
@@ -94,6 +103,19 @@ function createComponentId() {
 
 function isComponentStatus(value: unknown): value is ComponentStatus {
   return value === 'draft' || value === 'ready'
+}
+
+function parseVisual(value: unknown): ComponentVisualDefinition | null {
+  if (value === undefined) {
+    return createEmptyCompositeVisual()
+  }
+
+  try {
+    assertComponentVisualDefinition(value)
+    return cloneComponentVisual(value)
+  } catch {
+    return null
+  }
 }
 
 function parseStoredComponent(value: unknown): ComponentLibraryEntry | null {
@@ -116,10 +138,17 @@ function parseStoredComponent(value: unknown): ComponentLibraryEntry | null {
     return null
   }
 
+  const visual = parseVisual(value.visual)
+
+  if (!visual) {
+    return null
+  }
+
   return {
     version: COMPONENT_PACKAGE_VERSION,
     id: value.id,
     definition: cloneDefinition(value.definition),
+    visual,
     status: value.status,
     implementationDraft: value.implementationDraft,
     updatedAt: value.updatedAt,
@@ -177,6 +206,7 @@ function migrateLegacyComponent(
     version: COMPONENT_PACKAGE_VERSION,
     id: legacy.id,
     definition,
+    visual: createEmptyCompositeVisual(),
     status: legacy.status,
     implementationDraft: legacy.renderCode,
     updatedAt: legacy.updatedAt,
@@ -249,6 +279,7 @@ export function getComponentDefinition(componentId: string) {
     ? {
         ...entry,
         definition: cloneDefinition(entry.definition),
+        visual: cloneComponentVisual(entry.visual),
       }
     : null
 }
@@ -275,6 +306,7 @@ export function createComponentDraft(): ComponentLibraryEntry {
       events: {},
       anchors: [],
     },
+    visual: createEmptyCompositeVisual(),
     status: 'draft',
     implementationDraft: `// M6.1 只保存实现草稿，不执行用户代码。\n// 后续 Controlled Script Runtime 会提供受控 API。\n`,
     updatedAt: new Date().toISOString(),
@@ -288,6 +320,7 @@ export function saveComponentDefinition(component: ComponentLibraryEntry) {
   }
 
   assertComponentDefinition(component.definition)
+  assertComponentVisualDefinition(component.visual)
 
   const components = readCustomComponents()
   const duplicate = [...BUILT_IN_COMPONENTS, ...components].find(
@@ -304,6 +337,7 @@ export function saveComponentDefinition(component: ComponentLibraryEntry) {
     ...component,
     version: COMPONENT_PACKAGE_VERSION,
     definition: cloneDefinition(component.definition),
+    visual: cloneComponentVisual(component.visual),
     implementationDraft: component.implementationDraft,
     updatedAt: new Date().toISOString(),
     builtIn: false,
