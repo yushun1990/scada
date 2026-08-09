@@ -1,3 +1,4 @@
+export { resolveEffectiveComponentProps } from './effective-component-props'
 export {
   RuntimeValueStore,
   type RuntimeValue,
