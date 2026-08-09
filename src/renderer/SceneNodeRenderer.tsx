@@ -73,8 +73,8 @@ export const SceneNodeRenderer = forwardRef<
       return
     }
 
-    return previewRuntime.acquire()
-  }, [previewRuntimeActive])
+    return previewRuntime.acquire(scene)
+  }, [previewRuntimeActive, scene])
 
   const previewRuntimeValues = useSyncExternalStore(
     previewRuntimeActive ? previewRuntime.values.subscribe : subscribeToNothing,
