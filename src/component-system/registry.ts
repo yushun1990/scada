@@ -25,6 +25,22 @@ function assertDefinition(definition: ComponentDefinition) {
   }
 }
 
+function assertRegistration(registration: ComponentRegistration) {
+  const { definition, actions } = registration
+
+  if (!actions) {
+    return
+  }
+
+  for (const actionName of Object.keys(actions)) {
+    if (!definition.actions[actionName]) {
+      throw new Error(
+        `Component ${definition.type} registers undeclared action ${actionName}`,
+      )
+    }
+  }
+}
+
 export class ComponentRegistry {
   private readonly registrations = new Map<string, ComponentRegistration>()
 
@@ -37,6 +53,7 @@ export class ComponentRegistry {
   register(registration: ComponentRegistration) {
     const { definition } = registration
     assertDefinition(definition)
+    assertRegistration(registration)
 
     if (this.registrations.has(definition.type)) {
       throw new Error(`Component type is already registered: ${definition.type}`)
