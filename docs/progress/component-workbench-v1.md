@@ -73,8 +73,8 @@ SCADA Workbench
 | Slice | Status | Result |
 | --- | --- | --- |
 | M6 entry gate | **accepted · 2026-08-09** | M5.7 Event -> Action manual smoke passed; Runtime foundation closed |
-| M6.1 Package-backed public contract | implementation complete · PR #50 · CI pending | Component Library package draft now owns the real serializable `ComponentDefinition`; Workbench authors Properties / Actions / Events / Anchors |
-| M6.2 Layer Tree foundation | pending | Heterogeneous private visual tree with Group / SVG / Image / Vector / Text |
+| M6.1 Package-backed public contract | merged · PR #50 · `8fd82dc826c30600a4e9740355700b611bf36634` · CI #305 ✅ | Component Library package draft owns the real serializable `ComponentDefinition`; Workbench authors Properties / Actions / Events / Anchors |
+| M6.2 Layer Tree foundation | next | Heterogeneous private visual tree with Group / SVG / Image / Vector / Text |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
@@ -82,9 +82,9 @@ SCADA Workbench
 
 ## M6.1 Package-backed public contract
 
-Tracking: PR #50, based on M6 entry-gate merge `5b34419169bfaaff16ac23b350ceb79fd252480b`.
+Tracking: PR #50, merged as `8fd82dc826c30600a4e9740355700b611bf36634` after CI #305 passed Build and Lint.
 
-### Completed in code
+### Completed
 
 - Added reusable `assertComponentDefinition` validation in the component-system layer.
 - ComponentRegistry now uses the same serializable Definition validator that Component Workbench persistence uses.
@@ -103,6 +103,8 @@ Tracking: PR #50, based on M6 entry-gate merge `5b34419169bfaaff16ac23b350ceb79f
 - Workspace component-library listing now consumes package `definition` metadata directly.
 - The old `renderCode` field is migrated into an explicit `implementationDraft` text area.
 - `implementationDraft` is still inert text: no eval, dynamic import, browser script execution, or Runtime registration path was added.
+- Contract-key editing was stabilized so renaming commits on blur instead of remounting the editor on every keystroke.
+- Changing a Property kind now preserves its title, description, and bindable flag while resetting only kind-specific default/options.
 
 ### Architecture result
 
@@ -135,7 +137,7 @@ The Component Workbench is now authoring the same public schema that the generic
 
 ## Next checkpoint
 
-After PR #50 passes CI and merges, **M6.2 Layer Tree foundation** should introduce the first private implementation model without changing the public contract:
+**M6.2 Layer Tree foundation** should introduce the first private implementation model without changing the public contract:
 
 ```text
 ComponentDefinition   public / stable
