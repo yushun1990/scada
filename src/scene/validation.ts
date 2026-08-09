@@ -9,6 +9,7 @@ import {
   GROUP_NODE_TYPE,
   SCENE_VERSION,
   isGroupNode,
+  type ComponentBehavior,
   type ComponentSceneNode,
   type ConnectionEndpoint,
   type ConnectionRouting,
@@ -89,7 +90,6 @@ function parseBaseNode(value: Record<string, unknown>, version: number) {
     visible: value.visible ?? true,
     locked: value.locked ?? false,
     transform,
-    behaviors: [] as [],
   }
 }
 
@@ -164,6 +164,57 @@ function parseDataBindings(
   return bindings
 }
 
+function parseComponentBehaviors(
+  definition: ComponentDefinition,
+  value: unknown[],
+  version: number,
+): ComponentBehavior[] | null {
+  if (version < 6) {
+    return []
+  }
+
+  const behaviors: ComponentBehavior[] = []
+  const ids = new Set<string>()
+
+  for (const candidate of value) {
+    if (
+      !isRecord(candidate) ||
+      typeof candidate.id !== 'string' ||
+      candidate.id.trim().length === 0 ||
+      !isRecord(candidate.trigger) ||
+      candidate.trigger.kind !== 'event' ||
+      typeof candidate.trigger.event !== 'string' ||
+      candidate.trigger.event.trim().length === 0 ||
+      !isRecord(candidate.effect) ||
+      candidate.effect.kind !== 'action' ||
+      typeof candidate.effect.targetNodeId !== 'string' ||
+      candidate.effect.targetNodeId.trim().length === 0 ||
+      typeof candidate.effect.action !== 'string' ||
+      candidate.effect.action.trim().length === 0 ||
+      !definition.events[candidate.trigger.event] ||
+      ids.has(candidate.id)
+    ) {
+      return null
+    }
+
+    ids.add(candidate.id)
+    behaviors.push({
+      id: candidate.id,
+      trigger: {
+        kind: 'event',
+        event: candidate.trigger.event,
+      },
+      effect: {
+        kind: 'action',
+        targetNodeId: candidate.effect.targetNodeId,
+        action: candidate.effect.action,
+      },
+    })
+  }
+
+  return behaviors
+}
+
 function parseSceneNode(value: unknown, version: number): SceneNode | null {
   if (!isRecord(value)) {
     return null
@@ -171,7 +222,12 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
 
   const base = parseBaseNode(value, version)
 
-  if (!base || !isRecord(value.props) || !Array.isArray(value.bindings)) {
+  if (
+    !base ||
+    !isRecord(value.props) ||
+    !Array.isArray(value.bindings) ||
+    !Array.isArray(value.behaviors)
+  ) {
     return null
   }
 
@@ -183,7 +239,10 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
     value.props.designWidth > 0 &&
     value.props.designHeight > 0
   ) {
-    if (version >= 5 && value.bindings.length > 0) {
+    if (
+      (version >= 5 && value.bindings.length > 0) ||
+      (version >= 6 && value.behaviors.length > 0)
+    ) {
       return null
     }
 
@@ -195,6 +254,7 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
         designHeight: value.props.designHeight,
       },
       bindings: [],
+      behaviors: [],
     } satisfies GroupSceneNode
   }
 
@@ -214,8 +274,13 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
     value.bindings,
     version,
   )
+  const behaviors = parseComponentBehaviors(
+    registration.definition,
+    value.behaviors,
+    version,
+  )
 
-  if (!props || !bindings) {
+  if (!props || !bindings || !behaviors) {
     return null
   }
 
@@ -224,6 +289,7 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
     type: registration.definition.type,
     props,
     bindings,
+    behaviors,
   } satisfies ComponentSceneNode
 }
 
@@ -329,6 +395,36 @@ function validateHierarchy(nodes: SceneNode[]) {
   }
 }
 
+function validateBehaviors(nodes: SceneNode[]) {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]))
+  const behaviorIds = new Set<string>()
+
+  for (const node of nodes) {
+    if (isGroupNode(node)) {
+      continue
+    }
+
+    for (const behavior of node.behaviors) {
+      if (behaviorIds.has(behavior.id)) {
+        throw new Error('场景 JSON 包含重复 Behavior ID')
+      }
+
+      behaviorIds.add(behavior.id)
+      const targetNode = nodeMap.get(behavior.effect.targetNodeId)
+
+      if (!targetNode || isGroupNode(targetNode)) {
+        throw new Error('场景 JSON 包含失效 Behavior 目标组件')
+      }
+
+      const targetRegistration = builtInComponentRegistry.get(targetNode.type)
+
+      if (!targetRegistration?.definition.actions[behavior.effect.action]) {
+        throw new Error('场景 JSON 包含不存在的 Behavior 目标 Action')
+      }
+    }
+  }
+}
+
 function validateConnections(
   nodes: SceneNode[],
   connections: SceneConnection[],
@@ -377,6 +473,7 @@ export function parseSceneDocument(json: string): SceneDocument {
     sourceVersion === 2 ||
     sourceVersion === 3 ||
     sourceVersion === 4 ||
+    sourceVersion === 5 ||
     sourceVersion === SCENE_VERSION
 
   if (
@@ -413,6 +510,7 @@ export function parseSceneDocument(json: string): SceneDocument {
 
   const connections = parsedConnections as SceneConnection[]
   validateHierarchy(parsedNodes)
+  validateBehaviors(parsedNodes)
   validateConnections(parsedNodes, connections)
 
   return {
