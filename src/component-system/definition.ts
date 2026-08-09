@@ -70,6 +70,35 @@ export type ComponentDefinition = {
 
 export type ComponentProps = Record<string, ComponentScalarValue>
 
+export function isComponentPropertyValue(
+  definition: ComponentPropertyDefinition,
+  value: unknown,
+): value is ComponentScalarValue {
+  if (value === null) {
+    return definition.defaultValue === null
+  }
+
+  if (definition.kind === 'number') {
+    return typeof value === 'number' && Number.isFinite(value)
+  }
+
+  if (definition.kind === 'boolean') {
+    return typeof value === 'boolean'
+  }
+
+  if (definition.kind === 'select') {
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      return false
+    }
+
+    return definition.options?.length
+      ? definition.options.some((option) => option.value === value)
+      : true
+  }
+
+  return typeof value === 'string'
+}
+
 export function createDefaultPropsFromDefinition(
   definition: ComponentDefinition,
 ): ComponentProps {
