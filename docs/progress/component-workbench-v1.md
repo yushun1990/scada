@@ -74,7 +74,8 @@ SCADA Workbench
 | --- | --- | --- |
 | M6 entry gate | **accepted · 2026-08-09** | M5.7 Event -> Action manual smoke passed; Runtime foundation closed |
 | M6.1 Package-backed public contract | merged · PR #50 · `8fd82dc826c30600a4e9740355700b611bf36634` · CI #305 ✅ | Component Library package draft owns the real serializable `ComponentDefinition`; Workbench authors Properties / Actions / Events / Anchors |
-| M6.2 Layer Tree foundation | merged · PR #52 · `e9919343d42d1334f2ba2ccd927469db50943d56` · CI #310 ✅ · manual smoke pending | Serialized private Group / SVG / Image / Vector / Text tree with hierarchy and basic authoring |
+| M6.2 Layer Tree foundation | **accepted · 2026-08-09** · PR #52 · `e9919343d42d1334f2ba2ccd927469db50943d56` · CI #310 ✅ | Serialized private Group / SVG / Image / Vector / Text tree; add/nest/reorder/rename/delete/save/reopen manual smoke passed |
+| M6.2.1 Workbench UX architecture | implementation complete · PR pending · manual smoke pending | Replaces the long-form editor with explicit Visual / Component / Property / Action / Event / Anchor workspaces and a Layers → Canvas → Inspector design shell |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
@@ -101,10 +102,10 @@ Tracking: PR #50, merged as `8fd82dc826c30600a4e9740355700b611bf36634` after CI 
 - Public Properties can opt into SCADA runtime data binding through the existing `bindable` contract flag.
 - Visual Anchors expose normalized position, outward direction, snap radius, role, and optional connection kinds.
 - Workspace component-library listing now consumes package `definition` metadata directly.
-- The old `renderCode` field is migrated into an explicit `implementationDraft` text area.
-- `implementationDraft` is still inert text: no eval, dynamic import, browser script execution, or Runtime registration path was added.
+- The old `renderCode` field is migrated into an explicit `implementationDraft` field.
+- `implementationDraft` remains inert text: no eval, dynamic import, browser script execution, or Runtime registration path was added.
 - Contract-key editing was stabilized so renaming commits on blur instead of remounting the editor on every keystroke.
-- Changing a Property kind now preserves its title, description, and bindable flag while resetting only kind-specific default/options.
+- Changing a Property kind preserves its title, description, and bindable flag while resetting only kind-specific default/options.
 
 ### Architecture result
 
@@ -166,26 +167,88 @@ Component package
         └── Text
 ```
 
-A single SVG or bitmap is now simply a one-layer composite component. Mixed SVG + bitmap + vector + text composition uses the same model.
+A single SVG or bitmap is a one-layer composite component. Mixed SVG + bitmap + vector + text composition uses the same model.
+
+### Acceptance — 2026-08-09
+
+Manual browser smoke passed after PR #52 merged.
+
+Confirmed:
+
+- add all supported layer kinds
+- nest layers under Group
+- reorder siblings / z-order
+- rename layer ids without losing child hierarchy
+- re-parent layers
+- edit geometry / visibility / opacity
+- delete a Group and its complete subtree
+- save the package and reopen it with the Layer Tree intact
+
+**Result: M6.2 Layer Tree foundation is accepted.**
+
+## M6.2.1 Component Workbench UX architecture
+
+### Why this slice was inserted
+
+The M6.2 functionality worked, but the Component Workbench was still organized as one long stack of large forms. Continuing to add Style, Rules, Animation and Script to that structure would make the authoring experience increasingly difficult to understand.
+
+This slice therefore changes interaction architecture before adding new component capability.
+
+### Completed in code
+
+- Replaced the vertically stacked editor with explicit top-level workspaces: `设计 / 组件 / 属性 / 方法 / 事件 / 锚点`.
+- The current workspace is always visible and carries a clear `Private Implementation` or `Public Contract` boundary indicator.
+- Component metadata/size authoring moved into the dedicated `组件` workspace.
+- Properties, Actions, Events and Anchors each receive a dedicated public-contract workspace instead of being hidden behind a second nested tab system.
+- `ComponentContractEditor` is now controlled by the parent workbench tab rather than owning its own navigation state.
+- The visual workspace is reorganized into the intended IDE geometry:
+
+```text
+Layers            Component Canvas            Inspector
+  ↓                      ↓                        ↓
+what exists        where it is designed      selected item details
+```
+
+- Layer creation and hierarchy navigation stay in the left pane.
+- The center pane now establishes a persistent component-artboard workspace with design dimensions and selected-layer context.
+- The center pane deliberately remains a renderer placeholder in M6.2.1; actual composite visual rendering is reserved for M6.3 so UX restructuring does not become a renderer rewrite.
+- Selected-layer identity, hierarchy, geometry, visibility, opacity and kind-specific fields move to the right Inspector.
+- Layer reordering remains available from the Inspector while sibling order continues to represent z-order.
+- The old `implementationDraft` field remains in persisted packages for compatibility but is no longer presented as a primary component-development surface.
+- The Component workspace explicitly explains that M6.5 will replace the ambiguous implementation text with the real Controlled Script workspace.
+- No component package schema, runtime semantics, Scene model, SCADA Workbench behavior or Registry publication behavior changes in this slice.
+
+### Interaction invariant
+
+The workbench now follows one stable mental model:
+
+```text
+Design workspace
+  Layers -> Canvas -> Inspector
+
+Public contract workspaces
+  Component / Properties / Actions / Events / Anchors
+
+Future private implementation workspaces
+  Styles / Rules / Animation / Script
+```
+
+This makes M6.3+ additive instead of forcing another structural UI rewrite later.
 
 ### Verification status
 
-- CI #309 correctly rejected an `unknown` transform-field narrowing issue in the first validator implementation.
-- The validator was corrected to narrow transform fields explicitly.
-- CI #310 then passed both Build and Lint before PR #52 merged.
-- A browser smoke test is still required for add/nest/reorder/rename/delete/save/reopen behavior before M6.2 is marked accepted.
+- Build and Lint must pass before merge.
+- Manual browser smoke should verify workspace switching, existing Layer Tree operations, save/reopen, and that no existing public-contract editing capability disappeared.
 
 ### Deliberately deferred
 
-- no binary/SVG asset import or project asset manager yet
-- no actual visual rendering/preview of user-authored layers yet
-- no fill/stroke/shadow/gradient/filter style model yet
-- no property-driven visual rules yet
-- no animation definition/runtime yet
-- no runtime layer creation/removal API
-- no Controlled Script / Visual API yet
-- no publication into the SCADA Registry yet
+- no actual Composite Renderer on the center canvas yet
+- no drag/resize/rotate editing on the component canvas yet
+- no asset browser/import UI yet
+- no Style / Rule / Animation panels yet
+- no Controlled Script editor yet
+- no final visual polish, shortcuts, context menus, resizable docks or panel persistence yet
 
 ## Next checkpoint
 
-After the M6.2 browser smoke passes, **M6.3 Visual style + rule foundation** should add typed renderer-independent appearance and the first declarative Property -> visual-layer mapping without requiring scripts.
+After the M6.2.1 browser smoke passes, continue **M6.3 Visual style + rule foundation** on top of this stable workbench shell. M6.3 should plug actual composite rendering and typed style/rule authoring into the existing Canvas and Inspector rather than inventing another editor structure.
