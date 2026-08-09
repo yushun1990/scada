@@ -8,7 +8,12 @@ export {
   type PreviewRuntimeValueSourceDefinition,
   type SequenceMockDataSourceOptions,
 } from './mock-data-source'
-export { PreviewRuntime, previewRuntime } from './preview-runtime'
+export {
+  PreviewRuntime,
+  previewRuntime,
+  type ComponentRuntimeEvent,
+  type ComponentRuntimeEventListener,
+} from './preview-runtime'
 export {
   RuntimeValueStore,
   type RuntimeValue,
