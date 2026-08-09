@@ -2,6 +2,8 @@ import { forwardRef, useCallback, useEffect, useRef } from 'react'
 import type Konva from 'konva'
 import { Group, Rect } from 'react-konva'
 import { builtInComponentRegistry } from '../component-system/builtins'
+import { resolveEffectiveComponentProps } from '../runtime'
+import type { RuntimeValueSnapshot } from '../runtime'
 import { getNodeBounds } from '../scene/geometry'
 import {
   clearLiveNodeTransform,
@@ -19,6 +21,8 @@ type Point = {
   y: number
 }
 
+const EMPTY_RUNTIME_VALUES: RuntimeValueSnapshot = Object.freeze({})
+
 export type SceneNodeRendererProps = {
   scene: SceneDocument
   node: SceneNode
@@ -28,6 +32,7 @@ export type SceneNodeRendererProps = {
   resolveDragPosition?: (nodeId: string, position: Point) => Point
   parentVisible?: boolean
   parentLocked?: boolean
+  runtimeValues?: RuntimeValueSnapshot
 }
 
 export const SceneNodeRenderer = forwardRef<
@@ -43,6 +48,7 @@ export const SceneNodeRenderer = forwardRef<
     resolveDragPosition,
     parentVisible = true,
     parentLocked = false,
+    runtimeValues = EMPTY_RUNTIME_VALUES,
   },
   ref,
 ) {
@@ -231,6 +237,7 @@ export const SceneNodeRenderer = forwardRef<
             selectable={false}
             parentVisible={effectiveVisible}
             parentLocked={effectiveLocked}
+            runtimeValues={runtimeValues}
           />
         ))}
       </Group>
@@ -239,9 +246,17 @@ export const SceneNodeRenderer = forwardRef<
 
   const registration = builtInComponentRegistry.get(node.type)
   const ComponentRenderer = registration?.renderer
+  const effectiveProps = registration
+    ? resolveEffectiveComponentProps(
+        registration.definition,
+        node.props,
+        node.bindings,
+        runtimeValues,
+      )
+    : node.props
   const commonRendererProps = {
     nodeId: selectable ? node.id : undefined,
-    props: node.props,
+    props: effectiveProps,
     ...transform,
     draggable: selectable && editorMode && !effectiveLocked,
     dragBoundFunc: selectable ? constrainDragPosition : undefined,
