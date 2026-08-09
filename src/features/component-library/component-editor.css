@@ -65,7 +65,8 @@
 
 .component-editor-main {
   display: grid;
-  grid-template-columns: minmax(360px, 0.8fr) minmax(440px, 1.2fr);
+  grid-template-columns: minmax(320px, 0.72fr) minmax(520px, 1.28fr);
+  align-items: start;
   gap: 20px;
   min-height: 0;
   padding: 28px;
@@ -73,7 +74,8 @@
 }
 
 .component-form-card,
-.component-code-card {
+.component-code-card,
+.component-contract-card {
   min-width: 0;
   padding: 24px;
   border: 1px solid #dce2ea;
@@ -84,7 +86,8 @@
 
 .component-code-card {
   display: grid;
-  grid-template-rows: auto minmax(320px, 1fr) auto;
+  grid-column: 1 / -1;
+  grid-template-rows: auto minmax(220px, 1fr) auto;
   gap: 18px;
   min-height: 0;
 }
@@ -119,6 +122,23 @@
   font-size: 10px;
 }
 
+.component-definition-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.component-definition-summary span {
+  padding: 5px 7px;
+  border: 1px solid #dce5f0;
+  border-radius: 999px;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 9px;
+  font-weight: 700;
+}
+
 .component-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -127,7 +147,9 @@
 }
 
 .component-form-grid label,
-.component-form-block {
+.component-form-block,
+.contract-grid label,
+.contract-block-field {
   display: grid;
   gap: 6px;
   color: #64748b;
@@ -137,7 +159,10 @@
 
 .component-form-grid input,
 .component-form-grid select,
-.component-form-block textarea {
+.component-form-block textarea,
+.contract-grid input,
+.contract-grid select,
+.contract-block-field textarea {
   width: 100%;
   border: 1px solid #d4dbe5;
   border-radius: 6px;
@@ -148,26 +173,155 @@
 }
 
 .component-form-grid input,
-.component-form-grid select {
+.component-form-grid select,
+.contract-grid input,
+.contract-grid select {
   height: 34px;
   padding: 0 9px;
 }
 
-.component-form-block {
+.component-form-block,
+.contract-block-field {
   margin-top: 14px;
 }
 
-.component-form-block textarea {
+.component-form-block textarea,
+.contract-block-field textarea {
   padding: 9px;
   resize: vertical;
   line-height: 1.5;
 }
 
+.component-contract-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 18px;
+  padding: 4px;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+
+.component-contract-tabs button {
+  min-width: 0;
+  padding: 7px 6px;
+  border: 0;
+  border-radius: 6px;
+  color: #64748b;
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.component-contract-tabs button.active {
+  color: #1d4ed8;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.component-contract-tabs small {
+  margin-left: 4px;
+  color: #94a3b8;
+  font-size: 8px;
+}
+
+.contract-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.contract-item {
+  padding: 14px;
+  border: 1px solid #e1e7ef;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.contract-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.contract-item-head strong {
+  overflow: hidden;
+  color: #334155;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contract-item-head button {
+  padding: 3px 0;
+  border: 0;
+  color: #b91c1c;
+  background: transparent;
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.contract-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.contract-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.contract-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.contract-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #526174;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.contract-checkbox input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.contract-empty {
+  padding: 24px 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #94a3b8;
+  text-align: center;
+  font-size: 10px;
+}
+
+.contract-add-button {
+  justify-self: start;
+  padding: 7px 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .component-code-editor {
   width: 100%;
-  min-height: 360px;
+  min-height: 220px;
   padding: 16px;
-  resize: none;
+  resize: vertical;
   border: 1px solid #cad3df;
   border-radius: 8px;
   outline: 0;
@@ -188,8 +342,41 @@
   font-size: 10px;
 }
 
-@media (max-width: 920px) {
+input:disabled,
+select:disabled,
+textarea:disabled,
+input[readonly],
+textarea[readonly] {
+  color: #64748b;
+  background: #f8fafc;
+}
+
+@media (max-width: 1040px) {
   .component-editor-main {
     grid-template-columns: 1fr;
+  }
+
+  .component-code-card {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 680px) {
+  .component-editor-header {
+    grid-template-columns: 1fr auto;
+  }
+
+  .component-editor-header > div {
+    display: none;
+  }
+
+  .component-form-grid,
+  .contract-grid,
+  .contract-grid-three {
+    grid-template-columns: 1fr;
+  }
+
+  .component-contract-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
