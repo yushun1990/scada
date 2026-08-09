@@ -1,4 +1,11 @@
+export type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
 export { resolveEffectiveComponentProps } from './effective-component-props'
+export {
+  MOCK_INDICATOR_STATE_KEY,
+  createDefaultPreviewMockSources,
+  createSequenceMockDataSource,
+  type SequenceMockDataSourceOptions,
+} from './mock-data-source'
 export { PreviewRuntime, previewRuntime } from './preview-runtime'
 export {
   RuntimeValueStore,

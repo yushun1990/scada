@@ -30,8 +30,8 @@ The gate is not complete unless runtime updates remain outside authored `SceneDo
 | --- | --- | --- |
 | M5.1 RuntimeValueStore | merged · PR #40 · `2e5ea96501cdc89347792511d3e8833c955b8678` | Runtime-only immutable observable value store, independent of scene/history |
 | M5.2 DataBinding + effective props | merged · PR #41 · `1ccef65f546400be77026989c125a58feecc2e25` | Persisted generic bindings and runtime override resolver without authored-prop mutation |
-| M5.3 Preview runtime lifecycle | implementation complete · PR #42 | Preview-only runtime lease, subscription, stop and clear lifecycle |
-| M5.4 Mock data source | pending | Deterministic mock values/generators feed RuntimeValueStore |
+| M5.3 Preview runtime lifecycle | merged · PR #42 · `46db2b6c98257abd7059e238fd4e80904ec07e40` | Preview-only runtime lease, subscription, stop and clear lifecycle |
+| M5.4 Mock data source | implementation complete · PR #43 | Deterministic runtime data-source contract and indicator state-cycle source |
 | M5.5 Minimal binding UI | pending | SCADA user binds only exposed bindable properties |
 | Runnable Runtime v0.1 gate | pending | Mock value visibly drives `indicator.status` in Preview |
 | M5.6 Action/Event runtime kernel | pending | Generic invoke/emit contract |
@@ -102,7 +102,7 @@ ComponentRenderer props
 
 ## M5.3 Preview runtime lifecycle
 
-Tracking: PR #42, based on `main` after M5.2 merge `1ccef65f546400be77026989c125a58feecc2e25`.
+Tracking: PR #42, merged as `46db2b6c98257abd7059e238fd4e80904ec07e40`.
 
 ### Completed
 
@@ -134,15 +134,57 @@ Last Preview root release
   -> authored props on Designer return
 ```
 
+## M5.4 Mock data source
+
+Tracking: PR #43, based on `main` after M5.3 merge `46db2b6c98257abd7059e238fd4e80904ec07e40`.
+
+### Completed
+
+- Added renderer-independent `RuntimeDataSource` and stop contracts.
+- Added `createSequenceMockDataSource` as the first deterministic generator.
+- Sequence sources validate that at least one value exists and that the interval is positive.
+- Preview Runtime now owns source start/stop together with its existing lease lifecycle.
+- Source startup failure rolls back already-started sources and clears transient runtime state.
+- The default Preview Runtime exposes `mock.indicator.state`.
+- `mock.indicator.state` cycles deterministically through `off -> normal -> warning -> alarm` every 1200 ms.
+- Leaving Preview stops the interval before runtime values are cleared.
+- Mock sources write only to `RuntimeValueStore`; they do not reference SceneDocument, component types, Properties, or Renderers.
+
+### Architectural result
+
+```text
+PreviewRuntime lease
+        ↓
+RuntimeDataSource.start
+        ↓
+mock.indicator.state sequence
+        ↓
+RuntimeValueStore
+        ↓
+DataBinding / effective props
+```
+
 ### Not included
 
-- Preview Runtime does not generate values yet.
-- No MockDataSource/generator yet.
-- No binding editor UI yet.
+- No binding editor UI yet, so scene components do not consume the mock key unless a binding already exists in scene JSON.
+- Additional manual/toggle/ramp/sine generators remain follow-up additions after the first runnable gate proves the source contract.
 - No Action/Event runtime yet.
 
 ## Next slice
 
-**M5.4 Mock data source.**
+**M5.5 Minimal binding UI + first runnable Runtime v0.1 gate.**
 
-The next implementation should add a deterministic source/generator contract and a first state-cycle generator that writes into `PreviewRuntime.values` only while Preview is running. The first target is a repeatable `off -> normal -> warning -> alarm` value cycle suitable for `indicator.status`.
+The next implementation must let a SCADA Workbench user bind an exposed `bindable` Property to the known mock runtime key without seeing component internals. The acceptance path is:
+
+```text
+indicator.status.state
+        <- mock.indicator.state
+        ↓
+enter Preview
+        ↓
+off / normal / warning / alarm cycle
+        ↓
+visible indicator changes automatically
+```
+
+Returning to Designer must restore the authored `state` value and runtime updates must not create editor history entries.
