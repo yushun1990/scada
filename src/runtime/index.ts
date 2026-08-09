@@ -1,4 +1,5 @@
 export { resolveEffectiveComponentProps } from './effective-component-props'
+export { PreviewRuntime, previewRuntime } from './preview-runtime'
 export {
   RuntimeValueStore,
   type RuntimeValue,
