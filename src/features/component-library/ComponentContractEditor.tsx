@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type {
   ComponentDefinition,
   ComponentPropertyDefinition,
@@ -8,12 +7,13 @@ import type {
   VisualAnchorRole,
 } from '../../component-system/definition'
 
-type ContractTab = 'properties' | 'actions' | 'events' | 'anchors'
+export type ComponentContractTab = 'properties' | 'actions' | 'events' | 'anchors'
 type InteractionDefinition = { title: string; description?: string }
 
 type ComponentContractEditorProps = {
   definition: ComponentDefinition
   readOnly: boolean
+  tab: ComponentContractTab
   onChange: (definition: ComponentDefinition) => void
 }
 
@@ -32,14 +32,34 @@ const ANCHOR_ROLE_LABELS: Array<[VisualAnchorRole, string]> = [
   ['both', '双向'],
 ]
 
+const TAB_META: Record<ComponentContractTab, { eyebrow: string; title: string; description: string }> = {
+  properties: {
+    eyebrow: 'PUBLIC CONTRACT / PROPERTIES',
+    title: '公开属性',
+    description: '定义组态用户可配置或可绑定的数据入口。组件内部图层状态不应直接暴露到这里。',
+  },
+  actions: {
+    eyebrow: 'PUBLIC CONTRACT / ACTIONS',
+    title: '公开方法',
+    description: '定义组件对外提供的操作接口。这里只描述契约，具体实现由后续配置、Script 或 Native Handler 承担。',
+  },
+  events: {
+    eyebrow: 'PUBLIC CONTRACT / EVENTS',
+    title: '公开事件',
+    description: '定义组件可以向外发出的业务事件，供 SCADA 行为配置消费。',
+  },
+  anchors: {
+    eyebrow: 'PUBLIC CONTRACT / ANCHORS',
+    title: '视觉锚点',
+    description: '定义画布连线的视觉附着点。Anchor 只表示几何连接，不承担运行时数据语义。',
+  },
+}
+
 function nextUniqueKey(prefix: string, keys: readonly string[]) {
   const keySet = new Set(keys)
   let index = 1
 
-  while (keySet.has(`${prefix}${index}`)) {
-    index += 1
-  }
-
+  while (keySet.has(`${prefix}${index}`)) index += 1
   return `${prefix}${index}`
 }
 
@@ -57,9 +77,7 @@ function createProperty(kind: ComponentPropertyKind = 'string'): ComponentProper
     kind,
     defaultValue: defaultValueForKind(kind),
     bindable: false,
-    options: kind === 'select'
-      ? [{ label: '选项 1', value: 'value1' }]
-      : undefined,
+    options: kind === 'select' ? [{ label: '选项 1', value: 'value1' }] : undefined,
   }
 }
 
@@ -67,9 +85,7 @@ function convertPropertyKind(
   property: ComponentPropertyDefinition,
   kind: ComponentPropertyKind,
 ): ComponentPropertyDefinition {
-  if (property.kind === kind) {
-    return property
-  }
+  if (property.kind === kind) return property
 
   return {
     title: property.title,
@@ -77,16 +93,12 @@ function convertPropertyKind(
     bindable: property.bindable,
     kind,
     defaultValue: defaultValueForKind(kind),
-    options: kind === 'select'
-      ? [{ label: '选项 1', value: 'value1' }]
-      : undefined,
+    options: kind === 'select' ? [{ label: '选项 1', value: 'value1' }] : undefined,
   }
 }
 
 function formatOptions(options: readonly ComponentPropertyOption[] | undefined) {
-  return (options ?? [])
-    .map((option) => `${option.label}=${String(option.value)}`)
-    .join('\n')
+  return (options ?? []).map((option) => `${option.label}=${String(option.value)}`).join('\n')
 }
 
 function parseOptionValue(value: string): string | number {
@@ -124,15 +136,10 @@ function replaceRecordKey<T>(
 ) {
   const normalized = nextKey.trim()
 
-  if (!normalized || (normalized !== oldKey && record[normalized])) {
-    return record
-  }
+  if (!normalized || (normalized !== oldKey && record[normalized])) return record
 
   return Object.fromEntries(
-    Object.entries(record).map(([key, value]) => [
-      key === oldKey ? normalized : key,
-      value,
-    ]),
+    Object.entries(record).map(([key, value]) => [key === oldKey ? normalized : key, value]),
   ) as Record<string, T>
 }
 
@@ -293,7 +300,11 @@ function InteractionList({
         </article>
       ))}
       {Object.keys(items).length === 0 && <div className="contract-empty">{emptyLabel}</div>}
-      {!readOnly && <button className="contract-add-button" type="button" onClick={onAdd}>+ 添加{label}</button>}
+      {!readOnly && (
+        <button className="contract-add-button" type="button" onClick={onAdd}>
+          + 添加{label}
+        </button>
+      )}
     </div>
   )
 }
@@ -301,9 +312,10 @@ function InteractionList({
 export function ComponentContractEditor({
   definition,
   readOnly,
+  tab,
   onChange,
 }: ComponentContractEditorProps) {
-  const [tab, setTab] = useState<ContractTab>('properties')
+  const meta = TAB_META[tab]
 
   function updateProperty(key: string, property: ComponentPropertyDefinition) {
     onChange({
@@ -334,10 +346,7 @@ export function ComponentContractEditor({
   }
 
   function updateAction(key: string, action: InteractionDefinition) {
-    onChange({
-      ...definition,
-      actions: { ...definition.actions, [key]: action },
-    })
+    onChange({ ...definition, actions: { ...definition.actions, [key]: action } })
   }
 
   function renameAction(oldKey: string, nextKey: string) {
@@ -362,10 +371,7 @@ export function ComponentContractEditor({
   }
 
   function updateEvent(key: string, event: InteractionDefinition) {
-    onChange({
-      ...definition,
-      events: { ...definition.events, [key]: event },
-    })
+    onChange({ ...definition, events: { ...definition.events, [key]: event } })
   }
 
   function renameEvent(oldKey: string, nextKey: string) {
@@ -423,37 +429,12 @@ export function ComponentContractEditor({
     })
   }
 
-  const counts: Record<ContractTab, number> = {
-    properties: Object.keys(definition.properties).length,
-    actions: Object.keys(definition.actions).length,
-    events: Object.keys(definition.events).length,
-    anchors: definition.anchors.length,
-  }
-
   return (
-    <section className="component-contract-card">
+    <section className="component-workspace-card component-contract-card">
       <div className="component-form-heading">
-        <span>PUBLIC CONTRACT</span>
-        <h1>公开契约</h1>
-        <p>SCADA 组态只会看到这里明确暴露的 Property、Action、Event 和 Anchor；组件内部图层与实现不会自动泄漏出去。</p>
-      </div>
-
-      <div className="component-contract-tabs" role="tablist" aria-label="组件公开契约">
-        {([
-          ['properties', '属性'],
-          ['actions', '方法'],
-          ['events', '事件'],
-          ['anchors', '锚点'],
-        ] as Array<[ContractTab, string]>).map(([candidate, label]) => (
-          <button
-            key={candidate}
-            type="button"
-            className={tab === candidate ? 'active' : ''}
-            onClick={() => setTab(candidate)}
-          >
-            {label} <small>{counts[candidate]}</small>
-          </button>
-        ))}
+        <span>{meta.eyebrow}</span>
+        <h1>{meta.title}</h1>
+        <p>{meta.description}</p>
       </div>
 
       {tab === 'properties' && (
@@ -536,7 +517,10 @@ export function ComponentContractEditor({
                     type="checkbox"
                     checked={Boolean(property.bindable)}
                     disabled={readOnly}
-                    onChange={(event) => updateProperty(key, { ...property, bindable: event.target.checked })}
+                    onChange={(event) => updateProperty(key, {
+                      ...property,
+                      bindable: event.target.checked,
+                    })}
                   />
                   <span>允许 SCADA 数据绑定</span>
                 </label>
@@ -548,7 +532,10 @@ export function ComponentContractEditor({
                   rows={2}
                   value={property.description ?? ''}
                   disabled={readOnly}
-                  onChange={(event) => updateProperty(key, { ...property, description: event.target.value })}
+                  onChange={(event) => updateProperty(key, {
+                    ...property,
+                    description: event.target.value,
+                  })}
                 />
               </label>
             </article>
@@ -557,7 +544,9 @@ export function ComponentContractEditor({
             <div className="contract-empty">尚未定义公开 Property。</div>
           )}
           {!readOnly && (
-            <button className="contract-add-button" type="button" onClick={addProperty}>+ 添加属性</button>
+            <button className="contract-add-button" type="button" onClick={addProperty}>
+              + 添加属性
+            </button>
           )}
         </div>
       )}
@@ -591,7 +580,7 @@ export function ComponentContractEditor({
       {tab === 'anchors' && (
         <div className="contract-list">
           {definition.anchors.map((anchor, index) => (
-            <article className="contract-item" key={index}>
+            <article className="contract-item" key={`${anchor.id}:${index}`}>
               <div className="contract-item-head">
                 <strong>{anchor.title || anchor.id}</strong>
                 {!readOnly && <button type="button" onClick={() => removeAnchor(index)}>删除</button>}
@@ -599,37 +588,103 @@ export function ComponentContractEditor({
               <div className="contract-grid contract-grid-three">
                 <label>
                   <span>ID</span>
-                  <input value={anchor.id} disabled={readOnly} onChange={(event) => updateAnchor(index, { ...anchor, id: event.target.value })} />
+                  <input
+                    value={anchor.id}
+                    disabled={readOnly}
+                    onChange={(event) => updateAnchor(index, { ...anchor, id: event.target.value })}
+                  />
                 </label>
                 <label>
                   <span>标题</span>
-                  <input value={anchor.title} disabled={readOnly} onChange={(event) => updateAnchor(index, { ...anchor, title: event.target.value })} />
+                  <input
+                    value={anchor.title}
+                    disabled={readOnly}
+                    onChange={(event) => updateAnchor(index, { ...anchor, title: event.target.value })}
+                  />
                 </label>
                 <label>
                   <span>角色</span>
-                  <select value={anchor.role ?? 'neutral'} disabled={readOnly} onChange={(event) => updateAnchor(index, { ...anchor, role: event.target.value as VisualAnchorRole })}>
-                    {ANCHOR_ROLE_LABELS.map(([role, label]) => <option key={role} value={role}>{label}</option>)}
+                  <select
+                    value={anchor.role ?? 'neutral'}
+                    disabled={readOnly}
+                    onChange={(event) => updateAnchor(index, {
+                      ...anchor,
+                      role: event.target.value as VisualAnchorRole,
+                    })}
+                  >
+                    {ANCHOR_ROLE_LABELS.map(([role, label]) => (
+                      <option key={role} value={role}>{label}</option>
+                    ))}
                   </select>
                 </label>
                 <label>
                   <span>位置 X (0..1)</span>
-                  <input type="number" min="0" max="1" step="0.05" value={anchor.position.x} disabled={readOnly} onChange={(event) => updateAnchor(index, { ...anchor, position: { ...anchor.position, x: Number(event.target.value) } })} />
+                  <input
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={anchor.position.x}
+                    disabled={readOnly}
+                    onChange={(event) => updateAnchor(index, {
+                      ...anchor,
+                      position: { ...anchor.position, x: Number(event.target.value) },
+                    })}
+                  />
                 </label>
                 <label>
                   <span>位置 Y (0..1)</span>
-                  <input type="number" min="0" max="1" step="0.05" value={anchor.position.y} disabled={readOnly} onChange={(event) => updateAnchor(index, { ...anchor, position: { ...anchor.position, y: Number(event.target.value) } })} />
+                  <input
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={anchor.position.y}
+                    disabled={readOnly}
+                    onChange={(event) => updateAnchor(index, {
+                      ...anchor,
+                      position: { ...anchor.position, y: Number(event.target.value) },
+                    })}
+                  />
                 </label>
                 <label>
                   <span>吸附半径</span>
-                  <input type="number" min="1" value={anchor.snapRadius ?? 24} disabled={readOnly} onChange={(event) => updateAnchor(index, { ...anchor, snapRadius: Number(event.target.value) })} />
+                  <input
+                    type="number"
+                    min="1"
+                    value={anchor.snapRadius ?? 24}
+                    disabled={readOnly}
+                    onChange={(event) => updateAnchor(index, {
+                      ...anchor,
+                      snapRadius: Number(event.target.value),
+                    })}
+                  />
                 </label>
                 <label>
                   <span>方向 X</span>
-                  <input type="number" step="0.1" value={anchor.outward.x} disabled={readOnly} onChange={(event) => updateAnchor(index, { ...anchor, outward: { ...anchor.outward, x: Number(event.target.value) } })} />
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={anchor.outward.x}
+                    disabled={readOnly}
+                    onChange={(event) => updateAnchor(index, {
+                      ...anchor,
+                      outward: { ...anchor.outward, x: Number(event.target.value) },
+                    })}
+                  />
                 </label>
                 <label>
                   <span>方向 Y</span>
-                  <input type="number" step="0.1" value={anchor.outward.y} disabled={readOnly} onChange={(event) => updateAnchor(index, { ...anchor, outward: { ...anchor.outward, y: Number(event.target.value) } })} />
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={anchor.outward.y}
+                    disabled={readOnly}
+                    onChange={(event) => updateAnchor(index, {
+                      ...anchor,
+                      outward: { ...anchor.outward, y: Number(event.target.value) },
+                    })}
+                  />
                 </label>
                 <label>
                   <span>连接类别（逗号分隔）</span>
@@ -648,8 +703,14 @@ export function ComponentContractEditor({
               </div>
             </article>
           ))}
-          {definition.anchors.length === 0 && <div className="contract-empty">尚未定义 Visual Anchor。</div>}
-          {!readOnly && <button className="contract-add-button" type="button" onClick={addAnchor}>+ 添加锚点</button>}
+          {definition.anchors.length === 0 && (
+            <div className="contract-empty">尚未定义 Visual Anchor。</div>
+          )}
+          {!readOnly && (
+            <button className="contract-add-button" type="button" onClick={addAnchor}>
+              + 添加锚点
+            </button>
+          )}
         </div>
       )}
     </section>
