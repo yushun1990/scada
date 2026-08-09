@@ -34,8 +34,26 @@ export const pumpComponentDefinition: ComponentDefinition = {
       ],
     },
   },
-  actions: {},
-  events: {},
+  actions: {
+    start: {
+      title: '启动',
+      description: '请求启动潜水泵。',
+    },
+    stop: {
+      title: '停止',
+      description: '请求停止潜水泵。',
+    },
+  },
+  events: {
+    startRequested: {
+      title: '启动请求',
+      description: '组件的启动 Action 已被调用。',
+    },
+    stopRequested: {
+      title: '停止请求',
+      description: '组件的停止 Action 已被调用。',
+    },
+  },
   anchors: DEFAULT_RECT_ANCHORS,
 }
 
@@ -43,4 +61,12 @@ export const pumpComponentRegistration: ComponentRegistration = {
   definition: pumpComponentDefinition,
   renderer: PumpComponentRenderer,
   createDefaultProps: () => createDefaultPropsFromDefinition(pumpComponentDefinition),
+  actions: {
+    start: ({ emit }) => {
+      emit('startRequested')
+    },
+    stop: ({ emit }) => {
+      emit('stopRequested')
+    },
+  },
 }
