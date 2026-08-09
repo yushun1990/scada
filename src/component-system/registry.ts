@@ -1,29 +1,5 @@
-import type { ComponentDefinition } from './definition'
 import type { ComponentRegistration } from './registration'
-
-function assertDefinition(definition: ComponentDefinition) {
-  if (!definition.type.trim()) {
-    throw new Error('Component type cannot be empty')
-  }
-
-  if (definition.size.defaultWidth <= 0 || definition.size.defaultHeight <= 0) {
-    throw new Error(`Component ${definition.type} has an invalid default size`)
-  }
-
-  if (definition.size.minWidth <= 0 || definition.size.minHeight <= 0) {
-    throw new Error(`Component ${definition.type} has an invalid minimum size`)
-  }
-
-  const anchorIds = new Set<string>()
-
-  for (const anchor of definition.anchors) {
-    if (anchorIds.has(anchor.id)) {
-      throw new Error(`Component ${definition.type} has duplicate anchor ${anchor.id}`)
-    }
-
-    anchorIds.add(anchor.id)
-  }
-}
+import { assertComponentDefinition } from './validation'
 
 function assertRegistration(registration: ComponentRegistration) {
   const { definition, actions } = registration
@@ -52,7 +28,7 @@ export class ComponentRegistry {
 
   register(registration: ComponentRegistration) {
     const { definition } = registration
-    assertDefinition(definition)
+    assertComponentDefinition(definition)
     assertRegistration(registration)
 
     if (this.registrations.has(definition.type)) {

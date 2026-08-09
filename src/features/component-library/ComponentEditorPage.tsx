@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import type { ComponentDefinition } from '../../component-system/definition'
+import { ComponentContractEditor } from './ComponentContractEditor'
 import {
   createComponentDraft,
   getComponentDefinition,
@@ -17,8 +19,9 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   const [component, setComponent] = useState<ComponentLibraryEntry>(initial)
   const [message, setMessage] = useState('')
   const readOnly = component.builtIn
+  const { definition } = component
 
-  function update<K extends keyof ComponentLibraryEntry>(
+  function updatePackage<K extends keyof ComponentLibraryEntry>(
     key: K,
     value: ComponentLibraryEntry[K],
   ) {
@@ -26,11 +29,39 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     setMessage('')
   }
 
+  function updateDefinition(nextDefinition: ComponentDefinition) {
+    setComponent((current) => ({
+      ...current,
+      definition: nextDefinition,
+    }))
+    setMessage('')
+  }
+
+  function updateDefinitionField<K extends keyof ComponentDefinition>(
+    key: K,
+    value: ComponentDefinition[K],
+  ) {
+    updateDefinition({ ...definition, [key]: value })
+  }
+
+  function updateSize(
+    key: keyof ComponentDefinition['size'],
+    value: number,
+  ) {
+    updateDefinition({
+      ...definition,
+      size: {
+        ...definition.size,
+        [key]: value,
+      },
+    })
+  }
+
   function save() {
     try {
       const saved = saveComponentDefinition(component)
       setComponent(saved)
-      setMessage('组件定义已保存')
+      setMessage('组件 Package 已保存')
       window.location.hash = `#/components/${encodeURIComponent(saved.id)}`
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '组件保存失败')
@@ -45,7 +76,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
         </button>
         <div>
           <strong>{readOnly ? '查看内置组件' : componentId === 'new' ? '新建组件' : '编辑组件'}</strong>
-          <span>{component.type}</span>
+          <span>{definition.type}</span>
         </div>
         <button
           type="button"
@@ -60,40 +91,48 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
       <main className="component-editor-main">
         <section className="component-form-card">
           <div className="component-form-heading">
-            <span>COMPONENT DEFINITION</span>
+            <span>PACKAGE / DEFINITION</span>
             <h1>组件定义</h1>
-            <p>这里维护组件的稳定身份和默认几何信息。后续组件注册表直接消费这层定义。</p>
+            <p>这里维护可序列化的 ComponentDefinition。SCADA Workbench、Runtime 和未来用户组件注册路径都应消费这一份公开契约。</p>
           </div>
 
           {readOnly && (
             <div className="component-readonly-note">
-              内置组件当前只读；它的运行时实现仍由编辑器代码提供，不在这里覆盖。
+              内置组件为真实 Registry Definition 的只读视图；Native Renderer / Action Handler 仍由可信应用代码注册。
             </div>
           )}
+
+          <div className="component-definition-summary">
+            <span>Package v{component.version}</span>
+            <span>{Object.keys(definition.properties).length} Properties</span>
+            <span>{Object.keys(definition.actions).length} Actions</span>
+            <span>{Object.keys(definition.events).length} Events</span>
+            <span>{definition.anchors.length} Anchors</span>
+          </div>
 
           <div className="component-form-grid">
             <label>
               <span>名称</span>
               <input
-                value={component.name}
+                value={definition.title}
                 readOnly={readOnly}
-                onChange={(event) => update('name', event.target.value)}
+                onChange={(event) => updateDefinitionField('title', event.target.value)}
               />
             </label>
             <label>
               <span>类型标识</span>
               <input
-                value={component.type}
+                value={definition.type}
                 readOnly={readOnly}
-                onChange={(event) => update('type', event.target.value)}
+                onChange={(event) => updateDefinitionField('type', event.target.value)}
               />
             </label>
             <label>
               <span>分类</span>
               <input
-                value={component.category}
+                value={definition.category}
                 readOnly={readOnly}
-                onChange={(event) => update('category', event.target.value)}
+                onChange={(event) => updateDefinitionField('category', event.target.value)}
               />
             </label>
             <label>
@@ -101,7 +140,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
               <select
                 value={component.status}
                 disabled={readOnly}
-                onChange={(event) => update('status', event.target.value as ComponentStatus)}
+                onChange={(event) => updatePackage('status', event.target.value as ComponentStatus)}
               >
                 <option value="draft">草稿</option>
                 <option value="ready">可用</option>
@@ -112,9 +151,9 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
               <input
                 type="number"
                 min="1"
-                value={component.defaultWidth}
+                value={definition.size.defaultWidth}
                 readOnly={readOnly}
-                onChange={(event) => update('defaultWidth', Number(event.target.value))}
+                onChange={(event) => updateSize('defaultWidth', Number(event.target.value))}
               />
             </label>
             <label>
@@ -122,9 +161,29 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
               <input
                 type="number"
                 min="1"
-                value={component.defaultHeight}
+                value={definition.size.defaultHeight}
                 readOnly={readOnly}
-                onChange={(event) => update('defaultHeight', Number(event.target.value))}
+                onChange={(event) => updateSize('defaultHeight', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              <span>最小宽度</span>
+              <input
+                type="number"
+                min="1"
+                value={definition.size.minWidth}
+                readOnly={readOnly}
+                onChange={(event) => updateSize('minWidth', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              <span>最小高度</span>
+              <input
+                type="number"
+                min="1"
+                value={definition.size.minHeight}
+                readOnly={readOnly}
+                onChange={(event) => updateSize('minHeight', Number(event.target.value))}
               />
             </label>
           </div>
@@ -133,25 +192,31 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             <span>说明</span>
             <textarea
               rows={4}
-              value={component.description}
+              value={definition.description}
               readOnly={readOnly}
-              onChange={(event) => update('description', event.target.value)}
+              onChange={(event) => updateDefinitionField('description', event.target.value)}
             />
           </label>
         </section>
 
+        <ComponentContractEditor
+          definition={definition}
+          readOnly={readOnly}
+          onChange={updateDefinition}
+        />
+
         <section className="component-code-card">
           <div className="component-form-heading">
-            <span>RENDER DRAFT</span>
-            <h1>组件实现</h1>
-            <p>当前先保存实现草稿；真正的编译、预览与运行时注册将在组件运行时阶段接入。</p>
+            <span>PRIVATE IMPLEMENTATION DRAFT</span>
+            <h1>实现草稿</h1>
+            <p>这里暂时只保存文本，不执行代码。后续 Visual Layer / Rules / Controlled Script 会进入明确的私有实现模型和受控 Runtime API。</p>
           </div>
           <textarea
             className="component-code-editor"
             spellCheck={false}
-            value={component.renderCode}
+            value={component.implementationDraft}
             readOnly={readOnly}
-            onChange={(event) => update('renderCode', event.target.value)}
+            onChange={(event) => updatePackage('implementationDraft', event.target.value)}
           />
           {message && <div className="component-editor-message" role="status">{message}</div>}
         </section>

@@ -73,42 +73,76 @@ SCADA Workbench
 | Slice | Status | Result |
 | --- | --- | --- |
 | M6 entry gate | **accepted · 2026-08-09** | M5.7 Event -> Action manual smoke passed; Runtime foundation closed |
-| M6.1 Package-backed public contract | next | Unify component-library storage with serializable `ComponentDefinition` and author public contract in Component Workbench |
+| M6.1 Package-backed public contract | implementation complete · PR #50 · CI pending | Component Library package draft now owns the real serializable `ComponentDefinition`; Workbench authors Properties / Actions / Events / Anchors |
 | M6.2 Layer Tree foundation | pending | Heterogeneous private visual tree with Group / SVG / Image / Vector / Text |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
 | M6.6 User component registration path | pending | Publish a Workbench-authored package so SCADA Workbench consumes it like a built-in component |
 
-## Next slice — M6.1 Package-backed public contract
+## M6.1 Package-backed public contract
 
-The current Component Library entry is still a legacy authoring/storage record with flat fields such as `name`, `type`, `defaultWidth`, and `renderCode`.
+Tracking: PR #50, based on M6 entry-gate merge `5b34419169bfaaff16ac23b350ceb79fd252480b`.
 
-M6.1 should remove that architectural duplication by making the authoring record directly own the same serializable public definition consumed by the component kernel.
+### Completed in code
 
-Target direction:
+- Added reusable `assertComponentDefinition` validation in the component-system layer.
+- ComponentRegistry now uses the same serializable Definition validator that Component Workbench persistence uses.
+- Component Library persistence moved from flat v1 authoring records to package-backed v2 storage.
+- A package draft directly owns a `ComponentDefinition` instead of duplicating `name`, `type`, `defaultWidth`, and similar fields outside the kernel model.
+- Existing custom `scada-editor-lab.components.v1` records are migrated on first read into v2 package drafts; the legacy key is left untouched as a rollback source.
+- Built-in library entries are generated from the actual registered `ComponentDefinition` and remain read-only.
+- Package save rejects malformed or duplicate component types before persistence.
+- Definition validation covers component identity, default/minimum size, Property schema/default compatibility, select options, Action/Event definitions, and normalized visual Anchor geometry.
+- Component Workbench now authors default and minimum component size.
+- Added schema-driven public-contract authoring for Properties, Actions, Events, and Anchors.
+- Property authoring reuses the existing kernel kinds: string, number, boolean, color, and select.
+- Select options can use string or numeric values and the chosen default remains typed.
+- Public Properties can opt into SCADA runtime data binding through the existing `bindable` contract flag.
+- Visual Anchors expose normalized position, outward direction, snap radius, role, and optional connection kinds.
+- Workspace component-library listing now consumes package `definition` metadata directly.
+- The old `renderCode` field is migrated into an explicit `implementationDraft` text area.
+- `implementationDraft` is still inert text: no eval, dynamic import, browser script execution, or Runtime registration path was added.
+
+### Architecture result
 
 ```text
-Component package draft
-├── package/version metadata
-├── ComponentDefinition
-│   ├── metadata
-│   ├── size
-│   ├── properties
-│   ├── actions
-│   ├── events
-│   └── anchors
-└── implementation draft
+Component Library package draft
+        ↓ owns
+ComponentDefinition
+├── metadata + size
+├── Properties
+├── Actions
+├── Events
+└── Anchors
+        ↓
+shared component-system validation
+        ↓
+save / later publish
 ```
 
-Acceptance requirements:
+The Component Workbench is now authoring the same public schema that the generic component kernel understands. The remaining gap is private visual implementation and publication, not another definition translation layer.
 
-- existing custom component-library v1 records migrate without disappearing
-- built-in components remain read-only views of their real registered `ComponentDefinition`
-- custom component drafts directly store a serializable `ComponentDefinition`
-- Component Workbench can add/edit/remove Properties, Actions, Events, and Anchors
-- property kinds use the existing component-kernel schema rather than a second authoring-only schema
-- size authoring includes default and minimum dimensions
-- invalid public contracts are rejected before save
-- no custom `renderCode` or user script is executed in this slice
-- SCADA Workbench behavior is unchanged; publishing user packages into the runtime registry remains a later M6 slice
+### Deliberately deferred
+
+- no internal/private state editor yet
+- no Action parameter or Event payload schema yet because the kernel Definition does not expose those schemas yet
+- no Layer Tree yet
+- no asset import yet
+- no Visual Rules or animation yet
+- no Controlled Script execution yet
+- no custom package registration in the SCADA component palette/runtime yet
+
+## Next checkpoint
+
+After PR #50 passes CI and merges, **M6.2 Layer Tree foundation** should introduce the first private implementation model without changing the public contract:
+
+```text
+ComponentDefinition   public / stable
+        +
+Visual Layer Tree     private implementation
+        ↓
+Group / SVG / Image / Vector / Text
+```
+
+The first Layer Tree slice should focus on stable serialized structure and basic authoring, not advanced animation or script behavior.
