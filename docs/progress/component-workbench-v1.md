@@ -74,7 +74,7 @@ SCADA Workbench
 | --- | --- | --- |
 | M6 entry gate | **accepted · 2026-08-09** | M5.7 Event -> Action manual smoke passed; Runtime foundation closed |
 | M6.1 Package-backed public contract | merged · PR #50 · `8fd82dc826c30600a4e9740355700b611bf36634` · CI #305 ✅ | Component Library package draft owns the real serializable `ComponentDefinition`; Workbench authors Properties / Actions / Events / Anchors |
-| M6.2 Layer Tree foundation | implementation complete · PR pending · manual smoke pending | Serialized private Group / SVG / Image / Vector / Text tree with hierarchy and basic authoring |
+| M6.2 Layer Tree foundation | merged · PR #52 · `e9919343d42d1334f2ba2ccd927469db50943d56` · CI #310 ✅ · manual smoke pending | Serialized private Group / SVG / Image / Vector / Text tree with hierarchy and basic authoring |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
@@ -125,9 +125,9 @@ save / later publish
 
 ## M6.2 Layer Tree foundation
 
-Tracking: implementation branch `feat/component-visual-layer-tree`, based on `main` after M6.1 checkpoint merge `b2e18827aade529c4e2dc3376e5e511344ddfab2`.
+Tracking: PR #52, merged as `e9919343d42d1334f2ba2ccd927469db50943d56`. Final verification was CI #310 after fixing the validator narrowing issue found by CI #309.
 
-### Completed in code
+### Completed
 
 - Added versioned `ComponentVisualDefinition` as private package implementation data.
 - Visual mode is explicit: built-in components use `native`; user-authored composite components use `composite`.
@@ -170,8 +170,10 @@ A single SVG or bitmap is now simply a one-layer composite component. Mixed SVG 
 
 ### Verification status
 
-- TypeScript Build and Lint must pass before the implementation merges.
-- A browser smoke test should verify add/nest/reorder/rename/delete/save/reopen behavior before M6.2 is marked accepted.
+- CI #309 correctly rejected an `unknown` transform-field narrowing issue in the first validator implementation.
+- The validator was corrected to narrow transform fields explicitly.
+- CI #310 then passed both Build and Lint before PR #52 merged.
+- A browser smoke test is still required for add/nest/reorder/rename/delete/save/reopen behavior before M6.2 is marked accepted.
 
 ### Deliberately deferred
 
