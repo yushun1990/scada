@@ -156,7 +156,7 @@ export function WorkspacePage() {
               <div>
                 <span className="workspace-eyebrow">COMPONENT LIBRARY</span>
                 <h1>组件库开发</h1>
-                <p>组件定义与 SCADA 作品解耦，集中维护类型、尺寸、说明和渲染实现草稿。</p>
+                <p>组件开发工作台维护可复用组件的公开契约与私有实现，SCADA 组态只消费被明确暴露的能力。</p>
               </div>
               <button className="workspace-primary-button" type="button" onClick={createComponent}>
                 + 新建组件
@@ -171,31 +171,35 @@ export function WorkspacePage() {
                 <span>状态</span>
                 <span>操作</span>
               </div>
-              {components.map((component) => (
-                <div className="component-table-row" role="row" key={component.id}>
-                  <div className="component-name-cell">
-                    <span className="component-avatar">{component.name.slice(0, 1).toUpperCase()}</span>
+              {components.map((component) => {
+                const { definition } = component
+
+                return (
+                  <div className="component-table-row" role="row" key={component.id}>
+                    <div className="component-name-cell">
+                      <span className="component-avatar">{definition.title.slice(0, 1).toUpperCase()}</span>
+                      <span>
+                        <strong>{definition.title}</strong>
+                        <small>{definition.size.defaultWidth} × {definition.size.defaultHeight}</small>
+                      </span>
+                    </div>
+                    <code>{definition.type}</code>
+                    <span>{definition.category}</span>
                     <span>
-                      <strong>{component.name}</strong>
-                      <small>{component.defaultWidth} × {component.defaultHeight}</small>
+                      <span className={`workspace-badge ${component.status}`}>
+                        {component.builtIn ? '内置' : component.status === 'ready' ? '可用' : '草稿'}
+                      </span>
                     </span>
+                    <button
+                      type="button"
+                      className="component-edit-button"
+                      onClick={() => openComponent(component.id)}
+                    >
+                      {component.builtIn ? '查看' : '编辑'}
+                    </button>
                   </div>
-                  <code>{component.type}</code>
-                  <span>{component.category}</span>
-                  <span>
-                    <span className={`workspace-badge ${component.status}`}>
-                      {component.builtIn ? '内置' : component.status === 'ready' ? '可用' : '草稿'}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    className="component-edit-button"
-                    onClick={() => openComponent(component.id)}
-                  >
-                    {component.builtIn ? '查看' : '编辑'}
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </section>
         )}
