@@ -1,7 +1,7 @@
 import type { ComponentProps } from '../component-system/definition'
 import { builtInComponentRegistry } from '../component-system/builtins'
 
-export const SCENE_VERSION = 5 as const
+export const SCENE_VERSION = 6 as const
 export const GROUP_NODE_TYPE = 'core.group' as const
 
 export type NodeTransform = {
@@ -23,6 +23,21 @@ export type DataBinding = {
   source: RuntimeValueBindingSource
 }
 
+export type EventActionBehavior = {
+  id: string
+  trigger: {
+    kind: 'event'
+    event: string
+  }
+  effect: {
+    kind: 'action'
+    targetNodeId: string
+    action: string
+  }
+}
+
+export type ComponentBehavior = EventActionBehavior
+
 type SceneNodeBase = {
   id: string
   name: string
@@ -30,13 +45,13 @@ type SceneNodeBase = {
   visible: boolean
   locked: boolean
   transform: NodeTransform
-  behaviors: []
 }
 
 export type ComponentSceneNode = SceneNodeBase & {
   type: string
   props: ComponentProps
   bindings: DataBinding[]
+  behaviors: ComponentBehavior[]
 }
 
 export type GroupSceneNode = SceneNodeBase & {
@@ -46,6 +61,7 @@ export type GroupSceneNode = SceneNodeBase & {
     designHeight: number
   }
   bindings: []
+  behaviors: []
 }
 
 export type SceneNode = ComponentSceneNode | GroupSceneNode

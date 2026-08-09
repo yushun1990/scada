@@ -62,10 +62,22 @@ export function deleteSceneNodes(
   rootIds: readonly string[],
 ): SceneDocument {
   const deletedIds = collectSubtreeIds(scene, rootIds)
+  const remainingNodes = scene.nodes
+    .filter((node) => !deletedIds.has(node.id))
+    .map((node) =>
+      isGroupNode(node)
+        ? node
+        : {
+            ...node,
+            behaviors: node.behaviors.filter(
+              (behavior) => !deletedIds.has(behavior.effect.targetNodeId),
+            ),
+          },
+    )
 
   return {
     ...scene,
-    nodes: scene.nodes.filter((node) => !deletedIds.has(node.id)),
+    nodes: remainingNodes,
     connections: scene.connections.filter(
       (connection) =>
         !deletedIds.has(connection.source.nodeId) &&

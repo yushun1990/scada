@@ -9,8 +9,15 @@ import {
 } from 'react'
 import { loadScadaScene, saveScadaScene } from '../scada-works/storage'
 import { builtInComponentRegistry } from '../../component-system/builtins'
-import { DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES } from '../../runtime'
+import {
+  DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES,
+  previewRuntime,
+} from '../../runtime'
 import { ComponentPropertiesInspector } from './ComponentPropertiesInspector'
+import {
+  ComponentInteractionsInspector,
+  type BehaviorActionTarget,
+} from './ComponentInteractionsInspector'
 import {
   hasDuplicateConnection,
   reconnectSceneConnection,
@@ -155,6 +162,21 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [undo, redo])
 
+  useEffect(() => {
+    if (mode !== 'preview') {
+      return
+    }
+
+    return previewRuntime.subscribeEvents((event) => {
+      const sourceNode = scene.nodes.find((node) => node.id === event.nodeId)
+      const eventTitle =
+        builtInComponentRegistry
+          .get(event.componentType)
+          ?.definition.events[event.eventName]?.title ?? event.eventName
+      setMessage(`${sourceNode?.name ?? event.nodeId} · ${eventTitle}`)
+    })
+  }, [mode, scene.nodes])
+
   const rootNodes = getRootNodes(scene)
   const selectedNodes = selectedNodeIds
     .map((nodeId) => rootNodes.find((node) => node.id === nodeId))
@@ -191,7 +213,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
 
     if (connectionId) {
       setSelectedNodeIds([])
-      }
+    }
   }
 
   function updateNode(
@@ -493,6 +515,92 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     )
   }
 
+  function invokePrimaryAction(actionName: string) {
+    if (!primaryNode || isGroupNode(primaryNode) || mode !== 'preview') {
+      return
+    }
+
+    try {
+      const result = previewRuntime.invokeAction(primaryNode.id, actionName)
+      void Promise.resolve(result).catch((error: unknown) => {
+        setMessage(error instanceof Error ? error.message : '方法执行失败')
+      })
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '方法执行失败')
+    }
+  }
+
+  function updatePrimaryEventActionBehavior(
+    eventName: string,
+    target: BehaviorActionTarget | null,
+  ) {
+    if (
+      mode !== 'editor' ||
+      !primaryNode ||
+      isGroupNode(primaryNode) ||
+      !primaryComponentRegistration?.definition.events[eventName]
+    ) {
+      return
+    }
+
+    if (target) {
+      const targetNode = scene.nodes.find((node) => node.id === target.nodeId)
+      const targetRegistration =
+        targetNode && !isGroupNode(targetNode)
+          ? builtInComponentRegistry.get(targetNode.type)
+          : null
+
+      if (!targetRegistration?.definition.actions[target.action]) {
+        setMessage('目标组件方法不存在')
+        return
+      }
+    }
+
+    const existingBehavior = primaryNode.behaviors.find(
+      (behavior) => behavior.trigger.event === eventName,
+    )
+    const behaviorId = existingBehavior?.id ?? createSceneId('behavior')
+
+    commit((current) => ({
+      ...current,
+      nodes: current.nodes.map((node) => {
+        if (node.id !== primaryNode.id || isGroupNode(node)) {
+          return node
+        }
+
+        const behaviors = node.behaviors.filter(
+          (behavior) => behavior.trigger.event !== eventName,
+        )
+
+        if (target) {
+          behaviors.push({
+            id: behaviorId,
+            trigger: {
+              kind: 'event',
+              event: eventName,
+            },
+            effect: {
+              kind: 'action',
+              targetNodeId: target.nodeId,
+              action: target.action,
+            },
+          })
+        }
+
+        return {
+          ...node,
+          behaviors,
+        }
+      }),
+    }))
+
+    setMessage(
+      target
+        ? `已配置 ${eventName} → ${target.action}`
+        : `已取消 ${eventName} 的行为`,
+    )
+  }
+
   function updatePrimaryTransformField(
     field: keyof NodeTransform,
     value: number,
@@ -652,11 +760,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
             <button
               type="button"
               className={mode === 'preview' ? 'active' : ''}
-              onClick={() => {
-                setMode('preview')
-                setSelectedNodeIds([])
-                setSelectedConnectionId(null)
-              }}
+              onClick={() => setMode('preview')}
             >
               预览
             </button>
@@ -1162,19 +1266,34 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
               </div>
             )}
 
-            {inspectorTab === 'actions' && (
-              <div className="inspector-placeholder">
-                <strong>方法定义入口</strong>
-                <span>组件注册表接入后，在这里调用 start、stop、reset 等方法。</span>
-              </div>
-            )}
+            {(inspectorTab === 'actions' || inspectorTab === 'events') &&
+              !selectedConnection &&
+              selectedNodes.length === 1 &&
+              primaryNode &&
+              !isGroupNode(primaryNode) &&
+              primaryComponentRegistration && (
+                <ComponentInteractionsInspector
+                  tab={inspectorTab}
+                  scene={scene}
+                  node={primaryNode}
+                  definition={primaryComponentRegistration.definition}
+                  previewActive={mode === 'preview'}
+                  onInvokeAction={invokePrimaryAction}
+                  onBehaviorChange={updatePrimaryEventActionBehavior}
+                />
+              )}
 
-            {inspectorTab === 'events' && (
-              <div className="inspector-placeholder">
-                <strong>事件定义入口</strong>
-                <span>后续在这里显示语义事件和 Event → Method 行为连接。</span>
-              </div>
-            )}
+            {(inspectorTab === 'actions' || inspectorTab === 'events') &&
+              (selectedConnection ||
+                selectedNodes.length !== 1 ||
+                !primaryNode ||
+                isGroupNode(primaryNode) ||
+                !primaryComponentRegistration) && (
+                <div className="inspector-placeholder">
+                  <strong>请选择一个组件</strong>
+                  <span>方法和事件只针对单个组件的公开契约。</span>
+                </div>
+              )}
           </section>
         </aside>
       </main>
