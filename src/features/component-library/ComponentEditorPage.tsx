@@ -18,10 +18,9 @@ import {
 } from './storage'
 import './component-editor.css'
 
-type InspectorTab = 'base' | 'properties' | 'actions' | 'events'
+type InspectorTab = 'properties' | 'actions' | 'events'
 
 const INSPECTOR_TABS: Array<[InspectorTab, string]> = [
-  ['base', '基础信息'],
   ['properties', '属性'],
   ['actions', '方法'],
   ['events', '事件'],
@@ -36,7 +35,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   const [component, setComponent] = useState<ComponentLibraryEntry>(initial)
   const [mode, setMode] = useState<ComponentWorkbenchMode>('editor')
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null)
-  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('base')
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('properties')
   const [message, setMessage] = useState('')
   const builtInReadOnly = component.builtIn
   const editingDisabled = builtInReadOnly || mode === 'preview'
@@ -74,7 +73,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
 
   function selectLayer(layerId: string | null) {
     setSelectedLayerId(layerId)
-    setInspectorTab('base')
+    setInspectorTab('properties')
   }
 
   function save() {
@@ -158,7 +157,12 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
 
         <aside className="property-panel component-property-panel">
           <section className="semantic-inspector component-semantic-inspector" aria-label="组件配置">
-            <div className="inspector-tabs" role="tablist" aria-label="组件配置检查器">
+            <div
+              className="inspector-tabs"
+              role="tablist"
+              aria-label="组件配置检查器"
+              style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
+            >
               {INSPECTOR_TABS.map(([tab, label]) => (
                 <button
                   key={tab}
@@ -171,7 +175,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
               ))}
             </div>
 
-            {inspectorTab === 'base' && selectedLayerId !== null && (
+            {inspectorTab === 'properties' && selectedLayerId !== null && (
               <ComponentVisualLayerInspector
                 visual={component.visual}
                 readOnly={editingDisabled}
@@ -181,10 +185,10 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
               />
             )}
 
-            {inspectorTab === 'base' && selectedLayerId === null && (
+            {inspectorTab === 'properties' && selectedLayerId === null && (
               <div className="property-section-list component-root-inspector">
                 <fieldset className="inspector-group">
-                  <legend>组件</legend>
+                  <legend>基本信息</legend>
                   {builtInReadOnly && (
                     <div className="component-readonly-note">
                       内置组件是 Registry Definition 的只读视图；Native Renderer / Action Handler 仍由可信应用代码注册。
@@ -262,10 +266,25 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   </div>
                 </fieldset>
 
+                <fieldset className="inspector-group component-root-public-properties">
+                  <legend>公开属性</legend>
+                  <p className="component-inspector-help">
+                    这些 Property 是 SCADA Workbench 可配置或可绑定的公开数据入口；内部 Layer 状态不会直接暴露到这里。
+                  </p>
+                  <div className="component-anchor-editor">
+                    <ComponentContractEditor
+                      definition={definition}
+                      readOnly={editingDisabled}
+                      tab="properties"
+                      onChange={updateDefinition}
+                    />
+                  </div>
+                </fieldset>
+
                 <fieldset className="inspector-group component-anchor-group">
                   <legend>连接锚点</legend>
                   <p className="component-inspector-help">
-                    锚点属于组件公开几何接口，但与 Property / Action / Event 不同，因此统一放在组件基础信息中维护。
+                    锚点属于组件公开几何接口，用于组态画布连线附着，不承担运行时数据语义。
                   </p>
                   <div className="component-anchor-editor">
                     <ComponentContractEditor
@@ -287,15 +306,6 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   </div>
                 </fieldset>
               </div>
-            )}
-
-            {inspectorTab === 'properties' && (
-              <ComponentContractEditor
-                definition={definition}
-                readOnly={editingDisabled}
-                tab="properties"
-                onChange={updateDefinition}
-              />
             )}
 
             {inspectorTab === 'actions' && (
