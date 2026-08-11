@@ -24,20 +24,23 @@ export function Tabs<T extends string>({
   return (
     <BaseTabs.Root
       value={value}
-      className={`ui-tabs ${className}`.trim()}
+      className="ui-tabs"
       onValueChange={(nextValue) => {
         if (typeof nextValue === 'string') {
           onValueChange(nextValue as T)
         }
       }}
     >
-      <BaseTabs.List className="ui-tabs-list" aria-label={ariaLabel}>
+      <BaseTabs.List
+        className={`ui-tabs-list ${className}`.trim()}
+        aria-label={ariaLabel}
+      >
         {items.map((item) => (
           <BaseTabs.Tab
             key={item.value}
             value={item.value}
             disabled={item.disabled}
-            className="ui-tab"
+            className={`ui-tab${item.value === value ? ' is-active' : ''}`}
           >
             {item.label}
           </BaseTabs.Tab>

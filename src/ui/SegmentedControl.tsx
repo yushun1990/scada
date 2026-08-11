@@ -39,7 +39,7 @@ export function SegmentedControl<T extends string>({
           key={item.value}
           value={item.value}
           disabled={item.disabled}
-          className="ui-segmented-item"
+          className={`ui-segmented-item${item.value === value ? ' is-active' : ''}`}
           aria-label={item.label}
         >
           {item.label}
