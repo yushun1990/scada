@@ -1,15 +1,9 @@
 /*
- * Component Editor header alignment.
+ * Component Workbench chrome parity.
  *
- * The shared editor chrome uses `display: contents` for `.header-actions` so
- * SCADA's mode switch and document toolbar become direct grid items. Component
- * Editor has extra status/message items; leaving those flattened creates an
- * implicit grid row, which both shifts the header content upward and stretches
- * the draft status border across the first column.
- *
- * Keep the shared three-column visual grammar, but let Component Editor own a
- * real right-side action cluster. The mode switch stays viewport-centered via
- * absolute positioning while status/message/save remain normal flex children.
+ * Component Editor follows the same desktop-editor grammar as SCADA Editor:
+ * identity on the left, mode switch as the real center grid item, document
+ * actions on the right, and operational status at the bottom of the canvas.
  */
 
 .component-editor-shell {
@@ -17,18 +11,54 @@
 }
 
 .component-editor-header {
-  position: relative;
   height: 60px;
   min-height: 60px;
 }
 
 .component-editor-header .component-brand-block {
+  grid-column: 1;
+  grid-row: 1;
   height: 100%;
   align-items: center;
   align-self: center;
 }
 
-.component-editor-header .header-actions {
+/* Navigation is intentionally quieter than a canvas/tool action. */
+.component-editor-header .component-back-button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: #8b97a8;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.component-editor-header .component-back-button:hover {
+  border: 0;
+  color: #344054;
+  background: #f1f4f8;
+}
+
+/* Keep mode selection as a first-class grid child. Equal left/right flexible
+ * columns in the shared editor header make this the actual viewport center. */
+.component-editor-header > .mode-switch {
+  position: static;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  margin: 0;
+  transform: none;
+}
+
+.component-header-actions {
   display: flex;
   grid-column: 3;
   grid-row: 1;
@@ -38,23 +68,56 @@
   min-width: 0;
 }
 
-.component-editor-header .mode-switch {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  margin: 0;
-  transform: translate(-50%, -50%);
-}
-
-.component-editor-header .component-status-pill {
-  flex: 0 0 auto;
-}
-
-.component-editor-header .header-message {
-  max-width: 220px;
-  flex: 0 1 auto;
-}
-
+.component-editor-header .component-status-pill,
 .component-editor-header .document-toolbar {
   flex: 0 0 auto;
+}
+
+/* Component Canvas has no real command toolbar yet. Reserve the same footer
+ * status lane used by SCADA instead of spending the top edge on status text. */
+.component-editor-shell .component-canvas-area {
+  grid-template-rows: minmax(0, 1fr) 32px;
+}
+
+.component-editor-shell .component-canvas-stage {
+  grid-row: 1;
+}
+
+.component-editor-shell .component-canvas-status {
+  position: static;
+  inset: auto;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 32px;
+  height: 32px;
+  overflow: hidden;
+}
+
+.component-editor-shell .component-canvas-status > .canvas-status-group:first-child,
+.component-editor-shell .component-canvas-status > .scene-status-summary {
+  max-width: 48%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.component-editor-shell .component-canvas-status .status-selection,
+.component-editor-shell .component-canvas-status .scene-status-summary {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.component-editor-shell .component-canvas-toast {
+  z-index: 6;
+}
+
+@media (max-width: 760px) {
+  .component-editor-header .component-back-button {
+    width: 22px;
+    height: 22px;
+  }
+
+  .component-editor-header .component-status-pill {
+    display: none;
+  }
 }
