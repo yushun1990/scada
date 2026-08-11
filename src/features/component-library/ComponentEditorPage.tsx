@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import type { ComponentDefinition } from '../../component-system/definition'
 import { ComponentContractEditor } from './ComponentContractEditor'
+import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
 import {
   ComponentVisualCanvas,
   ComponentVisualLayerInspector,
@@ -269,14 +270,11 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   <p className="component-inspector-help">
                     这些 Property 是 SCADA Workbench 可配置或可绑定的公开数据入口；内部 Layer 状态不会直接暴露到这里。
                   </p>
-                  <div className="component-anchor-editor">
-                    <ComponentContractEditor
-                      definition={definition}
-                      readOnly={editingDisabled}
-                      tab="properties"
-                      onChange={updateDefinition}
-                    />
-                  </div>
+                  <ComponentPropertyContractEditor
+                    definition={definition}
+                    readOnly={editingDisabled}
+                    onChange={updateDefinition}
+                  />
                 </CollapsibleInspectorGroup>
 
                 <CollapsibleInspectorGroup title="连接锚点" className="component-anchor-group">
