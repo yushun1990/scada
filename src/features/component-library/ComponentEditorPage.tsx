@@ -5,8 +5,12 @@ import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspector
 import type { ComponentDefinition } from '../../component-system/definition'
 import {
   Button,
+  Input,
+  NumberInput,
   SegmentedControl,
+  Select,
   Tabs,
+  Textarea,
   type SegmentedControlItem,
   type StudioTabItem,
 } from '../../ui'
@@ -38,6 +42,11 @@ const INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
 const MODE_ITEMS: Array<SegmentedControlItem<ComponentWorkbenchMode>> = [
   { value: 'editor', label: '设计' },
   { value: 'preview', label: '预览' },
+]
+
+const STATUS_OPTIONS = [
+  { value: 'draft', label: '草稿' },
+  { value: 'ready', label: '可用' },
 ]
 
 export function ComponentEditorPage({ componentId }: { componentId: string }) {
@@ -190,7 +199,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   )}
                   <label className="property-field">
                     <span>名称</span>
-                    <input
+                    <Input
                       value={definition.title}
                       disabled={editingDisabled}
                       onChange={(event) => updateDefinitionField('title', event.target.value)}
@@ -198,7 +207,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   </label>
                   <label className="property-field">
                     <span>类型标识</span>
-                    <input
+                    <Input
                       value={definition.type}
                       disabled={editingDisabled}
                       onChange={(event) => updateDefinitionField('type', event.target.value)}
@@ -206,7 +215,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   </label>
                   <label className="property-field">
                     <span>分类</span>
-                    <input
+                    <Input
                       value={definition.category}
                       disabled={editingDisabled}
                       onChange={(event) => updateDefinitionField('category', event.target.value)}
@@ -214,21 +223,17 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   </label>
                   <label className="property-field">
                     <span>状态</span>
-                    <select
+                    <Select
                       value={component.status}
                       disabled={editingDisabled}
-                      onChange={(event) => updatePackage(
-                        'status',
-                        event.target.value as ComponentStatus,
-                      )}
-                    >
-                      <option value="draft">草稿</option>
-                      <option value="ready">可用</option>
-                    </select>
+                      ariaLabel="组件状态"
+                      options={STATUS_OPTIONS}
+                      onValueChange={(value) => updatePackage('status', value as ComponentStatus)}
+                    />
                   </label>
                   <label className="property-field">
                     <span>说明</span>
-                    <textarea
+                    <Textarea
                       rows={4}
                       value={definition.description}
                       disabled={editingDisabled}
@@ -247,8 +252,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                     ] as Array<[keyof ComponentDefinition['size'], string]>).map(([field, label]) => (
                       <label key={field} className="property-field compact">
                         <span>{label}</span>
-                        <input
-                          type="number"
+                        <NumberInput
                           min="1"
                           value={definition.size[field]}
                           disabled={editingDisabled}
