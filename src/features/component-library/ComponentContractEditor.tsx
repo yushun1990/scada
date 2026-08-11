@@ -6,6 +6,14 @@ import type {
   VisualAnchorDefinition,
   VisualAnchorRole,
 } from '../../component-system/definition'
+import {
+  Button,
+  Checkbox,
+  Input,
+  NumberInput,
+  Select,
+  Textarea,
+} from '../../ui'
 
 export type ComponentContractTab = 'properties' | 'actions' | 'events' | 'anchors'
 type InteractionDefinition = { title: string; description?: string }
@@ -25,12 +33,16 @@ const PROPERTY_KIND_LABELS: Array<[ComponentPropertyKind, string]> = [
   ['select', '枚举'],
 ]
 
+const PROPERTY_KIND_OPTIONS = PROPERTY_KIND_LABELS.map(([value, label]) => ({ value, label }))
+
 const ANCHOR_ROLE_LABELS: Array<[VisualAnchorRole, string]> = [
   ['neutral', '中性'],
   ['source', '仅起点'],
   ['target', '仅终点'],
   ['both', '双向'],
 ]
+
+const ANCHOR_ROLE_OPTIONS = ANCHOR_ROLE_LABELS.map(([value, label]) => ({ value, label }))
 
 const TAB_META: Record<ComponentContractTab, { eyebrow: string; title: string; description: string }> = {
   properties: {
@@ -153,7 +165,7 @@ function ContractKeyInput({
   onCommit: (value: string) => void
 }) {
   return (
-    <input
+    <Input
       key={value}
       defaultValue={value}
       disabled={disabled}
@@ -176,22 +188,19 @@ function PropertyDefaultEditor({
 }) {
   if (property.kind === 'boolean') {
     return (
-      <label className="contract-checkbox">
-        <input
-          type="checkbox"
-          checked={Boolean(property.defaultValue)}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.checked)}
-        />
-        <span>默认开启</span>
-      </label>
+      <Checkbox
+        className="contract-checkbox"
+        checked={Boolean(property.defaultValue)}
+        disabled={disabled}
+        label="默认开启"
+        onCheckedChange={onChange}
+      />
     )
   }
 
   if (property.kind === 'number') {
     return (
-      <input
-        type="number"
+      <NumberInput
         value={typeof property.defaultValue === 'number' ? property.defaultValue : 0}
         disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
@@ -201,7 +210,7 @@ function PropertyDefaultEditor({
 
   if (property.kind === 'color') {
     return (
-      <input
+      <Input
         type="color"
         value={typeof property.defaultValue === 'string' ? property.defaultValue : '#2563eb'}
         disabled={disabled}
@@ -212,30 +221,26 @@ function PropertyDefaultEditor({
 
   if (property.kind === 'select') {
     return (
-      <select
+      <Select
         value={String(property.defaultValue ?? '')}
         disabled={disabled}
-        onChange={(event) => {
+        ariaLabel="Property 默认枚举值"
+        options={(property.options ?? []).map((option) => ({
+          value: String(option.value),
+          label: option.label,
+        }))}
+        onValueChange={(value) => {
           const option = property.options?.find(
-            (candidate) => String(candidate.value) === event.target.value,
+            (candidate) => String(candidate.value) === value,
           )
-          onChange(option?.value ?? event.target.value)
+          onChange(option?.value ?? value)
         }}
-      >
-        {(property.options ?? []).map((option) => (
-          <option
-            key={`${typeof option.value}:${String(option.value)}`}
-            value={String(option.value)}
-          >
-            {option.label}
-          </option>
-        ))}
-      </select>
+      />
     )
   }
 
   return (
-    <input
+    <Input
       value={typeof property.defaultValue === 'string' ? property.defaultValue : ''}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
@@ -268,7 +273,11 @@ function InteractionList({
         <article className="contract-item" key={key}>
           <div className="contract-item-head">
             <strong>{item.title || key}</strong>
-            {!readOnly && <button type="button" onClick={() => onRemove(key)}>删除</button>}
+            {!readOnly && (
+              <Button variant="ghost" size="small" onClick={() => onRemove(key)}>
+                删除
+              </Button>
+            )}
           </div>
           <div className="contract-grid">
             <label>
@@ -281,7 +290,7 @@ function InteractionList({
             </label>
             <label>
               <span>标题</span>
-              <input
+              <Input
                 value={item.title}
                 disabled={readOnly}
                 onChange={(event) => onUpdate(key, { ...item, title: event.target.value })}
@@ -290,7 +299,7 @@ function InteractionList({
           </div>
           <label className="contract-block-field">
             <span>说明</span>
-            <textarea
+            <Textarea
               rows={2}
               value={item.description ?? ''}
               disabled={readOnly}
@@ -301,9 +310,9 @@ function InteractionList({
       ))}
       {Object.keys(items).length === 0 && <div className="contract-empty">{emptyLabel}</div>}
       {!readOnly && (
-        <button className="contract-add-button" type="button" onClick={onAdd}>
+        <Button variant="secondary" size="small" className="contract-add-button" onClick={onAdd}>
           + 添加{label}
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -443,7 +452,11 @@ export function ComponentContractEditor({
             <article className="contract-item" key={key}>
               <div className="contract-item-head">
                 <strong>{property.title || key}</strong>
-                {!readOnly && <button type="button" onClick={() => removeProperty(key)}>删除</button>}
+                {!readOnly && (
+                  <Button variant="ghost" size="small" onClick={() => removeProperty(key)}>
+                    删除
+                  </Button>
+                )}
               </div>
               <div className="contract-grid">
                 <label>
@@ -456,7 +469,7 @@ export function ComponentContractEditor({
                 </label>
                 <label>
                   <span>标题</span>
-                  <input
+                  <Input
                     value={property.title}
                     disabled={readOnly}
                     onChange={(event) => updateProperty(key, { ...property, title: event.target.value })}
@@ -464,18 +477,16 @@ export function ComponentContractEditor({
                 </label>
                 <label>
                   <span>类型</span>
-                  <select
+                  <Select
                     value={property.kind}
                     disabled={readOnly}
-                    onChange={(event) => updateProperty(
+                    ariaLabel={`${property.title || key} Property 类型`}
+                    options={PROPERTY_KIND_OPTIONS}
+                    onValueChange={(value) => updateProperty(
                       key,
-                      convertPropertyKind(property, event.target.value as ComponentPropertyKind),
+                      convertPropertyKind(property, value as ComponentPropertyKind),
                     )}
-                  >
-                    {PROPERTY_KIND_LABELS.map(([kind, label]) => (
-                      <option key={kind} value={kind}>{label}</option>
-                    ))}
-                  </select>
+                  />
                 </label>
                 <label>
                   <span>默认值</span>
@@ -490,7 +501,7 @@ export function ComponentContractEditor({
               {property.kind === 'select' && (
                 <label className="contract-block-field">
                   <span>枚举选项（每行 `标题=值`，纯数字值会保存为 number）</span>
-                  <textarea
+                  <Textarea
                     rows={4}
                     value={formatOptions(property.options)}
                     disabled={readOnly}
@@ -512,23 +523,21 @@ export function ComponentContractEditor({
               )}
 
               <div className="contract-inline-row">
-                <label className="contract-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(property.bindable)}
-                    disabled={readOnly}
-                    onChange={(event) => updateProperty(key, {
-                      ...property,
-                      bindable: event.target.checked,
-                    })}
-                  />
-                  <span>允许 SCADA 数据绑定</span>
-                </label>
+                <Checkbox
+                  className="contract-checkbox"
+                  checked={Boolean(property.bindable)}
+                  disabled={readOnly}
+                  label="允许 SCADA 数据绑定"
+                  onCheckedChange={(checked) => updateProperty(key, {
+                    ...property,
+                    bindable: checked,
+                  })}
+                />
               </div>
 
               <label className="contract-block-field">
                 <span>说明</span>
-                <textarea
+                <Textarea
                   rows={2}
                   value={property.description ?? ''}
                   disabled={readOnly}
@@ -544,9 +553,9 @@ export function ComponentContractEditor({
             <div className="contract-empty">尚未定义公开 Property。</div>
           )}
           {!readOnly && (
-            <button className="contract-add-button" type="button" onClick={addProperty}>
+            <Button variant="secondary" size="small" className="contract-add-button" onClick={addProperty}>
               + 添加属性
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -583,12 +592,16 @@ export function ComponentContractEditor({
             <article className="contract-item" key={`${anchor.id}:${index}`}>
               <div className="contract-item-head">
                 <strong>{anchor.title || anchor.id}</strong>
-                {!readOnly && <button type="button" onClick={() => removeAnchor(index)}>删除</button>}
+                {!readOnly && (
+                  <Button variant="ghost" size="small" onClick={() => removeAnchor(index)}>
+                    删除
+                  </Button>
+                )}
               </div>
               <div className="contract-grid contract-grid-three">
                 <label>
                   <span>ID</span>
-                  <input
+                  <Input
                     value={anchor.id}
                     disabled={readOnly}
                     onChange={(event) => updateAnchor(index, { ...anchor, id: event.target.value })}
@@ -596,7 +609,7 @@ export function ComponentContractEditor({
                 </label>
                 <label>
                   <span>标题</span>
-                  <input
+                  <Input
                     value={anchor.title}
                     disabled={readOnly}
                     onChange={(event) => updateAnchor(index, { ...anchor, title: event.target.value })}
@@ -604,23 +617,20 @@ export function ComponentContractEditor({
                 </label>
                 <label>
                   <span>角色</span>
-                  <select
+                  <Select
                     value={anchor.role ?? 'neutral'}
                     disabled={readOnly}
-                    onChange={(event) => updateAnchor(index, {
+                    ariaLabel={`${anchor.title || anchor.id} 锚点角色`}
+                    options={ANCHOR_ROLE_OPTIONS}
+                    onValueChange={(value) => updateAnchor(index, {
                       ...anchor,
-                      role: event.target.value as VisualAnchorRole,
+                      role: value as VisualAnchorRole,
                     })}
-                  >
-                    {ANCHOR_ROLE_LABELS.map(([role, label]) => (
-                      <option key={role} value={role}>{label}</option>
-                    ))}
-                  </select>
+                  />
                 </label>
                 <label>
                   <span>位置 X (0..1)</span>
-                  <input
-                    type="number"
+                  <NumberInput
                     min="0"
                     max="1"
                     step="0.05"
@@ -634,8 +644,7 @@ export function ComponentContractEditor({
                 </label>
                 <label>
                   <span>位置 Y (0..1)</span>
-                  <input
-                    type="number"
+                  <NumberInput
                     min="0"
                     max="1"
                     step="0.05"
@@ -649,8 +658,7 @@ export function ComponentContractEditor({
                 </label>
                 <label>
                   <span>吸附半径</span>
-                  <input
-                    type="number"
+                  <NumberInput
                     min="1"
                     value={anchor.snapRadius ?? 24}
                     disabled={readOnly}
@@ -662,8 +670,7 @@ export function ComponentContractEditor({
                 </label>
                 <label>
                   <span>方向 X</span>
-                  <input
-                    type="number"
+                  <NumberInput
                     step="0.1"
                     value={anchor.outward.x}
                     disabled={readOnly}
@@ -675,8 +682,7 @@ export function ComponentContractEditor({
                 </label>
                 <label>
                   <span>方向 Y</span>
-                  <input
-                    type="number"
+                  <NumberInput
                     step="0.1"
                     value={anchor.outward.y}
                     disabled={readOnly}
@@ -688,7 +694,7 @@ export function ComponentContractEditor({
                 </label>
                 <label>
                   <span>连接类别（逗号分隔）</span>
-                  <input
+                  <Input
                     value={(anchor.kinds ?? []).join(', ')}
                     disabled={readOnly}
                     onChange={(event) => updateAnchor(index, {
@@ -707,9 +713,9 @@ export function ComponentContractEditor({
             <div className="contract-empty">尚未定义 Visual Anchor。</div>
           )}
           {!readOnly && (
-            <button className="contract-add-button" type="button" onClick={addAnchor}>
+            <Button variant="secondary" size="small" className="contract-add-button" onClick={addAnchor}>
               + 添加锚点
-            </button>
+            </Button>
           )}
         </div>
       )}
