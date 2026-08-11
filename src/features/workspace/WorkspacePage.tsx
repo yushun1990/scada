@@ -12,6 +12,10 @@ import './workspace.css'
 
 type WorkspaceModule = 'works' | 'components'
 
+type WorkspacePageProps = {
+  module: WorkspaceModule
+}
+
 function formatUpdatedAt(value: string) {
   const date = new Date(value)
 
@@ -27,12 +31,11 @@ function formatUpdatedAt(value: string) {
   }).format(date)
 }
 
-function buildHashUrl(path: string) {
-  return `${window.location.href.split('#')[0]}#${path}`
+function navigate(path: string) {
+  window.location.hash = path
 }
 
-export function WorkspacePage() {
-  const [activeModule, setActiveModule] = useState<WorkspaceModule>('works')
+export function WorkspacePage({ module }: WorkspacePageProps) {
   const [works, setWorks] = useState<ScadaWorkSummary[]>(() => listScadaWorks())
   const [components, setComponents] = useState<ComponentLibraryEntry[]>(() =>
     listComponentDefinitions(),
@@ -49,7 +52,7 @@ export function WorkspacePage() {
   }, [])
 
   function openWork(workId: string) {
-    window.open(buildHashUrl(`/scada/${encodeURIComponent(workId)}`), '_blank', 'noopener,noreferrer')
+    navigate(`#/scada/${encodeURIComponent(workId)}`)
   }
 
   function createWork() {
@@ -59,11 +62,11 @@ export function WorkspacePage() {
   }
 
   function openComponent(componentId: string) {
-    window.location.hash = `#/components/${encodeURIComponent(componentId)}`
+    navigate(`#/components/${encodeURIComponent(componentId)}`)
   }
 
   function createComponent() {
-    window.location.hash = '#/components/new'
+    navigate('#/components/new')
   }
 
   return (
@@ -80,8 +83,8 @@ export function WorkspacePage() {
         <nav className="workspace-nav" aria-label="主模块">
           <button
             type="button"
-            className={activeModule === 'works' ? 'active' : ''}
-            onClick={() => setActiveModule('works')}
+            className={module === 'works' ? 'active' : ''}
+            onClick={() => navigate('#/works')}
           >
             <span className="workspace-nav-icon">▦</span>
             <span>
@@ -91,8 +94,8 @@ export function WorkspacePage() {
           </button>
           <button
             type="button"
-            className={activeModule === 'components' ? 'active' : ''}
-            onClick={() => setActiveModule('components')}
+            className={module === 'components' ? 'active' : ''}
+            onClick={() => navigate('#/components')}
           >
             <span className="workspace-nav-icon">◇</span>
             <span>
@@ -104,13 +107,13 @@ export function WorkspacePage() {
       </aside>
 
       <main className="workspace-main">
-        {activeModule === 'works' ? (
+        {module === 'works' ? (
           <section className="workspace-section">
             <header className="workspace-section-header">
               <div>
                 <span className="workspace-eyebrow">SCADA WORKS</span>
                 <h1>SCADA 作品</h1>
-                <p>每个作品拥有独立场景存储，编辑器会在新的浏览器标签页中打开。</p>
+                <p>每个作品拥有独立场景存储，默认在当前页面进入编辑器；需要并行编辑时可由浏览器另开标签页。</p>
               </div>
               <button className="workspace-primary-button" type="button" onClick={createWork}>
                 + 新建作品
@@ -143,7 +146,7 @@ export function WorkspacePage() {
                       className="workspace-card-action"
                       onClick={() => openWork(work.id)}
                     >
-                      新标签页编辑 ↗
+                      编辑
                     </button>
                   </div>
                 </article>

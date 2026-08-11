@@ -4,9 +4,12 @@ import { ScadaEditorPage } from './features/scada-editor/ScadaEditorPage'
 import { WorkspacePage } from './features/workspace/WorkspacePage'
 import './inspector-compact.css'
 import './component-editor-header.css'
+import './studio-navigation.css'
+
+type WorkspaceModule = 'works' | 'components'
 
 type AppRoute =
-  | { page: 'workspace' }
+  | { page: 'workspace'; module: WorkspaceModule }
   | { page: 'scada'; workId: string }
   | { page: 'component'; componentId: string }
 
@@ -25,7 +28,29 @@ function resolveRoute(): AppRoute {
     return { page: 'component', componentId: segments[1] }
   }
 
-  return { page: 'workspace' }
+  if (segments[0] === 'components') {
+    return { page: 'workspace', module: 'components' }
+  }
+
+  return { page: 'workspace', module: 'works' }
+}
+
+function navigateToWorkspace(module: WorkspaceModule) {
+  window.location.hash = module === 'components' ? '#/components' : '#/works'
+}
+
+function StudioWorkspaceExit({ module }: { module: WorkspaceModule }) {
+  return (
+    <div className="studio-workspace-exit-slot">
+      <button
+        type="button"
+        className="studio-workspace-exit"
+        onClick={() => navigateToWorkspace(module)}
+      >
+        工作台
+      </button>
+    </div>
+  )
 }
 
 function App() {
@@ -38,14 +63,24 @@ function App() {
   }, [])
 
   if (route.page === 'scada') {
-    return <ScadaEditorPage key={route.workId} workId={route.workId} />
+    return (
+      <>
+        <ScadaEditorPage key={route.workId} workId={route.workId} />
+        <StudioWorkspaceExit module="works" />
+      </>
+    )
   }
 
   if (route.page === 'component') {
-    return <ComponentEditorPage key={route.componentId} componentId={route.componentId} />
+    return (
+      <>
+        <ComponentEditorPage key={route.componentId} componentId={route.componentId} />
+        <StudioWorkspaceExit module="components" />
+      </>
+    )
   }
 
-  return <WorkspacePage />
+  return <WorkspacePage module={route.module} />
 }
 
 export default App
