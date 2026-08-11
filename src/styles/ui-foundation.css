@@ -1,0 +1,571 @@
+/*
+ * SCADA Studio UI Foundation
+ *
+ * This is intentionally the last shared stylesheet in the application. Legacy
+ * feature styles may still own component-specific details, while this layer
+ * freezes the cross-product visual language: typography, density, surfaces,
+ * control geometry and editor chrome.
+ */
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--ui-font-sans);
+}
+
+body {
+  color: var(--ui-color-text);
+  background: var(--ui-color-app-background);
+  font-size: var(--ui-font-size-body);
+}
+
+button,
+input,
+select,
+textarea {
+  font-size: var(--ui-font-size-tool);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--ui-color-accent);
+  outline-offset: 2px;
+}
+
+/* Shared editor geometry */
+.editor-shell,
+.component-editor-shell {
+  grid-template-rows: var(--ui-header-height) minmax(0, 1fr);
+}
+
+.editor-header,
+.component-editor-header {
+  height: var(--ui-header-height);
+  min-height: var(--ui-header-height);
+  grid-template-columns: minmax(208px, 1fr) auto minmax(208px, 1fr);
+  gap: var(--ui-space-5);
+  padding: 0 var(--ui-space-5);
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-surface);
+  box-shadow: none;
+}
+
+.editor-header .brand-block,
+.component-editor-header .component-brand-block {
+  gap: var(--ui-space-3);
+}
+
+.editor-header .brand-mark,
+.workspace-brand-mark {
+  border-radius: var(--ui-radius-control);
+  color: #ffffff;
+  background: var(--ui-color-accent);
+  box-shadow: none;
+}
+
+.editor-header .brand-mark {
+  width: 30px;
+  height: 30px;
+  font-size: 13px;
+}
+
+.editor-header .brand-text strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-title);
+  font-weight: 700;
+}
+
+.editor-header .brand-text span {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-status);
+  letter-spacing: 0;
+}
+
+.editor-header .mode-switch {
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface-muted);
+}
+
+.editor-header .mode-switch button {
+  min-width: 64px;
+  height: var(--ui-control-height);
+  padding: 0 var(--ui-space-4);
+  border-radius: var(--ui-radius-small);
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-tool);
+}
+
+.editor-header .mode-switch button:hover:not(.active) {
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-subtle);
+}
+
+.editor-header .mode-switch button.active {
+  color: var(--ui-color-accent-hover);
+  background: var(--ui-color-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.editor-header .document-toolbar,
+.component-header-actions {
+  gap: var(--ui-space-1);
+}
+
+.editor-header .document-toolbar button,
+.component-header-actions button {
+  height: var(--ui-control-height);
+  border-radius: var(--ui-radius-control);
+  font-size: var(--ui-font-size-tool);
+}
+
+.editor-header .document-toolbar button:first-of-type {
+  border-color: var(--ui-color-accent-hover);
+  color: #ffffff;
+  background: var(--ui-color-accent);
+  box-shadow: none;
+}
+
+.editor-header .document-toolbar button:first-of-type:hover {
+  border-color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-hover);
+}
+
+.editor-main,
+.component-editor-main {
+  grid-template-columns: var(--ui-left-dock-width) minmax(0, 1fr) var(--ui-right-inspector-width);
+}
+
+.component-panel,
+.property-panel {
+  background: var(--ui-color-surface-subtle);
+}
+
+.component-panel {
+  border-right-color: var(--ui-color-border);
+}
+
+.property-panel {
+  border-left-color: var(--ui-color-border);
+}
+
+/* Canvas chrome */
+.canvas-area {
+  background: var(--ui-color-canvas);
+}
+
+.canvas-toolbar {
+  min-height: var(--ui-toolbar-height);
+  height: var(--ui-toolbar-height);
+  padding: 0 var(--ui-space-4);
+  border-bottom-color: var(--ui-color-border-strong);
+  background: var(--ui-color-surface-subtle);
+}
+
+.canvas-tool-group button,
+.canvas-toggle,
+.canvas-grid-size,
+.grid-control,
+.scene-size-control {
+  min-height: var(--ui-control-height);
+  height: var(--ui-control-height);
+  border-radius: var(--ui-radius-control);
+  border-color: var(--ui-color-border);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  font-size: var(--ui-font-size-tool);
+}
+
+.canvas-tool-group .icon-button {
+  width: var(--ui-control-height);
+  height: var(--ui-control-height);
+}
+
+.canvas-tool-group button:hover:not(:disabled),
+.viewport-controls button:hover {
+  border-color: #93c5fd;
+  color: var(--ui-color-accent-hover);
+  background: var(--ui-color-accent-soft);
+}
+
+.toggle-button.active {
+  color: var(--ui-color-accent);
+  border-color: #bfdbfe;
+  background: var(--ui-color-accent-soft);
+}
+
+.konva-host {
+  padding-bottom: var(--ui-status-height);
+  background: var(--ui-color-canvas) !important;
+}
+
+.canvas-status,
+.component-editor-shell .component-canvas-status {
+  min-height: var(--ui-status-height);
+  height: var(--ui-status-height);
+  padding: 0 var(--ui-space-4);
+  border-top: 1px solid var(--ui-color-border-strong);
+  color: var(--ui-color-text-secondary);
+  background: rgba(248, 250, 252, 0.97);
+  font-size: var(--ui-font-size-status);
+  backdrop-filter: none;
+}
+
+.component-editor-shell .component-canvas-area {
+  grid-template-rows: minmax(0, 1fr) var(--ui-status-height);
+}
+
+.status-mode {
+  padding: 2px var(--ui-space-2);
+  border-radius: var(--ui-radius-small);
+  color: var(--ui-color-text-subtle);
+  background: var(--ui-color-surface-muted);
+  font-size: var(--ui-font-size-status);
+}
+
+.status-selection strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-tool);
+}
+
+.status-selection span,
+.canvas-status .pointer-position,
+.canvas-status .zoom-status {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-status);
+}
+
+.canvas-status .pointer-position,
+.canvas-status .zoom-status,
+.canvas-status code,
+.component-table-row code {
+  font-family: var(--ui-font-mono);
+}
+
+.canvas-toast {
+  bottom: 6px;
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-status);
+}
+
+.viewport-controls {
+  bottom: calc(var(--ui-status-height) + var(--ui-space-5));
+  border-color: var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-control);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--ui-shadow-floating);
+}
+
+.viewport-controls button {
+  height: var(--ui-control-height);
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-tool);
+}
+
+/* Shared dock + inspector density */
+.dock-tabs,
+.semantic-inspector .inspector-tabs {
+  border-color: var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface-muted);
+}
+
+.dock-tabs button,
+.semantic-inspector .inspector-tabs button {
+  min-height: var(--ui-control-height);
+  border-radius: var(--ui-radius-small);
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-tool);
+}
+
+.dock-tabs button.active,
+.semantic-inspector .inspector-tabs button.active {
+  color: #ffffff;
+  background: var(--ui-color-accent);
+  box-shadow: none;
+}
+
+.property-panel,
+.semantic-inspector {
+  background: var(--ui-color-panel);
+}
+
+.semantic-inspector {
+  padding: var(--ui-space-2) var(--ui-space-3) var(--ui-space-3);
+}
+
+.inspector-collapsible {
+  border-bottom-color: var(--ui-color-border);
+}
+
+.property-section-list > .inspector-collapsible:first-child,
+.component-root-inspector > .inspector-collapsible:first-child,
+.component-layer-inspector > .inspector-collapsible:first-child {
+  border-top-color: var(--ui-color-border);
+}
+
+.inspector-group-header {
+  min-height: var(--ui-inspector-group-height);
+  height: var(--ui-inspector-group-height);
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-tool);
+  font-weight: 650;
+}
+
+.inspector-group-header:hover {
+  color: var(--ui-color-accent-hover);
+  background: var(--ui-color-surface-muted);
+}
+
+.inspector-group-chevron {
+  color: var(--ui-color-text-muted);
+}
+
+.inspector-group-content {
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-1) 3px var(--ui-space-3) var(--ui-space-4);
+}
+
+.property-field {
+  min-height: var(--ui-control-height);
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-tool);
+}
+
+.property-field input,
+.property-field select,
+.property-field textarea,
+.contract-grid input,
+.contract-grid select,
+.contract-block-field input,
+.contract-block-field select {
+  min-height: var(--ui-control-height);
+  border-color: var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
+  font-size: var(--ui-font-size-tool);
+}
+
+.property-field input:focus,
+.property-field select:focus,
+.property-field textarea:focus,
+.contract-grid input:focus,
+.contract-grid select:focus,
+.contract-block-field input:focus,
+.contract-block-field select:focus,
+.contract-block-field textarea:focus {
+  border-color: #60a5fa;
+  outline: none;
+  box-shadow: var(--ui-focus-ring);
+}
+
+.property-field textarea {
+  min-height: 54px;
+}
+
+.property-field small,
+.component-inspector-help,
+.component-layer-help,
+.contract-block-field,
+.contract-checkbox {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-status);
+}
+
+.selection-summary,
+.empty-selection,
+.inspector-placeholder,
+.property-scope,
+.scene-inspector-summary div,
+.property-summary.compact-summary > div {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-tool);
+}
+
+.contract-item {
+  border-color: var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
+  background: var(--ui-color-surface);
+}
+
+.contract-item-head strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-tool);
+}
+
+.contract-add-button {
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-status);
+}
+
+/* Workspace shares the same product palette and scale. */
+.workspace-shell {
+  grid-template-columns: var(--ui-left-dock-width) minmax(0, 1fr);
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface-subtle);
+}
+
+.workspace-sidebar {
+  gap: var(--ui-space-6);
+  padding: var(--ui-space-5) var(--ui-space-4);
+  border-right-color: var(--ui-color-border);
+  background: var(--ui-color-surface);
+}
+
+.workspace-brand {
+  gap: var(--ui-space-3);
+}
+
+.workspace-brand-mark {
+  width: 32px;
+  height: 32px;
+}
+
+.workspace-brand strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-title);
+}
+
+.workspace-brand span:last-child,
+.workspace-nav small,
+.component-name-cell small {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-status);
+}
+
+.workspace-nav {
+  gap: var(--ui-space-1);
+}
+
+.workspace-nav button {
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text-subtle);
+}
+
+.workspace-nav button:hover {
+  background: var(--ui-color-surface-muted);
+}
+
+.workspace-nav button.active {
+  color: var(--ui-color-accent-hover);
+  background: var(--ui-color-accent-soft);
+}
+
+.workspace-nav strong {
+  font-size: var(--ui-font-size-body);
+}
+
+.workspace-section {
+  width: min(1180px, calc(100% - 64px));
+  padding: 48px 0 64px;
+}
+
+.workspace-section-header h1 {
+  margin: var(--ui-space-3) 0 var(--ui-space-2);
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-page-title);
+}
+
+.workspace-section-header p {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-body);
+}
+
+.workspace-eyebrow {
+  color: var(--ui-color-accent);
+  font-size: var(--ui-font-size-status);
+}
+
+.workspace-primary-button {
+  min-height: var(--ui-control-height);
+  padding: 0 var(--ui-space-4);
+  border-color: var(--ui-color-accent-hover);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-accent);
+  font-size: var(--ui-font-size-body);
+}
+
+.workspace-primary-button:hover {
+  background: var(--ui-color-accent-hover);
+}
+
+.workspace-card,
+.component-table {
+  border-color: var(--ui-color-border);
+  border-radius: var(--ui-radius-large);
+  background: var(--ui-color-surface);
+  box-shadow: none;
+}
+
+.workspace-card-title-row h2,
+.component-name-cell strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-body);
+}
+
+.workspace-card-meta,
+.component-table-row {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-tool);
+}
+
+.workspace-card-action,
+.component-edit-button {
+  color: var(--ui-color-accent);
+  font-size: var(--ui-font-size-tool);
+}
+
+.workspace-badge {
+  min-height: 20px;
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-font-size-status);
+}
+
+.component-table-head {
+  color: var(--ui-color-text-muted);
+  background: var(--ui-color-surface-subtle);
+  font-size: var(--ui-font-size-status);
+}
+
+/* Navigation lane follows the same header geometry. */
+.studio-workspace-exit-slot {
+  top: calc((var(--ui-header-height) - var(--ui-control-height)) / 2);
+  right: var(--ui-space-5);
+  height: var(--ui-control-height);
+  border-left-color: var(--ui-color-border);
+}
+
+.studio-workspace-exit {
+  height: var(--ui-control-height);
+  border-radius: var(--ui-radius-small);
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-tool);
+}
+
+.studio-workspace-exit:hover {
+  color: var(--ui-color-text-secondary);
+}
+
+@media (max-width: 980px) {
+  :root {
+    --ui-left-dock-width: 190px;
+    --ui-right-inspector-width: 276px;
+  }
+}
+
+@media (max-width: 760px) {
+  .editor-header,
+  .component-editor-header {
+    padding-inline: var(--ui-space-4);
+  }
+}
