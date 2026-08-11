@@ -6,6 +6,16 @@ import {
   type VisualLayerKind,
   type VisualVectorPrimitive,
 } from '../../component-system/visual'
+import {
+  Button,
+  Checkbox,
+  IconButton,
+  Input,
+  NumberInput,
+  Pressable,
+  Select,
+  Textarea,
+} from '../../ui'
 
 export type ComponentWorkbenchMode = 'editor' | 'preview'
 
@@ -52,6 +62,8 @@ const LAYER_KIND_LABELS: Array<[VisualLayerKind, string]> = [
   ['text', '文本'],
 ]
 
+const LAYER_KIND_OPTIONS = LAYER_KIND_LABELS.map(([value, label]) => ({ value, label }))
+
 const VECTOR_PRIMITIVES: Array<[VisualVectorPrimitive, string]> = [
   ['rect', '矩形'],
   ['circle', '圆形'],
@@ -59,6 +71,8 @@ const VECTOR_PRIMITIVES: Array<[VisualVectorPrimitive, string]> = [
   ['line', '线'],
   ['path', 'Path'],
 ]
+
+const VECTOR_PRIMITIVE_OPTIONS = VECTOR_PRIMITIVES.map(([value, label]) => ({ value, label }))
 
 export function layerKindLabel(kind: VisualLayerKind) {
   return LAYER_KIND_LABELS.find(([candidate]) => candidate === kind)?.[1] ?? kind
@@ -161,7 +175,7 @@ function LayerIdInput({
   onCommit: (nextId: string) => void
 }) {
   return (
-    <input
+    <Input
       key={value}
       defaultValue={value}
       disabled={disabled}
@@ -213,23 +227,26 @@ export function ComponentVisualTreeEditor({
 
       {visual.mode === 'composite' && (
         <div className="component-layer-add-row">
-          <select
-            aria-label="新增图层类型"
+          <Select
+            ariaLabel="新增图层类型"
             value={addKind}
             disabled={readOnly}
-            onChange={(event) => setAddKind(event.target.value as VisualLayerKind)}
+            options={LAYER_KIND_OPTIONS}
+            onValueChange={(value) => setAddKind(value as VisualLayerKind)}
+          />
+          <IconButton
+            aria-label="添加图层"
+            title="添加图层"
+            disabled={readOnly}
+            onClick={addLayer}
           >
-            {LAYER_KIND_LABELS.map(([kind, label]) => (
-              <option key={kind} value={kind}>{label}</option>
-            ))}
-          </select>
-          <button type="button" disabled={readOnly} onClick={addLayer}>＋</button>
+            ＋
+          </IconButton>
         </div>
       )}
 
       <div className="component-layer-tree">
-        <button
-          type="button"
+        <Pressable
           className={`component-layer-root${selectedLayerId === null ? ' active' : ''}`}
           onClick={() => onSelectionChange(null)}
         >
@@ -238,12 +255,11 @@ export function ComponentVisualTreeEditor({
             <strong>{componentTitle}</strong>
             <small>组件根 · Public Contract</small>
           </span>
-        </button>
+        </Pressable>
 
         {visual.mode === 'composite' && flattened.map(({ layer, depth }) => (
-          <button
+          <Pressable
             key={layer.id}
-            type="button"
             className={`component-layer-row${selectedLayerId === layer.id ? ' active' : ''}`}
             style={{ paddingLeft: `${12 + depth * 15}px` }}
             onClick={() => onSelectionChange(layer.id)}
@@ -252,7 +268,7 @@ export function ComponentVisualTreeEditor({
             <span className="component-layer-kind">{layerKindLabel(layer.kind)}</span>
             <span className="component-layer-name">{layer.name}</span>
             {!layer.visible && <small>隐藏</small>}
-          </button>
+          </Pressable>
         ))}
 
         {visual.mode === 'composite' && flattened.length === 0 && (
@@ -430,9 +446,9 @@ function LayerInspectorContent({
           </div>
           {!readOnly && (
             <div className="component-layer-actions">
-              <button type="button" title="上移" onClick={() => moveLayer(-1)}>↑</button>
-              <button type="button" title="下移" onClick={() => moveLayer(1)}>↓</button>
-              <button type="button" className="danger" onClick={removeLayer}>删除</button>
+              <IconButton aria-label="图层上移" title="上移" size="small" onClick={() => moveLayer(-1)}>↑</IconButton>
+              <IconButton aria-label="图层下移" title="下移" size="small" onClick={() => moveLayer(1)}>↓</IconButton>
+              <Button variant="danger" size="small" onClick={removeLayer}>删除</Button>
             </div>
           )}
         </div>
@@ -443,7 +459,7 @@ function LayerInspectorContent({
         </label>
         <label className="property-field">
           <span>名称</span>
-          <input
+          <Input
             value={layer.name}
             disabled={readOnly}
             onChange={(event) => updateLayer({ ...layer, name: event.target.value } as ComponentVisualLayer)}
@@ -451,19 +467,19 @@ function LayerInspectorContent({
         </label>
         <label className="property-field">
           <span>父级</span>
-          <select
+          <Select
             value={layer.parentId ?? ''}
             disabled={readOnly}
-            onChange={(event) => updateLayer({
+            ariaLabel={`${layer.name} 父级`}
+            options={[
+              { value: '', label: 'Visual Root' },
+              ...parentOptions.map((group) => ({ value: group.id, label: group.name })),
+            ]}
+            onValueChange={(value) => updateLayer({
               ...layer,
-              parentId: event.target.value || null,
+              parentId: value || null,
             } as ComponentVisualLayer)}
-          >
-            <option value="">Visual Root</option>
-            {parentOptions.map((group) => (
-              <option key={group.id} value={group.id}>{group.name}</option>
-            ))}
-          </select>
+          />
         </label>
       </CollapsibleInspectorGroup>
 
@@ -480,8 +496,7 @@ function LayerInspectorContent({
           ] as Array<[keyof ComponentVisualLayer['transform'], string]>).map(([field, label]) => (
             <label key={field} className="property-field compact">
               <span>{label}</span>
-              <input
-                type="number"
+              <NumberInput
                 step={field.startsWith('scale') ? '0.1' : '1'}
                 value={layer.transform[field]}
                 disabled={readOnly}
@@ -493,19 +508,16 @@ function LayerInspectorContent({
       </CollapsibleInspectorGroup>
 
       <CollapsibleInspectorGroup title="显示" className="inspector-toggle-group">
-        <label className="checkbox-field property-toggle">
-          <input
-            type="checkbox"
-            checked={layer.visible}
-            disabled={readOnly}
-            onChange={(event) => updateLayer({ ...layer, visible: event.target.checked } as ComponentVisualLayer)}
-          />
-          <span>可见</span>
-        </label>
+        <Checkbox
+          className="checkbox-field property-toggle"
+          checked={layer.visible}
+          disabled={readOnly}
+          label="可见"
+          onCheckedChange={(checked) => updateLayer({ ...layer, visible: checked } as ComponentVisualLayer)}
+        />
         <label className="property-field compact">
           <span>透明度</span>
-          <input
-            type="number"
+          <NumberInput
             min="0"
             max="1"
             step="0.05"
@@ -520,7 +532,7 @@ function LayerInspectorContent({
         <CollapsibleInspectorGroup title="资源">
           <label className="property-field">
             <span>资源引用</span>
-            <input
+            <Input
               value={layer.assetRef}
               disabled={readOnly}
               placeholder={layer.kind === 'svg' ? 'assets/pump-body.svg' : 'assets/vendor-logo.png'}
@@ -535,24 +547,22 @@ function LayerInspectorContent({
         <CollapsibleInspectorGroup title="矢量图形">
           <label className="property-field">
             <span>图元</span>
-            <select
+            <Select
               value={layer.primitive}
               disabled={readOnly}
-              onChange={(event) => updateLayer({
+              ariaLabel={`${layer.name} 图元类型`}
+              options={VECTOR_PRIMITIVE_OPTIONS}
+              onValueChange={(value) => updateLayer({
                 ...layer,
-                primitive: event.target.value as VisualVectorPrimitive,
-                pathData: event.target.value === 'path' ? layer.pathData ?? '' : undefined,
+                primitive: value as VisualVectorPrimitive,
+                pathData: value === 'path' ? layer.pathData ?? '' : undefined,
               })}
-            >
-              {VECTOR_PRIMITIVES.map(([primitive, label]) => (
-                <option key={primitive} value={primitive}>{label}</option>
-              ))}
-            </select>
+            />
           </label>
           {layer.primitive === 'path' && (
             <label className="property-field">
               <span>Path Data</span>
-              <textarea
+              <Textarea
                 rows={4}
                 value={layer.pathData ?? ''}
                 disabled={readOnly}
@@ -567,7 +577,7 @@ function LayerInspectorContent({
         <CollapsibleInspectorGroup title="文本">
           <label className="property-field">
             <span>内容</span>
-            <textarea
+            <Textarea
               rows={4}
               value={layer.text}
               disabled={readOnly}
