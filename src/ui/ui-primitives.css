@@ -292,13 +292,41 @@
   line-height: 1.35;
 }
 
-/* The shared workspace exit is now a real member of the document toolbar. */
+/* Existing editor styles have deliberately higher selector specificity than
+ * feature CSS. Once a control opts into a Studio primitive, the primitive's
+ * variant must become authoritative inside the header as well. */
+.editor-header .document-toolbar .ui-button.ui-button-primary {
+  border-color: var(--ui-color-accent-hover);
+  color: #ffffff;
+  background: var(--ui-color-accent);
+}
+
+.editor-header .document-toolbar .ui-button.ui-button-primary:hover:not(:disabled) {
+  border-color: var(--ui-color-accent-pressed);
+  color: #ffffff;
+  background: var(--ui-color-accent-hover);
+}
+
+.editor-header .document-toolbar .ui-button.ui-button-accent {
+  border-color: var(--ui-color-accent-soft-strong);
+  color: var(--ui-color-accent-hover);
+  background: var(--ui-color-accent-soft);
+}
+
+.editor-header .document-toolbar .ui-button.ui-button-accent:hover:not(:disabled) {
+  border-color: #93c5fd;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft-strong);
+}
+
+/* The shared workspace exit is a real member of the document toolbar. */
 .document-toolbar > .ui-workspace-separator {
   order: 4;
-  margin-inline: var(--ui-space-2);
+  margin-inline: var(--ui-space-1);
 }
 
 .document-toolbar > .ui-workspace-exit {
   order: 5;
   margin: 0;
+  padding-inline: var(--ui-space-3);
 }
