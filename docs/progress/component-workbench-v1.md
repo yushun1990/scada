@@ -77,7 +77,8 @@ SCADA Workbench
 | M6.2 Layer Tree foundation | **accepted · 2026-08-09** · PR #52 · `e9919343d42d1334f2ba2ccd927469db50943d56` · CI #310 ✅ | Serialized private Group / SVG / Image / Vector / Text tree; add/nest/reorder/rename/delete/save/reopen manual smoke passed |
 | M6.2.1 Workbench UX architecture | merged · PR #54 · `c43a23c2b6aeeb6a95b52f40d21bcdea199a7133` · CI #314 ✅ · superseded before final acceptance | Removed the long-form editor and established the first Layers → Canvas → Inspector IDE shell |
 | M6.2.2 Workbench layout convergence | merged · PR #56 · `9976672680d9dd95fd8ed6281810e44dec7dee26` · CI #319 ✅ · inspector semantics superseded before final acceptance | Align Component Workbench with SCADA Workbench: top Design/Preview, left Layers, center Canvas, right contextual Inspector |
-| M6.2.3 Unified contextual Properties inspector | implementation complete · PR pending · manual smoke pending | Merge Base + Properties into one contextual Properties tab: component root shows metadata/public Properties/size/Anchors; private Layer shows Layer properties |
+| M6.2.3 Unified contextual Properties inspector | merged · PR #58 · `598825aa1fec4608913266e9a02bf6b78723fac9` · CI #323 ✅ · manual smoke pending | Merge Base + Properties into one contextual Properties tab: component root shows metadata/public Properties/size/Anchors; private Layer shows Layer properties |
+| M6.2.4 Shared collapsible property groups | implementation complete · PR pending · manual smoke pending | Component Workbench and SCADA Workbench property groups share one collapsible block interaction without persisting UI state into Scene/Package |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
@@ -260,6 +261,8 @@ The M6.2.2 layout is retained, but its `基础信息 / 属性 / 方法 / 事件`
 
 ## M6.2.3 Unified contextual Properties inspector
 
+Tracking: PR #58, merged as `598825aa1fec4608913266e9a02bf6b78723fac9` after CI #323 passed Build and Lint.
+
 ### Goal
 
 Remove the artificial distinction between `基础信息` and `属性` while preserving the public/private architecture boundary.
@@ -291,7 +294,7 @@ Properties
 └── kind-specific private data
 ```
 
-### Completed in code
+### Completed
 
 - Removed the standalone `基础信息` inspector tab.
 - Right inspector now contains exactly `属性 / 方法 / 事件`, matching the SCADA Editor mental model more closely.
@@ -314,27 +317,64 @@ This keeps the UI intuitive without exposing private Layer fields as public Comp
 
 ### Verification status
 
-- implementation complete on `feat/unified-component-properties-inspector`
+- PR #58 passed CI #323 Build and Lint and was squash merged as `598825aa1fec4608913266e9a02bf6b78723fac9`.
+- Manual smoke is still pending; M6.2.4 extends the same Properties UX before final acceptance.
+
+## M6.2.4 Shared collapsible property groups
+
+### Goal
+
+Make long contextual Properties inspectors easy to scan in both editors by giving every logical property group one shared collapsible-block interaction.
+
+```text
+SCADA Workbench Properties
+├── ▾ 标识
+├── ▾ 组件属性
+├── ▾ 几何
+└── ▾ 显示
+
+Component Workbench Properties
+├── ▾ 基本信息 / 图层
+├── ▾ 尺寸 / 几何
+├── ▾ 公开属性 / 显示
+├── ▾ 连接锚点 / 资源
+└── ▸ 实现边界
+```
+
+### Completed in code
+
+- Added one shared `CollapsibleInspectorGroup` React component under `src/components`.
+- The shared group owns only transient open/closed UI state; collapse state is not written into `SceneDocument`, Component Package persistence, Runtime state, or undo/redo history.
+- Group headers are keyboard-accessible buttons with `aria-expanded` and one shared chevron/open-state visual treatment.
+- Existing property controls remain unchanged inside the groups.
+- Component Workbench component-root groups are collapsible: basic metadata, size, public Properties, Anchors and implementation boundary.
+- Component Workbench private Layer groups are collapsible: layer identity/hierarchy, geometry, display and kind-specific resource/vector/text sections.
+- SCADA component instance groups are collapsible: identity, component Properties/bindings, geometry and display.
+- SCADA connection Properties use collapsible identity/path, style and endpoint groups.
+- SCADA multi-selection Properties use a collapsible bulk-properties group.
+- The no-selection scene summary is presented as a collapsible Scene group so the right dock follows the same visual grammar even with no selected object.
+- Groups default open to preserve the previous information visibility; the low-frequency Component Workbench implementation-boundary group defaults closed.
+- Shared styling lives in `workbench.css`, so Component Workbench and SCADA Workbench do not diverge into two similar-but-different collapse implementations.
+- No Scene schema, ComponentDefinition, ComponentVisualDefinition, Runtime behavior, Registry publication, binding semantics, Action/Event semantics or persistence format changes in this slice.
+
+### Verification status
+
+- implementation complete on `feat/collapsible-property-groups`
 - CI Build/Lint required before merge
 - manual smoke after merge should verify:
-  - only `属性 / 方法 / 事件` appear on the right
-  - component root Properties include metadata, size, public Properties and Anchors
-  - selecting a Layer keeps the same Properties tab but replaces the content with Layer properties
-  - changing Layer/root selection automatically returns to Properties
-  - Actions / Events remain component-level
-  - Preview locks edits
-  - save/reopen retains all existing package data
+  - clicking any property-group title collapses/expands only that group
+  - editing inside one group does not reset its collapse state during normal rerenders
+  - component-root and private-Layer inspectors both use the shared treatment
+  - SCADA component, connection, multi-select and no-selection Properties use the same treatment
+  - collapsing groups creates no undo/redo entries and does not change saved Scene/Package data
+  - Preview/read-only controls remain read-only while group headers remain usable for inspection
 
 ### Deliberately deferred
 
-- no actual Composite Renderer yet
-- no canvas drag/resize/rotate yet
-- no real runtime component preview yet
-- no asset browser/import UI yet
-- no Style / Rule / Animation inspector sections yet
-- no Controlled Script workspace yet
-- no final pixel-level polish, shortcuts, context menus, resizable docks or panel persistence yet
+- collapse-state persistence across route reloads or browser sessions
+- expand-all / collapse-all commands
+- final pixel-level Inspector polish
 
 ## Next checkpoint
 
-After M6.2.3 manual smoke is accepted, continue **M6.3 Visual style + rule foundation**. M6.3 should extend the selected Layer's contextual Properties inspector with typed Style / Visual Rule sections while plugging the real Composite Renderer into the existing center Canvas; it should not introduce another navigation model.
+After M6.2.4 manual smoke is accepted, continue **M6.3 Visual style + rule foundation**. M6.3 should extend the selected Layer's contextual Properties inspector with typed Style / Visual Rule groups and plug the real Composite Renderer into the existing center Canvas; those new groups should use the same shared collapsible primitive rather than introducing another navigation model.
