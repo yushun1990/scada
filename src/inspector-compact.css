@@ -1,0 +1,350 @@
+/*
+ * Shared compact Inspector density.
+ *
+ * The Component Workbench and SCADA Workbench deliberately share this file so
+ * property editing follows one interaction grammar. These rules only affect
+ * presentation; no editor state, Scene data or Component Package data is stored
+ * here.
+ */
+
+.property-panel {
+  background: #f5f6f7;
+}
+
+.semantic-inspector {
+  padding: 7px 8px 10px;
+  background: #f5f6f7;
+}
+
+.semantic-inspector .inspector-tabs {
+  gap: 1px;
+  margin: 0 0 5px;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.semantic-inspector .inspector-tabs button {
+  min-height: 27px;
+  padding: 4px 2px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.property-section-list,
+.component-root-inspector,
+.component-layer-inspector {
+  gap: 0;
+}
+
+/* Inkscape / draw.io style: section headers and separators carry grouping,
+   rather than a stack of padded cards. */
+.inspector-collapsible {
+  border: 0;
+  border-bottom: 1px solid #d8dde3;
+  border-radius: 0;
+  background: transparent;
+}
+
+.property-section-list > .inspector-collapsible:first-child,
+.component-root-inspector > .inspector-collapsible:first-child,
+.component-layer-inspector > .inspector-collapsible:first-child {
+  border-top: 1px solid #d8dde3;
+}
+
+.inspector-group-header {
+  min-height: 29px;
+  gap: 4px;
+  padding: 0 3px;
+  color: #424950;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.inspector-group-header:hover {
+  color: #1d4ed8;
+  background: #edf2f7;
+}
+
+.inspector-collapsible.is-open .inspector-group-header {
+  border-bottom: 0;
+}
+
+.inspector-group-chevron {
+  width: 9px;
+  font-size: 13px;
+}
+
+.inspector-group-content {
+  gap: 6px;
+  padding: 4px 3px 8px 12px;
+}
+
+/* Standard property rows: label on the left, editor on the right. */
+.property-field {
+  grid-template-columns: minmax(68px, 88px) minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 6px;
+  min-height: 27px;
+  margin: 0;
+  color: #535b64;
+  font-size: 10px;
+}
+
+.property-field > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.property-field input,
+.property-field select,
+.property-field textarea {
+  grid-column: 2;
+  min-width: 0;
+  width: 100%;
+  min-height: 27px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.property-field textarea {
+  min-height: 52px;
+  resize: vertical;
+  line-height: 1.35;
+}
+
+.property-field small {
+  grid-column: 2;
+  margin: -1px 0 1px;
+  color: #9299a2;
+  font-size: 8px;
+  line-height: 1.3;
+}
+
+.property-field input.color-input {
+  height: 27px;
+  min-height: 27px;
+  padding: 2px;
+}
+
+/* Numeric pairs such as X/Y and W/H should read like a tool palette, not two
+   independent form cards. */
+.property-grid {
+  gap: 5px 8px;
+}
+
+.property-grid .property-field {
+  grid-template-columns: minmax(28px, max-content) minmax(0, 1fr);
+  gap: 4px;
+}
+
+.property-grid .property-field input,
+.property-grid .property-field select {
+  padding-right: 4px;
+  padding-left: 5px;
+}
+
+.property-toggle,
+.checkbox-field.property-toggle {
+  min-height: 25px;
+  margin: 0;
+  padding: 1px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 10px;
+}
+
+.checkbox-field {
+  gap: 5px;
+}
+
+.checkbox-field input[type='checkbox'],
+.contract-checkbox input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.inspector-collapsible.inspector-toggle-group .inspector-group-content {
+  gap: 4px 10px;
+}
+
+.selection-summary,
+.empty-selection,
+.inspector-placeholder,
+.property-scope {
+  padding: 5px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.scene-inspector-summary {
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.scene-inspector-summary div {
+  min-height: 22px;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid #e7e9ec;
+  font-size: 10px;
+}
+
+.scene-inspector-summary div:last-child {
+  border-bottom: 0;
+}
+
+.scene-inspector-summary code {
+  font-size: 9px;
+}
+
+.property-summary.compact-summary {
+  margin: 0;
+  padding: 4px 0 0;
+}
+
+.property-summary.compact-summary > div {
+  min-height: 22px;
+}
+
+.component-inspector-help,
+.component-layer-help {
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.component-readonly-note {
+  padding: 5px 6px;
+  border-radius: 3px;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.component-implementation-note {
+  gap: 2px;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.component-implementation-note strong {
+  font-size: 9px;
+}
+
+.component-layer-inspector-title {
+  align-items: center;
+  gap: 5px;
+}
+
+.component-layer-inspector-title strong {
+  font-size: 10px;
+}
+
+.component-layer-actions {
+  gap: 2px;
+}
+
+.component-layer-actions button {
+  min-width: 24px;
+  height: 23px;
+  padding: 0 5px;
+  border-radius: 3px;
+}
+
+/* Public contract authoring is still a property inspector. Keep each contract
+   entry visually distinct, but remove the large card/form spacing. */
+.contract-list,
+.component-contract-card .contract-list {
+  gap: 6px;
+}
+
+.contract-item {
+  padding: 6px 7px;
+  border-color: #d8dde3;
+  border-radius: 3px;
+}
+
+.contract-item-head {
+  gap: 5px;
+  margin-bottom: 5px;
+}
+
+.contract-item-head strong {
+  font-size: 9px;
+}
+
+.contract-grid,
+.contract-grid-three {
+  gap: 4px;
+}
+
+.contract-grid label,
+.contract-grid-three label {
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  font-size: 8px;
+}
+
+.contract-grid input,
+.contract-grid select,
+.contract-block-field input,
+.contract-block-field select {
+  height: 27px;
+  padding: 0 5px;
+  border-radius: 3px;
+}
+
+.contract-block-field {
+  gap: 3px;
+  margin-top: 5px;
+  font-size: 8px;
+}
+
+.contract-block-field textarea {
+  padding: 5px;
+  border-radius: 3px;
+  line-height: 1.35;
+}
+
+.contract-inline-row {
+  gap: 7px;
+  margin-top: 5px;
+}
+
+.contract-checkbox {
+  gap: 4px;
+  font-size: 8px;
+}
+
+.contract-add-button {
+  padding: 4px 7px;
+  border-radius: 3px;
+  font-size: 8px;
+}
+
+.contract-empty {
+  padding: 10px 6px;
+  border-radius: 3px;
+  font-size: 8px;
+}
+
+/* Narrow docks need slightly shorter labels so controls keep useful width. */
+@media (max-width: 960px) {
+  .property-field {
+    grid-template-columns: minmax(58px, 72px) minmax(0, 1fr);
+  }
+
+  .inspector-group-content {
+    padding-left: 9px;
+  }
+}
