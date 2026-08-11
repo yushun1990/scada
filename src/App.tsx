@@ -3,6 +3,7 @@ import { ComponentEditorPage } from './features/component-library/ComponentEdito
 import { ScadaEditorPage } from './features/scada-editor/ScadaEditorPage'
 import { WorkspacePage } from './features/workspace/WorkspacePage'
 import './inspector-compact.css'
+import './component-editor-header.css'
 
 type AppRoute =
   | { page: 'workspace' }
