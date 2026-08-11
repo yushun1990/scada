@@ -1,6 +1,7 @@
 import '../../m2.css'
 import '../../workbench.css'
 import { useMemo, useState } from 'react'
+import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import type { ComponentDefinition } from '../../component-system/definition'
 import { ComponentContractEditor } from './ComponentContractEditor'
 import {
@@ -187,8 +188,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
 
             {inspectorTab === 'properties' && selectedLayerId === null && (
               <div className="property-section-list component-root-inspector">
-                <fieldset className="inspector-group">
-                  <legend>基本信息</legend>
+                <CollapsibleInspectorGroup title="基本信息">
                   {builtInReadOnly && (
                     <div className="component-readonly-note">
                       内置组件是 Registry Definition 的只读视图；Native Renderer / Action Handler 仍由可信应用代码注册。
@@ -241,10 +241,9 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                       onChange={(event) => updateDefinitionField('description', event.target.value)}
                     />
                   </label>
-                </fieldset>
+                </CollapsibleInspectorGroup>
 
-                <fieldset className="inspector-group">
-                  <legend>尺寸</legend>
+                <CollapsibleInspectorGroup title="尺寸">
                   <div className="property-grid">
                     {([
                       ['defaultWidth', '默认宽'],
@@ -264,10 +263,9 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                       </label>
                     ))}
                   </div>
-                </fieldset>
+                </CollapsibleInspectorGroup>
 
-                <fieldset className="inspector-group component-root-public-properties">
-                  <legend>公开属性</legend>
+                <CollapsibleInspectorGroup title="公开属性" className="component-root-public-properties">
                   <p className="component-inspector-help">
                     这些 Property 是 SCADA Workbench 可配置或可绑定的公开数据入口；内部 Layer 状态不会直接暴露到这里。
                   </p>
@@ -279,10 +277,9 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                       onChange={updateDefinition}
                     />
                   </div>
-                </fieldset>
+                </CollapsibleInspectorGroup>
 
-                <fieldset className="inspector-group component-anchor-group">
-                  <legend>连接锚点</legend>
+                <CollapsibleInspectorGroup title="连接锚点" className="component-anchor-group">
                   <p className="component-inspector-help">
                     锚点属于组件公开几何接口，用于组态画布连线附着，不承担运行时数据语义。
                   </p>
@@ -294,17 +291,16 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                       onChange={updateDefinition}
                     />
                   </div>
-                </fieldset>
+                </CollapsibleInspectorGroup>
 
-                <fieldset className="inspector-group">
-                  <legend>实现边界</legend>
+                <CollapsibleInspectorGroup title="实现边界" defaultOpen={false}>
                   <div className="component-implementation-note">
                     <strong>{component.visual.mode === 'native' ? 'Native Renderer' : 'Composite Visual'}</strong>
                     <span>
                       内部 Layer、未来 Rules / Animation / Script 都属于私有实现；SCADA Workbench 只消费公开 Properties / Actions / Events / Anchors。
                     </span>
                   </div>
-                </fieldset>
+                </CollapsibleInspectorGroup>
               </div>
             )}
 
