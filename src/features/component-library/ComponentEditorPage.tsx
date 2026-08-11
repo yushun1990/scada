@@ -5,8 +5,8 @@ import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspector
 import type { ComponentDefinition } from '../../component-system/definition'
 import { ComponentContractEditor } from './ComponentContractEditor'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
+import { ComponentVisualCanvas } from './ComponentVisualCanvas'
 import {
-  ComponentVisualCanvas,
   ComponentVisualLayerInspector,
   ComponentVisualTreeEditor,
   type ComponentWorkbenchMode,
@@ -96,6 +96,8 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
           <button
             type="button"
             className="component-back-button"
+            aria-label="返回工作区"
+            title="返回工作区"
             onClick={() => { window.location.hash = '#/' }}
           >
             ←
@@ -107,29 +109,29 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
           </div>
         </div>
 
-        <div className="header-actions">
-          {message && <span className="header-message" role="status">{message}</span>}
+        <div className="mode-switch" role="group" aria-label="组件工作模式">
+          <button
+            type="button"
+            className={mode === 'editor' ? 'active' : ''}
+            onClick={() => setMode('editor')}
+          >
+            设计
+          </button>
+          <button
+            type="button"
+            className={mode === 'preview' ? 'active' : ''}
+            onClick={() => setMode('preview')}
+          >
+            预览
+          </button>
+        </div>
+
+        <div className="component-header-actions">
           <span className={`component-status-pill ${component.status}`}>
             {builtInReadOnly ? '内置' : component.status === 'ready' ? '可用' : '草稿'}
           </span>
           <div className="document-toolbar" role="toolbar" aria-label="组件文档操作">
             <button type="button" disabled={builtInReadOnly} onClick={save}>保存</button>
-          </div>
-          <div className="mode-switch" role="group" aria-label="组件工作模式">
-            <button
-              type="button"
-              className={mode === 'editor' ? 'active' : ''}
-              onClick={() => setMode('editor')}
-            >
-              设计
-            </button>
-            <button
-              type="button"
-              className={mode === 'preview' ? 'active' : ''}
-              onClick={() => setMode('preview')}
-            >
-              预览
-            </button>
           </div>
         </div>
       </header>
@@ -147,6 +149,11 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
         </aside>
 
         <section className="canvas-area component-canvas-area" aria-label="组件设计画布">
+          {message && (
+            <div className="canvas-toast component-canvas-toast" role="status" aria-live="polite">
+              {message}
+            </div>
+          )}
           <ComponentVisualCanvas
             visual={component.visual}
             componentTitle={definition.title}
