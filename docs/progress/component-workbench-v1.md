@@ -78,7 +78,7 @@ SCADA Workbench
 | M6.2.1 Workbench UX architecture | merged · PR #54 · `c43a23c2b6aeeb6a95b52f40d21bcdea199a7133` · CI #314 ✅ · superseded before final acceptance | Removed the long-form editor and established the first Layers → Canvas → Inspector IDE shell |
 | M6.2.2 Workbench layout convergence | merged · PR #56 · `9976672680d9dd95fd8ed6281810e44dec7dee26` · CI #319 ✅ · inspector semantics superseded before final acceptance | Align Component Workbench with SCADA Workbench: top Design/Preview, left Layers, center Canvas, right contextual Inspector |
 | M6.2.3 Unified contextual Properties inspector | merged · PR #58 · `598825aa1fec4608913266e9a02bf6b78723fac9` · CI #323 ✅ · manual smoke pending | Merge Base + Properties into one contextual Properties tab: component root shows metadata/public Properties/size/Anchors; private Layer shows Layer properties |
-| M6.2.4 Shared collapsible property groups | implementation complete · PR pending · manual smoke pending | Component Workbench and SCADA Workbench property groups share one collapsible block interaction without persisting UI state into Scene/Package |
+| M6.2.4 Shared collapsible property groups | merged · PR #59 · `6dae1117fd4a82c59cfd2aab703eaf9b60ee4987` · CI #325 ✅ · manual smoke pending | Component Workbench and SCADA Workbench property groups share one collapsible block interaction without persisting UI state into Scene/Package |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
@@ -322,6 +322,8 @@ This keeps the UI intuitive without exposing private Layer fields as public Comp
 
 ## M6.2.4 Shared collapsible property groups
 
+Tracking: PR #59, merged as `6dae1117fd4a82c59cfd2aab703eaf9b60ee4987` after CI #325 passed Build and Lint.
+
 ### Goal
 
 Make long contextual Properties inspectors easy to scan in both editors by giving every logical property group one shared collapsible-block interaction.
@@ -341,7 +343,7 @@ Component Workbench Properties
 └── ▸ 实现边界
 ```
 
-### Completed in code
+### Completed
 
 - Added one shared `CollapsibleInspectorGroup` React component under `src/components`.
 - The shared group owns only transient open/closed UI state; collapse state is not written into `SceneDocument`, Component Package persistence, Runtime state, or undo/redo history.
@@ -359,8 +361,8 @@ Component Workbench Properties
 
 ### Verification status
 
-- implementation complete on `feat/collapsible-property-groups`
-- CI Build/Lint required before merge
+- CI #325 passed Build and Lint.
+- PR #59 was squash merged as `6dae1117fd4a82c59cfd2aab703eaf9b60ee4987`.
 - manual smoke after merge should verify:
   - clicking any property-group title collapses/expands only that group
   - editing inside one group does not reset its collapse state during normal rerenders
