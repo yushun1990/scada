@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import {
   type ComponentVisualDefinition,
   type ComponentVisualLayer,
@@ -421,8 +422,7 @@ function LayerInspectorContent({
 
   return (
     <div className="property-section-list component-layer-inspector">
-      <fieldset className="inspector-group">
-        <legend>图层</legend>
+      <CollapsibleInspectorGroup title="图层">
         <div className="component-layer-inspector-title">
           <div>
             <strong>{layer.name}</strong>
@@ -465,10 +465,9 @@ function LayerInspectorContent({
             ))}
           </select>
         </label>
-      </fieldset>
+      </CollapsibleInspectorGroup>
 
-      <fieldset className="inspector-group">
-        <legend>几何</legend>
+      <CollapsibleInspectorGroup title="几何">
         <div className="property-grid component-layer-geometry-grid">
           {([
             ['x', 'X'],
@@ -491,10 +490,9 @@ function LayerInspectorContent({
             </label>
           ))}
         </div>
-      </fieldset>
+      </CollapsibleInspectorGroup>
 
-      <fieldset className="inspector-group inspector-toggle-group">
-        <legend>显示</legend>
+      <CollapsibleInspectorGroup title="显示" className="inspector-toggle-group">
         <label className="checkbox-field property-toggle">
           <input
             type="checkbox"
@@ -516,11 +514,10 @@ function LayerInspectorContent({
             onChange={(event) => updateLayer({ ...layer, opacity: Number(event.target.value) } as ComponentVisualLayer)}
           />
         </label>
-      </fieldset>
+      </CollapsibleInspectorGroup>
 
       {(layer.kind === 'svg' || layer.kind === 'image') && (
-        <fieldset className="inspector-group">
-          <legend>资源</legend>
+        <CollapsibleInspectorGroup title="资源">
           <label className="property-field">
             <span>资源引用</span>
             <input
@@ -531,12 +528,11 @@ function LayerInspectorContent({
             />
           </label>
           <p className="component-inspector-help">当前只保存 assetRef；资源上传/管理将在后续切片接入。</p>
-        </fieldset>
+        </CollapsibleInspectorGroup>
       )}
 
       {layer.kind === 'vector' && (
-        <fieldset className="inspector-group">
-          <legend>矢量图形</legend>
+        <CollapsibleInspectorGroup title="矢量图形">
           <label className="property-field">
             <span>图元</span>
             <select
@@ -564,12 +560,11 @@ function LayerInspectorContent({
               />
             </label>
           )}
-        </fieldset>
+        </CollapsibleInspectorGroup>
       )}
 
       {layer.kind === 'text' && (
-        <fieldset className="inspector-group">
-          <legend>文本</legend>
+        <CollapsibleInspectorGroup title="文本">
           <label className="property-field">
             <span>内容</span>
             <textarea
@@ -579,7 +574,7 @@ function LayerInspectorContent({
               onChange={(event) => updateLayer({ ...layer, text: event.target.value })}
             />
           </label>
-        </fieldset>
+        </CollapsibleInspectorGroup>
       )}
     </div>
   )

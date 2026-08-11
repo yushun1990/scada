@@ -1,3 +1,4 @@
+import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import {
   isComponentPropertyValue,
   type ComponentDefinition,
@@ -149,8 +150,7 @@ export function ComponentPropertiesInspector({
   }
 
   return (
-    <fieldset className="inspector-group">
-      <legend>组件属性</legend>
+    <CollapsibleInspectorGroup title="组件属性">
       {properties.map(([key, property]) => {
         const binding = bindings.find((candidate) => candidate.property === key)
         const compatibleSources = property.bindable
@@ -197,6 +197,6 @@ export function ComponentPropertiesInspector({
           </div>
         )
       })}
-    </fieldset>
+    </CollapsibleInspectorGroup>
   )
 }
