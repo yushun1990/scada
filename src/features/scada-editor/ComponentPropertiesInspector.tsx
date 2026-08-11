@@ -7,6 +7,7 @@ import {
 } from '../../component-system/definition'
 import type { PreviewRuntimeValueSourceDefinition } from '../../runtime'
 import type { DataBinding } from '../../scene/model'
+import { Checkbox, Input, NumberInput, Select } from '../../ui'
 
 type ComponentPropertiesInspectorProps = {
   definition: ComponentDefinition
@@ -36,14 +37,12 @@ function renderPropertyInput(
 ) {
   if (property.kind === 'boolean') {
     return (
-      <label className="checkbox-field property-toggle">
-        <input
-          type="checkbox"
-          checked={value === true}
-          onChange={(event) => onChange(key, event.target.checked, true)}
-        />
-        <span>{property.title}</span>
-      </label>
+      <Checkbox
+        className="checkbox-field property-toggle"
+        checked={value === true}
+        label={property.title}
+        onCheckedChange={(checked) => onChange(key, checked, true)}
+      />
     )
   }
 
@@ -51,24 +50,23 @@ function renderPropertyInput(
     return (
       <label className="property-field">
         <span>{property.title}</span>
-        <select
+        <Select
           value={valueForTextInput(value)}
-          onChange={(event) => {
+          ariaLabel={property.title}
+          options={(property.options ?? []).map((option) => ({
+            value: String(option.value),
+            label: option.label,
+          }))}
+          onValueChange={(nextValue) => {
             const option = property.options?.find(
-              (candidate) => String(candidate.value) === event.target.value,
+              (candidate) => String(candidate.value) === nextValue,
             )
 
             if (option) {
               onChange(key, option.value, true)
             }
           }}
-        >
-          {(property.options ?? []).map((option) => (
-            <option key={String(option.value)} value={String(option.value)}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        />
         {property.description && <small>{property.description}</small>}
       </label>
     )
@@ -78,9 +76,8 @@ function renderPropertyInput(
     return (
       <label className="property-field">
         <span>{property.title}</span>
-        <input
+        <NumberInput
           key={`${key}:${String(value)}`}
-          type="number"
           defaultValue={typeof value === 'number' ? value : ''}
           onBlur={(event) => {
             const nextValue = Number(event.currentTarget.value)
@@ -99,7 +96,7 @@ function renderPropertyInput(
     return (
       <label className="property-field">
         <span>{property.title}</span>
-        <input
+        <Input
           key={`${key}:${String(value)}`}
           className="color-input"
           type="color"
@@ -114,7 +111,7 @@ function renderPropertyInput(
   return (
     <label className="property-field">
       <span>{property.title}</span>
-      <input
+      <Input
         key={`${key}:${String(value)}`}
         defaultValue={valueForTextInput(value)}
         onBlur={(event) => onChange(key, event.currentTarget.value, true)}
@@ -161,6 +158,16 @@ export function ComponentPropertiesInspector({
               (source) => source.key === binding.source.key,
             )
           : false
+        const bindingOptions = [
+          { value: '', label: '未绑定 · 使用设计值' },
+          ...(binding && !knownBinding
+            ? [{ value: binding.source.key, label: binding.source.key }]
+            : []),
+          ...compatibleSources.map((source) => ({
+            value: source.key,
+            label: source.title,
+          })),
+        ]
 
         return (
           <div key={key}>
@@ -174,24 +181,12 @@ export function ComponentPropertiesInspector({
             {property.bindable && (
               <label className="property-field">
                 <span>数据绑定</span>
-                <select
+                <Select
                   value={binding?.source.key ?? ''}
-                  onChange={(event) =>
-                    onBindingChange(key, event.target.value || null)
-                  }
-                >
-                  <option value="">未绑定 · 使用设计值</option>
-                  {binding && !knownBinding && (
-                    <option value={binding.source.key}>
-                      {binding.source.key}
-                    </option>
-                  )}
-                  {compatibleSources.map((source) => (
-                    <option key={source.key} value={source.key}>
-                      {source.title}
-                    </option>
-                  ))}
-                </select>
+                  ariaLabel={`${property.title} 数据绑定`}
+                  options={bindingOptions}
+                  onValueChange={(nextValue) => onBindingChange(key, nextValue || null)}
+                />
               </label>
             )}
           </div>

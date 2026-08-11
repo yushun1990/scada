@@ -5,6 +5,7 @@ import {
   type ComponentSceneNode,
   type SceneDocument,
 } from '../../scene/model'
+import { Button, Select } from '../../ui'
 
 export type BehaviorActionTarget = {
   nodeId: string
@@ -112,13 +113,13 @@ export function ComponentInteractionsInspector({
             return (
               <div key={actionName} className="property-field">
                 <span>{action.title}</span>
-                <button
-                  type="button"
+                <Button
+                  size="small"
                   disabled={!previewActive || !executable}
                   onClick={() => onInvokeAction(actionName)}
                 >
                   {executable ? '执行' : '未实现'}
-                </button>
+                </Button>
                 {action.description && <small>{action.description}</small>}
               </div>
             )
@@ -165,35 +166,32 @@ export function ComponentInteractionsInspector({
                   target.action === behavior.effect.action,
               )
             : true
+          const options = [
+            { value: '', label: '不触发方法' },
+            ...(behavior && !knownTarget
+              ? [{
+                  value: selectedTarget,
+                  label: `${behavior.effect.targetNodeId} · ${behavior.effect.action}`,
+                }]
+              : []),
+            ...actionTargets.map((target) => ({
+              value: encodeActionTarget(target),
+              label: `${target.nodeName} · ${target.actionTitle}`,
+            })),
+          ]
 
           return (
             <label key={eventName} className="property-field">
               <span>{event.title}</span>
-              <select
+              <Select
                 value={selectedTarget}
                 disabled={previewActive}
-                onChange={(changeEvent) =>
-                  onBehaviorChange(
-                    eventName,
-                    decodeActionTarget(changeEvent.target.value),
-                  )
+                ariaLabel={`${event.title} 事件行为`}
+                options={options}
+                onValueChange={(value) =>
+                  onBehaviorChange(eventName, decodeActionTarget(value))
                 }
-              >
-                <option value="">不触发方法</option>
-                {behavior && !knownTarget && (
-                  <option value={selectedTarget}>
-                    {behavior.effect.targetNodeId} · {behavior.effect.action}
-                  </option>
-                )}
-                {actionTargets.map((target) => (
-                  <option
-                    key={`${target.nodeId}:${target.action}`}
-                    value={encodeActionTarget(target)}
-                  >
-                    {target.nodeName} · {target.actionTitle}
-                  </option>
-                ))}
-              </select>
+              />
               {event.description && <small>{event.description}</small>}
             </label>
           )

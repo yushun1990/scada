@@ -56,6 +56,7 @@ import {
   VIEWPORT_ZOOM_FACTOR,
   type ViewportTransform,
 } from '../editor/viewport'
+import { Button, IconButton } from '../ui'
 
 export type RendererMode = 'editor' | 'preview'
 
@@ -1229,9 +1230,6 @@ export function SceneRenderer({
   }
 
   function scheduleDragMove(target: Konva.Node) {
-    // dragBoundFunc owns the dragged node position. DragMove must never resolve
-    // another position for ports or routes; it only mirrors target.x()/target.y()
-    // to dependent visuals and uses computeSnap for guide presentation.
     processDragMove(target)
   }
 
@@ -1497,7 +1495,6 @@ export function SceneRenderer({
     }
 
     const points = getConnectionPreviewRoutePoints(scene, session.source, point)
-
     if (!points) {
       return
     }
@@ -2013,7 +2010,6 @@ export function SceneRenderer({
       : transformComponentSize?.minHeight ?? 1
 
   const gridSize = Math.max(4, snapSettings.gridSize)
-  // 工作区可以无限平移，但网格只属于固定画板。
   const verticalGridLines = gridVisible
     ? buildGridCoordinates(0, scene.width, gridSize)
     : []
@@ -2051,7 +2047,6 @@ export function SceneRenderer({
           const stage = event.target.getStage()
           const current = viewportTransformRef.current
 
-          // Ctrl/Cmd + 滚轮 → 缩放；普通滚轮/触控板 → 平移
           if (evt.ctrlKey || evt.metaKey) {
             const pointer = stage?.getPointerPosition()
 
@@ -2589,12 +2584,32 @@ export function SceneRenderer({
       </Stage>
 
       <div className="viewport-controls" aria-label="视口缩放">
-        <button type="button" onClick={() => zoomBy(1 / VIEWPORT_ZOOM_FACTOR)} title="缩小">−</button>
-        <button type="button" className="zoom-value" onClick={resetViewport} title="恢复 100%">
+        <IconButton
+          aria-label="缩小"
+          title="缩小"
+          onClick={() => zoomBy(1 / VIEWPORT_ZOOM_FACTOR)}
+        >
+          −
+        </IconButton>
+        <Button
+          variant="ghost"
+          size="small"
+          className="zoom-value"
+          onClick={resetViewport}
+          title="恢复 100%"
+        >
           {Math.round(viewportTransform.scale * 100)}%
-        </button>
-        <button type="button" onClick={() => zoomBy(VIEWPORT_ZOOM_FACTOR)} title="放大">+</button>
-        <button type="button" onClick={fitScene} title="适应场景">适应</button>
+        </Button>
+        <IconButton
+          aria-label="放大"
+          title="放大"
+          onClick={() => zoomBy(VIEWPORT_ZOOM_FACTOR)}
+        >
+          +
+        </IconButton>
+        <Button variant="ghost" size="small" onClick={fitScene} title="适应场景">
+          适应
+        </Button>
       </div>
 
       <div className="canvas-status">

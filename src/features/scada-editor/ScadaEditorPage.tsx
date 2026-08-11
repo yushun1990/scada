@@ -84,6 +84,21 @@ import {
   UndoIcon,
   UngroupIcon,
 } from '../../components/toolbar-icons'
+import {
+  Button,
+  Checkbox,
+  Input,
+  NumberInput,
+  Pressable,
+  SegmentedControl,
+  Select,
+  Tabs,
+  Toolbar,
+  ToolbarButton,
+  ToolbarGroup,
+  type SegmentedControlItem,
+  type StudioTabItem,
+} from '../../ui'
 
 type InspectorTab = 'properties' | 'actions' | 'events'
 type LeftDockTab = 'components' | 'layers' | 'assets'
@@ -95,6 +110,33 @@ const alignButtons: Array<{ mode: AlignMode; title: string; icon: typeof CopyIco
   { mode: 'top', title: '顶对齐', icon: AlignTopIcon },
   { mode: 'center-y', title: '垂直居中', icon: AlignCenterYIcon },
   { mode: 'bottom', title: '底对齐', icon: AlignBottomIcon },
+]
+
+const MODE_ITEMS: Array<SegmentedControlItem<RendererMode>> = [
+  { value: 'editor', label: '设计' },
+  { value: 'preview', label: '预览' },
+]
+
+const LEFT_DOCK_TABS: Array<StudioTabItem<LeftDockTab>> = [
+  { value: 'components', label: '组件' },
+  { value: 'layers', label: '图层' },
+  { value: 'assets', label: '资源' },
+]
+
+const INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
+  { value: 'properties', label: '属性' },
+  { value: 'actions', label: '方法' },
+  { value: 'events', label: '事件' },
+]
+
+const CONNECTION_ROUTING_OPTIONS = [
+  { value: 'orthogonal', label: '正交折线' },
+  { value: 'straight', label: '直线' },
+]
+
+const CONNECTION_DASH_OPTIONS = [
+  { value: 'solid', label: '实线' },
+  { value: 'dashed', label: '虚线' },
 ]
 
 function getInitialSelectedIds(scene: SceneDocument) {
@@ -138,7 +180,6 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   })
   const importInputRef = useRef<HTMLInputElement>(null)
 
-  // 撤销/重做键盘快捷键
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       const isUndo =
@@ -241,9 +282,6 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     }))
   }
 
-  // 把当前场景固化为一个历史点（不改变场景内容）。
-  // 用于 Inspector 文本/数值输入：onChange 用 setScene 实时预览，
-  // onBlur 时调此函数固化一次，避免逐字符刷屏历史栈。
   const commitScene = useCallback(() => {
     commit()
   }, [commit])
@@ -722,6 +760,13 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     selectedNodes.length > 0 && selectedNodes.every((node) => node.visible)
   const commonLocked =
     selectedNodes.length > 0 && selectedNodes.every((node) => node.locked)
+  const sceneSizePresetId = getSceneSizePresetId(scene) ?? ''
+  const sceneSizeOptions = [
+    ...(!sceneSizePresetId
+      ? [{ value: '', label: `自定义 · ${scene.width} × ${scene.height}` }]
+      : []),
+    ...SCENE_SIZE_PRESETS.map((preset) => ({ value: preset.id, label: preset.label })),
+  ]
 
   return (
     <div className="editor-shell">
@@ -736,10 +781,10 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
 
         <div className="header-actions">
           <div className="document-toolbar" role="toolbar" aria-label="场景文档操作">
-            <button type="button" onClick={saveScene}>保存</button>
-            <button type="button" onClick={() => importInputRef.current?.click()}>导入</button>
-            <button type="button" onClick={exportScene}>导出</button>
-            <input
+            <Button variant="secondary" onClick={() => importInputRef.current?.click()}>导入</Button>
+            <Button variant="secondary" onClick={exportScene}>导出</Button>
+            <Button variant="primary" onClick={saveScene}>保存</Button>
+            <Input
               ref={importInputRef}
               className="hidden-input"
               type="file"
@@ -750,52 +795,33 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
             />
           </div>
 
-          <div className="mode-switch" role="group" aria-label="工作模式">
-            <button
-              type="button"
-              className={mode === 'editor' ? 'active' : ''}
-              onClick={() => setMode('editor')}
-            >
-              设计
-            </button>
-            <button
-              type="button"
-              className={mode === 'preview' ? 'active' : ''}
-              onClick={() => setMode('preview')}
-            >
-              预览
-            </button>
-          </div>
+          <SegmentedControl
+            value={mode}
+            items={MODE_ITEMS}
+            onValueChange={setMode}
+            ariaLabel="工作模式"
+            className="mode-switch"
+          />
         </div>
       </header>
 
       <main className="editor-main">
         <aside className="component-panel">
-          <div className="dock-tabs" role="tablist" aria-label="左侧工作区">
-            {([
-              ['components', '组件'],
-              ['layers', '图层'],
-              ['assets', '资源'],
-            ] as Array<[LeftDockTab, string]>).map(([tab, label]) => (
-              <button
-                key={tab}
-                type="button"
-                className={leftDockTab === tab ? 'active' : ''}
-                onClick={() => setLeftDockTab(tab)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            value={leftDockTab}
+            items={LEFT_DOCK_TABS}
+            onValueChange={setLeftDockTab}
+            ariaLabel="左侧工作区"
+            className="dock-tabs"
+          />
 
           {leftDockTab === 'components' && (
             <div className="dock-content">
               <div className="panel-title">基础组件</div>
               {builtInComponentRegistry.list().map(({ definition }) => (
-                <button
+                <Pressable
                   key={definition.type}
                   className="component-item"
-                  type="button"
                   onClick={() => addComponent(definition.type)}
                 >
                   <span className="component-icon">
@@ -805,7 +831,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     <strong>{definition.title}</strong>
                     <small>{definition.type}</small>
                   </span>
-                </button>
+                </Pressable>
               ))}
               <p className="panel-description component-dock-help">
                 组件面板直接来自 ComponentRegistry；新增内置注册项无需修改编辑器页面。
@@ -829,10 +855,10 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
         </aside>
 
         <section className="canvas-area" aria-label="SCADA 编辑画布">
-          <div className="canvas-toolbar" role="toolbar" aria-label="画布工具栏">
-            <div className="canvas-tool-group">
-              <button
-                type="button"
+          <Toolbar className="canvas-toolbar" aria-label="画布工具栏">
+            <ToolbarGroup className="canvas-tool-group">
+              <ToolbarButton
+                iconOnly
                 className="icon-button"
                 title="复制选中对象"
                 aria-label="复制选中对象"
@@ -840,9 +866,9 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 onClick={duplicateSelectedNodes}
               >
                 <CopyIcon />
-              </button>
-              <button
-                type="button"
+              </ToolbarButton>
+              <ToolbarButton
+                iconOnly
                 className="icon-button"
                 title="删除选中对象"
                 aria-label="删除选中对象"
@@ -850,9 +876,9 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 onClick={deleteSelection}
               >
                 <TrashIcon />
-              </button>
-              <button
-                type="button"
+              </ToolbarButton>
+              <ToolbarButton
+                iconOnly
                 className="icon-button"
                 title="组合选中对象"
                 aria-label="组合选中对象"
@@ -860,9 +886,9 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 onClick={groupSelectedNodes}
               >
                 <GroupIcon />
-              </button>
-              <button
-                type="button"
+              </ToolbarButton>
+              <ToolbarButton
+                iconOnly
                 className="icon-button"
                 title="拆分组合"
                 aria-label="拆分组合"
@@ -870,9 +896,9 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 onClick={ungroupSelectedNode}
               >
                 <UngroupIcon />
-              </button>
-              <button
-                type="button"
+              </ToolbarButton>
+              <ToolbarButton
+                iconOnly
                 className="icon-button"
                 title="撤销 (Ctrl+Z)"
                 aria-label="撤销"
@@ -880,9 +906,9 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 onClick={undo}
               >
                 <UndoIcon />
-              </button>
-              <button
-                type="button"
+              </ToolbarButton>
+              <ToolbarButton
+                iconOnly
                 className="icon-button"
                 title="重做 (Ctrl+Shift+Z)"
                 aria-label="重做"
@@ -890,16 +916,16 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 onClick={redo}
               >
                 <RedoIcon />
-              </button>
-            </div>
+              </ToolbarButton>
+            </ToolbarGroup>
 
-            <div className="canvas-tool-group">
+            <ToolbarGroup className="canvas-tool-group">
               {alignButtons.map((item) => {
                 const Icon = item.icon
                 return (
-                  <button
+                  <ToolbarButton
                     key={item.mode}
-                    type="button"
+                    iconOnly
                     className="icon-button"
                     title={item.title}
                     aria-label={item.title}
@@ -907,11 +933,11 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     onClick={() => applyAlignment(item.mode)}
                   >
                     <Icon />
-                  </button>
+                  </ToolbarButton>
                 )
               })}
-              <button
-                type="button"
+              <ToolbarButton
+                iconOnly
                 className="icon-button"
                 title="水平等距分布"
                 aria-label="水平等距分布"
@@ -919,9 +945,9 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 onClick={() => applyDistribution('horizontal')}
               >
                 <DistributeHorizontalIcon />
-              </button>
-              <button
-                type="button"
+              </ToolbarButton>
+              <ToolbarButton
+                iconOnly
                 className="icon-button"
                 title="垂直等距分布"
                 aria-label="垂直等距分布"
@@ -929,12 +955,12 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 onClick={() => applyDistribution('vertical')}
               >
                 <DistributeVerticalIcon />
-              </button>
-            </div>
+              </ToolbarButton>
+            </ToolbarGroup>
 
-            <div className="canvas-tool-group view-tool-group">
-              <button
-                type="button"
+            <ToolbarGroup className="canvas-tool-group view-tool-group">
+              <ToolbarButton
+                iconOnly
                 className={`icon-button toggle-button${snapSettings.gridEnabled ? ' active' : ''}`}
                 title={snapSettings.gridEnabled ? '关闭吸附' : '开启吸附'}
                 aria-label="吸附到网格"
@@ -947,10 +973,10 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 }
               >
                 <SnapIcon />
-              </button>
+              </ToolbarButton>
               <div className="grid-control" title="网格显示与间距">
-                <button
-                  type="button"
+                <ToolbarButton
+                  iconOnly
                   className={`icon-button toggle-button${gridVisible ? ' active' : ''}`}
                   title={gridVisible ? '隐藏格线' : '显示格线'}
                   aria-label="显示格线"
@@ -958,11 +984,10 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                   onClick={() => setGridVisible((current) => !current)}
                 >
                   <GridIcon />
-                </button>
+                </ToolbarButton>
                 {gridVisible && (
-                  <input
+                  <NumberInput
                     className="grid-size-input"
-                    type="number"
                     min="4"
                     max="128"
                     title="网格间距"
@@ -979,23 +1004,15 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 )}
               </div>
               <div className="scene-size-control" title="固定画板尺寸">
-                <select
-                  aria-label="画板尺寸"
-                  value={getSceneSizePresetId(scene) ?? ''}
-                  onChange={(event) => changeSceneSize(event.target.value)}
-                >
-                  {!getSceneSizePresetId(scene) && (
-                    <option value="">自定义 · {scene.width} × {scene.height}</option>
-                  )}
-                  {SCENE_SIZE_PRESETS.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.label}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  ariaLabel="画板尺寸"
+                  value={sceneSizePresetId}
+                  options={sceneSizeOptions}
+                  onValueChange={changeSceneSize}
+                />
               </div>
-            </div>
-          </div>
+            </ToolbarGroup>
+          </Toolbar>
 
           {message && (
             <div className="canvas-toast" role="status" aria-live="polite">
@@ -1020,29 +1037,20 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
 
         <aside className="property-panel">
           <section className="semantic-inspector" aria-label="对象配置">
-            <div className="inspector-tabs" role="tablist" aria-label="对象配置检查器">
-              {([
-                ['properties', '属性'],
-                ['actions', '方法'],
-                ['events', '事件'],
-              ] as Array<[InspectorTab, string]>).map(([tab, label]) => (
-                <button
-                  key={tab}
-                  type="button"
-                  className={inspectorTab === tab ? 'active' : ''}
-                  onClick={() => setInspectorTab(tab)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              value={inspectorTab}
+              items={INSPECTOR_TABS}
+              onValueChange={setInspectorTab}
+              ariaLabel="对象配置检查器"
+              className="inspector-tabs"
+            />
 
             {inspectorTab === 'properties' && selectedConnection && (
               <div className="property-section-list">
                 <CollapsibleInspectorGroup title="标识与路径">
                   <label className="property-field">
                     <span>名称</span>
-                    <input
+                    <Input
                       value={selectedConnection.name}
                       onChange={(event) => {
                         const name = event.target.value
@@ -1056,20 +1064,19 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                   </label>
                   <label className="property-field">
                     <span>路由</span>
-                    <select
+                    <Select
                       value={selectedConnection.routing}
-                      onChange={(event) => {
-                        const routing = event.target.value as ConnectionRouting
+                      ariaLabel="连线路由"
+                      options={CONNECTION_ROUTING_OPTIONS}
+                      onValueChange={(value) => {
+                        const routing = value as ConnectionRouting
                         updateConnection(selectedConnection.id, (connection) => ({
                           ...connection,
                           routing,
                         }))
                         commitScene()
                       }}
-                    >
-                      <option value="orthogonal">正交折线</option>
-                      <option value="straight">直线</option>
-                    </select>
+                    />
                   </label>
                 </CollapsibleInspectorGroup>
 
@@ -1077,7 +1084,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                   <div className="property-grid">
                     <label className="property-field compact">
                       <span>颜色</span>
-                      <input
+                      <Input
                         className="color-input"
                         type="color"
                         value={selectedConnection.style.stroke}
@@ -1093,8 +1100,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     </label>
                     <label className="property-field compact">
                       <span>线宽</span>
-                      <input
-                        type="number"
+                      <NumberInput
                         min="1"
                         max="24"
                         value={selectedConnection.style.strokeWidth}
@@ -1114,20 +1120,19 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                   </div>
                   <label className="property-field">
                     <span>线型</span>
-                    <select
+                    <Select
                       value={selectedConnection.style.dash}
-                      onChange={(event) => {
-                        const dash = event.target.value as 'solid' | 'dashed'
+                      ariaLabel="连线线型"
+                      options={CONNECTION_DASH_OPTIONS}
+                      onValueChange={(value) => {
+                        const dash = value as 'solid' | 'dashed'
                         updateConnection(selectedConnection.id, (connection) => ({
                           ...connection,
                           style: { ...connection.style, dash },
                         }))
                         commitScene()
                       }}
-                    >
-                      <option value="solid">实线</option>
-                      <option value="dashed">虚线</option>
-                    </select>
+                    />
                   </label>
                 </CollapsibleInspectorGroup>
 
@@ -1165,26 +1170,18 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                   <div className="selection-summary">
                     已选择 <strong>{selectedNodes.length}</strong> 个根节点。
                   </div>
-                  <label className="checkbox-field property-toggle">
-                    <input
-                      type="checkbox"
-                      checked={commonVisible}
-                      onChange={(event) =>
-                        updateSelectedBaseProperty('visible', event.target.checked)
-                      }
-                    />
-                    <span>全部可见</span>
-                  </label>
-                  <label className="checkbox-field property-toggle">
-                    <input
-                      type="checkbox"
-                      checked={commonLocked}
-                      onChange={(event) =>
-                        updateSelectedBaseProperty('locked', event.target.checked)
-                      }
-                    />
-                    <span>全部锁定</span>
-                  </label>
+                  <Checkbox
+                    className="checkbox-field property-toggle"
+                    checked={commonVisible}
+                    label="全部可见"
+                    onCheckedChange={(checked) => updateSelectedBaseProperty('visible', checked)}
+                  />
+                  <Checkbox
+                    className="checkbox-field property-toggle"
+                    checked={commonLocked}
+                    label="全部锁定"
+                    onCheckedChange={(checked) => updateSelectedBaseProperty('locked', checked)}
+                  />
                 </CollapsibleInspectorGroup>
               </div>
             )}
@@ -1194,7 +1191,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 <CollapsibleInspectorGroup title="标识">
                   <label className="property-field">
                     <span>名称</span>
-                    <input
+                    <Input
                       value={primaryNode.name}
                       onChange={(event) => {
                         const name = event.target.value
@@ -1227,8 +1224,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                       (field) => (
                         <label key={field} className="property-field compact">
                           <span>{field.toUpperCase()}</span>
-                          <input
-                            type="number"
+                          <NumberInput
                             value={Math.round(primaryNode.transform[field] * 100) / 100}
                             onChange={(event) =>
                               updatePrimaryTransformField(field, Number(event.target.value))
@@ -1241,26 +1237,18 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 </CollapsibleInspectorGroup>
 
                 <CollapsibleInspectorGroup title="显示" className="inspector-toggle-group">
-                  <label className="checkbox-field property-toggle">
-                    <input
-                      type="checkbox"
-                      checked={primaryNode.visible}
-                      onChange={(event) =>
-                        updateSelectedBaseProperty('visible', event.target.checked)
-                      }
-                    />
-                    <span>可见</span>
-                  </label>
-                  <label className="checkbox-field property-toggle">
-                    <input
-                      type="checkbox"
-                      checked={primaryNode.locked}
-                      onChange={(event) =>
-                        updateSelectedBaseProperty('locked', event.target.checked)
-                      }
-                    />
-                    <span>锁定</span>
-                  </label>
+                  <Checkbox
+                    className="checkbox-field property-toggle"
+                    checked={primaryNode.visible}
+                    label="可见"
+                    onCheckedChange={(checked) => updateSelectedBaseProperty('visible', checked)}
+                  />
+                  <Checkbox
+                    className="checkbox-field property-toggle"
+                    checked={primaryNode.locked}
+                    label="锁定"
+                    onCheckedChange={(checked) => updateSelectedBaseProperty('locked', checked)}
+                  />
                 </CollapsibleInspectorGroup>
               </div>
             )}

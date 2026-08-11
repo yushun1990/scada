@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { Pressable } from '../ui'
 
 type CollapsibleInspectorGroupProps = {
   title: string
@@ -23,15 +24,14 @@ export function CollapsibleInspectorGroup({
 
   return (
     <section className={classes}>
-      <button
-        type="button"
+      <Pressable
         className="inspector-group-header"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
         <span className="inspector-group-chevron" aria-hidden="true">›</span>
         <span className="inspector-group-title">{title}</span>
-      </button>
+      </Pressable>
 
       {open && <div className="inspector-group-content">{children}</div>}
     </section>

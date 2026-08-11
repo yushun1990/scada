@@ -5,6 +5,15 @@ import type {
   ComponentPropertyKind,
   ComponentPropertyOption,
 } from '../../component-system/definition'
+import {
+  Button,
+  Checkbox,
+  Input,
+  NumberInput,
+  Pressable,
+  Select,
+  Textarea,
+} from '../../ui'
 import './component-property-contract.css'
 
 type ComponentPropertyContractEditorProps = {
@@ -20,6 +29,11 @@ const PROPERTY_KIND_LABELS: Record<ComponentPropertyKind, string> = {
   color: '颜色',
   select: '枚举',
 }
+
+const PROPERTY_KIND_OPTIONS = Object.entries(PROPERTY_KIND_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}))
 
 function nextUniqueKey(prefix: string, keys: readonly string[]) {
   const keySet = new Set(keys)
@@ -118,7 +132,7 @@ function ContractKeyInput({
   onCommit: (value: string) => void
 }) {
   return (
-    <input
+    <Input
       key={value}
       defaultValue={value}
       disabled={disabled}
@@ -141,22 +155,19 @@ function PropertyDefaultEditor({
 }) {
   if (property.kind === 'boolean') {
     return (
-      <label className="contract-checkbox">
-        <input
-          type="checkbox"
-          checked={Boolean(property.defaultValue)}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.checked)}
-        />
-        <span>默认开启</span>
-      </label>
+      <Checkbox
+        className="contract-checkbox"
+        checked={Boolean(property.defaultValue)}
+        disabled={disabled}
+        label="默认开启"
+        onCheckedChange={onChange}
+      />
     )
   }
 
   if (property.kind === 'number') {
     return (
-      <input
-        type="number"
+      <NumberInput
         value={typeof property.defaultValue === 'number' ? property.defaultValue : 0}
         disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
@@ -166,7 +177,7 @@ function PropertyDefaultEditor({
 
   if (property.kind === 'color') {
     return (
-      <input
+      <Input
         type="color"
         value={typeof property.defaultValue === 'string' ? property.defaultValue : '#2563eb'}
         disabled={disabled}
@@ -177,30 +188,26 @@ function PropertyDefaultEditor({
 
   if (property.kind === 'select') {
     return (
-      <select
+      <Select
         value={String(property.defaultValue ?? '')}
         disabled={disabled}
-        onChange={(event) => {
+        ariaLabel="Property 默认枚举值"
+        options={(property.options ?? []).map((option) => ({
+          value: String(option.value),
+          label: option.label,
+        }))}
+        onValueChange={(value) => {
           const option = property.options?.find(
-            (candidate) => String(candidate.value) === event.target.value,
+            (candidate) => String(candidate.value) === value,
           )
-          onChange(option?.value ?? event.target.value)
+          onChange(option?.value ?? value)
         }}
-      >
-        {(property.options ?? []).map((option) => (
-          <option
-            key={`${typeof option.value}:${String(option.value)}`}
-            value={String(option.value)}
-          >
-            {option.label}
-          </option>
-        ))}
-      </select>
+      />
     )
   }
 
   return (
-    <input
+    <Input
       value={typeof property.defaultValue === 'string' ? property.defaultValue : ''}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
@@ -264,8 +271,7 @@ export function ComponentPropertyContractEditor({
             className={`property-contract-item${expanded ? ' is-open' : ''}`}
             key={key}
           >
-            <button
-              type="button"
+            <Pressable
               className="property-contract-summary"
               aria-expanded={expanded}
               aria-controls={detailId}
@@ -292,7 +298,7 @@ export function ComponentPropertyContractEditor({
                 </span>
               )}
               <span className="property-contract-chevron" aria-hidden="true">›</span>
-            </button>
+            </Pressable>
 
             {expanded && (
               <div className="property-contract-detail" id={detailId}>
@@ -307,7 +313,7 @@ export function ComponentPropertyContractEditor({
                   </label>
                   <label>
                     <span>标题</span>
-                    <input
+                    <Input
                       value={property.title}
                       disabled={readOnly}
                       onChange={(event) => updateProperty(key, {
@@ -318,21 +324,16 @@ export function ComponentPropertyContractEditor({
                   </label>
                   <label>
                     <span>类型</span>
-                    <select
+                    <Select
                       value={property.kind}
                       disabled={readOnly}
-                      onChange={(event) => updateProperty(
+                      ariaLabel={`${property.title || key} Property 类型`}
+                      options={PROPERTY_KIND_OPTIONS}
+                      onValueChange={(value) => updateProperty(
                         key,
-                        convertPropertyKind(
-                          property,
-                          event.target.value as ComponentPropertyKind,
-                        ),
+                        convertPropertyKind(property, value as ComponentPropertyKind),
                       )}
-                    >
-                      {Object.entries(PROPERTY_KIND_LABELS).map(([kind, label]) => (
-                        <option key={kind} value={kind}>{label}</option>
-                      ))}
-                    </select>
+                    />
                   </label>
                   <label>
                     <span>默认值</span>
@@ -350,7 +351,7 @@ export function ComponentPropertyContractEditor({
                 {property.kind === 'select' && (
                   <label className="contract-block-field">
                     <span>枚举选项（每行 `标题=值`，纯数字值保存为 number）</span>
-                    <textarea
+                    <Textarea
                       rows={4}
                       value={formatOptions(property.options)}
                       disabled={readOnly}
@@ -372,23 +373,21 @@ export function ComponentPropertyContractEditor({
                 )}
 
                 <div className="contract-inline-row property-contract-options">
-                  <label className="contract-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(property.bindable)}
-                      disabled={readOnly}
-                      onChange={(event) => updateProperty(key, {
-                        ...property,
-                        bindable: event.target.checked,
-                      })}
-                    />
-                    <span>允许 SCADA 数据绑定</span>
-                  </label>
+                  <Checkbox
+                    className="contract-checkbox"
+                    checked={Boolean(property.bindable)}
+                    disabled={readOnly}
+                    label="允许 SCADA 数据绑定"
+                    onCheckedChange={(checked) => updateProperty(key, {
+                      ...property,
+                      bindable: checked,
+                    })}
+                  />
                 </div>
 
                 <label className="contract-block-field">
                   <span>说明</span>
-                  <textarea
+                  <Textarea
                     rows={2}
                     value={property.description ?? ''}
                     disabled={readOnly}
@@ -401,9 +400,9 @@ export function ComponentPropertyContractEditor({
 
                 {!readOnly && (
                   <div className="property-contract-detail-actions">
-                    <button type="button" onClick={() => removeProperty(key)}>
+                    <Button variant="danger" size="small" onClick={() => removeProperty(key)}>
                       删除属性
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -417,9 +416,14 @@ export function ComponentPropertyContractEditor({
       )}
 
       {!readOnly && (
-        <button className="contract-add-button property-contract-add" type="button" onClick={addProperty}>
+        <Button
+          variant="secondary"
+          size="small"
+          className="contract-add-button property-contract-add"
+          onClick={addProperty}
+        >
           + 添加属性
-        </button>
+        </Button>
       )}
     </div>
   )

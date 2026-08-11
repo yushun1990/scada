@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button } from '../../ui'
+import { Button, Pressable } from '../../ui'
 import {
   createScadaWork,
   listScadaWorks,
@@ -82,9 +82,8 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
         </div>
 
         <nav className="workspace-nav" aria-label="主模块">
-          <button
-            type="button"
-            className={module === 'works' ? 'active' : ''}
+          <Pressable
+            className={`workspace-nav-item${module === 'works' ? ' active' : ''}`}
             onClick={() => navigate('#/works')}
           >
             <span className="workspace-nav-icon">▦</span>
@@ -92,10 +91,9 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
               <strong>SCADA 作品</strong>
               <small>设计、预览与管理场景</small>
             </span>
-          </button>
-          <button
-            type="button"
-            className={module === 'components' ? 'active' : ''}
+          </Pressable>
+          <Pressable
+            className={`workspace-nav-item${module === 'components' ? ' active' : ''}`}
             onClick={() => navigate('#/components')}
           >
             <span className="workspace-nav-icon">◇</span>
@@ -103,7 +101,7 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
               <strong>组件库开发</strong>
               <small>开发与维护可复用组件</small>
             </span>
-          </button>
+          </Pressable>
         </nav>
       </aside>
 
