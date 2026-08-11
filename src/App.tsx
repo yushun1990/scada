@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ComponentEditorPage } from './features/component-library/ComponentEditorPage'
 import { ScadaEditorPage } from './features/scada-editor/ScadaEditorPage'
 import { WorkspacePage } from './features/workspace/WorkspacePage'
+import './inspector-compact.css'
 
 type AppRoute =
   | { page: 'workspace' }
