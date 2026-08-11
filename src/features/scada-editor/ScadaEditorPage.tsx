@@ -65,6 +65,7 @@ import {
   SceneRenderer,
   type RendererMode,
 } from '../../renderer/SceneRenderer'
+import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import {
   AlignBottomIcon,
   AlignCenterXIcon,
@@ -1038,8 +1039,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
 
             {inspectorTab === 'properties' && selectedConnection && (
               <div className="property-section-list">
-                <fieldset className="inspector-group">
-                  <legend>标识与路径</legend>
+                <CollapsibleInspectorGroup title="标识与路径">
                   <label className="property-field">
                     <span>名称</span>
                     <input
@@ -1071,10 +1071,9 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                       <option value="straight">直线</option>
                     </select>
                   </label>
-                </fieldset>
+                </CollapsibleInspectorGroup>
 
-                <fieldset className="inspector-group">
-                  <legend>样式</legend>
+                <CollapsibleInspectorGroup title="样式">
                   <div className="property-grid">
                     <label className="property-field compact">
                       <span>颜色</span>
@@ -1130,34 +1129,39 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                       <option value="dashed">虚线</option>
                     </select>
                   </label>
-                </fieldset>
+                </CollapsibleInspectorGroup>
 
-                <div className="property-summary compact-summary">
-                  <div>
-                    <span>起点</span>
-                    <code>{selectedConnection.source.nodeId} / {selectedConnection.source.anchorId}</code>
+                <CollapsibleInspectorGroup title="端点">
+                  <div className="property-summary compact-summary">
+                    <div>
+                      <span>起点</span>
+                      <code>{selectedConnection.source.nodeId} / {selectedConnection.source.anchorId}</code>
+                    </div>
+                    <div>
+                      <span>终点</span>
+                      <code>{selectedConnection.target.nodeId} / {selectedConnection.target.anchorId}</code>
+                    </div>
                   </div>
-                  <div>
-                    <span>终点</span>
-                    <code>{selectedConnection.target.nodeId} / {selectedConnection.target.anchorId}</code>
-                  </div>
-                </div>
+                </CollapsibleInspectorGroup>
               </div>
             )}
 
             {inspectorTab === 'properties' && !selectedConnection && selectedNodes.length === 0 && (
-              <div className="scene-inspector-summary">
-                <div><span>场景</span><code>{scene.name}</code></div>
-                <div><span>尺寸</span><code>{scene.width} × {scene.height}</code></div>
-                <div><span>背景</span><code>{scene.background}</code></div>
-                <div><span>边界</span><code>固定画板 · 组件不可越界</code></div>
+              <div className="property-section-list">
+                <CollapsibleInspectorGroup title="场景">
+                  <div className="scene-inspector-summary">
+                    <div><span>名称</span><code>{scene.name}</code></div>
+                    <div><span>尺寸</span><code>{scene.width} × {scene.height}</code></div>
+                    <div><span>背景</span><code>{scene.background}</code></div>
+                    <div><span>边界</span><code>固定画板 · 组件不可越界</code></div>
+                  </div>
+                </CollapsibleInspectorGroup>
               </div>
             )}
 
             {inspectorTab === 'properties' && !selectedConnection && selectedNodes.length > 1 && (
               <div className="property-section-list">
-                <fieldset className="inspector-group">
-                  <legend>批量属性</legend>
+                <CollapsibleInspectorGroup title="批量属性" className="inspector-toggle-group">
                   <div className="selection-summary">
                     已选择 <strong>{selectedNodes.length}</strong> 个根节点。
                   </div>
@@ -1181,15 +1185,13 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     />
                     <span>全部锁定</span>
                   </label>
-                </fieldset>
-
+                </CollapsibleInspectorGroup>
               </div>
             )}
 
             {inspectorTab === 'properties' && !selectedConnection && primaryNode && (
               <div className="property-section-list">
-                <fieldset className="inspector-group">
-                  <legend>标识</legend>
+                <CollapsibleInspectorGroup title="标识">
                   <label className="property-field">
                     <span>名称</span>
                     <input
@@ -1205,7 +1207,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     <div><span>类型</span><code>{primaryNode.type}</code></div>
                     <div><span>父级</span><code>{primaryNode.parentId ?? 'scene-root'}</code></div>
                   </div>
-                </fieldset>
+                </CollapsibleInspectorGroup>
 
                 {primaryComponentRegistration && !isGroupNode(primaryNode) && (
                   <ComponentPropertiesInspector
@@ -1219,8 +1221,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                   />
                 )}
 
-                <fieldset className="inspector-group">
-                  <legend>几何</legend>
+                <CollapsibleInspectorGroup title="几何">
                   <div className="property-grid">
                     {(['x', 'y', 'width', 'height', 'rotation'] as const).map(
                       (field) => (
@@ -1237,10 +1238,9 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                       ),
                     )}
                   </div>
-                </fieldset>
+                </CollapsibleInspectorGroup>
 
-                <fieldset className="inspector-group inspector-toggle-group">
-                  <legend>显示</legend>
+                <CollapsibleInspectorGroup title="显示" className="inspector-toggle-group">
                   <label className="checkbox-field property-toggle">
                     <input
                       type="checkbox"
@@ -1261,8 +1261,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     />
                     <span>锁定</span>
                   </label>
-                </fieldset>
-
+                </CollapsibleInspectorGroup>
               </div>
             )}
 
