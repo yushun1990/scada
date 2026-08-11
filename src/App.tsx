@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ComponentEditorPage } from './features/component-library/ComponentEditorPage'
 import { ScadaEditorPage } from './features/scada-editor/ScadaEditorPage'
 import { WorkspacePage } from './features/workspace/WorkspacePage'
+import { Button, Separator } from './ui'
 import './inspector-compact.css'
 import './component-editor-header.css'
-import './studio-navigation.css'
 
 type WorkspaceModule = 'works' | 'components'
 
@@ -40,16 +41,32 @@ function navigateToWorkspace(module: WorkspaceModule) {
 }
 
 function StudioWorkspaceExit({ module }: { module: WorkspaceModule }) {
-  return (
-    <div className="studio-workspace-exit-slot">
-      <button
-        type="button"
-        className="studio-workspace-exit"
+  const [toolbar, setToolbar] = useState<HTMLElement | null>(null)
+
+  useEffect(() => {
+    setToolbar(document.querySelector<HTMLElement>('.editor-header .document-toolbar'))
+  }, [module])
+
+  if (!toolbar) {
+    return null
+  }
+
+  const title = module === 'components' ? '返回组件库工作台' : '返回 SCADA 作品工作台'
+
+  return createPortal(
+    <>
+      <Separator orientation="vertical" className="ui-workspace-separator" />
+      <Button
+        variant="accent"
+        className="ui-workspace-exit"
+        title={title}
+        aria-label={title}
         onClick={() => navigateToWorkspace(module)}
       >
-        工作台
-      </button>
-    </div>
+        ← 工作台
+      </Button>
+    </>,
+    toolbar,
   )
 }
 
@@ -66,7 +83,7 @@ function App() {
     return (
       <>
         <ScadaEditorPage key={route.workId} workId={route.workId} />
-        <StudioWorkspaceExit module="works" />
+        <StudioWorkspaceExit key={`scada-${route.workId}`} module="works" />
       </>
     )
   }
@@ -75,7 +92,7 @@ function App() {
     return (
       <>
         <ComponentEditorPage key={route.componentId} componentId={route.componentId} />
-        <StudioWorkspaceExit module="components" />
+        <StudioWorkspaceExit key={`component-${route.componentId}`} module="components" />
       </>
     )
   }
