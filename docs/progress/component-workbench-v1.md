@@ -76,7 +76,8 @@ SCADA Workbench
 | M6.1 Package-backed public contract | merged · PR #50 · `8fd82dc826c30600a4e9740355700b611bf36634` · CI #305 ✅ | Component Library package draft owns the real serializable `ComponentDefinition`; Workbench authors Properties / Actions / Events / Anchors |
 | M6.2 Layer Tree foundation | **accepted · 2026-08-09** · PR #52 · `e9919343d42d1334f2ba2ccd927469db50943d56` · CI #310 ✅ | Serialized private Group / SVG / Image / Vector / Text tree; add/nest/reorder/rename/delete/save/reopen manual smoke passed |
 | M6.2.1 Workbench UX architecture | merged · PR #54 · `c43a23c2b6aeeb6a95b52f40d21bcdea199a7133` · CI #314 ✅ · superseded before final acceptance | Removed the long-form editor and established the first Layers → Canvas → Inspector IDE shell |
-| M6.2.2 Workbench layout convergence | merged · PR #56 · `9976672680d9dd95fd8ed6281810e44dec7dee26` · CI #319 ✅ · manual smoke pending | Align Component Workbench with SCADA Workbench: top Design/Preview, left Layers, center Canvas, right Base/Properties/Actions/Events; Anchors live in Base |
+| M6.2.2 Workbench layout convergence | merged · PR #56 · `9976672680d9dd95fd8ed6281810e44dec7dee26` · CI #319 ✅ · inspector semantics superseded before final acceptance | Align Component Workbench with SCADA Workbench: top Design/Preview, left Layers, center Canvas, right contextual Inspector |
+| M6.2.3 Unified contextual Properties inspector | implementation complete · PR pending · manual smoke pending | Merge Base + Properties into one contextual Properties tab: component root shows metadata/public Properties/size/Anchors; private Layer shows Layer properties |
 | M6.3 Visual style + rule foundation | pending | Typed renderer-independent visual state and property-driven rules |
 | M6.4 Animation foundation | pending | Reusable component-internal visual animation primitives |
 | M6.5 Controlled Script Runtime | pending | Sandboxed component behavior + Visual API boundary |
@@ -225,7 +226,7 @@ Make Component Workbench and SCADA Workbench share the same interaction grammar:
 Top mode             Design / Preview         Design / Preview
 Left dock            Components/Layers/etc.   Internal Layers
 Center                Scene Canvas             Component Canvas
-Right inspector       Properties/Actions/...  Base/Properties/Actions/Events
+Right inspector       Properties/Actions/...  Contextual Inspector
 ```
 
 The two workbenches still edit different things, but users should not need to learn two unrelated application layouts.
@@ -244,59 +245,85 @@ Center: Component Canvas
 Right: contextual Inspector
 ```
 
-- The left Layer Tree now includes an explicit component-root row in addition to private visual layers.
-- Selecting the component root switches the Base inspector to component identity, status, description, size and Anchors.
-- Selecting a private Layer switches the same Base inspector to layer identity, hierarchy, geometry, visibility, opacity and kind-specific data.
-- Selecting a Layer automatically returns the right inspector to `基础信息`, matching the contextual-inspector mental model.
-- Right inspector tabs are reduced to exactly `基础信息 / 属性 / 方法 / 事件`.
-- Properties / Actions / Events always represent the public Component contract, regardless of which private Layer is selected.
-- Anchors are no longer a top-level tab; they are edited inside component Base information because they are public geometry/attachment metadata rather than runtime interaction values.
-- Layer creation stays exclusively in the left dock; z-order movement, deletion and precise Layer editing stay in Base inspector.
+- The left Layer Tree includes an explicit component-root row in addition to private visual layers.
+- Selecting the component root or a private Layer changes the contextual inspector target.
+- Layer creation stays exclusively in the left dock; z-order movement, deletion and precise Layer editing live in the right inspector.
 - Design mode allows package authoring; Preview mode locks authoring controls while preserving navigation and selection context.
-- The center artboard remains a deliberate placeholder until M6.3 provides the real Composite Renderer; M6.2.2 does not fake SVG/Image/Vector rendering.
+- The center artboard remains a deliberate placeholder until M6.3 provides the real Composite Renderer.
 - Native built-ins use the same shell but remain read-only and expose their component root rather than reverse-engineered internal layers.
 - Existing `implementationDraft` persistence remains untouched and hidden from the primary UI.
-- No Component Package schema, Scene model, Runtime behavior, Registry publication path or SCADA Workbench behavior changes in this slice.
+- No Component Package schema, Scene model, Runtime behavior, Registry publication path or SCADA Workbench behavior changed.
+
+### Further convergence before final acceptance
+
+The M6.2.2 layout is retained, but its `基础信息 / 属性 / 方法 / 事件` inspector split is superseded by M6.2.3 before final UX acceptance. The stronger interaction rule is that **Properties means the properties of the currently selected design object**.
+
+## M6.2.3 Unified contextual Properties inspector
+
+### Goal
+
+Remove the artificial distinction between `基础信息` and `属性` while preserving the public/private architecture boundary.
+
+The stable right-side model becomes:
+
+```text
+Properties | Actions | Events
+```
+
+`Properties` is contextual:
+
+```text
+select Component root
+        ↓
+Properties
+├── basic metadata
+├── size
+├── public Component Properties
+├── Anchors
+└── implementation boundary summary
+
+select private Layer
+        ↓
+Properties
+├── layer identity / hierarchy
+├── geometry
+├── visibility / opacity
+└── kind-specific private data
+```
+
+### Completed in code
+
+- Removed the standalone `基础信息` inspector tab.
+- Right inspector now contains exactly `属性 / 方法 / 事件`, matching the SCADA Editor mental model more closely.
+- `属性` is the default inspector and is automatically selected whenever component-root / Layer selection changes.
+- Selecting the component root shows one continuous component Properties inspector containing basic metadata, status, description, default/minimum size, public Property contract, Anchors and the implementation-boundary summary.
+- Public Property authoring is embedded directly into the component-root Properties inspector rather than living behind a second tab.
+- Anchors remain with the component root inside Properties because they are public visual geometry metadata.
+- Selecting a private Layer shows the existing Layer inspector in the same `属性` tab; public Component Properties are not mixed into private Layer editing.
+- `方法 / 事件` remain component-level public contracts and do not change meaning based on selected private Layer.
+- Preview continues to make authoring controls read-only.
+- No ComponentDefinition schema, ComponentVisualDefinition schema, Scene model, Runtime, Registry publication or SCADA Workbench behavior changes.
 
 ### Interaction invariant
 
-The stable Component Workbench interaction model is now:
+The right-side inspector now follows one rule:
 
-```text
-Header
-  Design / Preview
+> Properties always describe the currently selected design object; Actions and Events always describe the component's public interaction contract.
 
-Left
-  Component root
-  Internal Layer Tree
-
-Center
-  Component Canvas
-
-Right
-  Base information     -> component root OR selected private Layer
-  Properties           -> public component Properties
-  Actions              -> public component Actions
-  Events               -> public component Events
-```
-
-Anchors belong to the component-root Base inspector.
+This keeps the UI intuitive without exposing private Layer fields as public Component Properties.
 
 ### Verification status
 
-- CI #318 correctly rejected the first implementation because callback closures still saw the selected Layer as nullable.
-- The Layer Inspector was split so a guarded non-null Layer is passed explicitly into the callback-owning content component.
-- CI #319 then passed both Build and Lint.
-- PR #56 was squash merged as `9976672680d9dd95fd8ed6281810e44dec7dee26`.
-- Manual browser smoke is still required for:
-  - Design / Preview switching
-  - Layer creation and selection from the left dock
-  - component-root selection
-  - Base inspector switching between component and Layer context
-  - Anchors editable under component Base
-  - public Properties / Actions / Events still editable in Design mode
-  - Preview locks all authoring controls
-  - save/reopen retains existing package data
+- implementation complete on `feat/unified-component-properties-inspector`
+- CI Build/Lint required before merge
+- manual smoke after merge should verify:
+  - only `属性 / 方法 / 事件` appear on the right
+  - component root Properties include metadata, size, public Properties and Anchors
+  - selecting a Layer keeps the same Properties tab but replaces the content with Layer properties
+  - changing Layer/root selection automatically returns to Properties
+  - Actions / Events remain component-level
+  - Preview locks edits
+  - save/reopen retains all existing package data
 
 ### Deliberately deferred
 
@@ -310,4 +337,4 @@ Anchors belong to the component-root Base inspector.
 
 ## Next checkpoint
 
-After M6.2.2 manual smoke is accepted, continue **M6.3 Visual style + rule foundation** on this shared SCADA-like shell. M6.3 should plug the real Composite Renderer and typed visual styling/rules into the existing center Canvas and right Inspector without introducing another navigation architecture.
+After M6.2.3 manual smoke is accepted, continue **M6.3 Visual style + rule foundation**. M6.3 should extend the selected Layer's contextual Properties inspector with typed Style / Visual Rule sections while plugging the real Composite Renderer into the existing center Canvas; it should not introduce another navigation model.
