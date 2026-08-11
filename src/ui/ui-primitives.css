@@ -87,6 +87,23 @@
   opacity: 0.42;
 }
 
+/* Structural click targets keep feature-owned layout while sharing Base UI's
+ * interaction semantics. Use this for tree rows, collapsible headers and
+ * summary rows that must not inherit ordinary button geometry. */
+.ui-pressable {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ui-pressable:disabled,
+.ui-pressable[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .ui-icon-button {
   width: var(--ui-control-height);
   padding: 0;
@@ -99,6 +116,57 @@
 .ui-icon-button svg {
   display: block;
   flex: 0 0 auto;
+}
+
+.ui-input,
+.ui-textarea {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  font: inherit;
+  font-size: var(--ui-font-size-tool);
+}
+
+.ui-input {
+  height: var(--ui-control-height);
+  padding: 0 var(--ui-space-3);
+  line-height: 1;
+}
+
+.ui-textarea {
+  min-height: 52px;
+  padding: var(--ui-space-2) var(--ui-space-3);
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.ui-input:hover:not(:disabled),
+.ui-textarea:hover:not(:disabled) {
+  border-color: var(--ui-color-border-strong);
+}
+
+.ui-input:disabled,
+.ui-textarea:disabled {
+  cursor: not-allowed;
+  color: var(--ui-color-text-muted);
+  background: var(--ui-color-surface-muted);
+}
+
+.ui-input[type='color'] {
+  padding: 2px;
+}
+
+.property-field > .ui-input,
+.property-field > .ui-textarea,
+.property-field > .ui-select-trigger {
+  grid-column: 2;
+}
+
+.property-field > .ui-textarea {
+  min-height: 52px;
 }
 
 .ui-segmented-control,
@@ -217,6 +285,7 @@
   justify-content: space-between;
   width: 100%;
   height: var(--ui-control-height);
+  min-width: 0;
   gap: var(--ui-space-2);
   padding: 0 var(--ui-space-3);
   border: 1px solid var(--ui-color-border);
@@ -251,6 +320,8 @@
 
 .ui-select-popup {
   min-width: var(--anchor-width);
+  max-height: min(320px, var(--available-height));
+  overflow: auto;
   padding: var(--ui-space-1);
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-control);
@@ -329,4 +400,23 @@
   order: 5;
   margin: 0;
   padding-inline: var(--ui-space-3);
+}
+
+/* Feature layouts that are structural rather than ordinary buttons retain
+ * their own geometry while the element itself is now a Studio Pressable. */
+.ui-pressable.inspector-group-header {
+  width: 100%;
+  height: var(--ui-inspector-group-height);
+  padding: 0 3px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.ui-pressable.property-contract-summary,
+.ui-pressable.component-layer-root,
+.ui-pressable.component-layer-row,
+.ui-pressable.workspace-nav-item {
+  width: 100%;
 }
