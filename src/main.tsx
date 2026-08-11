@@ -6,6 +6,7 @@ import App from './App'
 import './styles.css'
 import './editor-chrome.css'
 import './styles/ui-foundation.css'
+import './ui/ui-primitives.css'
 
 // A SCADA editor favors stable interaction cost over retina-level canvas
 // backing stores. This prevents every full-size layer from scaling its pixel
