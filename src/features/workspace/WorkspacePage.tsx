@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Button } from '../../ui'
 import {
   createScadaWork,
   listScadaWorks,
@@ -115,9 +116,9 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
                 <h1>SCADA 作品</h1>
                 <p>每个作品拥有独立场景存储，默认在当前页面进入编辑器；需要并行编辑时可由浏览器另开标签页。</p>
               </div>
-              <button className="workspace-primary-button" type="button" onClick={createWork}>
+              <Button variant="primary" className="workspace-primary-button" onClick={createWork}>
                 + 新建作品
-              </button>
+              </Button>
             </header>
 
             <div className="workspace-card-grid">
@@ -141,13 +142,14 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
                       <span>{work.connectionCount} 条连线</span>
                       <span>更新 {formatUpdatedAt(work.updatedAt)}</span>
                     </div>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="small"
                       className="workspace-card-action"
                       onClick={() => openWork(work.id)}
                     >
                       编辑
-                    </button>
+                    </Button>
                   </div>
                 </article>
               ))}
@@ -161,9 +163,9 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
                 <h1>组件库开发</h1>
                 <p>组件开发工作台维护可复用组件的公开契约与私有实现，SCADA 组态只消费被明确暴露的能力。</p>
               </div>
-              <button className="workspace-primary-button" type="button" onClick={createComponent}>
+              <Button variant="primary" className="workspace-primary-button" onClick={createComponent}>
                 + 新建组件
-              </button>
+              </Button>
             </header>
 
             <div className="component-table" role="table" aria-label="组件列表">
@@ -193,13 +195,14 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
                         {component.builtIn ? '内置' : component.status === 'ready' ? '可用' : '草稿'}
                       </span>
                     </span>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="small"
                       className="component-edit-button"
                       onClick={() => openComponent(component.id)}
                     >
                       {component.builtIn ? '查看' : '编辑'}
-                    </button>
+                    </Button>
                   </div>
                 )
               })}

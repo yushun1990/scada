@@ -3,6 +3,13 @@ import '../../workbench.css'
 import { useMemo, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import type { ComponentDefinition } from '../../component-system/definition'
+import {
+  Button,
+  SegmentedControl,
+  Tabs,
+  type SegmentedControlItem,
+  type StudioTabItem,
+} from '../../ui'
 import { ComponentContractEditor } from './ComponentContractEditor'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
@@ -22,10 +29,15 @@ import './component-editor.css'
 
 type InspectorTab = 'properties' | 'actions' | 'events'
 
-const INSPECTOR_TABS: Array<[InspectorTab, string]> = [
-  ['properties', '属性'],
-  ['actions', '方法'],
-  ['events', '事件'],
+const INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
+  { value: 'properties', label: '属性' },
+  { value: 'actions', label: '方法' },
+  { value: 'events', label: '事件' },
+]
+
+const MODE_ITEMS: Array<SegmentedControlItem<ComponentWorkbenchMode>> = [
+  { value: 'editor', label: '设计' },
+  { value: 'preview', label: '预览' },
 ]
 
 export function ComponentEditorPage({ componentId }: { componentId: string }) {
@@ -93,15 +105,6 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     <div className="editor-shell component-editor-shell">
       <header className="editor-header component-editor-header">
         <div className="brand-block component-brand-block">
-          <button
-            type="button"
-            className="component-back-button"
-            aria-label="返回工作区"
-            title="返回工作区"
-            onClick={() => { window.location.hash = '#/' }}
-          >
-            ←
-          </button>
           <span className="brand-mark" aria-hidden="true">C</span>
           <div className="brand-text">
             <strong>Component Editor</strong>
@@ -109,29 +112,22 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
           </div>
         </div>
 
-        <div className="mode-switch" role="group" aria-label="组件工作模式">
-          <button
-            type="button"
-            className={mode === 'editor' ? 'active' : ''}
-            onClick={() => setMode('editor')}
-          >
-            设计
-          </button>
-          <button
-            type="button"
-            className={mode === 'preview' ? 'active' : ''}
-            onClick={() => setMode('preview')}
-          >
-            预览
-          </button>
-        </div>
+        <SegmentedControl
+          value={mode}
+          items={MODE_ITEMS}
+          onValueChange={setMode}
+          ariaLabel="组件工作模式"
+          className="mode-switch"
+        />
 
         <div className="component-header-actions">
           <span className={`component-status-pill ${component.status}`}>
             {builtInReadOnly ? '内置' : component.status === 'ready' ? '可用' : '草稿'}
           </span>
           <div className="document-toolbar" role="toolbar" aria-label="组件文档操作">
-            <button type="button" disabled={builtInReadOnly} onClick={save}>保存</button>
+            <Button variant="primary" disabled={builtInReadOnly} onClick={save}>
+              保存
+            </Button>
           </div>
         </div>
       </header>
@@ -166,23 +162,13 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
 
         <aside className="property-panel component-property-panel">
           <section className="semantic-inspector component-semantic-inspector" aria-label="组件配置">
-            <div
-              className="inspector-tabs"
-              role="tablist"
-              aria-label="组件配置检查器"
-              style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
-            >
-              {INSPECTOR_TABS.map(([tab, label]) => (
-                <button
-                  key={tab}
-                  type="button"
-                  className={inspectorTab === tab ? 'active' : ''}
-                  onClick={() => setInspectorTab(tab)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              value={inspectorTab}
+              items={INSPECTOR_TABS}
+              onValueChange={setInspectorTab}
+              ariaLabel="组件配置检查器"
+              className="component-inspector-tabs"
+            />
 
             {inspectorTab === 'properties' && selectedLayerId !== null && (
               <ComponentVisualLayerInspector

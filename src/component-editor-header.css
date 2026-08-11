@@ -7,12 +7,12 @@
  */
 
 .component-editor-shell {
-  grid-template-rows: 60px minmax(0, 1fr);
+  grid-template-rows: var(--ui-header-height) minmax(0, 1fr);
 }
 
 .component-editor-header {
-  height: 60px;
-  min-height: 60px;
+  height: var(--ui-header-height);
+  min-height: var(--ui-header-height);
 }
 
 .component-editor-header .component-brand-block {
@@ -23,32 +23,8 @@
   align-self: center;
 }
 
-/* Navigation is intentionally quieter than a canvas/tool action. */
-.component-editor-header .component-back-button {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  color: #8b97a8;
-  background: transparent;
-  box-shadow: none;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-}
-
-.component-editor-header .component-back-button:hover {
-  border: 0;
-  color: #344054;
-  background: #f1f4f8;
-}
-
-/* Keep mode selection as a first-class grid child. Equal left/right flexible
- * columns in the shared editor header make this the actual viewport center. */
+/* Mode selection is a first-class grid child, so it stays centered regardless
+ * of left identity width or right action count. */
 .component-editor-header > .mode-switch {
   position: static;
   grid-column: 2;
@@ -64,7 +40,7 @@
   grid-row: 1;
   align-items: center;
   justify-self: end;
-  gap: 8px;
+  gap: var(--ui-space-3);
   min-width: 0;
 }
 
@@ -73,10 +49,10 @@
   flex: 0 0 auto;
 }
 
-/* Component Canvas has no real command toolbar yet. Reserve the same footer
- * status lane used by SCADA instead of spending the top edge on status text. */
+/* Component Canvas has no command toolbar yet. Keep the shared footer status
+ * lane rather than spending the top edge on status text. */
 .component-editor-shell .component-canvas-area {
-  grid-template-rows: minmax(0, 1fr) 32px;
+  grid-template-rows: minmax(0, 1fr) var(--ui-status-height);
 }
 
 .component-editor-shell .component-canvas-stage {
@@ -88,8 +64,8 @@
   inset: auto;
   grid-row: 2;
   min-width: 0;
-  min-height: 32px;
-  height: 32px;
+  min-height: var(--ui-status-height);
+  height: var(--ui-status-height);
   overflow: hidden;
 }
 
@@ -112,11 +88,6 @@
 }
 
 @media (max-width: 760px) {
-  .component-editor-header .component-back-button {
-    width: 22px;
-    height: 22px;
-  }
-
   .component-editor-header .component-status-pill {
     display: none;
   }
