@@ -1,7 +1,17 @@
-export const COMPONENT_VISUAL_VERSION = 1 as const
+export const COMPONENT_VISUAL_VERSION = 2 as const
+
+export const DEFAULT_COMPONENT_VISUAL_DESIGN_SIZE = {
+  width: 480,
+  height: 360,
+} as const
 
 export type VisualLayerKind = 'group' | 'svg' | 'image' | 'vector' | 'text'
 export type VisualVectorPrimitive = 'rect' | 'circle' | 'ellipse' | 'line' | 'path'
+
+export type ComponentVisualDesignSize = {
+  width: number
+  height: number
+}
 
 export type VisualLayerTransform = {
   x: number
@@ -58,6 +68,7 @@ export type ComponentVisualLayer =
 export type ComponentVisualDefinition = {
   version: typeof COMPONENT_VISUAL_VERSION
   mode: 'native' | 'composite'
+  designSize: ComponentVisualDesignSize
   layers: readonly ComponentVisualLayer[]
 }
 
@@ -87,6 +98,21 @@ function isFiniteNumber(value: unknown): value is number {
 function assertText(value: unknown, label: string) {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error(`${label}不能为空`)
+  }
+}
+
+function assertDesignSize(value: unknown) {
+  if (!isRecord(value)) {
+    throw new Error('Component visual 缺少 designSize')
+  }
+
+  if (
+    !isFiniteNumber(value.width) ||
+    !isFiniteNumber(value.height) ||
+    value.width <= 0 ||
+    value.height <= 0
+  ) {
+    throw new Error('Component visual designSize 必须是大于 0 的有限尺寸')
   }
 }
 
@@ -180,6 +206,8 @@ export function assertComponentVisualDefinition(
     throw new Error('Component visual definition 无效')
   }
 
+  assertDesignSize(value.designSize)
+
   if (value.mode === 'native' && value.layers.length > 0) {
     throw new Error('Native component visual 不能同时保存 composite layers')
   }
@@ -227,10 +255,22 @@ export function assertComponentVisualDefinition(
   }
 }
 
-export function createEmptyCompositeVisual(): ComponentVisualDefinition {
+function cloneDesignSize(
+  designSize: ComponentVisualDesignSize = DEFAULT_COMPONENT_VISUAL_DESIGN_SIZE,
+): ComponentVisualDesignSize {
+  return {
+    width: designSize.width,
+    height: designSize.height,
+  }
+}
+
+export function createEmptyCompositeVisual(
+  designSize: ComponentVisualDesignSize = DEFAULT_COMPONENT_VISUAL_DESIGN_SIZE,
+): ComponentVisualDefinition {
   return {
     version: COMPONENT_VISUAL_VERSION,
     mode: 'composite',
+    designSize: cloneDesignSize(designSize),
     layers: [],
   }
 }
@@ -239,6 +279,7 @@ export function createNativeVisual(): ComponentVisualDefinition {
   return {
     version: COMPONENT_VISUAL_VERSION,
     mode: 'native',
+    designSize: cloneDesignSize(),
     layers: [],
   }
 }
@@ -249,6 +290,7 @@ export function cloneComponentVisual(
   return {
     version: COMPONENT_VISUAL_VERSION,
     mode: visual.mode,
+    designSize: cloneDesignSize(visual.designSize),
     layers: visual.layers.map((layer) => ({
       ...layer,
       transform: { ...layer.transform },
