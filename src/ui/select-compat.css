@@ -161,16 +161,32 @@
 }
 
 .canvas-tool-group .scene-size-control > button.ui-select-trigger {
+  position: relative;
+  justify-content: center;
   width: 72px;
   height: 30px;
   min-height: 30px;
-  padding: 0 8px;
+  gap: 0;
+  padding: 0 18px;
   border: 1px solid #d7e0e9;
   border-radius: 6px;
   color: #334155;
   background: #ffffff;
   font-size: 11px;
   font-weight: 500;
+}
+
+.canvas-tool-group .scene-size-control > button.ui-select-trigger .ui-select-value {
+  width: 100%;
+  text-align: center;
+}
+
+.canvas-tool-group .scene-size-control > button.ui-select-trigger .ui-select-icon {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .canvas-tool-group .scene-size-control > button.ui-select-trigger:hover:not([data-disabled]) {
