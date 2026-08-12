@@ -1,3 +1,5 @@
+import { Layer, Stage } from 'react-konva'
+import { CompositeComponentVisualRenderer } from '../../component-system/CompositeComponentVisualRenderer'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
 import {
   layerKindLabel,
@@ -27,6 +29,9 @@ export function ComponentVisualCanvas({
     520 / Math.max(1, designWidth),
     380 / Math.max(1, designHeight),
   )
+  const artboardWidth = designWidth * artboardScale
+  const artboardHeight = designHeight * artboardScale
+  const isComposite = visual.mode === 'composite'
 
   return (
     <>
@@ -34,21 +39,35 @@ export function ComponentVisualCanvas({
         <div
           className="component-artboard"
           style={{
-            width: `${designWidth * artboardScale}px`,
-            height: `${designHeight * artboardScale}px`,
+            width: `${artboardWidth}px`,
+            height: `${artboardHeight}px`,
           }}
         >
-          <div className="component-artboard-placeholder">
-            <strong>{componentTitle}</strong>
-            <span>{visual.mode === 'native' ? 'Native Renderer' : 'Composite Visual'}</span>
-            {mode === 'preview' ? (
-              <small>预览模式已锁定编辑。</small>
-            ) : selectedLayer ? (
-              <small>当前图层：{selectedLayer.name} · {layerKindLabel(selectedLayer.kind)}</small>
-            ) : (
-              <small>当前选择：组件根。左侧选择内部图层后可在右侧编辑它。</small>
-            )}
-          </div>
+          {isComposite ? (
+            <Stage width={artboardWidth} height={artboardHeight} listening={false}>
+              <Layer listening={false}>
+                <CompositeComponentVisualRenderer
+                  visual={visual}
+                  designWidth={designWidth}
+                  designHeight={designHeight}
+                  x={0}
+                  y={0}
+                  width={artboardWidth}
+                  height={artboardHeight}
+                  rotation={0}
+                  visible
+                  opacity={1}
+                  listening={false}
+                />
+              </Layer>
+            </Stage>
+          ) : (
+            <div className="component-artboard-placeholder">
+              <strong>{componentTitle}</strong>
+              <span>Native Renderer</span>
+              <small>内置组件继续使用可信 Native Renderer，不反向解析其内部图层。</small>
+            </div>
+          )}
         </div>
       </div>
 
