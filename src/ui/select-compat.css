@@ -1,0 +1,181 @@
+/*
+ * Base UI Select compatibility.
+ *
+ * Select.Trigger renders a real <button>, while the pre-Base-UI editor still
+ * contains feature CSS that targets generic `button` and native `select`
+ * elements. Keep the primitive authoritative until those legacy selectors are
+ * fully removed. Popup geometry also deliberately uses ordinary below-trigger
+ * positioning instead of Base UI's selected-item overlap mode.
+ */
+
+.ui-select-positioner > .ui-select-popup {
+  box-sizing: border-box;
+  width: max-content;
+  min-width: var(--anchor-width);
+  max-width: min(320px, var(--available-width));
+}
+
+.ui-select-popup > .ui-select-list {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.ui-select-popup .ui-select-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: var(--ui-space-2);
+  white-space: nowrap;
+}
+
+.ui-select-popup .ui-select-item-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  flex: 0 0 14px;
+}
+
+.ui-select-popup .ui-select-item-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.ui-select-trigger[data-disabled] {
+  cursor: not-allowed;
+  color: var(--ui-color-text-muted);
+  background: var(--ui-color-surface-muted);
+  opacity: 0.58;
+}
+
+/* Component Workbench layer creator ----------------------------------------
+ * Legacy `.component-layer-add-row button` rules are intended for the add
+ * button, but Base UI makes the Select trigger a button as well. */
+.component-layer-add-row > button.ui-select-trigger {
+  width: 100%;
+  height: 31px;
+  min-height: 31px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 6px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.component-layer-add-row > button.ui-select-trigger:hover:not([data-disabled]) {
+  border-color: var(--ui-color-border-strong);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+}
+
+/* Compact Inspector --------------------------------------------------------
+ * Native `select` density rules no longer match Base UI triggers. Mirror the
+ * existing Inspector dimensions on the semantic primitive instead. */
+.property-field > button.ui-select-trigger {
+  grid-column: 2;
+  width: 100%;
+  height: 27px;
+  min-height: 27px;
+  min-width: 0;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.property-grid .property-field > button.ui-select-trigger {
+  padding-right: 4px;
+  padding-left: 5px;
+}
+
+.contract-grid button.ui-select-trigger,
+.contract-grid-three button.ui-select-trigger,
+.contract-block-field button.ui-select-trigger {
+  width: 100%;
+  height: 27px;
+  min-height: 27px;
+  min-width: 0;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+/* SCADA canvas toolbar -----------------------------------------------------
+ * Legacy `.canvas-tool-group button` rules are for Toolbar.Button controls.
+ * Restore Select semantics when a trigger lives in the same group. */
+.canvas-tool-group button.ui-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: var(--ui-control-height);
+  min-height: var(--ui-control-height);
+  min-width: 0;
+  gap: var(--ui-space-2);
+  padding: 0 var(--ui-space-3);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  font: inherit;
+  font-size: var(--ui-font-size-tool);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.canvas-tool-group button.ui-select-trigger:hover:not([data-disabled]) {
+  border-color: var(--ui-color-border-strong);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+}
+
+/* The old native scene-size control painted a short label with ::before and
+ * inspected <option>:checked. Base UI has no native option tree, so retire that
+ * overlay and let the Select trigger own its visible value. */
+.scene-size-control {
+  display: inline-flex;
+  width: 96px;
+  min-width: 96px;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.scene-size-control::before {
+  display: none;
+}
+
+.canvas-tool-group .scene-size-control > button.ui-select-trigger {
+  width: 96px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid #d7e0e9;
+  border-radius: 6px;
+  color: #334155;
+  background: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.canvas-tool-group .scene-size-control > button.ui-select-trigger:hover:not([data-disabled]) {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #f8fbff;
+}

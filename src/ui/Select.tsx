@@ -1,4 +1,5 @@
 import { Select as BaseSelect } from '@base-ui/react/select'
+import './select-compat.css'
 
 export type SelectOption = {
   value: string
@@ -44,19 +45,27 @@ export function Select({
         <BaseSelect.Icon className="ui-select-icon">⌄</BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
-        <BaseSelect.Positioner className="ui-select-positioner" sideOffset={4}>
+        <BaseSelect.Positioner
+          className="ui-select-positioner"
+          sideOffset={4}
+          alignItemWithTrigger={false}
+        >
           <BaseSelect.Popup className="ui-select-popup">
-            {options.map((option) => (
-              <BaseSelect.Item
-                key={option.value}
-                value={option.value}
-                disabled={option.disabled}
-                className="ui-select-item"
-              >
-                <BaseSelect.ItemIndicator className="ui-select-item-indicator">✓</BaseSelect.ItemIndicator>
-                <BaseSelect.ItemText>{option.label}</BaseSelect.ItemText>
-              </BaseSelect.Item>
-            ))}
+            <BaseSelect.List className="ui-select-list">
+              {options.map((option) => (
+                <BaseSelect.Item
+                  key={option.value}
+                  value={option.value}
+                  disabled={option.disabled}
+                  className="ui-select-item"
+                >
+                  <BaseSelect.ItemIndicator className="ui-select-item-indicator">✓</BaseSelect.ItemIndicator>
+                  <BaseSelect.ItemText className="ui-select-item-text">
+                    {option.label}
+                  </BaseSelect.ItemText>
+                </BaseSelect.Item>
+              ))}
+            </BaseSelect.List>
           </BaseSelect.Popup>
         </BaseSelect.Positioner>
       </BaseSelect.Portal>
