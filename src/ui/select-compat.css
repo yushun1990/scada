@@ -164,8 +164,8 @@
   position: relative;
   justify-content: center;
   width: 60px;
-  height: 30px;
-  min-height: 30px;
+  height: var(--ui-control-height);
+  min-height: var(--ui-control-height);
   gap: 0;
   padding: 0 16px;
   border: 1px solid #d7e0e9;
