@@ -130,9 +130,6 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
         />
 
         <div className="component-header-actions">
-          <span className={`component-status-pill ${component.status}`}>
-            {builtInReadOnly ? '内置' : component.status === 'ready' ? '可用' : '草稿'}
-          </span>
           <div className="document-toolbar" role="toolbar" aria-label="组件文档操作">
             <Button variant="primary" disabled={builtInReadOnly} onClick={save}>
               保存
