@@ -13,6 +13,7 @@ export type SelectProps = {
   onValueChange: (value: string) => void
   ariaLabel: string
   placeholder?: string
+  triggerLabel?: string
   disabled?: boolean
   className?: string
 }
@@ -23,6 +24,7 @@ export function Select({
   onValueChange,
   ariaLabel,
   placeholder = '请选择',
+  triggerLabel,
   disabled = false,
   className = '',
 }: SelectProps) {
@@ -41,7 +43,9 @@ export function Select({
         className={`ui-select-trigger ${className}`.trim()}
         aria-label={ariaLabel}
       >
-        <BaseSelect.Value className="ui-select-value" placeholder={placeholder} />
+        <BaseSelect.Value className="ui-select-value" placeholder={placeholder}>
+          {triggerLabel}
+        </BaseSelect.Value>
         <BaseSelect.Icon className="ui-select-icon">⌄</BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>

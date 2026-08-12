@@ -143,13 +143,12 @@
   background: var(--ui-color-surface);
 }
 
-/* The old native scene-size control painted a short label with ::before and
- * inspected <option>:checked. Base UI has no native option tree, so retire that
- * overlay and let the Select trigger own its visible value. */
+/* The scene-size trigger stays intentionally compact; the popup keeps the
+ * full preset label and dimensions while the closed control uses triggerLabel. */
 .scene-size-control {
   display: inline-flex;
-  width: 96px;
-  min-width: 96px;
+  width: 72px;
+  min-width: 72px;
   min-height: 0;
   border: 0;
   border-radius: 0;
@@ -162,7 +161,7 @@
 }
 
 .canvas-tool-group .scene-size-control > button.ui-select-trigger {
-  width: 96px;
+  width: 72px;
   height: 30px;
   min-height: 30px;
   padding: 0 8px;

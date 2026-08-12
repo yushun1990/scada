@@ -761,6 +761,11 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   const commonLocked =
     selectedNodes.length > 0 && selectedNodes.every((node) => node.locked)
   const sceneSizePresetId = getSceneSizePresetId(scene) ?? ''
+  const sceneSizeTriggerLabel = sceneSizePresetId === 'uhd'
+    ? '4K'
+    : sceneSizePresetId
+      ? sceneSizePresetId.toUpperCase()
+      : '自定义'
   const sceneSizeOptions = [
     ...(!sceneSizePresetId
       ? [{ value: '', label: `自定义 · ${scene.width} × ${scene.height}` }]
@@ -1007,6 +1012,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 <Select
                   ariaLabel="画板尺寸"
                   value={sceneSizePresetId}
+                  triggerLabel={sceneSizeTriggerLabel}
                   options={sceneSizeOptions}
                   onValueChange={changeSceneSize}
                 />

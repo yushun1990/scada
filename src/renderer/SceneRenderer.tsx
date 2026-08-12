@@ -148,15 +148,6 @@ const PORT_PREFIX = 'scene-port::'
 const CONNECTION_PREFIX = 'scene-connection::'
 const CONNECTION_HANDLE_PREFIX = 'scene-connection-handle::'
 
-function isEditableTarget(target: EventTarget | null) {
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    (target instanceof HTMLElement && target.isContentEditable)
-  )
-}
-
 function hasSelectionModifier(event: Event) {
   const keyboardEvent = event as MouseEvent
   return Boolean(
@@ -436,6 +427,7 @@ export function SceneRenderer({
   const hoveredPortNodeIdRef = useRef<string | null>(null)
   const panSessionRef = useRef<PanSession | null>(null)
   const spacePressedRef = useRef(false)
+  const pointerInsideCanvasRef = useRef(false)
   const viewportInitializedRef = useRef(false)
   const viewportTransformRef = useRef<ViewportTransform>({ x: 0, y: 0, scale: 1 })
   const pointerStatusRef = useRef<HTMLSpanElement>(null)
@@ -493,41 +485,37 @@ export function SceneRenderer({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'Space') {
+      if (event.code !== 'Space' || !pointerInsideCanvasRef.current) {
         return
       }
 
-      // Native selects keep focus after choosing a value and would otherwise
-      // consume Space to reopen their popup. In the editor, Space is the
-      // viewport-pan shortcut, so release select focus and let panning win.
-      if (event.target instanceof HTMLSelectElement) {
-        event.preventDefault()
-        event.target.blur()
-      } else if (isEditableTarget(event.target)) {
-        return
-      } else {
-        event.preventDefault()
-      }
-
+      // Canvas navigation owns Space while the pointer is over the canvas,
+      // even when a toolbar/inspector control still has keyboard focus. Use a
+      // capture listener so Base UI composite controls cannot turn Space into
+      // a button click before the viewport-pan shortcut sees it.
+      event.preventDefault()
+      event.stopPropagation()
       spacePressedRef.current = true
       setStageCursor('grab')
     }
     const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== 'Space') {
+      if (event.code !== 'Space' || !spacePressedRef.current) {
         return
       }
 
+      event.preventDefault()
+      event.stopPropagation()
       spacePressedRef.current = false
       if (!panSessionRef.current) {
         setStageCursor('default')
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('keydown', handleKeyDown, true)
+    window.addEventListener('keyup', handleKeyUp, true)
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('keydown', handleKeyDown, true)
+      window.removeEventListener('keyup', handleKeyUp, true)
     }
   }, [])
 
@@ -2041,6 +2029,9 @@ export function SceneRenderer({
       <Stage
         width={viewport.width}
         height={viewport.height}
+        onMouseEnter={() => {
+          pointerInsideCanvasRef.current = true
+        }}
         onWheel={(event) => {
           const evt = event.evt
           evt.preventDefault()
@@ -2165,6 +2156,7 @@ export function SceneRenderer({
           }
         }}
         onMouseLeave={() => {
+          pointerInsideCanvasRef.current = false
           if (pointerStatusRef.current) {
             pointerStatusRef.current.textContent = 'X —  Y —'
           }
