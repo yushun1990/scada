@@ -2,6 +2,7 @@ import { builtInComponentRegistry } from '../../component-system/builtins'
 import type { ComponentDefinition } from '../../component-system/definition'
 import { assertComponentDefinition } from '../../component-system/validation'
 import {
+  COMPONENT_VISUAL_VERSION,
   assertComponentVisualDefinition,
   cloneComponentVisual,
   createEmptyCompositeVisual,
@@ -105,14 +106,29 @@ function isComponentStatus(value: unknown): value is ComponentStatus {
   return value === 'draft' || value === 'ready'
 }
 
-function parseVisual(value: unknown): ComponentVisualDefinition | null {
+function parseVisual(
+  value: unknown,
+  definition: ComponentDefinition,
+): ComponentVisualDefinition | null {
   if (value === undefined) {
     return createEmptyCompositeVisual()
   }
 
+  const normalized =
+    isRecord(value) && value.version === 1
+      ? {
+          ...value,
+          version: COMPONENT_VISUAL_VERSION,
+          designSize: {
+            width: definition.size.defaultWidth,
+            height: definition.size.defaultHeight,
+          },
+        }
+      : value
+
   try {
-    assertComponentVisualDefinition(value)
-    return cloneComponentVisual(value)
+    assertComponentVisualDefinition(normalized)
+    return cloneComponentVisual(normalized)
   } catch {
     return null
   }
@@ -138,7 +154,8 @@ function parseStoredComponent(value: unknown): ComponentLibraryEntry | null {
     return null
   }
 
-  const visual = parseVisual(value.visual)
+  const definition = value.definition
+  const visual = parseVisual(value.visual, definition)
 
   if (!visual) {
     return null
@@ -147,7 +164,7 @@ function parseStoredComponent(value: unknown): ComponentLibraryEntry | null {
   return {
     version: COMPONENT_PACKAGE_VERSION,
     id: value.id,
-    definition: cloneDefinition(value.definition),
+    definition: cloneDefinition(definition),
     visual,
     status: value.status,
     implementationDraft: value.implementationDraft,
