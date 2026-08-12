@@ -44,7 +44,6 @@
   min-width: 0;
 }
 
-.component-editor-header .component-status-pill,
 .component-editor-header .document-toolbar {
   flex: 0 0 auto;
 }
@@ -85,10 +84,4 @@
 
 .component-editor-shell .component-canvas-toast {
   z-index: 6;
-}
-
-@media (max-width: 760px) {
-  .component-editor-header .component-status-pill {
-    display: none;
-  }
 }
