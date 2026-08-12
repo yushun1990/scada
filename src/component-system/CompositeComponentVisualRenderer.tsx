@@ -47,8 +47,6 @@ export function getCompositeVisualLayerId(target: Konva.Node) {
 
 export type CompositeComponentVisualRendererProps = {
   visual: ComponentVisualDefinition
-  designWidth: number
-  designHeight: number
   x: number
   y: number
   width: number
@@ -250,6 +248,15 @@ function VisualLayerNode({
       listening={listening}
       draggable={draggable}
     >
+      {draggable && (
+        <Rect
+          width={transform.width}
+          height={transform.height}
+          fill="rgba(0, 0, 0, 0.001)"
+          listening={listening}
+          perfectDrawEnabled={false}
+        />
+      )}
       {(layer.kind === 'svg' || layer.kind === 'image') && (
         <VisualAssetLayer layer={layer} listening={listening} />
       )}
@@ -268,15 +275,6 @@ function VisualLayerNode({
           draggableLayerId={draggableLayerId}
         />
       ))}
-      {draggable && (
-        <Rect
-          width={transform.width}
-          height={transform.height}
-          fill="rgba(0, 0, 0, 0.001)"
-          listening={listening}
-          perfectDrawEnabled={false}
-        />
-      )}
     </Group>
   )
 }
@@ -287,8 +285,6 @@ export const CompositeComponentVisualRenderer = forwardRef<
 >(function CompositeComponentVisualRendererImpl(
   {
     visual,
-    designWidth,
-    designHeight,
     x,
     y,
     width,
@@ -317,8 +313,8 @@ export const CompositeComponentVisualRenderer = forwardRef<
     return null
   }
 
-  const scaleX = width / Math.max(1, designWidth)
-  const scaleY = height / Math.max(1, designHeight)
+  const scaleX = width / Math.max(1, visual.designSize.width)
+  const scaleY = height / Math.max(1, visual.designSize.height)
   const rootLayers = childrenByParent.get(null) ?? []
 
   return (
@@ -326,8 +322,8 @@ export const CompositeComponentVisualRenderer = forwardRef<
       ref={ref}
       x={x}
       y={y}
-      width={designWidth}
-      height={designHeight}
+      width={visual.designSize.width}
+      height={visual.designSize.height}
       rotation={rotation}
       scaleX={scaleX}
       scaleY={scaleY}
