@@ -163,6 +163,9 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             designHeight={definition.size.defaultHeight}
             selectedLayerId={selectedLayerId}
             mode={mode}
+            readOnly={builtInReadOnly}
+            onSelectionChange={selectLayer}
+            onChange={(visual) => updatePackage('visual', visual)}
           />
         </section>
 

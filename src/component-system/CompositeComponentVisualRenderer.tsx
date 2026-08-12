@@ -19,6 +19,32 @@ import type {
   VectorVisualLayer,
 } from './visual'
 
+export const COMPOSITE_VISUAL_LAYER_NODE_NAME = 'component-visual-layer'
+const COMPOSITE_VISUAL_LAYER_NODE_PREFIX = 'component-visual-layer::'
+
+export function compositeVisualLayerNodeId(layerId: string) {
+  return `${COMPOSITE_VISUAL_LAYER_NODE_PREFIX}${layerId}`
+}
+
+export function getCompositeVisualLayerId(target: Konva.Node) {
+  let current: Konva.Node | null = target
+
+  while (current) {
+    const id = current.id()
+
+    if (
+      current.hasName(COMPOSITE_VISUAL_LAYER_NODE_NAME) &&
+      id.startsWith(COMPOSITE_VISUAL_LAYER_NODE_PREFIX)
+    ) {
+      return id.slice(COMPOSITE_VISUAL_LAYER_NODE_PREFIX.length)
+    }
+
+    current = current.getParent()
+  }
+
+  return null
+}
+
 export type CompositeComponentVisualRendererProps = {
   visual: ComponentVisualDefinition
   designWidth: number
@@ -31,12 +57,14 @@ export type CompositeComponentVisualRendererProps = {
   visible: boolean
   opacity: number
   listening: boolean
+  draggableLayerId?: string | null
 }
 
 type VisualLayerNodeProps = {
   layer: ComponentVisualLayer
   childrenByParent: ReadonlyMap<string | null, readonly ComponentVisualLayer[]>
   listening: boolean
+  draggableLayerId: string | null
 }
 
 function useVisualAsset(assetRef: string) {
@@ -200,12 +228,16 @@ function VisualLayerNode({
   layer,
   childrenByParent,
   listening,
+  draggableLayerId,
 }: VisualLayerNodeProps) {
   const { transform } = layer
   const children = childrenByParent.get(layer.id) ?? []
+  const draggable = listening && draggableLayerId === layer.id
 
   return (
     <Group
+      id={compositeVisualLayerNodeId(layer.id)}
+      name={COMPOSITE_VISUAL_LAYER_NODE_NAME}
       x={transform.x}
       y={transform.y}
       width={transform.width}
@@ -216,6 +248,7 @@ function VisualLayerNode({
       visible={layer.visible}
       opacity={layer.opacity}
       listening={listening}
+      draggable={draggable}
     >
       {(layer.kind === 'svg' || layer.kind === 'image') && (
         <VisualAssetLayer layer={layer} listening={listening} />
@@ -232,8 +265,18 @@ function VisualLayerNode({
           layer={child}
           childrenByParent={childrenByParent}
           listening={listening}
+          draggableLayerId={draggableLayerId}
         />
       ))}
+      {draggable && (
+        <Rect
+          width={transform.width}
+          height={transform.height}
+          fill="rgba(0, 0, 0, 0.001)"
+          listening={listening}
+          perfectDrawEnabled={false}
+        />
+      )}
     </Group>
   )
 }
@@ -254,6 +297,7 @@ export const CompositeComponentVisualRenderer = forwardRef<
     visible,
     opacity,
     listening,
+    draggableLayerId = null,
   },
   ref,
 ) {
@@ -297,6 +341,7 @@ export const CompositeComponentVisualRenderer = forwardRef<
           layer={layer}
           childrenByParent={childrenByParent}
           listening={listening}
+          draggableLayerId={draggableLayerId}
         />
       ))}
     </Group>
