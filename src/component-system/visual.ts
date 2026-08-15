@@ -1,3 +1,5 @@
+import type { VisualRule } from './visualRules'
+
 export const COMPONENT_VISUAL_VERSION = 2 as const
 
 export const DEFAULT_COMPONENT_VISUAL_DESIGN_SIZE = {
@@ -98,6 +100,7 @@ export type ComponentVisualDefinition = {
   mode: 'native' | 'composite'
   designSize: ComponentVisualDesignSize
   layers: readonly ComponentVisualLayer[]
+  rules?: readonly VisualRule[]
 }
 
 const LAYER_KINDS = new Set<VisualLayerKind>([
@@ -339,7 +342,8 @@ export function assertComponentVisualDefinition(
     !isRecord(value) ||
     value.version !== COMPONENT_VISUAL_VERSION ||
     (value.mode !== 'native' && value.mode !== 'composite') ||
-    !Array.isArray(value.layers)
+    !Array.isArray(value.layers) ||
+    (value.rules !== undefined && !Array.isArray(value.rules))
   ) {
     throw new Error('Component visual definition 无效')
   }
@@ -435,6 +439,7 @@ export function createEmptyCompositeVisual(
     mode: 'composite',
     designSize: cloneDesignSize(designSize),
     layers: [],
+    rules: [],
   }
 }
 
@@ -444,6 +449,7 @@ export function createNativeVisual(): ComponentVisualDefinition {
     mode: 'native',
     designSize: cloneDesignSize(),
     layers: [],
+    rules: [],
   }
 }
 
@@ -455,5 +461,6 @@ export function cloneComponentVisual(
     mode: visual.mode,
     designSize: cloneDesignSize(visual.designSize),
     layers: visual.layers.map(cloneVisualLayer),
+    rules: visual.rules?.map((rule) => ({ ...rule })) ?? [],
   }
 }
