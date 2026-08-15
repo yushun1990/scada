@@ -17,6 +17,7 @@ import {
 import { ComponentContractEditor } from './ComponentContractEditor'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
+import { ComponentVisualStyleInspector } from './ComponentVisualStyleInspector'
 import {
   ComponentVisualLayerInspector,
   ComponentVisualTreeEditor,
@@ -180,13 +181,21 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             />
 
             {inspectorTab === 'properties' && selectedLayerId !== null && (
-              <ComponentVisualLayerInspector
-                visual={component.visual}
-                readOnly={editingDisabled}
-                selectedLayerId={selectedLayerId}
-                onSelectionChange={selectLayer}
-                onChange={(visual) => updatePackage('visual', visual)}
-              />
+              <>
+                <ComponentVisualLayerInspector
+                  visual={component.visual}
+                  readOnly={editingDisabled}
+                  selectedLayerId={selectedLayerId}
+                  onSelectionChange={selectLayer}
+                  onChange={(visual) => updatePackage('visual', visual)}
+                />
+                <ComponentVisualStyleInspector
+                  visual={component.visual}
+                  readOnly={editingDisabled}
+                  selectedLayerId={selectedLayerId}
+                  onChange={(visual) => updatePackage('visual', visual)}
+                />
+              </>
             )}
 
             {inspectorTab === 'properties' && selectedLayerId === null && (
