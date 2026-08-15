@@ -297,8 +297,9 @@ export function ComponentVisualRuleEditor({
   readOnly: boolean
   onChange: (visual: ComponentVisualDefinition) => void
 }) {
-  const layer = visual.layers.find((candidate) => candidate.id === layerId)
-  if (!layer) return null
+  const selectedLayer = visual.layers.find((candidate) => candidate.id === layerId)
+  if (!selectedLayer) return null
+  const layer: ComponentVisualLayer = selectedLayer
 
   const properties = Object.entries(definition.properties)
   const allRules = visual.rules ?? []
