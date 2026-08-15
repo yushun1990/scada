@@ -56,11 +56,13 @@ export type CompositeComponentVisualRendererProps = {
   opacity: number
   listening: boolean
   draggableLayerId?: string | null
+  frontLayerId?: string | null
 }
 
 type VisualLayerNodeProps = {
   layer: ComponentVisualLayer
   childrenByParent: ReadonlyMap<string | null, readonly ComponentVisualLayer[]>
+  frontBranchIds: ReadonlySet<string>
   listening: boolean
   draggableLayerId: string | null
 }
@@ -222,14 +224,35 @@ function VisualTextLayer({
   )
 }
 
+function moveFrontBranchLast(
+  layers: readonly ComponentVisualLayer[],
+  frontBranchIds: ReadonlySet<string>,
+) {
+  const frontIndex = layers.findIndex((layer) => frontBranchIds.has(layer.id))
+
+  if (frontIndex < 0 || frontIndex === layers.length - 1) {
+    return layers
+  }
+
+  return [
+    ...layers.slice(0, frontIndex),
+    ...layers.slice(frontIndex + 1),
+    layers[frontIndex],
+  ]
+}
+
 function VisualLayerNode({
   layer,
   childrenByParent,
+  frontBranchIds,
   listening,
   draggableLayerId,
 }: VisualLayerNodeProps) {
   const { transform } = layer
-  const children = childrenByParent.get(layer.id) ?? []
+  const children = moveFrontBranchLast(
+    childrenByParent.get(layer.id) ?? [],
+    frontBranchIds,
+  )
   const draggable = listening && draggableLayerId === layer.id
 
   return (
@@ -271,6 +294,7 @@ function VisualLayerNode({
           key={child.id}
           layer={child}
           childrenByParent={childrenByParent}
+          frontBranchIds={frontBranchIds}
           listening={listening}
           draggableLayerId={draggableLayerId}
         />
@@ -294,6 +318,7 @@ export const CompositeComponentVisualRenderer = forwardRef<
     opacity,
     listening,
     draggableLayerId = null,
+    frontLayerId = null,
   },
   ref,
 ) {
@@ -309,13 +334,40 @@ export const CompositeComponentVisualRenderer = forwardRef<
     return result
   }, [visual.layers])
 
+  const frontBranchIds = useMemo(() => {
+    const result = new Set<string>()
+
+    if (!frontLayerId) {
+      return result
+    }
+
+    const layerMap = new Map(visual.layers.map((layer) => [layer.id, layer]))
+    let layerId: string | null = frontLayerId
+
+    while (layerId) {
+      const layer = layerMap.get(layerId)
+
+      if (!layer || result.has(layer.id)) {
+        break
+      }
+
+      result.add(layer.id)
+      layerId = layer.parentId
+    }
+
+    return result
+  }, [frontLayerId, visual.layers])
+
   if (visual.mode !== 'composite') {
     return null
   }
 
   const scaleX = width / Math.max(1, visual.designSize.width)
   const scaleY = height / Math.max(1, visual.designSize.height)
-  const rootLayers = childrenByParent.get(null) ?? []
+  const rootLayers = moveFrontBranchLast(
+    childrenByParent.get(null) ?? [],
+    frontBranchIds,
+  )
 
   return (
     <Group
@@ -336,6 +388,7 @@ export const CompositeComponentVisualRenderer = forwardRef<
           key={layer.id}
           layer={layer}
           childrenByParent={childrenByParent}
+          frontBranchIds={frontBranchIds}
           listening={listening}
           draggableLayerId={draggableLayerId}
         />
