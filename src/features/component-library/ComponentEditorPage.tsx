@@ -122,6 +122,34 @@ function reconcileVisualRules(
   return { ...visual, rules: nextRules }
 }
 
+function reconcileVisualLayerRuleTargets(
+  previousVisual: ComponentVisualDefinition,
+  nextVisual: ComponentVisualDefinition,
+): ComponentVisualDefinition {
+  if (!nextVisual.rules?.length) return nextVisual
+
+  const previousIds = new Set(previousVisual.layers.map((layer) => layer.id))
+  const nextIds = new Set(nextVisual.layers.map((layer) => layer.id))
+  const removedIds = [...previousIds].filter((id) => !nextIds.has(id))
+  const addedIds = [...nextIds].filter((id) => !previousIds.has(id))
+  const renamedLayer =
+    previousVisual.layers.length === nextVisual.layers.length &&
+    removedIds.length === 1 &&
+    addedIds.length === 1
+      ? { from: removedIds[0], to: addedIds[0] }
+      : null
+
+  const rules = nextVisual.rules.flatMap((rule) => {
+    if (nextIds.has(rule.layerId)) return [rule]
+    if (renamedLayer && rule.layerId === renamedLayer.from) {
+      return [{ ...rule, layerId: renamedLayer.to }]
+    }
+    return []
+  })
+
+  return { ...nextVisual, rules }
+}
+
 export function ComponentEditorPage({ componentId }: { componentId: string }) {
   const initial = useMemo(() =>
     componentId === 'new'
@@ -148,7 +176,19 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     key: K,
     value: ComponentLibraryEntry[K],
   ) {
-    setComponent((current) => ({ ...current, [key]: value }))
+    setComponent((current) => {
+      if (key === 'visual') {
+        return {
+          ...current,
+          visual: reconcileVisualLayerRuleTargets(
+            current.visual,
+            value as ComponentVisualDefinition,
+          ),
+        }
+      }
+
+      return { ...current, [key]: value }
+    })
     setMessage('')
   }
 
