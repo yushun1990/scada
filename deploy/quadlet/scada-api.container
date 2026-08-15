@@ -1,0 +1,18 @@
+[Unit]
+Description=SCADA API
+Requires=scada-db.service
+After=scada-db.service
+
+[Container]
+Image=localhost/scada-api:latest
+ContainerName=scada-api
+Network=scada.network
+PublishPort=127.0.0.1:3000:3000
+EnvironmentFile=/opt/scada/env/api.env
+
+[Service]
+Restart=always
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target

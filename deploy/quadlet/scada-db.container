@@ -1,0 +1,16 @@
+[Unit]
+Description=SCADA PostgreSQL
+
+[Container]
+Image=docker.io/library/postgres:17-alpine
+ContainerName=scada-db
+Network=scada.network
+Volume=scada-db.volume:/var/lib/postgresql/data
+EnvironmentFile=/opt/scada/env/postgres.env
+
+[Service]
+Restart=always
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target

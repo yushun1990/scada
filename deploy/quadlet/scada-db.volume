@@ -1,0 +1,5 @@
+[Unit]
+Description=SCADA PostgreSQL data
+
+[Volume]
+VolumeName=scada-db
