@@ -7,7 +7,9 @@ import {
   compositeVisualLayerNodeId,
   getCompositeVisualLayerId,
 } from '../../component-system/CompositeComponentVisualRenderer'
+import type { ComponentProps } from '../../component-system/definition'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
+import { resolveComponentVisualRules } from '../../component-system/visualRules'
 import {
   layerKindLabel,
   type ComponentWorkbenchMode,
@@ -15,6 +17,7 @@ import {
 
 type ComponentVisualCanvasProps = {
   visual: ComponentVisualDefinition
+  propertyValues: ComponentProps
   componentTitle: string
   designWidth: number
   designHeight: number
@@ -66,6 +69,7 @@ function findLayerNode(stage: Konva.Stage, layerId: string) {
 
 export function ComponentVisualCanvas({
   visual,
+  propertyValues,
   componentTitle,
   designWidth,
   designHeight,
@@ -78,6 +82,9 @@ export function ComponentVisualCanvas({
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
+  const renderedVisual = mode === 'preview'
+    ? resolveComponentVisualRules(visual, propertyValues)
+    : visual
   const visualDesignWidth = visual.designSize.width
   const visualDesignHeight = visual.designSize.height
   const artboardScale = Math.min(
@@ -194,7 +201,7 @@ export function ComponentVisualCanvas({
             >
               <Layer listening={isEditable}>
                 <CompositeComponentVisualRenderer
-                  visual={visual}
+                  visual={renderedVisual}
                   x={0}
                   y={0}
                   width={artboardWidth}
@@ -269,6 +276,7 @@ export function ComponentVisualCanvas({
           <span>设计空间 {visualDesignWidth} × {visualDesignHeight}</span>
           <span>实例默认 {designWidth} × {designHeight}</span>
           <span>{visual.layers.length} 个图层</span>
+          {(visual.rules?.length ?? 0) > 0 && <span>{visual.rules?.length} 条规则</span>}
         </span>
       </div>
     </>
