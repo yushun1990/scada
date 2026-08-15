@@ -25,14 +25,6 @@ type ComponentVisualCanvasProps = {
   onChange: (visual: ComponentVisualDefinition) => void
 }
 
-type HitCycleState = {
-  x: number
-  y: number
-  layerIds: string[]
-  index: number
-  timestamp: number
-}
-
 const TRANSFORMER_ANCHORS = [
   'top-left',
   'top-center',
@@ -46,8 +38,6 @@ const TRANSFORMER_ANCHORS = [
 
 const WORKBENCH_ARTBOARD_MAX_WIDTH = 720
 const WORKBENCH_ARTBOARD_MAX_HEIGHT = 520
-const HIT_CYCLE_DISTANCE = 5
-const HIT_CYCLE_WINDOW_MS = 700
 
 function isInsideTransformer(
   target: Konva.Node,
@@ -74,10 +64,6 @@ function findLayerNode(stage: Konva.Stage, layerId: string) {
     .find((node) => node.id() === expectedId) as Konva.Group | undefined
 }
 
-function sameLayerStack(left: readonly string[], right: readonly string[]) {
-  return left.length === right.length && left.every((id, index) => id === right[index])
-}
-
 export function ComponentVisualCanvas({
   visual,
   componentTitle,
@@ -91,7 +77,6 @@ export function ComponentVisualCanvas({
 }: ComponentVisualCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
-  const hitCycleRef = useRef<HitCycleState | null>(null)
   const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
   const visualDesignWidth = visual.designSize.width
   const visualDesignHeight = visual.designSize.height
@@ -170,66 +155,12 @@ export function ComponentVisualCanvas({
     })
   }
 
-  function getPointerLayerStack(stage: Konva.Stage, target: Konva.Node) {
-    const pointer = stage.getPointerPosition()
-    const topLayerId = getCompositeVisualLayerId(target)
-
-    if (!pointer || !topLayerId) {
-      return { pointer, layerIds: topLayerId ? [topLayerId] : [] }
-    }
-
-    const layerIds = [topLayerId]
-
-    for (const hit of stage.getAllIntersections(pointer)) {
-      const layerId = getCompositeVisualLayerId(hit)
-
-      if (layerId && !layerIds.includes(layerId)) {
-        layerIds.push(layerId)
-      }
-    }
-
-    return { pointer, layerIds }
-  }
-
   function handlePointerTarget(target: Konva.Node) {
     if (!isEditable || isInsideTransformer(target, transformerRef.current)) {
       return
     }
 
-    const stage = stageRef.current
-
-    if (!stage) {
-      return
-    }
-
-    const { pointer, layerIds } = getPointerLayerStack(stage, target)
-
-    if (!pointer || layerIds.length === 0) {
-      hitCycleRef.current = null
-      onSelectionChange(null)
-      return
-    }
-
-    const now = performance.now()
-    const previous = hitCycleRef.current
-    const isRepeatedHit = Boolean(
-      previous &&
-        now - previous.timestamp <= HIT_CYCLE_WINDOW_MS &&
-        Math.hypot(pointer.x - previous.x, pointer.y - previous.y) <= HIT_CYCLE_DISTANCE &&
-        sameLayerStack(previous.layerIds, layerIds),
-    )
-    const index = isRepeatedHit && previous
-      ? (previous.index + 1) % layerIds.length
-      : 0
-
-    hitCycleRef.current = {
-      x: pointer.x,
-      y: pointer.y,
-      layerIds,
-      index,
-      timestamp: now,
-    }
-    onSelectionChange(layerIds[index])
+    onSelectionChange(getCompositeVisualLayerId(target))
   }
 
   function commitSelectedTransform() {
@@ -273,6 +204,7 @@ export function ComponentVisualCanvas({
                   opacity={1}
                   listening={isEditable}
                   draggableLayerId={isEditable ? selectedLayerId : null}
+                  frontLayerId={isEditable ? selectedLayerId : null}
                 />
                 <Transformer
                   ref={transformerRef}
