@@ -1,8 +1,15 @@
 import '../../m2.css'
 import '../../workbench.css'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
-import type { ComponentDefinition } from '../../component-system/definition'
+import {
+  createDefaultPropsFromDefinition,
+  isComponentPropertyValue,
+  type ComponentDefinition,
+  type ComponentProps,
+} from '../../component-system/definition'
+import type { ComponentVisualDefinition } from '../../component-system/visual'
+import type { VisualRuleOperator } from '../../component-system/visualRules'
 import {
   Button,
   Input,
@@ -15,8 +22,10 @@ import {
   type StudioTabItem,
 } from '../../ui'
 import { ComponentContractEditor } from './ComponentContractEditor'
+import { ComponentPreviewValues } from './ComponentPreviewValues'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
+import { ComponentVisualRuleEditor } from './ComponentVisualRuleEditor'
 import { ComponentVisualStyleInspector } from './ComponentVisualStyleInspector'
 import {
   ComponentVisualLayerInspector,
@@ -50,6 +59,69 @@ const STATUS_OPTIONS = [
   { value: 'ready', label: '可用' },
 ]
 
+const NUMERIC_RULE_OPERATORS = new Set<VisualRuleOperator>([
+  'greaterThan',
+  'greaterOrEqual',
+  'lessThan',
+  'lessOrEqual',
+])
+
+function normalizePreviewProps(
+  definition: ComponentDefinition,
+  current: ComponentProps,
+): ComponentProps {
+  const next: ComponentProps = {}
+
+  for (const [key, property] of Object.entries(definition.properties)) {
+    const currentValue = current[key]
+    next[key] = isComponentPropertyValue(property, currentValue)
+      ? currentValue
+      : property.defaultValue
+  }
+
+  return next
+}
+
+function reconcileVisualRules(
+  previousDefinition: ComponentDefinition,
+  nextDefinition: ComponentDefinition,
+  visual: ComponentVisualDefinition,
+): ComponentVisualDefinition {
+  if (!visual.rules?.length) return visual
+
+  const nextRules = visual.rules.flatMap((rule) => {
+    let propertyKey = rule.propertyKey
+    let property = nextDefinition.properties[propertyKey]
+
+    if (!property) {
+      const previousProperty = previousDefinition.properties[propertyKey]
+      const renamed = previousProperty
+        ? Object.entries(nextDefinition.properties).find(
+            ([key, candidate]) => key !== propertyKey && candidate === previousProperty,
+          )
+        : undefined
+
+      if (!renamed) return []
+      propertyKey = renamed[0]
+      property = renamed[1]
+    }
+
+    const compareValueValid = isComponentPropertyValue(property, rule.compareValue)
+    const operatorValid = !NUMERIC_RULE_OPERATORS.has(rule.operator) || property.kind === 'number'
+
+    return [{
+      ...rule,
+      propertyKey,
+      operator: operatorValid ? rule.operator : 'equals' as const,
+      compareValue: compareValueValid && operatorValid
+        ? rule.compareValue
+        : property.defaultValue,
+    }]
+  })
+
+  return { ...visual, rules: nextRules }
+}
+
 export function ComponentEditorPage({ componentId }: { componentId: string }) {
   const initial = useMemo(() =>
     componentId === 'new'
@@ -60,10 +132,17 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   const [mode, setMode] = useState<ComponentWorkbenchMode>('editor')
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null)
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('properties')
+  const [previewProps, setPreviewProps] = useState<ComponentProps>(() =>
+    createDefaultPropsFromDefinition(initial.definition),
+  )
   const [message, setMessage] = useState('')
   const builtInReadOnly = component.builtIn
   const editingDisabled = builtInReadOnly || mode === 'preview'
   const { definition } = component
+
+  useEffect(() => {
+    setPreviewProps((current) => normalizePreviewProps(definition, current))
+  }, [definition])
 
   function updatePackage<K extends keyof ComponentLibraryEntry>(
     key: K,
@@ -74,7 +153,11 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   }
 
   function updateDefinition(nextDefinition: ComponentDefinition) {
-    setComponent((current) => ({ ...current, definition: nextDefinition }))
+    setComponent((current) => ({
+      ...current,
+      definition: nextDefinition,
+      visual: reconcileVisualRules(current.definition, nextDefinition, current.visual),
+    }))
     setMessage('')
   }
 
@@ -159,6 +242,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
           )}
           <ComponentVisualCanvas
             visual={component.visual}
+            propertyValues={previewProps}
             componentTitle={definition.title}
             designWidth={definition.size.defaultWidth}
             designHeight={definition.size.defaultHeight}
@@ -195,11 +279,32 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   selectedLayerId={selectedLayerId}
                   onChange={(visual) => updatePackage('visual', visual)}
                 />
+                <div className="property-section-list component-rule-inspector">
+                  <CollapsibleInspectorGroup title="视觉规则" defaultOpen={false}>
+                    <ComponentVisualRuleEditor
+                      definition={definition}
+                      visual={component.visual}
+                      layerId={selectedLayerId}
+                      readOnly={editingDisabled}
+                      onChange={(visual) => updatePackage('visual', visual)}
+                    />
+                  </CollapsibleInspectorGroup>
+                </div>
               </>
             )}
 
             {inspectorTab === 'properties' && selectedLayerId === null && (
               <div className="property-section-list component-root-inspector">
+                {mode === 'preview' && component.visual.mode === 'composite' && (
+                  <CollapsibleInspectorGroup title="预览数据">
+                    <ComponentPreviewValues
+                      definition={definition}
+                      values={previewProps}
+                      onChange={setPreviewProps}
+                    />
+                  </CollapsibleInspectorGroup>
+                )}
+
                 <CollapsibleInspectorGroup title="基本信息">
                   {builtInReadOnly && (
                     <div className="component-readonly-note">
@@ -301,7 +406,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   <div className="component-implementation-note">
                     <strong>{component.visual.mode === 'native' ? 'Native Renderer' : 'Composite Visual'}</strong>
                     <span>
-                      内部 Layer、未来 Rules / Animation / Script 都属于私有实现；SCADA Workbench 只消费公开 Properties / Actions / Events / Anchors。
+                      内部 Layer、Style、Visual Rules、未来 Animation / Script 都属于私有实现；SCADA Workbench 只消费公开 Properties / Actions / Events / Anchors。
                     </span>
                   </div>
                 </CollapsibleInspectorGroup>
