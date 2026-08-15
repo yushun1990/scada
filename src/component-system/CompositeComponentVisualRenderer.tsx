@@ -10,13 +10,16 @@ import {
   Rect,
   Text,
 } from 'react-konva'
-import type {
-  ComponentVisualDefinition,
-  ComponentVisualLayer,
-  ImageVisualLayer,
-  SvgVisualLayer,
-  TextVisualLayer,
-  VectorVisualLayer,
+import {
+  resolveVisualAssetStyle,
+  resolveVisualTextStyle,
+  resolveVisualVectorStyle,
+  type ComponentVisualDefinition,
+  type ComponentVisualLayer,
+  type ImageVisualLayer,
+  type SvgVisualLayer,
+  type TextVisualLayer,
+  type VectorVisualLayer,
 } from './visual'
 
 export const COMPOSITE_VISUAL_LAYER_NODE_NAME = 'component-visual-layer'
@@ -107,11 +110,65 @@ function VisualAssetLayer({
     return null
   }
 
+  const { width, height } = layer.transform
+  const style = resolveVisualAssetStyle(layer)
+  const imageWidth = Math.max(1, image.naturalWidth || image.width)
+  const imageHeight = Math.max(1, image.naturalHeight || image.height)
+
+  if (style.fit === 'contain') {
+    const scale = Math.min(width / imageWidth, height / imageHeight)
+    const drawWidth = imageWidth * scale
+    const drawHeight = imageHeight * scale
+
+    return (
+      <KonvaImage
+        image={image}
+        x={(width - drawWidth) / 2}
+        y={(height - drawHeight) / 2}
+        width={drawWidth}
+        height={drawHeight}
+        listening={listening}
+        perfectDrawEnabled={false}
+      />
+    )
+  }
+
+  if (style.fit === 'cover') {
+    const imageRatio = imageWidth / imageHeight
+    const targetRatio = width / height
+    let cropX = 0
+    let cropY = 0
+    let cropWidth = imageWidth
+    let cropHeight = imageHeight
+
+    if (imageRatio > targetRatio) {
+      cropWidth = imageHeight * targetRatio
+      cropX = (imageWidth - cropWidth) / 2
+    } else {
+      cropHeight = imageWidth / targetRatio
+      cropY = (imageHeight - cropHeight) / 2
+    }
+
+    return (
+      <KonvaImage
+        image={image}
+        width={width}
+        height={height}
+        cropX={cropX}
+        cropY={cropY}
+        cropWidth={cropWidth}
+        cropHeight={cropHeight}
+        listening={listening}
+        perfectDrawEnabled={false}
+      />
+    )
+  }
+
   return (
     <KonvaImage
       image={image}
-      width={layer.transform.width}
-      height={layer.transform.height}
+      width={width}
+      height={height}
       listening={listening}
       perfectDrawEnabled={false}
     />
@@ -126,9 +183,9 @@ function VisualVectorLayer({
   listening: boolean
 }) {
   const { width, height } = layer.transform
-  const fill = '#cbd5e1'
-  const stroke = '#64748b'
-  const strokeWidth = Math.max(1, Math.min(width, height) * 0.02)
+  const style = resolveVisualVectorStyle(layer)
+  const fill = style.fill || undefined
+  const stroke = style.stroke || undefined
 
   if (layer.primitive === 'rect') {
     return (
@@ -137,7 +194,7 @@ function VisualVectorLayer({
         height={height}
         fill={fill}
         stroke={stroke}
-        strokeWidth={strokeWidth}
+        strokeWidth={style.strokeWidth}
         listening={listening}
         perfectDrawEnabled={false}
       />
@@ -153,7 +210,7 @@ function VisualVectorLayer({
         radius={radius}
         fill={fill}
         stroke={stroke}
-        strokeWidth={strokeWidth}
+        strokeWidth={style.strokeWidth}
         listening={listening}
         perfectDrawEnabled={false}
       />
@@ -169,7 +226,7 @@ function VisualVectorLayer({
         radiusY={height / 2}
         fill={fill}
         stroke={stroke}
-        strokeWidth={strokeWidth}
+        strokeWidth={style.strokeWidth}
         listening={listening}
         perfectDrawEnabled={false}
       />
@@ -181,7 +238,7 @@ function VisualVectorLayer({
       <Line
         points={[0, height / 2, width, height / 2]}
         stroke={stroke}
-        strokeWidth={strokeWidth}
+        strokeWidth={style.strokeWidth}
         listening={listening}
         perfectDrawEnabled={false}
       />
@@ -193,7 +250,7 @@ function VisualVectorLayer({
       data={layer.pathData ?? ''}
       fill={fill}
       stroke={stroke}
-      strokeWidth={strokeWidth}
+      strokeWidth={style.strokeWidth}
       listening={listening}
       perfectDrawEnabled={false}
     />
@@ -208,16 +265,20 @@ function VisualTextLayer({
   listening: boolean
 }) {
   const { width, height } = layer.transform
+  const style = resolveVisualTextStyle(layer)
 
   return (
     <Text
       width={width}
       height={height}
       text={layer.text}
-      fill="#334155"
-      fontSize={Math.max(10, Math.min(width, height) * 0.22)}
-      align="center"
-      verticalAlign="middle"
+      fill={style.fill || undefined}
+      fontFamily={style.fontFamily}
+      fontSize={style.fontSize}
+      fontStyle={style.fontStyle}
+      align={style.align}
+      verticalAlign={style.verticalAlign}
+      lineHeight={style.lineHeight}
       listening={listening}
       perfectDrawEnabled={false}
     />
