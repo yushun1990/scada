@@ -9,6 +9,7 @@ import {
   createNativeVisual,
   type ComponentVisualDefinition,
 } from '../../component-system/visual'
+import { assertComponentVisualRules } from '../../component-system/visualRules'
 
 const COMPONENTS_STORAGE_KEY = 'scada-editor-lab.components.v2'
 const LEGACY_COMPONENTS_STORAGE_KEY = 'scada-editor-lab.components.v1'
@@ -128,7 +129,9 @@ function parseVisual(
 
   try {
     assertComponentVisualDefinition(normalized)
-    return cloneComponentVisual(normalized)
+    const visual = cloneComponentVisual(normalized)
+    assertComponentVisualRules(definition, visual)
+    return visual
   } catch {
     return null
   }
@@ -338,6 +341,7 @@ export function saveComponentDefinition(component: ComponentLibraryEntry) {
 
   assertComponentDefinition(component.definition)
   assertComponentVisualDefinition(component.visual)
+  assertComponentVisualRules(component.definition, component.visual)
 
   const components = readCustomComponents()
   const duplicate = [...BUILT_IN_COMPONENTS, ...components].find(
