@@ -7,6 +7,10 @@ export const DEFAULT_COMPONENT_VISUAL_DESIGN_SIZE = {
 
 export type VisualLayerKind = 'group' | 'svg' | 'image' | 'vector' | 'text'
 export type VisualVectorPrimitive = 'rect' | 'circle' | 'ellipse' | 'line' | 'path'
+export type VisualAssetFit = 'stretch' | 'contain' | 'cover'
+export type VisualTextFontStyle = 'normal' | 'bold' | 'italic' | 'bold italic'
+export type VisualTextAlign = 'left' | 'center' | 'right'
+export type VisualTextVerticalAlign = 'top' | 'middle' | 'bottom'
 
 export type ComponentVisualDesignSize = {
   width: number
@@ -21,6 +25,26 @@ export type VisualLayerTransform = {
   rotation: number
   scaleX: number
   scaleY: number
+}
+
+export type VisualVectorStyle = {
+  fill: string
+  stroke: string
+  strokeWidth: number
+}
+
+export type VisualAssetStyle = {
+  fit: VisualAssetFit
+}
+
+export type VisualTextStyle = {
+  fill: string
+  fontFamily: string
+  fontSize: number
+  fontStyle: VisualTextFontStyle
+  align: VisualTextAlign
+  verticalAlign: VisualTextVerticalAlign
+  lineHeight: number
 }
 
 type VisualLayerBase = {
@@ -40,22 +64,26 @@ export type GroupVisualLayer = VisualLayerBase & {
 export type SvgVisualLayer = VisualLayerBase & {
   kind: 'svg'
   assetRef: string
+  style?: VisualAssetStyle
 }
 
 export type ImageVisualLayer = VisualLayerBase & {
   kind: 'image'
   assetRef: string
+  style?: VisualAssetStyle
 }
 
 export type VectorVisualLayer = VisualLayerBase & {
   kind: 'vector'
   primitive: VisualVectorPrimitive
   pathData?: string
+  style?: VisualVectorStyle
 }
 
 export type TextVisualLayer = VisualLayerBase & {
   kind: 'text'
   text: string
+  style?: VisualTextStyle
 }
 
 export type ComponentVisualLayer =
@@ -85,6 +113,19 @@ const VECTOR_PRIMITIVES = new Set<VisualVectorPrimitive>([
   'ellipse',
   'line',
   'path',
+])
+const ASSET_FITS = new Set<VisualAssetFit>(['stretch', 'contain', 'cover'])
+const TEXT_FONT_STYLES = new Set<VisualTextFontStyle>([
+  'normal',
+  'bold',
+  'italic',
+  'bold italic',
+])
+const TEXT_ALIGNS = new Set<VisualTextAlign>(['left', 'center', 'right'])
+const TEXT_VERTICAL_ALIGNS = new Set<VisualTextVerticalAlign>([
+  'top',
+  'middle',
+  'bottom',
 ])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -144,6 +185,48 @@ function assertTransform(value: unknown, layerId: string) {
   }
 }
 
+function assertAssetStyle(value: unknown, layerId: string) {
+  if (value === undefined) return
+  if (!isRecord(value) || typeof value.fit !== 'string' || !ASSET_FITS.has(value.fit as VisualAssetFit)) {
+    throw new Error(`Visual Layer ${layerId} 的资源样式无效`)
+  }
+}
+
+function assertVectorStyle(value: unknown, layerId: string) {
+  if (value === undefined) return
+  if (
+    !isRecord(value) ||
+    typeof value.fill !== 'string' ||
+    typeof value.stroke !== 'string' ||
+    !isFiniteNumber(value.strokeWidth) ||
+    value.strokeWidth < 0
+  ) {
+    throw new Error(`Visual Layer ${layerId} 的矢量样式无效`)
+  }
+}
+
+function assertTextStyle(value: unknown, layerId: string) {
+  if (value === undefined) return
+  if (
+    !isRecord(value) ||
+    typeof value.fill !== 'string' ||
+    typeof value.fontFamily !== 'string' ||
+    !value.fontFamily.trim() ||
+    !isFiniteNumber(value.fontSize) ||
+    value.fontSize <= 0 ||
+    typeof value.fontStyle !== 'string' ||
+    !TEXT_FONT_STYLES.has(value.fontStyle as VisualTextFontStyle) ||
+    typeof value.align !== 'string' ||
+    !TEXT_ALIGNS.has(value.align as VisualTextAlign) ||
+    typeof value.verticalAlign !== 'string' ||
+    !TEXT_VERTICAL_ALIGNS.has(value.verticalAlign as VisualTextVerticalAlign) ||
+    !isFiniteNumber(value.lineHeight) ||
+    value.lineHeight <= 0
+  ) {
+    throw new Error(`Visual Layer ${layerId} 的文本样式无效`)
+  }
+}
+
 function assertLayer(value: unknown, index: number): asserts value is ComponentVisualLayer {
   if (!isRecord(value)) {
     throw new Error(`第 ${index + 1} 个 Visual Layer 无效`)
@@ -174,6 +257,7 @@ function assertLayer(value: unknown, index: number): asserts value is ComponentV
     if (typeof value.assetRef !== 'string') {
       throw new Error(`Visual Layer ${String(value.id)} 的 assetRef 必须是字符串`)
     }
+    assertAssetStyle(value.style, value.id as string)
   }
 
   if (value.kind === 'vector') {
@@ -187,11 +271,65 @@ function assertLayer(value: unknown, index: number): asserts value is ComponentV
     if (value.pathData !== undefined && typeof value.pathData !== 'string') {
       throw new Error(`Visual Layer ${String(value.id)} 的 pathData 必须是字符串`)
     }
+    assertVectorStyle(value.style, value.id as string)
   }
 
-  if (value.kind === 'text' && typeof value.text !== 'string') {
-    throw new Error(`Visual Layer ${String(value.id)} 的 text 必须是字符串`)
+  if (value.kind === 'text') {
+    if (typeof value.text !== 'string') {
+      throw new Error(`Visual Layer ${String(value.id)} 的 text 必须是字符串`)
+    }
+    assertTextStyle(value.style, value.id as string)
   }
+}
+
+export function createDefaultVisualAssetStyle(): VisualAssetStyle {
+  return { fit: 'stretch' }
+}
+
+export function createDefaultVisualVectorStyle(
+  transform?: Pick<VisualLayerTransform, 'width' | 'height'>,
+): VisualVectorStyle {
+  const width = transform?.width ?? 64
+  const height = transform?.height ?? 64
+  return {
+    fill: '#cbd5e1',
+    stroke: '#64748b',
+    strokeWidth: Math.max(1, Math.min(width, height) * 0.02),
+  }
+}
+
+export function createDefaultVisualTextStyle(
+  transform?: Pick<VisualLayerTransform, 'width' | 'height'>,
+): VisualTextStyle {
+  const width = transform?.width ?? 64
+  const height = transform?.height ?? 64
+  return {
+    fill: '#334155',
+    fontFamily: 'Arial',
+    fontSize: Math.max(10, Math.min(width, height) * 0.22),
+    fontStyle: 'normal',
+    align: 'center',
+    verticalAlign: 'middle',
+    lineHeight: 1,
+  }
+}
+
+export function resolveVisualAssetStyle(
+  layer: SvgVisualLayer | ImageVisualLayer,
+): VisualAssetStyle {
+  return layer.style ? { ...layer.style } : createDefaultVisualAssetStyle()
+}
+
+export function resolveVisualVectorStyle(layer: VectorVisualLayer): VisualVectorStyle {
+  return layer.style
+    ? { ...layer.style }
+    : createDefaultVisualVectorStyle(layer.transform)
+}
+
+export function resolveVisualTextStyle(layer: TextVisualLayer): VisualTextStyle {
+  return layer.style
+    ? { ...layer.style }
+    : createDefaultVisualTextStyle(layer.transform)
 }
 
 export function assertComponentVisualDefinition(
@@ -264,6 +402,31 @@ function cloneDesignSize(
   }
 }
 
+function cloneVisualLayer(layer: ComponentVisualLayer): ComponentVisualLayer {
+  const transform = { ...layer.transform }
+
+  if (layer.kind === 'group') return { ...layer, transform }
+  if (layer.kind === 'vector') {
+    return {
+      ...layer,
+      transform,
+      style: layer.style ? { ...layer.style } : undefined,
+    }
+  }
+  if (layer.kind === 'text') {
+    return {
+      ...layer,
+      transform,
+      style: layer.style ? { ...layer.style } : undefined,
+    }
+  }
+  return {
+    ...layer,
+    transform,
+    style: layer.style ? { ...layer.style } : undefined,
+  }
+}
+
 export function createEmptyCompositeVisual(
   designSize: ComponentVisualDesignSize = DEFAULT_COMPONENT_VISUAL_DESIGN_SIZE,
 ): ComponentVisualDefinition {
@@ -291,9 +454,6 @@ export function cloneComponentVisual(
     version: COMPONENT_VISUAL_VERSION,
     mode: visual.mode,
     designSize: cloneDesignSize(visual.designSize),
-    layers: visual.layers.map((layer) => ({
-      ...layer,
-      transform: { ...layer.transform },
-    })),
+    layers: visual.layers.map(cloneVisualLayer),
   }
 }
