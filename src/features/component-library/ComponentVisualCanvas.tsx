@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import type Konva from 'konva'
 import { Layer, Line, Stage, Transformer } from 'react-konva'
 import {
@@ -10,12 +10,6 @@ import {
 import type { ComponentProps } from '../../component-system/definition'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
 import { resolveComponentVisualRules } from '../../component-system/visualRules'
-import { SnapIcon } from '../../components/toolbar-icons'
-import {
-  Toolbar,
-  ToolbarButton,
-  ToolbarGroup,
-} from '../../ui'
 import {
   applyComponentLayerSnap,
   COMPONENT_SNAP_GRID_SIZE,
@@ -37,6 +31,7 @@ type ComponentVisualCanvasProps = {
   selectedLayerId: string | null
   mode: ComponentWorkbenchMode
   readOnly: boolean
+  snapEnabled: boolean
   onSelectionChange: (layerId: string | null) => void
   onChange: (visual: ComponentVisualDefinition) => void
 }
@@ -89,6 +84,7 @@ export function ComponentVisualCanvas({
   selectedLayerId,
   mode,
   readOnly,
+  snapEnabled,
   onSelectionChange,
   onChange,
 }: ComponentVisualCanvasProps) {
@@ -96,7 +92,6 @@ export function ComponentVisualCanvas({
   const transformerRef = useRef<Konva.Transformer>(null)
   const verticalGuideRef = useRef<Konva.Line>(null)
   const horizontalGuideRef = useRef<Konva.Line>(null)
-  const [snapEnabled, setSnapEnabled] = useState(true)
   const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
   const renderedVisual = mode === 'preview'
     ? resolveComponentVisualRules(visual, propertyValues)
@@ -291,34 +286,8 @@ export function ComponentVisualCanvas({
     }
   }
 
-  const snapStatus = !isEditable
-    ? '当前画布只读'
-    : snapEnabled
-      ? `松开时吸附 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
-      : `自由定位 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
-
   return (
     <>
-      <Toolbar
-        className="canvas-toolbar component-canvas-toolbar"
-        aria-label="组件画布工具栏"
-      >
-        <ToolbarGroup className="canvas-tool-group">
-          <ToolbarButton
-            iconOnly
-            className={`icon-button toggle-button component-snap-toggle${snapEnabled ? ' active' : ''}`}
-            title={snapEnabled ? '关闭吸附' : '开启吸附'}
-            aria-label="吸附"
-            aria-pressed={snapEnabled}
-            disabled={!isEditable}
-            onClick={() => setSnapEnabled((current) => !current)}
-          >
-            <SnapIcon />
-          </ToolbarButton>
-        </ToolbarGroup>
-        <span className="component-canvas-phase">{snapStatus}</span>
-      </Toolbar>
-
       <div className={`component-canvas-stage ${mode}`}>
         <div
           className={`component-artboard${showDesignGrid ? ' component-artboard-grid' : ''}`}
