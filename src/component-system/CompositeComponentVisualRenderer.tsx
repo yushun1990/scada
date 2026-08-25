@@ -58,6 +58,8 @@ export type CompositeComponentVisualRendererProps = {
   visible: boolean
   opacity: number
   listening: boolean
+  // Supplying this prop opts internal layers into editor dragging. A null value
+  // means no layer currently owns the full-bounds drag hit area yet.
   draggableLayerId?: string | null
   frontLayerId?: string | null
 }
@@ -67,6 +69,7 @@ type VisualLayerNodeProps = {
   childrenByParent: ReadonlyMap<string | null, readonly ComponentVisualLayer[]>
   frontBranchIds: ReadonlySet<string>
   listening: boolean
+  dragEnabled: boolean
   draggableLayerId: string | null
 }
 
@@ -307,6 +310,7 @@ function VisualLayerNode({
   childrenByParent,
   frontBranchIds,
   listening,
+  dragEnabled,
   draggableLayerId,
 }: VisualLayerNodeProps) {
   const { transform } = layer
@@ -314,7 +318,8 @@ function VisualLayerNode({
     childrenByParent.get(layer.id) ?? [],
     frontBranchIds,
   )
-  const draggable = listening && draggableLayerId === layer.id
+  const draggable = listening && dragEnabled
+  const ownsFullBoundsDragHitArea = draggableLayerId === layer.id
 
   return (
     <Group
@@ -332,7 +337,7 @@ function VisualLayerNode({
       listening={listening}
       draggable={draggable}
     >
-      {draggable && (
+      {ownsFullBoundsDragHitArea && (
         <Rect
           width={transform.width}
           height={transform.height}
@@ -357,6 +362,7 @@ function VisualLayerNode({
           childrenByParent={childrenByParent}
           frontBranchIds={frontBranchIds}
           listening={listening}
+          dragEnabled={dragEnabled}
           draggableLayerId={draggableLayerId}
         />
       ))}
@@ -378,7 +384,7 @@ export const CompositeComponentVisualRenderer = forwardRef<
     visible,
     opacity,
     listening,
-    draggableLayerId = null,
+    draggableLayerId,
     frontLayerId = null,
   },
   ref,
@@ -425,6 +431,8 @@ export const CompositeComponentVisualRenderer = forwardRef<
 
   const scaleX = width / Math.max(1, visual.designSize.width)
   const scaleY = height / Math.max(1, visual.designSize.height)
+  const dragEnabled = draggableLayerId !== undefined
+  const activeDraggableLayerId = draggableLayerId ?? null
   const rootLayers = moveFrontBranchLast(
     childrenByParent.get(null) ?? [],
     frontBranchIds,
@@ -451,7 +459,8 @@ export const CompositeComponentVisualRenderer = forwardRef<
           childrenByParent={childrenByParent}
           frontBranchIds={frontBranchIds}
           listening={listening}
-          draggableLayerId={draggableLayerId}
+          dragEnabled={dragEnabled}
+          draggableLayerId={activeDraggableLayerId}
         />
       ))}
     </Group>
