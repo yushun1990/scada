@@ -2,6 +2,7 @@ import '../../m2.css'
 import '../../workbench.css'
 import { useEffect, useMemo, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
+import { SnapIcon } from '../../components/toolbar-icons'
 import {
   createDefaultPropsFromDefinition,
   isComponentPropertyValue,
@@ -18,12 +19,16 @@ import {
   Select,
   Tabs,
   Textarea,
+  Toolbar,
+  ToolbarButton,
+  ToolbarGroup,
   type SegmentedControlItem,
   type StudioTabItem,
 } from '../../ui'
 import { ComponentContractEditor } from './ComponentContractEditor'
 import { ComponentPreviewValues } from './ComponentPreviewValues'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
+import { COMPONENT_SNAP_GRID_SIZE } from './component-canvas-snap'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
 import { ComponentVisualRuleEditor } from './ComponentVisualRuleEditor'
 import { ComponentVisualStyleInspector } from './ComponentVisualStyleInspector'
@@ -40,6 +45,7 @@ import {
   type ComponentStatus,
 } from './storage'
 import './component-editor.css'
+import './component-canvas-toolbar.css'
 
 type InspectorTab = 'properties' | 'actions' | 'events'
 
@@ -163,9 +169,17 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   const [previewProps, setPreviewProps] = useState<ComponentProps>(() =>
     createDefaultPropsFromDefinition(initial.definition),
   )
+  const [snapEnabled, setSnapEnabled] = useState(true)
   const [message, setMessage] = useState('')
   const builtInReadOnly = component.builtIn
   const editingDisabled = builtInReadOnly || mode === 'preview'
+  const componentCanvasEditable =
+    component.visual.mode === 'composite' && mode === 'editor' && !builtInReadOnly
+  const snapStatus = !componentCanvasEditable
+    ? '当前画布只读'
+    : snapEnabled
+      ? `松开时吸附 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
+      : `自由定位 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
   const { definition } = component
 
   useEffect(() => {
@@ -280,6 +294,27 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
               {message}
             </div>
           )}
+
+          <Toolbar
+            className="canvas-toolbar component-canvas-toolbar"
+            aria-label="组件画布工具栏"
+          >
+            <ToolbarGroup className="canvas-tool-group">
+              <ToolbarButton
+                iconOnly
+                className={`icon-button toggle-button component-snap-toggle${snapEnabled ? ' active' : ''}`}
+                title={snapEnabled ? '关闭吸附' : '开启吸附'}
+                aria-label="吸附"
+                aria-pressed={snapEnabled}
+                disabled={!componentCanvasEditable}
+                onClick={() => setSnapEnabled((current) => !current)}
+              >
+                <SnapIcon />
+              </ToolbarButton>
+            </ToolbarGroup>
+            <span className="component-canvas-phase">{snapStatus}</span>
+          </Toolbar>
+
           <ComponentVisualCanvas
             visual={component.visual}
             propertyValues={previewProps}
@@ -289,6 +324,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             selectedLayerId={selectedLayerId}
             mode={mode}
             readOnly={builtInReadOnly}
+            snapEnabled={snapEnabled}
             onSelectionChange={selectLayer}
             onChange={(visual) => updatePackage('visual', visual)}
           />
