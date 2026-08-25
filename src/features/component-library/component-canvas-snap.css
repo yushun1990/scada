@@ -1,0 +1,18 @@
+.component-canvas-area.component-canvas-area {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.component-canvas-stage.editor {
+  background-image: none;
+}
+
+.component-artboard.component-artboard-grid {
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(rgba(100, 116, 139, 0.11) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(100, 116, 139, 0.11) 1px, transparent 1px);
+}
+
+.component-canvas-toolbar .component-snap-toggle {
+  flex: 0 0 auto;
+}

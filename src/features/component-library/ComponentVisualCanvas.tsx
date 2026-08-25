@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type Konva from 'konva'
-import { Layer, Stage, Transformer } from 'react-konva'
+import { Layer, Line, Stage, Transformer } from 'react-konva'
 import {
   COMPOSITE_VISUAL_LAYER_NODE_NAME,
   CompositeComponentVisualRenderer,
@@ -10,10 +10,23 @@ import {
 import type { ComponentProps } from '../../component-system/definition'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
 import { resolveComponentVisualRules } from '../../component-system/visualRules'
+import { SnapIcon } from '../../components/toolbar-icons'
+import {
+  Toolbar,
+  ToolbarButton,
+  ToolbarGroup,
+} from '../../ui'
+import {
+  applyComponentLayerSnap,
+  COMPONENT_SNAP_GRID_SIZE,
+  computeComponentLayerSnap,
+  type ComponentSnapResult,
+} from './component-canvas-snap'
 import {
   layerKindLabel,
   type ComponentWorkbenchMode,
 } from './ComponentVisualTreeEditor'
+import './component-canvas-snap.css'
 
 type ComponentVisualCanvasProps = {
   visual: ComponentVisualDefinition
@@ -81,6 +94,9 @@ export function ComponentVisualCanvas({
 }: ComponentVisualCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
+  const verticalGuideRef = useRef<Konva.Line>(null)
+  const horizontalGuideRef = useRef<Konva.Line>(null)
+  const [snapEnabled, setSnapEnabled] = useState(true)
   const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
   const renderedVisual = mode === 'preview'
     ? resolveComponentVisualRules(visual, propertyValues)
@@ -95,6 +111,7 @@ export function ComponentVisualCanvas({
   const artboardHeight = visualDesignHeight * artboardScale
   const isComposite = visual.mode === 'composite'
   const isEditable = isComposite && mode === 'editor' && !readOnly
+  const showDesignGrid = isComposite && mode === 'editor'
 
   useEffect(() => {
     const transformer = transformerRef.current
@@ -112,6 +129,12 @@ export function ComponentVisualCanvas({
     transformer.nodes(selectedNode ? [selectedNode] : [])
     transformer.getLayer()?.batchDraw()
   }, [isEditable, selectedLayer, selectedLayerId, visual.layers])
+
+  useEffect(() => {
+    if (!isEditable || !snapEnabled) {
+      clearSnapGuides()
+    }
+  }, [isEditable, snapEnabled])
 
   function commitLayerTransform(node: Konva.Node) {
     if (!isEditable) {
@@ -162,6 +185,95 @@ export function ComponentVisualCanvas({
     })
   }
 
+  function resolveLayerNode(target: Konva.Node) {
+    const stage = stageRef.current
+    const layerId = getCompositeVisualLayerId(target)
+
+    return stage && layerId ? findLayerNode(stage, layerId) : undefined
+  }
+
+  function clearSnapGuides() {
+    verticalGuideRef.current?.visible(false)
+    horizontalGuideRef.current?.visible(false)
+    verticalGuideRef.current?.getLayer()?.batchDraw()
+  }
+
+  function renderSnapGuides(result: ComponentSnapResult) {
+    const vertical = result.guides.find((guide) => guide.orientation === 'vertical')
+    const horizontal = result.guides.find((guide) => guide.orientation === 'horizontal')
+    const verticalGuide = verticalGuideRef.current
+    const horizontalGuide = horizontalGuideRef.current
+
+    if (verticalGuide) {
+      if (vertical) {
+        verticalGuide.points([
+          vertical.position,
+          0,
+          vertical.position,
+          artboardHeight,
+        ])
+        verticalGuide.visible(true)
+      } else {
+        verticalGuide.visible(false)
+      }
+    }
+
+    if (horizontalGuide) {
+      if (horizontal) {
+        horizontalGuide.points([
+          0,
+          horizontal.position,
+          artboardWidth,
+          horizontal.position,
+        ])
+        horizontalGuide.visible(true)
+      } else {
+        horizontalGuide.visible(false)
+      }
+    }
+
+    verticalGuide?.getLayer()?.batchDraw()
+  }
+
+  function previewLayerSnap(target: Konva.Node) {
+    if (!isEditable || !snapEnabled) {
+      clearSnapGuides()
+      return
+    }
+
+    const stage = stageRef.current
+    const node = resolveLayerNode(target)
+
+    if (!stage || !node) {
+      clearSnapGuides()
+      return
+    }
+
+    renderSnapGuides(
+      computeComponentLayerSnap(stage, node, visual, artboardScale),
+    )
+  }
+
+  function finishLayerDrag(target: Konva.Node) {
+    const stage = stageRef.current
+    const node = resolveLayerNode(target)
+
+    if (!node) {
+      clearSnapGuides()
+      return
+    }
+
+    if (stage && isEditable && snapEnabled) {
+      applyComponentLayerSnap(
+        node,
+        computeComponentLayerSnap(stage, node, visual, artboardScale),
+      )
+    }
+
+    clearSnapGuides()
+    commitLayerTransform(node)
+  }
+
   function handlePointerTarget(target: Konva.Node) {
     if (!isEditable || isInsideTransformer(target, transformerRef.current)) {
       return
@@ -179,14 +291,43 @@ export function ComponentVisualCanvas({
     }
   }
 
+  const snapStatus = !isEditable
+    ? '当前画布只读'
+    : snapEnabled
+      ? `松开时吸附 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
+      : `自由定位 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
+
   return (
     <>
+      <Toolbar
+        className="canvas-toolbar component-canvas-toolbar"
+        aria-label="组件画布工具栏"
+      >
+        <ToolbarGroup className="canvas-tool-group">
+          <ToolbarButton
+            iconOnly
+            className={`icon-button toggle-button component-snap-toggle${snapEnabled ? ' active' : ''}`}
+            title={snapEnabled ? '关闭吸附' : '开启吸附'}
+            aria-label="吸附"
+            aria-pressed={snapEnabled}
+            disabled={!isEditable}
+            onClick={() => setSnapEnabled((current) => !current)}
+          >
+            <SnapIcon />
+          </ToolbarButton>
+        </ToolbarGroup>
+        <span className="component-canvas-phase">{snapStatus}</span>
+      </Toolbar>
+
       <div className={`component-canvas-stage ${mode}`}>
         <div
-          className="component-artboard"
+          className={`component-artboard${showDesignGrid ? ' component-artboard-grid' : ''}`}
           style={{
             width: `${artboardWidth}px`,
             height: `${artboardHeight}px`,
+            backgroundSize: showDesignGrid
+              ? `${COMPONENT_SNAP_GRID_SIZE * artboardScale}px ${COMPONENT_SNAP_GRID_SIZE * artboardScale}px`
+              : undefined,
           }}
         >
           {isComposite ? (
@@ -197,7 +338,9 @@ export function ComponentVisualCanvas({
               listening={isEditable}
               onMouseDown={(event) => handlePointerTarget(event.target)}
               onTouchStart={(event) => handlePointerTarget(event.target)}
-              onDragEnd={(event) => commitLayerTransform(event.target)}
+              onDragStart={clearSnapGuides}
+              onDragMove={(event) => previewLayerSnap(event.target)}
+              onDragEnd={(event) => finishLayerDrag(event.target)}
             >
               <Layer listening={isEditable}>
                 <CompositeComponentVisualRenderer
@@ -233,6 +376,28 @@ export function ComponentVisualCanvas({
                       : newBox
                   }
                   onTransformEnd={commitSelectedTransform}
+                />
+              </Layer>
+              <Layer listening={false}>
+                <Line
+                  ref={verticalGuideRef}
+                  visible={false}
+                  points={[]}
+                  stroke="#2563eb"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                  listening={false}
+                  perfectDrawEnabled={false}
+                />
+                <Line
+                  ref={horizontalGuideRef}
+                  visible={false}
+                  points={[]}
+                  stroke="#2563eb"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                  listening={false}
+                  perfectDrawEnabled={false}
                 />
               </Layer>
             </Stage>
