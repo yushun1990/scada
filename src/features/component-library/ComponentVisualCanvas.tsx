@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type Konva from 'konva'
 import { Layer, Line, Stage, Transformer } from 'react-konva'
 import {
@@ -36,6 +36,11 @@ type ComponentVisualCanvasProps = {
   onChange: (visual: ComponentVisualDefinition) => void
 }
 
+type CanvasViewport = {
+  width: number
+  height: number
+}
+
 const TRANSFORMER_ANCHORS = [
   'top-left',
   'top-center',
@@ -49,6 +54,7 @@ const TRANSFORMER_ANCHORS = [
 
 const WORKBENCH_ARTBOARD_MAX_WIDTH = 720
 const WORKBENCH_ARTBOARD_MAX_HEIGHT = 520
+const WORKBENCH_ARTBOARD_FIT_GUTTER = 4
 
 function isInsideTransformer(
   target: Konva.Node,
@@ -75,6 +81,25 @@ function findLayerNode(stage: Konva.Stage, layerId: string) {
     .find((node) => node.id() === expectedId) as Konva.Group | undefined
 }
 
+function measureCanvasViewport(element: HTMLDivElement): CanvasViewport {
+  const style = window.getComputedStyle(element)
+  const horizontalPadding =
+    Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight)
+  const verticalPadding =
+    Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom)
+
+  return {
+    width: Math.max(
+      1,
+      element.clientWidth - horizontalPadding - WORKBENCH_ARTBOARD_FIT_GUTTER,
+    ),
+    height: Math.max(
+      1,
+      element.clientHeight - verticalPadding - WORKBENCH_ARTBOARD_FIT_GUTTER,
+    ),
+  }
+}
+
 export function ComponentVisualCanvas({
   visual,
   propertyValues,
@@ -88,25 +113,64 @@ export function ComponentVisualCanvas({
   onSelectionChange,
   onChange,
 }: ComponentVisualCanvasProps) {
+  const canvasHostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const verticalGuideRef = useRef<Konva.Line>(null)
   const horizontalGuideRef = useRef<Konva.Line>(null)
+  const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
   const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
   const renderedVisual = mode === 'preview'
     ? resolveComponentVisualRules(visual, propertyValues)
     : visual
   const visualDesignWidth = visual.designSize.width
   const visualDesignHeight = visual.designSize.height
-  const artboardScale = Math.min(
+  const maxArtboardScale = Math.min(
     WORKBENCH_ARTBOARD_MAX_WIDTH / Math.max(1, visualDesignWidth),
     WORKBENCH_ARTBOARD_MAX_HEIGHT / Math.max(1, visualDesignHeight),
+  )
+  const viewportArtboardScale = canvasViewport
+    ? Math.min(
+        canvasViewport.width / Math.max(1, visualDesignWidth),
+        canvasViewport.height / Math.max(1, visualDesignHeight),
+      )
+    : Math.min(1, maxArtboardScale)
+  const artboardScale = Math.max(
+    0.01,
+    Math.min(maxArtboardScale, viewportArtboardScale),
   )
   const artboardWidth = visualDesignWidth * artboardScale
   const artboardHeight = visualDesignHeight * artboardScale
   const isComposite = visual.mode === 'composite'
   const isEditable = isComposite && mode === 'editor' && !readOnly
   const showDesignGrid = isComposite && mode === 'editor'
+
+  useLayoutEffect(() => {
+    const element = canvasHostRef.current
+
+    if (!element) {
+      return
+    }
+
+    const updateViewport = () => {
+      const next = measureCanvasViewport(element)
+
+      setCanvasViewport((current) =>
+        current &&
+        Math.abs(current.width - next.width) < 0.5 &&
+        Math.abs(current.height - next.height) < 0.5
+          ? current
+          : next,
+      )
+    }
+
+    updateViewport()
+
+    const observer = new ResizeObserver(updateViewport)
+    observer.observe(element)
+
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const transformer = transformerRef.current
@@ -123,7 +187,7 @@ export function ComponentVisualCanvas({
 
     transformer.nodes(selectedNode ? [selectedNode] : [])
     transformer.getLayer()?.batchDraw()
-  }, [isEditable, selectedLayer, selectedLayerId, visual.layers])
+  }, [artboardScale, isEditable, selectedLayer, selectedLayerId, visual.layers])
 
   useEffect(() => {
     if (!isEditable || !snapEnabled) {
@@ -288,7 +352,7 @@ export function ComponentVisualCanvas({
 
   return (
     <>
-      <div className={`component-canvas-stage ${mode}`}>
+      <div ref={canvasHostRef} className={`component-canvas-stage ${mode}`}>
         <div
           className={`component-artboard${showDesignGrid ? ' component-artboard-grid' : ''}`}
           style={{
