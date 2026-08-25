@@ -122,6 +122,26 @@ function createBounds(points: readonly Point[]): GeometryBounds {
   }
 }
 
+function hasSelectedAncestor(
+  layer: ComponentVisualLayer,
+  byId: ReadonlyMap<string, ComponentVisualLayer>,
+  selectedIds: ReadonlySet<string>,
+) {
+  const visited = new Set<string>()
+  let parentId = layer.parentId
+
+  while (parentId && !visited.has(parentId)) {
+    if (selectedIds.has(parentId)) {
+      return true
+    }
+
+    visited.add(parentId)
+    parentId = byId.get(parentId)?.parentId ?? null
+  }
+
+  return false
+}
+
 export function getComponentLayerBounds(
   visual: ComponentVisualDefinition,
   layer: ComponentVisualLayer,
@@ -142,9 +162,13 @@ export function createComponentLayerGeometryItems(
   layerIds: readonly string[],
 ): GeometryItem[] {
   const selectedIds = new Set(layerIds)
+  const byId = new Map(visual.layers.map((layer) => [layer.id, layer]))
 
   return visual.layers
-    .filter((layer) => selectedIds.has(layer.id))
+    .filter((layer) =>
+      selectedIds.has(layer.id) &&
+      !hasSelectedAncestor(layer, byId, selectedIds),
+    )
     .map((layer) => ({
       id: layer.id,
       bounds: getComponentLayerBounds(visual, layer),
