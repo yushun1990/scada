@@ -164,7 +164,8 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   [componentId])
   const [component, setComponent] = useState<ComponentLibraryEntry>(initial)
   const [mode, setMode] = useState<ComponentWorkbenchMode>('editor')
-  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null)
+  const [selectedLayerIds, setSelectedLayerIds] = useState<readonly string[]>([])
+  const [primaryLayerId, setPrimaryLayerId] = useState<string | null>(null)
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('properties')
   const [previewProps, setPreviewProps] = useState<ComponentProps>(() =>
     createDefaultPropsFromDefinition(initial.definition),
@@ -181,10 +182,28 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
       ? `松开时吸附 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
       : `自由定位 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
   const { definition } = component
+  const singleSelectedLayerId =
+    selectedLayerIds.length === 1 ? primaryLayerId : null
 
   useEffect(() => {
     setPreviewProps((current) => normalizePreviewProps(definition, current))
   }, [definition])
+
+  useEffect(() => {
+    const availableIds = new Set(component.visual.layers.map((layer) => layer.id))
+    const nextSelectedLayerIds = selectedLayerIds.filter((id) => availableIds.has(id))
+
+    if (nextSelectedLayerIds.length === selectedLayerIds.length) {
+      return
+    }
+
+    setSelectedLayerIds(nextSelectedLayerIds)
+    setPrimaryLayerId((current) =>
+      current && availableIds.has(current)
+        ? current
+        : nextSelectedLayerIds[nextSelectedLayerIds.length - 1] ?? null,
+    )
+  }, [component.visual.layers, selectedLayerIds])
 
   function updatePackage<K extends keyof ComponentLibraryEntry>(
     key: K,
@@ -232,8 +251,34 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     })
   }
 
-  function selectLayer(layerId: string | null) {
-    setSelectedLayerId(layerId)
+  function selectLayer(layerId: string | null, toggle = false) {
+    if (layerId === null) {
+      setSelectedLayerIds([])
+      setPrimaryLayerId(null)
+      setInspectorTab('properties')
+      return
+    }
+
+    if (!toggle) {
+      setSelectedLayerIds([layerId])
+      setPrimaryLayerId(layerId)
+      setInspectorTab('properties')
+      return
+    }
+
+    if (selectedLayerIds.includes(layerId)) {
+      const nextSelectedLayerIds = selectedLayerIds.filter((id) => id !== layerId)
+      setSelectedLayerIds(nextSelectedLayerIds)
+      setPrimaryLayerId((current) =>
+        current === layerId
+          ? nextSelectedLayerIds[nextSelectedLayerIds.length - 1] ?? null
+          : current,
+      )
+    } else {
+      setSelectedLayerIds([...selectedLayerIds, layerId])
+      setPrimaryLayerId(layerId)
+    }
+
     setInspectorTab('properties')
   }
 
@@ -282,7 +327,8 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             visual={component.visual}
             readOnly={editingDisabled}
             componentTitle={definition.title}
-            selectedLayerId={selectedLayerId}
+            selectedLayerIds={selectedLayerIds}
+            primaryLayerId={primaryLayerId}
             onSelectionChange={selectLayer}
             onChange={(visual) => updatePackage('visual', visual)}
           />
@@ -321,7 +367,8 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             componentTitle={definition.title}
             designWidth={definition.size.defaultWidth}
             designHeight={definition.size.defaultHeight}
-            selectedLayerId={selectedLayerId}
+            selectedLayerIds={selectedLayerIds}
+            primaryLayerId={primaryLayerId}
             mode={mode}
             readOnly={builtInReadOnly}
             snapEnabled={snapEnabled}
@@ -340,19 +387,19 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
               className="component-inspector-tabs"
             />
 
-            {inspectorTab === 'properties' && selectedLayerId !== null && (
+            {inspectorTab === 'properties' && singleSelectedLayerId !== null && (
               <>
                 <ComponentVisualLayerInspector
                   visual={component.visual}
                   readOnly={editingDisabled}
-                  selectedLayerId={selectedLayerId}
+                  selectedLayerId={singleSelectedLayerId}
                   onSelectionChange={selectLayer}
                   onChange={(visual) => updatePackage('visual', visual)}
                 />
                 <ComponentVisualStyleInspector
                   visual={component.visual}
                   readOnly={editingDisabled}
-                  selectedLayerId={selectedLayerId}
+                  selectedLayerId={singleSelectedLayerId}
                   onChange={(visual) => updatePackage('visual', visual)}
                 />
                 <div className="property-section-list component-rule-inspector">
@@ -360,7 +407,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                     <ComponentVisualRuleEditor
                       definition={definition}
                       visual={component.visual}
-                      layerId={selectedLayerId}
+                      layerId={singleSelectedLayerId}
                       readOnly={editingDisabled}
                       onChange={(visual) => updatePackage('visual', visual)}
                     />
@@ -369,7 +416,20 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
               </>
             )}
 
-            {inspectorTab === 'properties' && selectedLayerId === null && (
+            {inspectorTab === 'properties' && selectedLayerIds.length > 1 && (
+              <div className="property-section-list">
+                <CollapsibleInspectorGroup title="多选">
+                  <div className="selection-summary">
+                    已选择 <strong>{selectedLayerIds.length}</strong> 个内部图层。
+                  </div>
+                  <p className="component-inspector-help">
+                    当前切片只建立稳定的多选与主选语义；批量几何操作将在画布 Align / Distribute 命令中提供。
+                  </p>
+                </CollapsibleInspectorGroup>
+              </div>
+            )}
+
+            {inspectorTab === 'properties' && selectedLayerIds.length === 0 && (
               <div className="property-section-list component-root-inspector">
                 {mode === 'preview' && component.visual.mode === 'composite' && (
                   <CollapsibleInspectorGroup title="预览数据">
