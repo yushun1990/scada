@@ -1,0 +1,13 @@
+.component-canvas-area {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.component-canvas-toolbar {
+  position: relative;
+  z-index: 2;
+  justify-content: space-between;
+}
+
+.component-canvas-toolbar .component-canvas-phase {
+  margin-left: auto;
+}
