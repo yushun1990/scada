@@ -18,13 +18,18 @@ import {
 } from '../../ui'
 
 export type ComponentWorkbenchMode = 'editor' | 'preview'
+export type ComponentLayerSelectionChange = (
+  layerId: string | null,
+  toggle?: boolean,
+) => void
 
 type ComponentVisualTreeEditorProps = {
   visual: ComponentVisualDefinition
   readOnly: boolean
   componentTitle: string
-  selectedLayerId: string | null
-  onSelectionChange: (layerId: string | null) => void
+  selectedLayerIds: readonly string[]
+  primaryLayerId: string | null
+  onSelectionChange: ComponentLayerSelectionChange
   onChange: (visual: ComponentVisualDefinition) => void
 }
 
@@ -41,7 +46,7 @@ type ComponentVisualLayerInspectorProps = {
   visual: ComponentVisualDefinition
   readOnly: boolean
   selectedLayerId: string
-  onSelectionChange: (layerId: string | null) => void
+  onSelectionChange: ComponentLayerSelectionChange
   onChange: (visual: ComponentVisualDefinition) => void
 }
 
@@ -191,25 +196,27 @@ export function ComponentVisualTreeEditor({
   visual,
   readOnly,
   componentTitle,
-  selectedLayerId,
+  selectedLayerIds,
+  primaryLayerId,
   onSelectionChange,
   onChange,
 }: ComponentVisualTreeEditorProps) {
   const [addKind, setAddKind] = useState<VisualLayerKind>('group')
   const flattened = useMemo(() => flattenLayers(visual.layers), [visual.layers])
-  const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
+  const selectedLayerIdSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds])
+  const primaryLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
 
   useEffect(() => {
-    if (selectedLayerId && !selectedLayer) onSelectionChange(null)
-  }, [onSelectionChange, selectedLayer, selectedLayerId])
+    if (primaryLayerId && !primaryLayer) onSelectionChange(null)
+  }, [onSelectionChange, primaryLayer, primaryLayerId])
 
   function addLayer() {
     if (readOnly || visual.mode !== 'composite') return
 
     const id = nextLayerId(addKind, visual.layers)
-    const parentId = selectedLayer?.kind === 'group'
-      ? selectedLayer.id
-      : selectedLayer?.parentId ?? null
+    const parentId = primaryLayer?.kind === 'group'
+      ? primaryLayer.id
+      : primaryLayer?.parentId ?? null
     const layer = createLayer(addKind, id, parentId)
 
     onChange({ ...visual, layers: [...visual.layers, layer] })
@@ -247,7 +254,7 @@ export function ComponentVisualTreeEditor({
 
       <div className="component-layer-tree">
         <Pressable
-          className={`component-layer-root${selectedLayerId === null ? ' active' : ''}`}
+          className={`component-layer-root${selectedLayerIds.length === 0 ? ' active' : ''}`}
           onClick={() => onSelectionChange(null)}
         >
           <span className="component-layer-root-icon">◆</span>
@@ -260,9 +267,12 @@ export function ComponentVisualTreeEditor({
         {visual.mode === 'composite' && flattened.map(({ layer, depth }) => (
           <Pressable
             key={layer.id}
-            className={`component-layer-row${selectedLayerId === layer.id ? ' active' : ''}`}
+            className={`component-layer-row${selectedLayerIdSet.has(layer.id) ? ' active' : ''}`}
             style={{ paddingLeft: `${12 + depth * 15}px` }}
-            onClick={() => onSelectionChange(layer.id)}
+            onClick={(event) => onSelectionChange(
+              layer.id,
+              event.shiftKey || event.ctrlKey || event.metaKey,
+            )}
           >
             <span className="component-layer-disclosure">{layer.kind === 'group' ? '▾' : '·'}</span>
             <span className="component-layer-kind">{layerKindLabel(layer.kind)}</span>
@@ -286,7 +296,7 @@ export function ComponentVisualTreeEditor({
 
       {visual.mode === 'composite' && (
         <p className="component-layer-help">
-          选中 Group 后新增图层会成为它的子层；同一父级的顺序即 z-order。
+          选中 Group 后新增图层会成为它的子层；Shift / Ctrl / ⌘ 点击可多选，同一父级的顺序即 z-order。
         </p>
       )}
     </div>
