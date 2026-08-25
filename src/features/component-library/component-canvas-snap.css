@@ -1,22 +1,54 @@
-.component-canvas-area.component-canvas-area {
-  grid-template-rows: auto minmax(0, 1fr) auto;
+.component-editor-shell .component-canvas-area.component-canvas-area {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows:
+    var(--ui-toolbar-height, 44px)
+    minmax(0, 1fr)
+    var(--ui-status-height, 32px);
 }
 
-.component-canvas-toolbar.component-canvas-toolbar {
+.component-editor-shell .component-canvas-toolbar.component-canvas-toolbar {
+  display: grid;
   grid-row: 1;
-  justify-content: flex-start;
+  grid-column: 1;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  justify-content: stretch;
 }
 
-.component-canvas-toolbar .canvas-tool-group {
-  margin-left: auto;
+.component-editor-shell .component-canvas-toolbar > .canvas-tool-group {
+  grid-column: 3;
+  justify-self: end;
+  justify-content: flex-end;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
 }
 
-.component-canvas-stage {
+.component-editor-shell .component-canvas-toolbar > .canvas-tool-group::after {
+  content: none;
+}
+
+.component-editor-shell .component-canvas-toolbar > .component-canvas-phase {
+  grid-column: 2;
+  justify-self: center;
+  margin: 0;
+}
+
+.component-editor-shell .component-canvas-stage {
   grid-row: 2;
+  grid-column: 1;
+  width: 100%;
+  min-width: 0;
 }
 
-.component-canvas-status {
+.component-editor-shell .component-canvas-status {
   grid-row: 3;
+  grid-column: 1;
+  width: 100%;
+  min-width: 0;
 }
 
 .component-canvas-stage.editor {
