@@ -4,18 +4,16 @@
 
 This repository is a browser-first, generic SCADA authoring and runtime experiment.
 
-It is not a pump editor, a workflow editor, or a device-management platform. The editor foundation and generic component kernel are now sufficiently mature that the next priority is to make authored scenes **actually run** from runtime data while preserving a clean path toward a powerful Component Workbench.
-
-The product model is intentionally split into two different workbenches:
+The product intentionally contains two different workbenches:
 
 ```text
 Workspace
-├─ SCADA works
+├─ SCADA Works
 │   └─ SCADA Workbench
 │       └─ simple business-oriented scene authoring
-│           ├─ drag reusable components
-│           ├─ position / resize / connect
-│           ├─ configure exposed properties
+│           ├─ place reusable components
+│           ├─ move / resize / rotate / connect
+│           ├─ configure public properties
 │           ├─ bind runtime data
 │           └─ preview / run
 │
@@ -23,838 +21,441 @@ Workspace
     └─ Component Workbench
         └─ advanced reusable-component development
             ├─ public contract
-            ├─ visual composition
+            ├─ layered visual composition
             ├─ rules / expressions
-            ├─ animations
-            ├─ scripts
-            └─ preview / debugging
+            ├─ animation
+            ├─ controlled script
+            └─ preview / diagnostics
 ```
 
-The guiding product rule is:
+The guiding product rule remains:
 
 > Increasing Component Workbench power must not increase normal SCADA scene-authoring complexity.
 
-Detailed component-system architecture is defined in [`docs/architecture/component-system.md`](docs/architecture/component-system.md). Detailed SCADA editor UI structure is defined in [`docs/product/editor-ui.md`](docs/product/editor-ui.md). Visual connection architecture remains in [`docs/architecture/visual-connections.md`](docs/architecture/visual-connections.md).
+Detailed architecture remains in:
+
+- [`docs/architecture/component-system.md`](docs/architecture/component-system.md)
+- [`docs/architecture/editor-foundation.md`](docs/architecture/editor-foundation.md)
+- [`docs/architecture/visual-connections.md`](docs/architecture/visual-connections.md)
+- [`docs/product/editor-ui.md`](docs/product/editor-ui.md)
 
 ---
 
 ## 2. Architectural invariants
 
-The following rules are now treated as project-level invariants rather than milestone-specific preferences.
-
 ### 2.1 Public contract vs private implementation
 
-The reusable component public contract is:
+Reusable component public contract:
 
 ```text
 Properties + Actions + Events + Anchors
 ```
 
-The SCADA Workbench consumes only that public contract.
-
-Component implementation details are private by default, including:
+Private implementation by default:
 
 ```text
 Visual Layers
-SVG internal elements
-Image/vector composition
-Visual rules
+SVG / Image / Vector / Text internals
+Visual Rules
 Animations
 Internal state
 Scripts
 Native renderer details
 ```
 
-A scene author should not need to know that a pump contains `fan`, `alarm-light`, or `pump-body` layers. If a component developer wants a scene author to control alarm color, the component should expose a public property such as `alarmColor` and map it internally to the relevant visual layer.
+SCADA Workbench consumes only the public contract.
 
-### 2.2 Component creation method must not change component capability
+### 2.2 Component creation source must not change component capability
 
-A component may obtain its visual implementation from different sources:
+A component visual may come from:
 
 ```text
-Native application renderer
+Native renderer
 Composite visual tree
-SVG assets
-Bitmap assets
-Konva vector primitives
+SVG
+Bitmap
+Vector primitives
 Text
 Groups
 ```
 
-These sources may be mixed and nested in one component.
+These sources may be mixed and nested. They do not decide whether the component supports Properties, Actions, Events, Anchors, Rules, Animation or Script.
 
-The visual source does not determine whether the component may have properties, actions, events, anchors, rules, animation, or script behavior.
+### 2.3 Component Workbench may be powerful; SCADA Workbench should remain simple
 
-### 2.3 Component Workbench may be complex; SCADA Workbench should remain simple
+Advanced authoring complexity belongs in component development. Scene authors should not need to understand a component's private Layer Tree or implementation rules.
 
-The Component Workbench is intended for technically capable component developers. It may expose advanced authoring features.
+### 2.4 Renderer-independent component boundary
 
-The SCADA Workbench is intended for users who understand the process or business domain but do not need front-end or programming knowledge.
+User-authored component logic must not receive raw React, DOM or `Konva.Node` objects as its public programming contract.
 
-Therefore complexity belongs in component development, not in normal scene composition.
-
-### 2.4 Visual implementation remains renderer-independent at the component contract boundary
-
-Konva is the current renderer and provides rich shape, style, transform, filter, grouping, and animation capabilities.
-
-User-authored component logic must not receive raw `Konva.Node` objects as its public programming contract.
-
-Future script and visual APIs should follow:
+Target boundary:
 
 ```text
-Component Script / Visual Rule
-          ↓
+Component Rule / Script
+        ↓
 Controlled Runtime API
-          ↓
+        ↓
 Visual Runtime Model
-          ↓
+        ↓
 Konva renderer
 ```
 
-This preserves the option to evolve rendering without rewriting component packages.
-
-### 2.5 Visual connections and runtime behavior remain separate
+### 2.5 Visual connection and runtime behavior remain separate
 
 ```text
 SceneConnection
-= visible pipe / wire / process line attached to visual anchors
+= visible pipe / wire / process line
 
 Runtime Binding / Behavior
-= property data, event, action, or condition semantics
+= property data / event / action semantics
 ```
 
 Visual anchors are not runtime ports.
 
+### 2.6 Editing interaction must be predictable
+
+For both SCADA Workbench and Component Workbench:
+
+- dragging should follow the pointer directly
+- snapping must not modify position during drag
+- alignment/snap guides may be shown during drag as hints only
+- actual snapping happens once on pointer release / `dragend`
+- grid display and snap enable state are independent concepts
+- canvas commands belong in the Canvas Toolbar, not in the document Header
+
 ---
 
-# 3. Current phase and milestone status
-
-The revised milestone order is:
+# 3. Milestone status
 
 ```text
-M0 Application shell and workspace                         mostly complete
-M1 Canvas, viewport, artboard, and scene editing          mostly complete
-M2 Editing commands, history, hierarchy, and layers       usable / partial
-M3 Generic visual connections                             usable / partial
-M4 Generic component kernel and registry                  core complete
-
-== current focus ==
-M5 SCADA Runtime v0.1
-   runtime values -> bindings -> preview -> live component rendering
-
-then
-M6 Component Workbench v1
-   public contract + layered visual authoring + rules + animation + controlled script
-
-then
-M7 Runtime behavior, packaging, reusable components, and external adapters
+M0 Application shell / Workspace                              complete enough
+M1 Canvas / viewport / fixed artboard                         mostly complete
+M2 Editing commands / history / hierarchy                     usable
+M3 Generic visual connections                                 usable
+M4 Generic component kernel / registry                        accepted
+M5 SCADA Runtime v0.1                                         accepted
+M6 Component Workbench v1                                     active
+M7 Packaging / production adapters / reusable component set    later
 ```
 
-Remaining M1-M3 enhancements are not discarded, but they are not allowed to block the runtime path unless a concrete Runtime or Component Workbench requirement depends on them.
+The old roadmap that still described M5 as the current focus is obsolete. Runtime v0.1 was accepted on 2026-08-09 and Component Workbench is now the active implementation phase.
 
-M4 is considered complete at the **generic kernel** level. The full Component Workbench is no longer treated as a prerequisite for proving runtime behavior; it is promoted into its own major milestone after the first runnable SCADA loop.
+Runtime delivery history is recorded in [`docs/progress/runtime-v0.1.md`](docs/progress/runtime-v0.1.md).
+
+Component Workbench history is recorded in [`docs/progress/component-workbench-v1.md`](docs/progress/component-workbench-v1.md) and the individual M6 progress documents under `docs/progress/`.
 
 ---
 
 # 4. Current implementation map
 
-## 4.1 Application and editor shell
-
-Implemented:
-
-- Workspace home page with `SCADA 作品` and `组件库开发` modules.
-- A SCADA work opens in a separate browser tab.
-- Work-scoped scene persistence.
-- Component-library list and component-editor skeleton.
-- Desktop editor header, left dock, center canvas, and right inspector.
-
-## 4.2 Canvas and editing
+## 4.1 SCADA Workbench
 
 Implemented or usable:
 
-- fixed-size scene presets
-- infinite viewport around a fixed artboard
-- viewport zoom, fit, reset, wheel / trackpad pan
-- `Space + drag` and middle-mouse pan
-- grid display and snapping
-- single and multi-selection
+- fixed scene sizes
+- viewport zoom / fit / pan
+- grid display and snap
+- single / multi-selection
 - marquee selection
-- move, resize, rotate
+- move / resize / rotate
 - alignment guides
-- align and distribute
-- persistent grouping and ungrouping
-- lock and visibility
-- undo and redo
-- duplication
-- local save, import, and export
+- align / distribute
+- persistent Group / Ungroup
+- lock / visibility
+- undo / redo
+- duplicate
+- component palette
+- schema-driven Property Inspector
+- runtime data binding
+- Preview runtime lifecycle
+- Action / Event runtime kernel
+- persisted Event -> Action behavior
+- visual anchors and SceneConnections
 
-Still incomplete but not an immediate runtime blocker:
+Current interaction invariant:
 
-- full clipboard cut / paste workflow
-- production layer tree and z-order editing
-- rulers and custom guides
-- richer scene backgrounds and project asset handling
+> SCADA node movement does not snap while dragging; grid/object snap is evaluated once after drag ends.
 
-## 4.3 Visual connections
-
-Implemented or usable:
-
-- scene-level `SceneConnection` entities
-- registry-driven component visual anchors
-- hover-to-show anchors
-- connection create / select / delete
-- straight and automatic orthogonal routes
-- endpoint reconnect
-- endpoints following move / resize / rotate
-
-Deferred:
-
-- free scene endpoints
-- detach / reattach
-- persistent manual waypoints
-- Bezier paths
-- advanced markers and flow effects
-
-## 4.4 Generic component kernel
+## 4.2 Component Workbench
 
 Implemented:
 
-- serializable `ComponentDefinition`
-- `ComponentRegistration`
-- `ComponentRegistry`
-- generic `ComponentSceneNode`
-- registry-driven node creation
-- registry-driven renderer resolution
-- registry-driven default and minimum sizing
-- registry-driven visual anchors
-- registry-driven scene validation
-- registry-driven editor component palette
-- schema-driven component Property Inspector
-- built-in `pump.submersible`
-- second built-in `indicator.status` architecture acceptance component
+- package-backed public `ComponentDefinition`
+- Properties / Actions / Events / Anchors authoring
+- private heterogeneous Layer Tree
+- Group / SVG / Image / Vector / Text layers
+- private `designSize` coordinate system
+- composite renderer
+- direct canvas select / move / resize / rotate
+- contextual Properties inspector
+- typed visual styles
+- Visual Rules
+- Preview property values and rule evaluation
+- selected-layer editor-only front priority
+- component design grid
+- grid/object movement snapping
+- drag-time alignment hints
+- total snap toggle in the Canvas Toolbar
 
-The second component did not require concrete component branches in the scene model, Transformer, connection core, palette orchestration, or Inspector orchestration.
-
-The current generic data path is therefore:
-
-```text
-ComponentDefinition
-        ↓
-ComponentRegistry
-        ↓
-ComponentSceneNode
-        ↓
-SceneNodeRenderer
-        ↓
-ComponentRenderer
-```
-
-and authoring properties already follow:
+Current limitation:
 
 ```text
-ComponentDefinition.properties
-        ↓
-Generated Inspector
-        ↓
-SceneNode.props
-        ↓
-ComponentRenderer
+selection model = one selected visual layer
 ```
+
+This blocks proper component-canvas Align / Distribute / Group commands and is the next structural problem to solve.
 
 ---
 
-# M4 Generic component kernel — status
+# 5. M6 Component Workbench v1
 
-## Goal
+## M6.1 Package-backed public contract — complete
 
-Make the editor core independent of concrete industrial component types.
+The Workbench owns the real serializable `ComponentDefinition` and authors:
 
-**Status: core acceptance complete.**
+- metadata
+- default/minimum instance size
+- public Properties
+- public bindable Properties
+- Actions
+- Events
+- visual Anchors
 
-## Completed slices
+## M6.2 Layer Tree and Workbench shell — accepted / refined
 
-```text
-M4.0 terminology and anchor/runtime boundary                 complete
-M4.1 serializable ComponentDefinition                        complete
-M4.2 ComponentRegistration + ComponentRegistry               complete
-M4.3 generic ComponentSceneNode                              complete
-M4.4 pump migration                                          complete
-M4.5 registry-driven palette and node creation               complete
-M4.6 registry-driven Transformer sizing                      complete
-M4.7 second-component architecture acceptance                complete
-M4.8 schema-generated Property Inspector                     complete
-```
+Implemented:
 
-The generic component contract remains:
+- private versioned `ComponentVisualDefinition`
+- Group / SVG / Image / Vector / Text hierarchy
+- nesting / reorder / rename / delete
+- private visual `designSize`
+- Layers → Canvas → contextual Inspector shell
+- shared Studio UI primitives
 
-```ts
-interface ComponentDefinition {
-  type: string
-  title: string
-  category: string
-  description: string
+## M6.3 Visual authoring foundation — active
 
-  size: {
-    defaultWidth: number
-    defaultHeight: number
-    minWidth: number
-    minHeight: number
-  }
-
-  properties: Record<string, PropertyDefinition>
-  actions: Record<string, ActionDefinition>
-  events: Record<string, EventDefinition>
-  anchors: VisualAnchorDefinition[]
-}
-```
-
-The current implementation intentionally does **not** yet attempt to deliver the complete target Component Package or Component Workbench described in `component-system.md`.
-
-That larger authoring system is M6 and must not block the first runnable Runtime gate.
-
----
-
-# M5 SCADA Runtime v0.1 — current focus
-
-## Goal
-
-Make a scene truly run for the first time.
-
-The first hard runtime acceptance demo is:
+Completed slices:
 
 ```text
-Designer
-  ↓
-add indicator.status
-  ↓
-bind its public state property to a Mock runtime value
-  ↓
-enter Preview
-  ↓
-Mock value changes
-  ↓
-Runtime Store
-  ↓
-Binding evaluation
-  ↓
-effective component props
-  ↓
-existing Component Renderer
-  ↓
-indicator visual state changes automatically
+M6.3.0 Composite renderer foundation                  complete
+M6.3.1 Direct component-canvas interaction            complete
+M6.3.1.1 Hit testing + private design space           complete
+M6.3.2 Typed visual styles                            complete
+M6.3.3 Property-driven Visual Rules                   complete
+M6.3.4 Component canvas authoring commands            active
 ```
 
-When this works without rewriting authored scene configuration on every runtime update, the project has crossed from a static scene editor into a runnable SCADA experiment.
+### M6.3.4 Component canvas authoring commands
 
-## M5.1 Runtime value store
+Goal:
 
-Introduce a runtime-only value store independent of persisted `SceneDocument` configuration and editor history.
+> Bring the Component Workbench canvas to the same editing grammar as the SCADA canvas where the concepts are genuinely shared, without blindly copying scene-only features.
 
-Example values:
+Already completed in this slice:
+
+- component design grid
+- one total snap toggle
+- object + grid movement snapping
+- drag-time guide hints without live positional snapping
+- snap only at `dragend`
+- Canvas Toolbar is owned by the Component Editor layout and rendered above the canvas
+- Header remains limited to document-level actions and Design/Preview mode
+
+Next required foundation:
+
+### M6.3.4.1 Multi-selection model
+
+Replace the single selected Layer identity as the primary canvas command model:
 
 ```text
-mock.pump.running = true
-mock.pump.state = "running"
-mock.pump.speed = 1450
-mock.tank.level = 72.4
-mock.sensor.temperature = 28.6
+selectedLayerId: string | null
+        ↓
+selectedLayerIds: readonly string[]
+primaryLayerId: string | null
 ```
 
 Requirements:
 
-- runtime updates must not create editor undo history
-- runtime values must not overwrite authored defaults in `SceneNode.props`
-- runtime store lifecycle belongs to Preview/Runtime, not Designer
-- value identity should be stable enough to support later protocol adapters
+- normal click selects one Layer
+- `Shift/Ctrl/Meta + click` toggles Layer membership
+- Layer Tree must participate in the same selection state
+- selecting Component Root clears Layer multi-selection
+- right Inspector uses the primary Layer for single-object editing
+- multi-selection must not change persisted z-order
+- Preview keeps selection navigation but disables geometry mutations
 
-## M5.2 Property binding model
+A marquee selection can follow after command selection is stable; it is not required to unlock Align / Group.
 
-A binding maps an external/runtime value into an exposed bindable component Property.
+### M6.3.4.2 Shared geometry command core
 
-Example:
+SCADA Workbench and Component Workbench must not keep separate alignment mathematics.
 
-```text
-mock.pump.state
-      ↓
-indicator.status.state
-```
-
-Initial binding model should be deliberately small and typed.
-
-The first version does not need arbitrary script expressions.
-
-Target effective-value resolution:
+Extract renderer/model-independent geometry operations around simple bounds/transform inputs:
 
 ```text
-ComponentDefinition.defaultValue
-        ↓
-SceneNode.props authored value
-        ↓
-Runtime binding override
-        ↓
-Effective Component Props
-        ↓
-Renderer
+alignLeft
+alignCenterX
+alignRight
+alignTop
+alignCenterY
+alignBottom
+distributeHorizontal
+distributeVertical
 ```
 
-Runtime overrides must remain separate from persisted authoring state.
+Each workbench remains responsible for converting its own model to/from the shared geometry representation.
 
-## M5.3 Preview runtime lifecycle
+No shared helper should depend directly on `SceneNode`, `ComponentVisualLayer`, React or Konva.
 
-Preview becomes an actual runtime boundary rather than only a read-only canvas mode.
+### M6.3.4.3 Align / Distribute toolbar commands
 
-Entering Preview should:
-
-- create/start the runtime context
-- start mock data sources/generators
-- evaluate bindings
-- render effective runtime properties
-
-Leaving Preview should:
-
-- stop mock/runtime activity
-- release runtime subscriptions/timers
-- restore normal Designer rendering from authored configuration
-- not rewrite scene geometry or authored property values
-
-## M5.4 Mock data source and generators
-
-Provide a minimal deterministic test source before MQTT or WebSocket exists.
-
-Initial useful generators:
+Canvas Toolbar target:
 
 ```text
-manual value
-toggle
-sequence / state cycle
-ramp
-sine wave
+[Snap]
+  │
+  ├─ [Align Left] [Center X] [Right]
+  ├─ [Align Top] [Center Y] [Bottom]
+  └─ [Distribute H] [Distribute V]
 ```
 
-Random values may be added later, but deterministic generators are preferred first because runtime behavior is easier to reproduce and test.
-
-## M5.5 Minimal runtime binding UI
-
-The SCADA Workbench should expose binding configuration only for public `bindable` properties.
-
-The user experience should remain simple:
+Enable rules:
 
 ```text
-状态
-[ 数据绑定: mock.pump.state ▼ ]
+1 selected Layer      Align disabled, Distribute disabled
+2+ selected Layers    Align enabled
+3+ selected Layers    Distribute enabled
 ```
 
-The scene author should not be exposed to Visual Layers, expressions, scripts, or internal component state.
+Alignment acts on the selected Layer set only and must preserve hierarchy / z-order.
 
-## M5 runnable acceptance gate
+### M6.3.4.4 Group / Ungroup commands
 
-M5 reaches its first mandatory gate when all of the following hold:
+Component Group is a private Visual Layer hierarchy operation, not a Scene group.
 
-- a component Property can be bound to a Mock runtime value
-- Preview starts runtime evaluation
-- runtime data changes update the visible component automatically
-- Designer authored props remain unchanged
-- returning from Preview stops runtime activity
-- runtime updates do not pollute undo/redo history
-- the binding path is generic and does not branch on `indicator.status` or `pump.submersible`
-
-This gate must be reached before broadening Component Workbench implementation.
-
-## M5.6 Action and Event runtime kernel
-
-After the property-binding runnable gate, establish the runtime contract for Actions and Events.
-
-The public interface remains serializable:
+Enable rules:
 
 ```text
-ActionDefinition
-EventDefinition
+2+ compatible selected siblings    Group enabled
+1 selected Group                   Ungroup enabled
 ```
 
-Action declaration and action implementation remain separate concepts.
+Initial Group scope should be deliberately strict:
 
-The runtime should eventually support:
+- selected Layers must share the same parent
+- grouping must preserve world-space appearance
+- child local transforms must be recalculated against the new Group
+- sibling z-order must remain deterministic
+- Visual Rule layer ids remain stable
+- Ungroup must preserve appearance and child identities
 
-```text
-invokeAction(nodeId, actionName, input?)
-emitEvent(nodeId, eventName, payload?)
-```
+Do not introduce cross-parent grouping until same-parent behavior is proven.
 
-The first implementation may use built-in/native test handlers. It must not require the complete user Script Runtime yet.
+### M6.3.4.5 Acceptance gate
 
-## M5.7 Minimal behavior flow
+M6.3.4 is accepted when manual browser smoke confirms:
 
-Once Action/Event invocation exists, prove one explicit runtime flow:
+- snap button sits in the formal Canvas Toolbar above the canvas
+- drag remains pointer-direct with snap only after release
+- Layer Tree and canvas share one multi-selection model
+- two selected Layers can align on all six axes
+- three selected Layers can distribute horizontally/vertically
+- compatible sibling Layers can Group
+- one Group can Ungroup
+- geometry appearance is preserved through Group/Ungroup
+- save/reopen preserves the resulting hierarchy/transforms
+- Preview does not permit geometry commands
+- SCADA editor behavior is not regressed by shared geometry extraction
 
-```text
-component event
-    ↓
-optional simple condition
-    ↓
-action invocation OR property assignment
-```
+## M6.4 Animation foundation — next after M6.3.4
 
-Examples:
-
-```text
-button.clicked -> pump.start
-pump.alarmRaised -> indicator.state = "alarm"
-```
-
-Behavior semantics remain separate from visual `SceneConnection` entities.
-
----
-
-# M6 Component Workbench v1
-
-## Goal
-
-Turn the current component-editor skeleton into a visual-first component development environment that can encapsulate advanced behavior while keeping SCADA scene usage simple.
-
-The Component Workbench is allowed to be technically powerful. Its purpose is to move complexity out of the SCADA Workbench.
-
-## M6.1 Component Package model
-
-Evolve reusable user components toward the target package structure:
-
-```text
-ComponentPackage
-├─ metadata
-├─ definition
-│   ├─ properties
-│   ├─ actions
-│   ├─ events
-│   └─ anchors
-├─ assets
-├─ visual
-│   ├─ layer tree
-│   ├─ rules
-│   └─ animations
-└─ behavior
-    ├─ configured steps
-    ├─ controlled scripts
-    └─ trusted native implementation where applicable
-```
-
-The package format should remain versionable and diagnosable.
-
-## M6.2 Public contract authoring
-
-The Component Workbench must allow component developers to define:
-
-- metadata
-- default and minimum size
-- public configurable Properties
-- public bindable Properties
-- internal/private component state when needed
-- Actions and their parameters
-- Events and their payload schemas
-- visual Anchors
-
-Internal visual layers must not automatically become public scene-editable properties.
-
-## M6.3 Layered visual composition
-
-A component may contain a heterogeneous visual tree.
-
-Target layer kinds:
-
-```text
-Group
-SVG
-Image / bitmap
-Vector primitive
-Text
-```
-
-SVG, bitmap assets, system/Konva vector primitives, text, and groups may be mixed in the same component.
-
-Required authoring capabilities:
-
-- add/import assets
-- layer ordering
-- grouping and nesting
-- local position
-- size / scale
-- rotation
-- opacity
-- visibility
-- layer naming / identity
-
-Single SVG and single-image components are simply one-layer cases of this model.
-
-## M6.4 Visual style and renderer capabilities
-
-Do not introduce browser CSS as a component runtime requirement.
-
-Expose useful renderer-independent style metadata mapped to Konva capabilities, such as:
-
-```text
-fill
-stroke
-stroke width
-opacity
-shadow
-gradient
-filter where supported
-transform
-visibility
-text styling
-```
-
-Style support may vary by layer kind and must be described through typed layer capabilities rather than one unlimited style object.
-
-## M6.5 Visual Rules / Expressions
-
-Most data-driven visual behavior should not require code.
-
-Examples:
-
-```text
-alarm-light.visible <- props.alarm
-fan.rotationSpeed <- props.speed
-label.text <- props.label
-body.opacity <- props.running ? 1 : 0.5
-```
-
-Rules operate on private visual-layer properties and public/internal component state.
-
-They are authored inside the Component Workbench and remain invisible to normal SCADA scene authors.
-
-## M6.6 Animation
-
-Provide component-internal animation primitives for common SCADA visual effects, for example:
+Provide reusable private visual animation primitives such as:
 
 - rotate / spin
-- fade in / fade out
 - blink
+- fade
 - pulse
 - move
 - scale
 
-Runtime-data-driven animation should be able to depend on component properties such as speed or level.
+Animations remain component implementation details unless deliberately controlled through public Properties.
 
-Animation is part of component implementation, not SCADA Workbench scene configuration unless the component developer deliberately exposes a public property controlling it.
-
-## M6.7 Controlled Component Script
-
-Advanced component developers need an optional code path for behavior that cannot be conveniently expressed through configuration or rules.
-
-The script environment is intentionally controlled.
+## M6.5 Controlled Script Runtime — pending
 
 Target API categories:
 
 ```text
 Property API
-- getProperty
-- setProperty
-
 Event / Action API
-- emit
-- invoke
-
 Visual API
-- visible
-- style
-- transform
-- startAnimation
-- stopAnimation
-
 Diagnostics
-- log
 ```
 
-The public script contract must not expose raw React, DOM, or Konva objects.
+Scripts must not receive unrestricted DOM / React / Konva / browser-global access.
 
-The script environment must not assume unrestricted access to:
+## M6.6 User component registration / publication — pending
 
-```text
-window
-document
-eval
-arbitrary imports
-arbitrary network clients
-```
-
-The exact sandbox technology is a separate implementation decision. Do not fake sandboxing by executing saved component source with unrestricted `eval`/`Function` in the main application context.
-
-## M6.8 Component preview and debugging
-
-The Component Workbench should provide a focused component-runtime preview with:
-
-- editable test property values
-- test Action invocation
-- emitted Event inspection
-- mock runtime values
-- layer inspection
-- rule/script diagnostics
-- animation start/stop feedback
-
-This environment is the primary place where complex component implementation is tested.
-
-## M6 acceptance gate
-
-A user-created component should be able to:
-
-- combine at least SVG + bitmap/vector/text layers
-- declare public bindable Properties
-- keep internal visual layers private
-- use a Visual Rule to drive a layer from a Property
-- define at least one Action and one Event
-- use a controlled script for one behavior not expressible by a simple rule
-- be added to the SCADA Workbench through the same generic component registry/repository path as built-in components
-- require no component-specific changes in the SCADA editor core
+Prove that a Workbench-authored component package can be consumed by SCADA Workbench through the same generic repository/registry path as built-ins without component-specific editor code.
 
 ---
 
-# M7 Runtime behavior, reusable components, packaging, and external adapters
+# 6. Immediate execution sequence
 
-## M7.1 Reusable SCADA component set
-
-Build representative components only after the runtime and Component Workbench contracts are stable enough to exercise them rather than define architecture through special cases.
-
-Candidate set:
+Current execution order from `main`:
 
 ```text
-indicator / status lamp
-numeric display
-text / image display
-button / command control
-valve
-pump
-tank / level display
-motor / fan
+1. M6.3.4 toolbar/snap ownership                         done
+
+2. M6.3.4.1 component Layer multi-selection
+   - selection state model
+   - modifier-click canvas selection
+   - Layer Tree multi-selection
+   - primary selection for Inspector
+
+3. M6.3.4.2 shared pure geometry command core
+   - extract alignment/distribution math
+   - keep workbench adapters separate
+
+4. M6.3.4.3 Align / Distribute commands
+   - toolbar icons consistent with SCADA Workbench
+   - strict enable/disable rules
+
+5. M6.3.4.4 Group / Ungroup
+   - same-parent selection first
+   - preserve world-space appearance and ids
+
+6. Manual M6.3.4 browser acceptance
+
+7. M6.4 Animation foundation
+
+8. M6.5 Controlled Script Runtime
+
+9. M6.6 publish one user-created composite component into SCADA Workbench
+
+10. M7 packaging / adapters / reusable production component set
 ```
 
-## M7.2 Rich behavior authoring
+The **next code slice** is therefore deliberately narrow:
 
-Extend runtime behavior beyond the minimal M5 flow where justified:
-
-- typed Action inputs/outputs
-- Event payloads
-- reusable conditions
-- property assignments
-- component-to-component behavior links
-- diagnostics for invalid or missing targets
-
-Avoid turning the SCADA Workbench into a general-purpose node programming environment.
-
-## M7.3 Packaging and versioning
-
-Production component authoring requires:
-
-- package import/export
-- stable component type identity
-- component versions
-- migration policy
-- asset integrity diagnostics
-- missing component diagnostics
-- broken binding/action/event diagnostics
-
-## M7.4 External data adapters
-
-Only after the mock runtime contract is stable should external protocols be introduced.
-
-Candidate adapters:
-
-```text
-MQTT
-WebSocket
-HTTP
-SSE
-platform-specific adapters
-```
-
-Protocol adapters feed the runtime value/binding layer. They do not become component-specific APIs.
-
-## M7.5 Production scene authoring
-
-Remaining editor capabilities can be completed according to demonstrated need:
-
-- full layers/z-order workflow
-- complete clipboard workflow
-- project asset library
-- reusable templates and symbols
-- multi-scene project structure
-- large-scene profiling and performance budgets
-- advanced visual connection routing and flow effects
+> Introduce a real component-Layer multi-selection model shared by the Canvas and Layer Tree. Do not implement Align/Group by inventing ad-hoc temporary selection state inside the toolbar.
 
 ---
 
-# 5. Immediate execution sequence
+# 7. Near-term non-goals
 
-The implementation order from the current `main` branch is now:
+The following should not distract M6.3.4:
 
-```text
-1. RuntimeValueStore
-   - runtime-only values
-   - no SceneDocument mutation
-   - no undo history pollution
+- full vector illustration tooling
+- arbitrary path editing
+- rulers / manual guides
+- cross-parent Group in the first grouping slice
+- snapping during live drag
+- resize/rotate snapping before movement authoring is accepted
+- animation before basic canvas editing commands are stable
+- unrestricted component JavaScript execution
+- production component marketplace/package distribution
+- collaborative editing
+- protocol-specific component APIs
 
-2. DataBinding + effective component props
-   - bind only public bindable properties
-   - authored props remain fallback values
-
-3. Preview runtime lifecycle + MockDataSource
-   - Preview starts/stops runtime
-   - deterministic state/toggle generator
-
-   ===== SCADA Runtime v0.1 runnable gate =====
-
-4. Minimal binding UI in SCADA Workbench
-   - select mock value for an exposed property
-   - keep normal scene authoring simple
-
-5. ActionDefinition/EventDefinition runtime invocation kernel
-   - declaration separated from implementation
-   - built-in/native test handlers are acceptable initially
-
-6. Minimal event -> action/property behavior flow
-
-7. Begin Component Workbench v1
-   - public contract editor
-   - private/public property distinction
-   - anchor editing
-
-8. Add heterogeneous Layer Tree
-   - Group / SVG / Image / Vector / Text
-
-9. Add Visual Rules + basic animations
-
-10. Add Controlled Component Script + Visual API
-
-11. Prove a user-created composite component in the SCADA Workbench
-
-12. Only then broaden reusable components and evaluate MQTT/WebSocket adapters
-```
-
-## Next implementation slice
-
-The next code change should be deliberately narrow:
-
-> Introduce a runtime-only `RuntimeValueStore` and define its lifecycle boundary without yet introducing MQTT, expressions, Actions, Events, or Component Workbench scripts.
-
-The following slice should connect one generic `DataBinding` to effective component props and use `indicator.status.state` only as an acceptance fixture, not as a special-case implementation.
-
-The next hard product gate is therefore not another editor feature. It is:
-
-> **Drag a status indicator into a scene, bind its state to Mock data, enter Preview, and watch the component change automatically as runtime data changes.**
-
----
-
-# 6. Explicit near-term non-goals
-
-The following items must not block the SCADA Runtime v0.1 gate:
-
-- MQTT/WebSocket/device protocol integration.
-- Full Component Workbench Layer Tree implementation.
-- Full controlled-script sandbox implementation.
-- Arbitrary expressions in SCADA scene bindings.
-- General-purpose workflow/node-editor UI.
-- Production component marketplace/package distribution.
-- Backend persistence.
-- Collaborative editing.
-- Full vector illustration tooling unrelated to reusable SCADA component composition.
-- Completing every remaining visual-connection feature.
-
-These are deferred, not rejected. The architecture must leave room for them without requiring them before the first runnable scene.
+These items are deferred, not rejected.
