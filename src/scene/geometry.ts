@@ -1,3 +1,16 @@
+import {
+  alignBottom as alignGeometryBottom,
+  alignCenterX as alignGeometryCenterX,
+  alignCenterY as alignGeometryCenterY,
+  alignLeft as alignGeometryLeft,
+  alignRight as alignGeometryRight,
+  alignTop as alignGeometryTop,
+  distributeHorizontal as distributeGeometryHorizontal,
+  distributeVertical as distributeGeometryVertical,
+  type GeometryBounds,
+  type GeometryDeltas,
+  type GeometryItem,
+} from '../geometry/commands'
 import { hasLiveNodeTransform } from './live-preview'
 import {
   isGroupNode,
@@ -6,16 +19,7 @@ import {
   type SceneNode,
 } from './model'
 
-export type Bounds = {
-  left: number
-  top: number
-  right: number
-  bottom: number
-  width: number
-  height: number
-  centerX: number
-  centerY: number
-}
+export type Bounds = GeometryBounds
 
 export type AlignmentGuide = {
   orientation: 'vertical' | 'horizontal'
@@ -454,60 +458,77 @@ function selectedNodes(scene: SceneDocument, nodeIds: readonly string[]) {
   return scene.nodes.filter((node) => selectedIdSet.has(node.id))
 }
 
+function createGeometryItems(
+  scene: SceneDocument,
+  nodes: readonly SceneNode[],
+): GeometryItem[] {
+  return nodes.map((node) => ({
+    id: node.id,
+    bounds: getNodeBounds(scene, node),
+  }))
+}
+
+function applyGeometryDeltas(
+  scene: SceneDocument,
+  nodes: readonly SceneNode[],
+  deltas: GeometryDeltas,
+): TransformUpdates {
+  const updates: TransformUpdates = {}
+
+  for (const node of nodes) {
+    const delta = deltas[node.id]
+    const worldTransform = getWorldTransform(scene, node.id)
+
+    if (!delta || !worldTransform) {
+      continue
+    }
+
+    updates[node.id] = worldToLocalTransform(scene, node.parentId, {
+      ...worldTransform,
+      x: worldTransform.x + delta.dx,
+      y: worldTransform.y + delta.dy,
+    })
+  }
+
+  return updates
+}
+
 export function alignNodes(
   scene: SceneDocument,
   nodeIds: readonly string[],
   mode: AlignMode,
 ): TransformUpdates {
   const nodes = selectedNodes(scene, nodeIds)
-  const selectionBounds = getSelectionBounds(scene, nodeIds)
 
-  if (nodes.length < 2 || !selectionBounds) {
+  if (nodes.length < 2) {
     return {}
   }
 
-  const updates: TransformUpdates = {}
+  const items = createGeometryItems(scene, nodes)
+  let deltas: GeometryDeltas
 
-  for (const node of nodes) {
-    const bounds = getNodeBounds(scene, node)
-    const worldTransform = getWorldTransform(scene, node.id)
-
-    if (!worldTransform) {
-      continue
-    }
-
-    let dx = 0
-    let dy = 0
-
-    switch (mode) {
-      case 'left':
-        dx = selectionBounds.left - bounds.left
-        break
-      case 'center-x':
-        dx = selectionBounds.centerX - bounds.centerX
-        break
-      case 'right':
-        dx = selectionBounds.right - bounds.right
-        break
-      case 'top':
-        dy = selectionBounds.top - bounds.top
-        break
-      case 'center-y':
-        dy = selectionBounds.centerY - bounds.centerY
-        break
-      case 'bottom':
-        dy = selectionBounds.bottom - bounds.bottom
-        break
-    }
-
-    updates[node.id] = worldToLocalTransform(scene, node.parentId, {
-      ...worldTransform,
-      x: worldTransform.x + dx,
-      y: worldTransform.y + dy,
-    })
+  switch (mode) {
+    case 'left':
+      deltas = alignGeometryLeft(items)
+      break
+    case 'center-x':
+      deltas = alignGeometryCenterX(items)
+      break
+    case 'right':
+      deltas = alignGeometryRight(items)
+      break
+    case 'top':
+      deltas = alignGeometryTop(items)
+      break
+    case 'center-y':
+      deltas = alignGeometryCenterY(items)
+      break
+    case 'bottom':
+      deltas = alignGeometryBottom(items)
+      break
   }
 
-  return updates
+  return applyGeometryDeltas(scene, nodes, deltas)
 }
 
 export function distributeNodes(
@@ -521,64 +542,10 @@ export function distributeNodes(
     return {}
   }
 
-  const records = nodes.map((node) => ({
-    node,
-    bounds: getNodeBounds(scene, node),
-    worldTransform: getWorldTransform(scene, node.id),
-  }))
+  const items = createGeometryItems(scene, nodes)
+  const deltas = mode === 'horizontal'
+    ? distributeGeometryHorizontal(items)
+    : distributeGeometryVertical(items)
 
-  records.sort((first, second) =>
-    mode === 'horizontal'
-      ? first.bounds.left - second.bounds.left
-      : first.bounds.top - second.bounds.top,
-  )
-
-  const first = records[0]
-  const last = records[records.length - 1]
-
-  if (!first || !last) {
-    return {}
-  }
-
-  const totalItemSize = records.reduce(
-    (sum, record) =>
-      sum + (mode === 'horizontal' ? record.bounds.width : record.bounds.height),
-    0,
-  )
-  const span =
-    mode === 'horizontal'
-      ? last.bounds.right - first.bounds.left
-      : last.bounds.bottom - first.bounds.top
-  const gap = (span - totalItemSize) / (records.length - 1)
-  let cursor = mode === 'horizontal' ? first.bounds.left : first.bounds.top
-  const updates: TransformUpdates = {}
-
-  for (const record of records) {
-    if (!record.worldTransform) {
-      continue
-    }
-
-    const current =
-      mode === 'horizontal' ? record.bounds.left : record.bounds.top
-    const delta = cursor - current
-    const nextWorldTransform = {
-      ...record.worldTransform,
-      x:
-        record.worldTransform.x +
-        (mode === 'horizontal' ? delta : 0),
-      y:
-        record.worldTransform.y +
-        (mode === 'vertical' ? delta : 0),
-    }
-
-    updates[record.node.id] = worldToLocalTransform(
-      scene,
-      record.node.parentId,
-      nextWorldTransform,
-    )
-    cursor +=
-      (mode === 'horizontal' ? record.bounds.width : record.bounds.height) + gap
-  }
-
-  return updates
+  return applyGeometryDeltas(scene, nodes, deltas)
 }
