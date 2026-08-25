@@ -252,18 +252,22 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     })
   }
 
+  function replaceLayerSelection(layerIds: readonly string[]) {
+    const nextLayerIds = [...layerIds]
+
+    setSelectedLayerIds(nextLayerIds)
+    setPrimaryLayerId(nextLayerIds[nextLayerIds.length - 1] ?? null)
+    setInspectorTab('properties')
+  }
+
   function selectLayer(layerId: string | null, toggle = false) {
     if (layerId === null) {
-      setSelectedLayerIds([])
-      setPrimaryLayerId(null)
-      setInspectorTab('properties')
+      replaceLayerSelection([])
       return
     }
 
     if (!toggle) {
-      setSelectedLayerIds([layerId])
-      setPrimaryLayerId(layerId)
-      setInspectorTab('properties')
+      replaceLayerSelection([layerId])
       return
     }
 
@@ -351,6 +355,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
               selectedLayerIds={selectedLayerIds}
               disabled={!componentCanvasEditable}
               onChange={(visual) => updatePackage('visual', visual)}
+              onSelectionReplace={replaceLayerSelection}
               onApplied={setMessage}
             />
             <ToolbarGroup className="canvas-tool-group">
@@ -431,7 +436,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                     已选择 <strong>{selectedLayerIds.length}</strong> 个内部图层。
                   </div>
                   <p className="component-inspector-help">
-                    画布工具栏可对选中图层执行对齐与等距分布；主选图层只保留上下文语义，不在多选状态下开放单层 Inspector 编辑。
+                    画布工具栏可对选中图层执行组合、对齐与等距分布；主选图层只保留上下文语义，不在多选状态下开放单层 Inspector 编辑。
                   </p>
                 </CollapsibleInspectorGroup>
               </div>
