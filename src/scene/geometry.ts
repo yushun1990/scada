@@ -1,3 +1,4 @@
+import { hasLiveNodeTransform } from './live-preview'
 import {
   isGroupNode,
   type NodeTransform,
@@ -343,7 +344,7 @@ export function computeSnap(
   rawDelta: { x: number; y: number },
   settings: SnapSettings,
 ) {
-  if (!settings.enabled) {
+  if (!settings.enabled || hasLiveNodeTransform(movingNodeIds)) {
     return {
       delta: rawDelta,
       guides: [] as AlignmentGuide[],

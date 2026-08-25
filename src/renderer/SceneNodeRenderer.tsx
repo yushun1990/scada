@@ -176,19 +176,38 @@ export const SceneNodeRenderer = forwardRef<
         rotation: instance.rotation(),
       })
     }
+    const finishLiveTransform = () => {
+      clearLiveNodeTransform(node.id)
+
+      if (!resolveDragPosition) {
+        return
+      }
+
+      // Live dragging deliberately bypasses snapping. Once Konva emits
+      // dragend, resolve the final local position again so grid/object snapping
+      // happens exactly once before the stage commits the transform.
+      const resolvedPosition = resolveDragPosition(node.id, {
+        x: instance.x(),
+        y: instance.y(),
+      })
+      instance.setAttrs({
+        x: resolvedPosition.x,
+        y: resolvedPosition.y,
+      })
+    }
     const clearLiveTransform = () => {
       clearLiveNodeTransform(node.id)
     }
 
     instance.on('dragstart.live-anchor', syncLiveTransform)
     instance.on('dragmove.live-anchor', syncLiveTransform)
-    instance.on('dragend.live-anchor', clearLiveTransform)
+    instance.on('dragend.live-anchor', finishLiveTransform)
 
     return () => {
       instance.off('.live-anchor')
-      clearLiveNodeTransform(node.id)
+      clearLiveTransform()
     }
-  }, [node, selectable])
+  }, [node, resolveDragPosition, selectable])
 
   useEffect(() => {
     const instance = rootRef.current

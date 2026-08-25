@@ -14,6 +14,10 @@ export function clearLiveNodeTransform(nodeId: string) {
   liveTransforms.delete(nodeId)
 }
 
+export function hasLiveNodeTransform(nodeIds: readonly string[]) {
+  return nodeIds.some((nodeId) => liveTransforms.has(nodeId))
+}
+
 export function withLiveTransformOverrides(
   overrides: TransformUpdates = {},
 ): TransformUpdates {
