@@ -26,6 +26,7 @@ import {
   type StudioTabItem,
 } from '../../ui'
 import { ComponentContractEditor } from './ComponentContractEditor'
+import { ComponentGeometryToolbarGroup } from './ComponentGeometryToolbarGroup'
 import { ComponentPreviewValues } from './ComponentPreviewValues'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
 import { COMPONENT_SNAP_GRID_SIZE } from './component-canvas-snap'
@@ -345,6 +346,13 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             className="canvas-toolbar component-canvas-toolbar"
             aria-label="组件画布工具栏"
           >
+            <ComponentGeometryToolbarGroup
+              visual={component.visual}
+              selectedLayerIds={selectedLayerIds}
+              disabled={!componentCanvasEditable}
+              onChange={(visual) => updatePackage('visual', visual)}
+              onApplied={setMessage}
+            />
             <ToolbarGroup className="canvas-tool-group">
               <ToolbarButton
                 iconOnly
@@ -423,7 +431,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                     已选择 <strong>{selectedLayerIds.length}</strong> 个内部图层。
                   </div>
                   <p className="component-inspector-help">
-                    当前切片只建立稳定的多选与主选语义；批量几何操作将在画布 Align / Distribute 命令中提供。
+                    画布工具栏可对选中图层执行对齐与等距分布；主选图层只保留上下文语义，不在多选状态下开放单层 Inspector 编辑。
                   </p>
                 </CollapsibleInspectorGroup>
               </div>
