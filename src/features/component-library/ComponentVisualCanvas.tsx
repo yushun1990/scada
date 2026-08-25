@@ -18,6 +18,7 @@ import {
 } from './component-canvas-snap'
 import {
   layerKindLabel,
+  type ComponentLayerSelectionChange,
   type ComponentWorkbenchMode,
 } from './ComponentVisualTreeEditor'
 import './component-canvas-snap.css'
@@ -28,11 +29,12 @@ type ComponentVisualCanvasProps = {
   componentTitle: string
   designWidth: number
   designHeight: number
-  selectedLayerId: string | null
+  selectedLayerIds: readonly string[]
+  primaryLayerId: string | null
   mode: ComponentWorkbenchMode
   readOnly: boolean
   snapEnabled: boolean
-  onSelectionChange: (layerId: string | null) => void
+  onSelectionChange: ComponentLayerSelectionChange
   onChange: (visual: ComponentVisualDefinition) => void
 }
 
@@ -106,7 +108,8 @@ export function ComponentVisualCanvas({
   componentTitle,
   designWidth,
   designHeight,
-  selectedLayerId,
+  selectedLayerIds,
+  primaryLayerId,
   mode,
   readOnly,
   snapEnabled,
@@ -119,7 +122,10 @@ export function ComponentVisualCanvas({
   const verticalGuideRef = useRef<Konva.Line>(null)
   const horizontalGuideRef = useRef<Konva.Line>(null)
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
-  const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
+  const selectedLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
+  const selectedVisibleLayerIds = selectedLayerIds.filter((layerId) =>
+    visual.layers.some((layer) => layer.id === layerId && layer.visible),
+  )
   const renderedVisual = mode === 'preview'
     ? resolveComponentVisualRules(visual, propertyValues)
     : visual
@@ -144,6 +150,7 @@ export function ComponentVisualCanvas({
   const isComposite = visual.mode === 'composite'
   const isEditable = isComposite && mode === 'editor' && !readOnly
   const showDesignGrid = isComposite && mode === 'editor'
+  const canTransformSelection = selectedLayerIds.length === 1
 
   useLayoutEffect(() => {
     const element = canvasHostRef.current
@@ -180,14 +187,16 @@ export function ComponentVisualCanvas({
       return
     }
 
-    const selectedNode =
-      isEditable && selectedLayerId && selectedLayer?.visible
-        ? findLayerNode(stage, selectedLayerId)
-        : undefined
+    const selectedNodes = isEditable
+      ? selectedVisibleLayerIds.flatMap((layerId) => {
+          const node = findLayerNode(stage, layerId)
+          return node ? [node] : []
+        })
+      : []
 
-    transformer.nodes(selectedNode ? [selectedNode] : [])
+    transformer.nodes(selectedNodes)
     transformer.getLayer()?.batchDraw()
-  }, [artboardScale, isEditable, selectedLayer, selectedLayerId, visual.layers])
+  }, [artboardScale, isEditable, selectedVisibleLayerIds, visual.layers])
 
   useEffect(() => {
     if (!isEditable || !snapEnabled) {
@@ -333,15 +342,19 @@ export function ComponentVisualCanvas({
     commitLayerTransform(node)
   }
 
-  function handlePointerTarget(target: Konva.Node) {
+  function handlePointerTarget(target: Konva.Node, toggle = false) {
     if (!isEditable || isInsideTransformer(target, transformerRef.current)) {
       return
     }
 
-    onSelectionChange(getCompositeVisualLayerId(target))
+    onSelectionChange(getCompositeVisualLayerId(target), toggle)
   }
 
   function commitSelectedTransform() {
+    if (!canTransformSelection) {
+      return
+    }
+
     const transformer = transformerRef.current
     const node = transformer?.nodes()[0]
 
@@ -369,7 +382,10 @@ export function ComponentVisualCanvas({
               width={artboardWidth}
               height={artboardHeight}
               listening={isEditable}
-              onMouseDown={(event) => handlePointerTarget(event.target)}
+              onMouseDown={(event) => handlePointerTarget(
+                event.target,
+                event.evt.shiftKey || event.evt.ctrlKey || event.evt.metaKey,
+              )}
               onTouchStart={(event) => handlePointerTarget(event.target)}
               onDragStart={clearSnapGuides}
               onDragMove={(event) => previewLayerSnap(event.target)}
@@ -386,14 +402,15 @@ export function ComponentVisualCanvas({
                   visible
                   opacity={1}
                   listening={isEditable}
-                  draggableLayerId={isEditable ? selectedLayerId : null}
-                  frontLayerId={isEditable ? selectedLayerId : null}
+                  draggableLayerId={isEditable ? primaryLayerId : null}
+                  frontLayerId={isEditable ? primaryLayerId : null}
                 />
                 <Transformer
                   ref={transformerRef}
-                  visible={isEditable && Boolean(selectedLayer?.visible)}
-                  enabledAnchors={TRANSFORMER_ANCHORS}
-                  rotateEnabled
+                  visible={isEditable && selectedVisibleLayerIds.length > 0}
+                  enabledAnchors={canTransformSelection ? TRANSFORMER_ANCHORS : []}
+                  resizeEnabled={canTransformSelection}
+                  rotateEnabled={canTransformSelection}
                   flipEnabled={false}
                   keepRatio={false}
                   anchorSize={7}
@@ -448,7 +465,15 @@ export function ComponentVisualCanvas({
         <span className="canvas-status-group">
           <span className="status-mode">{mode === 'preview' ? '预览' : '设计'}</span>
           <span className="status-selection">
-            {selectedLayer ? (
+            {selectedLayerIds.length > 1 ? (
+              <>
+                <strong>{selectedLayerIds.length} 个图层</strong>
+                <code>多选</code>
+                {selectedLayer && (
+                  <span className="status-hint">主选：{selectedLayer.name}</span>
+                )}
+              </>
+            ) : selectedLayer ? (
               <>
                 <strong>{selectedLayer.name}</strong>
                 <code>{layerKindLabel(selectedLayer.kind)}</code>
