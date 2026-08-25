@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type Konva from 'konva'
 import { Layer, Line, Stage, Transformer } from 'react-konva'
 import {
@@ -123,8 +123,11 @@ export function ComponentVisualCanvas({
   const horizontalGuideRef = useRef<Konva.Line>(null)
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
   const selectedLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
-  const selectedVisibleLayerIds = selectedLayerIds.filter((layerId) =>
-    visual.layers.some((layer) => layer.id === layerId && layer.visible),
+  const selectedVisibleLayerIds = useMemo(
+    () => selectedLayerIds.filter((layerId) =>
+      visual.layers.some((layer) => layer.id === layerId && layer.visible),
+    ),
+    [selectedLayerIds, visual.layers],
   )
   const renderedVisual = mode === 'preview'
     ? resolveComponentVisualRules(visual, propertyValues)
