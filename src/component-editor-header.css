@@ -4,6 +4,7 @@
  * Component Editor follows the same desktop-editor grammar as SCADA Editor:
  * identity on the left, mode switch as the real center grid item, document
  * actions on the right, and operational status at the bottom of the canvas.
+ * Canvas row ownership lives with component-canvas-toolbar.css.
  */
 
 .component-editor-shell {
@@ -48,20 +49,11 @@
   flex: 0 0 auto;
 }
 
-/* Component Canvas has no command toolbar yet. Keep the shared footer status
- * lane rather than spending the top edge on status text. */
-.component-editor-shell .component-canvas-area {
-  grid-template-rows: minmax(0, 1fr) var(--ui-status-height);
-}
-
-.component-editor-shell .component-canvas-stage {
-  grid-row: 1;
-}
-
+/* Component status is normal canvas chrome rather than an overlay. Its grid
+ * row is assigned by component-canvas-toolbar.css together with Toolbar/Stage. */
 .component-editor-shell .component-canvas-status {
   position: static;
   inset: auto;
-  grid-row: 2;
   min-width: 0;
   min-height: var(--ui-status-height);
   height: var(--ui-status-height);
