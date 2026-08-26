@@ -6,6 +6,7 @@ import { WorkspacePage } from './features/workspace/WorkspacePage'
 import { Button, Separator } from './ui'
 import './inspector-compact.css'
 import './component-editor-header.css'
+import './editor-toolbar-context.css'
 
 type WorkspaceModule = 'works' | 'components'
 
