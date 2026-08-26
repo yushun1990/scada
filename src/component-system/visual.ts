@@ -1,6 +1,7 @@
+import type { VisualAnimation } from './animations'
 import type { VisualRule } from './visualRules'
 
-export const COMPONENT_VISUAL_VERSION = 2 as const
+export const COMPONENT_VISUAL_VERSION = 3 as const
 
 export const DEFAULT_COMPONENT_VISUAL_DESIGN_SIZE = {
   width: 480,
@@ -101,6 +102,7 @@ export type ComponentVisualDefinition = {
   designSize: ComponentVisualDesignSize
   layers: readonly ComponentVisualLayer[]
   rules?: readonly VisualRule[]
+  animations: readonly VisualAnimation[]
 }
 
 const LAYER_KINDS = new Set<VisualLayerKind>([
@@ -343,7 +345,8 @@ export function assertComponentVisualDefinition(
     value.version !== COMPONENT_VISUAL_VERSION ||
     (value.mode !== 'native' && value.mode !== 'composite') ||
     !Array.isArray(value.layers) ||
-    (value.rules !== undefined && !Array.isArray(value.rules))
+    (value.rules !== undefined && !Array.isArray(value.rules)) ||
+    !Array.isArray(value.animations)
   ) {
     throw new Error('Component visual definition 无效')
   }
@@ -431,6 +434,14 @@ function cloneVisualLayer(layer: ComponentVisualLayer): ComponentVisualLayer {
   }
 }
 
+function cloneAnimation(animation: VisualAnimation): VisualAnimation {
+  return {
+    ...animation,
+    timing: { ...animation.timing },
+    activation: { ...animation.activation },
+  }
+}
+
 export function createEmptyCompositeVisual(
   designSize: ComponentVisualDesignSize = DEFAULT_COMPONENT_VISUAL_DESIGN_SIZE,
 ): ComponentVisualDefinition {
@@ -440,6 +451,7 @@ export function createEmptyCompositeVisual(
     designSize: cloneDesignSize(designSize),
     layers: [],
     rules: [],
+    animations: [],
   }
 }
 
@@ -450,6 +462,7 @@ export function createNativeVisual(): ComponentVisualDefinition {
     designSize: cloneDesignSize(),
     layers: [],
     rules: [],
+    animations: [],
   }
 }
 
@@ -462,5 +475,6 @@ export function cloneComponentVisual(
     designSize: cloneDesignSize(visual.designSize),
     layers: visual.layers.map(cloneVisualLayer),
     rules: visual.rules?.map((rule) => ({ ...rule })) ?? [],
+    animations: visual.animations.map(cloneAnimation),
   }
 }
