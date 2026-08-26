@@ -204,10 +204,14 @@ Implemented:
 - private visual schema v3 with serialized animation definitions
 - renderer-independent spin animation model, timing, easing and Property activation
 - Preview-only transient animation clock and overlay composition after Visual Rules
+- dedicated selected-Layer `动画` Inspector group
+- spin add/remove, enable/disable and complete timing authoring
+- Property-gated spin activation authoring with typed condition semantics
+- save/reopen persistence for authored animation definitions
 
 Current gate:
 
-> M6.4.1 spin model/evaluator is accepted. The renderer-independent animation boundary, v1/v2 -> v3 migration, deterministic model checks and deployed Preview proof are green. M6.4 remains active; animation authoring UI and additional animation families are subsequent slices.
+> M6.4.1 spin model/evaluator and M6.4.2 spin authoring UI are accepted. CI and deployed GitHub Pages prove the complete path from real Inspector authoring through persistence and Property-gated Preview, while animation frames remain transient and previous Component/SCADA regressions stay green. M6.4 remains active for additional animation families.
 
 The detailed record is [`docs/progress/m6.4-animation-foundation.md`](docs/progress/m6.4-animation-foundation.md).
 
@@ -306,7 +310,7 @@ Do not reopen M6.3.4 with marquee, cross-parent grouping or resize/rotate snappi
 
 Animations remain private component implementation details unless deliberately controlled through public Properties.
 
-The runtime boundary is now fixed:
+The runtime boundary is fixed:
 
 ```text
 serialized Layer state
@@ -355,9 +359,38 @@ Verification:
 - the deployed smoke proves Design frames remain static, Preview spin changes actual canvas pixels and persisted base rotation remains unchanged.
 - the same deployed run kept Chromium + Firefox pointer regressions and SCADA shared Align/Distribute regression green.
 
-**Result: M6.4.1 is accepted. M6.4 remains active.**
+**Result: M6.4.1 is accepted.**
 
-Next M6.4 work should build authoring capability on this accepted model instead of bypassing it with Konva Tweens or DOM/CSS animation side channels. The next focused slice is animation authoring UI for the accepted spin definition before broadening the animation family.
+### M6.4.2 Spin authoring UI — accepted · 2026-08-26
+
+Implemented and accepted:
+
+- selected private Layer owns an independent `动画` Inspector group, sibling to `视觉规则`
+- list animations targeting the selected Layer
+- add/remove `spin` definitions
+- enable/disable
+- edit degrees per iteration, duration and delay
+- choose infinite/finite iterations and edit finite count
+- edit normal/reverse/alternate/alternate-reverse direction
+- edit linear/ease-in/ease-out/ease-in-out easing
+- choose `always` or Property-condition activation
+- Property activation reuses typed Visual Rule operator/value semantics
+- save/reopen round-trips authored animation definitions
+- Design remains static; Preview continues through the M6.4.1 pure evaluator path
+
+Verification:
+
+- final implementation revision `ebcfe6b5cc0694e0d27f8c36e88acb96b061b78d` passed CI #507: Build, Animation model checks and Lint.
+- Pages Browser Smoke #51 passed against the same deployed revision.
+- deployed smoke creates the spin through the real `动画` Inspector instead of injecting animation JSON.
+- smoke authors 180° / 800ms / 50ms delay / 3 iterations / reverse / ease-in-out and Property-gated activation, saves and reloads it, then verifies the persisted fields.
+- with `running == false`, Preview remains pixel-stable; changing the real Preview Property to `true` makes the Canvas change over time.
+- persisted base Layer rotation remains `0` after animated Preview frames.
+- Chromium + Firefox component pointer regressions and SCADA shared Align/Distribute regression remain green in the same run.
+
+**Result: M6.4.2 is accepted. M6.4 remains active.**
+
+The next M6.4 slice should extend the same renderer-independent model/evaluator/Inspector path with one additional animation family that proves a new overlay-composition channel. Do not add all remaining animation families at once and do not introduce a generic timeline/keyframe system.
 
 ## M6.5 Controlled Script Runtime — pending
 
@@ -391,18 +424,22 @@ Current execution order from `main`:
 6. M6.4.1 deterministic CI model checks                   passed
 7. M6.4.1 deployed Pages animation smoke                  passed
 8. Mark M6.4.1 accepted                                   done
-9. M6.4.2 spin authoring UI                               NEXT
-10. Additional animation families                         later M6.4
-11. M6.5 Controlled Script Runtime                        later
-12. M6.6 publish user-created composite component         later
-13. M7 packaging / adapters / production components       later
+9. M6.4.2 dedicated spin authoring Inspector              done
+10. M6.4.2 save/reopen + Property-gated Preview smoke     passed
+11. Mark M6.4.2 accepted                                  done
+12. M6.4.3 next animation-family slice                    NEXT
+13. M6.5 Controlled Script Runtime                        later
+14. M6.6 publish user-created composite component         later
+15. M7 packaging / adapters / production components       later
 ```
 
-The **next step is M6.4.2 spin authoring UI**:
+The **next step is M6.4.3 animation-family expansion**:
 
-> Expose the already-accepted spin definition through the Component Workbench Inspector without changing the runtime boundary. Authoring controls should edit serialized definitions; Preview should continue to consume only the pure evaluator/overlay path.
+> Choose the smallest additional family that proves one new semantic overlay-composition channel, then carry it through the already-accepted serialized model → validation → pure evaluator → dedicated Inspector → deployed Preview path.
 
-Do not broaden into a generic timeline/keyframe editor in this slice. First prove that users can create, edit, enable/disable and remove a validated spin animation targeting the selected private Layer, including Property activation and timing fields.
+Candidate families are `move`, `scale/pulse`, `fade` and `blink`. The family order should be decided from composition value and implementation risk rather than implementing all of them together.
+
+Do not broaden into a generic timeline/keyframe editor. Keep authored definitions renderer-independent and keep frame state transient.
 
 ---
 
