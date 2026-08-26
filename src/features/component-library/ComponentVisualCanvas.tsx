@@ -8,6 +8,10 @@ import {
   compositeVisualLayerNodeId,
   getCompositeVisualLayerId,
 } from '../../component-system/CompositeComponentVisualRenderer'
+import {
+  applyVisualAnimationOverlay,
+  evaluateVisualAnimations,
+} from '../../component-system/animations'
 import type { ComponentProps } from '../../component-system/definition'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
 import { resolveComponentVisualRules } from '../../component-system/visualRules'
@@ -154,6 +158,7 @@ export function ComponentVisualCanvas({
   const [gridSize, setGridSize] = useState(COMPONENT_SNAP_GRID_SIZE)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [animationTimeMs, setAnimationTimeMs] = useState(0)
   const selectedLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
   const selectedVisibleLayerIds = useMemo(
     () => selectedLayerIds.filter((layerId) =>
@@ -161,8 +166,14 @@ export function ComponentVisualCanvas({
     ),
     [selectedLayerIds, visual.layers],
   )
-  const renderedVisual = mode === 'preview'
+  const ruleResolvedVisual = mode === 'preview'
     ? resolveComponentVisualRules(visual, propertyValues)
+    : visual
+  const renderedVisual = mode === 'preview'
+    ? applyVisualAnimationOverlay(
+        ruleResolvedVisual,
+        evaluateVisualAnimations(ruleResolvedVisual, propertyValues, animationTimeMs),
+      )
     : visual
   const visualDesignWidth = visual.designSize.width
   const visualDesignHeight = visual.designSize.height
@@ -226,6 +237,25 @@ export function ComponentVisualCanvas({
 
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (mode !== 'preview' || visual.animations.length === 0) {
+      setAnimationTimeMs(0)
+      return
+    }
+
+    let frameId = 0
+    let epochMs: number | null = null
+
+    const tick = (nowMs: number) => {
+      epochMs ??= nowMs
+      setAnimationTimeMs(nowMs - epochMs)
+      frameId = window.requestAnimationFrame(tick)
+    }
+
+    frameId = window.requestAnimationFrame(tick)
+    return () => window.cancelAnimationFrame(frameId)
+  }, [mode, visual.animations.length])
 
   useEffect(() => {
     const previous = visualRef.current
@@ -740,6 +770,7 @@ export function ComponentVisualCanvas({
           <span>实例默认 {designWidth} × {designHeight}</span>
           <span>{visual.layers.length} 个图层</span>
           {(visual.rules?.length ?? 0) > 0 && <span>{visual.rules?.length} 条规则</span>}
+          {visual.animations.length > 0 && <span>{visual.animations.length} 个动画</span>}
         </span>
       </div>
     </>
