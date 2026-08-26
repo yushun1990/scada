@@ -79,12 +79,12 @@ assert.doesNotThrow(() => assertComponentVisualAnimations(definition, visual))
 assert.equal(evaluateVisualAnimationPhase(blinkAnimation.timing, 250), 0.25)
 assert.equal(evaluateVisualAnimationProgress(blinkAnimation.timing, 250), 0.0625)
 assert.equal(
-  evaluateVisualAnimations(visual, {}, 250).lamp?.visibleGate,
+  evaluateVisualAnimations(visual, {}, 250).lamp?.visible,
   true,
   'blink uses raw directed phase and is visible in the first half-cycle',
 )
 assert.equal(
-  evaluateVisualAnimations(visual, {}, 600).lamp?.visibleGate,
+  evaluateVisualAnimations(visual, {}, 600).lamp?.visible,
   false,
   'blink threshold must ignore easing; raw phase 0.6 is hidden even though ease-in progress is 0.36',
 )
@@ -99,7 +99,7 @@ const alreadyHidden = {
   layers: [{ ...visual.layers[0], visible: false }],
 } as const
 const visiblePhaseOverlay = evaluateVisualAnimations(alreadyHidden, {}, 100)
-assert.equal(visiblePhaseOverlay.lamp?.visibleGate, true)
+assert.equal(visiblePhaseOverlay.lamp?.visible, true)
 assert.equal(
   applyVisualAnimationOverlay(alreadyHidden, visiblePhaseOverlay).layers[0]?.visible,
   false,
@@ -119,7 +119,7 @@ const composedVisual = {
   animations: [blinkAnimation, delayedBlink],
 } as const
 assert.equal(
-  evaluateVisualAnimations(composedVisual, {}, 600).lamp?.visibleGate,
+  evaluateVisualAnimations(composedVisual, {}, 600).lamp?.visible,
   false,
   'multiple blink gates compose with logical AND',
 )
@@ -142,7 +142,7 @@ const ruleVisual = {
 const ruleResolved = resolveComponentVisualRules(ruleVisual, { alarm: true })
 assert.equal(ruleResolved.layers[0]?.visible, false)
 const ruleOverlay = evaluateVisualAnimations(ruleResolved, { alarm: true }, 100)
-assert.equal(ruleOverlay.lamp?.visibleGate, true)
+assert.equal(ruleOverlay.lamp?.visible, true)
 assert.equal(
   applyVisualAnimationOverlay(ruleResolved, ruleOverlay).layers[0]?.visible,
   false,
@@ -162,7 +162,7 @@ const propertyBlink = {
 const propertyVisual = { ...visual, animations: [propertyBlink] } as const
 assert.deepEqual(evaluateVisualAnimations(propertyVisual, { alarm: false }, 600), {})
 assert.equal(
-  evaluateVisualAnimations(propertyVisual, { alarm: true }, 600).lamp?.visibleGate,
+  evaluateVisualAnimations(propertyVisual, { alarm: true }, 600).lamp?.visible,
   false,
 )
 
@@ -174,7 +174,7 @@ const finiteBlink = {
   },
 } as const
 const finiteVisual = { ...visual, animations: [finiteBlink] } as const
-assert.equal(evaluateVisualAnimations(finiteVisual, {}, 999).lamp?.visibleGate, false)
+assert.equal(evaluateVisualAnimations(finiteVisual, {}, 999).lamp?.visible, false)
 assert.deepEqual(
   evaluateVisualAnimations(finiteVisual, {}, 1000),
   {},
@@ -189,9 +189,9 @@ const reverseBlink = {
   },
 } as const
 assert.equal(
-  evaluateVisualAnimations({ ...visual, animations: [reverseBlink] }, {}, 100).lamp?.visibleGate,
+  evaluateVisualAnimations({ ...visual, animations: [reverseBlink] }, {}, 100).lamp?.visible,
   false,
   'reverse direction deterministically swaps the stepped phase',
 )
 
-console.log('Blink animation model checks passed: raw stepped phase, visibility gating, AND composition, rule ordering, property activation and lifecycle restoration are deterministic.')
+console.log('Blink animation model checks passed: raw stepped phase, generic visibility gating, AND composition, rule ordering, property activation and lifecycle restoration are deterministic.')
