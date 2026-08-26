@@ -5,6 +5,12 @@ import {
   type ComponentScalarValue,
 } from './definition'
 import type { ComponentVisualDefinition } from './visual'
+import {
+  applyVisualRuntimeOverlay,
+  composeVisualRuntimeContribution,
+  type VisualRuntimeLayerOverlay,
+  type VisualRuntimeOverlay,
+} from './visualRuntime'
 import type { VisualRuleOperator } from './visualRules'
 
 export type VisualAnimationDirection =
@@ -94,17 +100,8 @@ export type VisualAnimation =
   | FadeVisualAnimation
   | BlinkVisualAnimation
 
-export type VisualAnimationLayerOverlay = {
-  rotationDelta?: number
-  translateX?: number
-  translateY?: number
-  scaleXMultiplier?: number
-  scaleYMultiplier?: number
-  opacityMultiplier?: number
-  visibleGate?: boolean
-}
-
-export type VisualAnimationOverlay = Record<string, VisualAnimationLayerOverlay>
+export type VisualAnimationLayerOverlay = VisualRuntimeLayerOverlay
+export type VisualAnimationOverlay = VisualRuntimeOverlay
 
 const RULE_OPERATORS = new Set<VisualRuleOperator>([
   'equals',
@@ -384,44 +381,53 @@ export function evaluateVisualAnimations(
       ? phase
       : applyEasing(phase, animation.timing.easing)
 
-    const current = overlay[animation.layerId] ?? {}
-
     if (animation.kind === 'spin') {
-      overlay[animation.layerId] = {
-        ...current,
-        rotationDelta:
-          (current.rotationDelta ?? 0) + animation.degreesPerIteration * progress,
-      }
+      composeVisualRuntimeContribution(
+        overlay,
+        animation.layerId,
+        'transform.rotation',
+        animation.degreesPerIteration * progress,
+      )
     } else if (animation.kind === 'move') {
-      overlay[animation.layerId] = {
-        ...current,
-        translateX:
-          (current.translateX ?? 0) + animation.deltaXPerIteration * progress,
-        translateY:
-          (current.translateY ?? 0) + animation.deltaYPerIteration * progress,
-      }
+      composeVisualRuntimeContribution(
+        overlay,
+        animation.layerId,
+        'transform.x',
+        animation.deltaXPerIteration * progress,
+      )
+      composeVisualRuntimeContribution(
+        overlay,
+        animation.layerId,
+        'transform.y',
+        animation.deltaYPerIteration * progress,
+      )
     } else if (animation.kind === 'scale') {
-      overlay[animation.layerId] = {
-        ...current,
-        scaleXMultiplier:
-          (current.scaleXMultiplier ?? 1) *
-          interpolateMultiplier(animation.scaleXMultiplier, progress),
-        scaleYMultiplier:
-          (current.scaleYMultiplier ?? 1) *
-          interpolateMultiplier(animation.scaleYMultiplier, progress),
-      }
+      composeVisualRuntimeContribution(
+        overlay,
+        animation.layerId,
+        'transform.scaleX',
+        interpolateMultiplier(animation.scaleXMultiplier, progress),
+      )
+      composeVisualRuntimeContribution(
+        overlay,
+        animation.layerId,
+        'transform.scaleY',
+        interpolateMultiplier(animation.scaleYMultiplier, progress),
+      )
     } else if (animation.kind === 'fade') {
-      overlay[animation.layerId] = {
-        ...current,
-        opacityMultiplier:
-          (current.opacityMultiplier ?? 1) *
-          interpolateMultiplier(animation.opacityMultiplier, progress),
-      }
+      composeVisualRuntimeContribution(
+        overlay,
+        animation.layerId,
+        'opacity',
+        interpolateMultiplier(animation.opacityMultiplier, progress),
+      )
     } else {
-      overlay[animation.layerId] = {
-        ...current,
-        visibleGate: (current.visibleGate ?? true) && progress < 0.5,
-      }
+      composeVisualRuntimeContribution(
+        overlay,
+        animation.layerId,
+        'visible',
+        progress < 0.5,
+      )
     }
   }
 
@@ -432,27 +438,5 @@ export function applyVisualAnimationOverlay(
   visual: ComponentVisualDefinition,
   overlay: VisualAnimationOverlay,
 ): ComponentVisualDefinition {
-  if (Object.keys(overlay).length === 0) return visual
-
-  return {
-    ...visual,
-    layers: visual.layers.map((layer) => {
-      const layerOverlay = overlay[layer.id]
-      if (!layerOverlay) return layer
-
-      return {
-        ...layer,
-        visible: layer.visible && (layerOverlay.visibleGate ?? true),
-        opacity: layer.opacity * (layerOverlay.opacityMultiplier ?? 1),
-        transform: {
-          ...layer.transform,
-          x: layer.transform.x + (layerOverlay.translateX ?? 0),
-          y: layer.transform.y + (layerOverlay.translateY ?? 0),
-          rotation: layer.transform.rotation + (layerOverlay.rotationDelta ?? 0),
-          scaleX: layer.transform.scaleX * (layerOverlay.scaleXMultiplier ?? 1),
-          scaleY: layer.transform.scaleY * (layerOverlay.scaleYMultiplier ?? 1),
-        },
-      }
-    }),
-  }
+  return applyVisualRuntimeOverlay(visual, overlay)
 }
