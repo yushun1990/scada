@@ -4,7 +4,9 @@ import type {
   ComponentScalarValue,
 } from '../../component-system/definition'
 import type {
+  MoveVisualAnimation,
   SpinVisualAnimation,
+  VisualAnimation,
   VisualAnimationDirection,
   VisualAnimationEasing,
   VisualAnimationTiming,
@@ -37,12 +39,22 @@ const EASING_OPTIONS: Array<{ value: VisualAnimationEasing; label: string }> = [
   { value: 'ease-in-out', label: '缓入缓出' },
 ]
 
-function nextAnimationId(animations: readonly SpinVisualAnimation[]) {
+function nextAnimationId(animations: readonly VisualAnimation[]) {
   const ids = new Set(animations.map((animation) => animation.id))
   let index = 1
 
   while (ids.has(`animation${index}`)) index += 1
   return `animation${index}`
+}
+
+function createDefaultTiming(): VisualAnimationTiming {
+  return {
+    durationMs: 1000,
+    delayMs: 0,
+    iterations: 'infinite',
+    direction: 'normal',
+    easing: 'linear',
+  }
 }
 
 function operatorOptions(property: ComponentPropertyDefinition) {
@@ -51,6 +63,14 @@ function operatorOptions(property: ComponentPropertyDefinition) {
     : ['equals', 'notEquals']
 
   return operators.map((value) => ({ value, label: OPERATOR_LABELS[value] }))
+}
+
+function animationSummary(animation: VisualAnimation) {
+  if (animation.kind === 'spin') {
+    return `Spin · ${animation.degreesPerIteration}° / ${animation.timing.durationMs}ms`
+  }
+
+  return `Move · ΔX ${animation.deltaXPerIteration} / ΔY ${animation.deltaYPerIteration} / ${animation.timing.durationMs}ms`
 }
 
 function PropertyValueEditor({
@@ -139,7 +159,7 @@ export function ComponentVisualAnimationEditor({
 
   function replaceAnimation(
     animationId: string,
-    update: (animation: SpinVisualAnimation) => SpinVisualAnimation,
+    update: (animation: VisualAnimation) => VisualAnimation,
   ) {
     onChange({
       ...visual,
@@ -163,20 +183,29 @@ export function ComponentVisualAnimationEditor({
     })
   }
 
-  function addAnimation() {
+  function addSpinAnimation() {
     const animation: SpinVisualAnimation = {
       id: nextAnimationId(allAnimations),
       kind: 'spin',
       enabled: true,
       layerId,
       degreesPerIteration: 360,
-      timing: {
-        durationMs: 1000,
-        delayMs: 0,
-        iterations: 'infinite',
-        direction: 'normal',
-        easing: 'linear',
-      },
+      timing: createDefaultTiming(),
+      activation: { kind: 'always' },
+    }
+
+    onChange({ ...visual, animations: [...allAnimations, animation] })
+  }
+
+  function addMoveAnimation() {
+    const animation: MoveVisualAnimation = {
+      id: nextAnimationId(allAnimations),
+      kind: 'move',
+      enabled: true,
+      layerId,
+      deltaXPerIteration: 40,
+      deltaYPerIteration: 0,
+      timing: createDefaultTiming(),
       activation: { kind: 'always' },
     }
 
@@ -199,7 +228,7 @@ export function ComponentVisualAnimationEditor({
             <div className="component-layer-inspector-title">
               <div>
                 <strong>{animation.id}</strong>
-                <span>Spin · {animation.degreesPerIteration}° / {animation.timing.durationMs}ms</span>
+                <span>{animationSummary(animation)}</span>
               </div>
               {!readOnly && (
                 <Button
@@ -225,23 +254,66 @@ export function ComponentVisualAnimationEditor({
             />
 
             <div className="property-grid component-animation-grid">
-              <label className="property-field compact">
-                <span>每轮旋转</span>
-                <NumberInput
-                  value={animation.degreesPerIteration}
-                  disabled={readOnly}
-                  step="15"
-                  aria-label={`${animation.id} 每轮旋转角度`}
-                  onChange={(event) => {
-                    const degreesPerIteration = Number(event.target.value)
-                    if (!Number.isFinite(degreesPerIteration)) return
-                    replaceAnimation(animation.id, (current) => ({
-                      ...current,
-                      degreesPerIteration,
-                    }))
-                  }}
-                />
-              </label>
+              {animation.kind === 'spin' ? (
+                <label className="property-field compact">
+                  <span>每轮旋转</span>
+                  <NumberInput
+                    value={animation.degreesPerIteration}
+                    disabled={readOnly}
+                    step="15"
+                    aria-label={`${animation.id} 每轮旋转角度`}
+                    onChange={(event) => {
+                      const degreesPerIteration = Number(event.target.value)
+                      if (!Number.isFinite(degreesPerIteration)) return
+                      replaceAnimation(animation.id, (current) =>
+                        current.kind === 'spin'
+                          ? { ...current, degreesPerIteration }
+                          : current,
+                      )
+                    }}
+                  />
+                </label>
+              ) : (
+                <>
+                  <label className="property-field compact">
+                    <span>每轮 X 位移</span>
+                    <NumberInput
+                      value={animation.deltaXPerIteration}
+                      disabled={readOnly}
+                      step="5"
+                      aria-label={`${animation.id} 每轮 X 位移`}
+                      onChange={(event) => {
+                        const deltaXPerIteration = Number(event.target.value)
+                        if (!Number.isFinite(deltaXPerIteration)) return
+                        replaceAnimation(animation.id, (current) =>
+                          current.kind === 'move'
+                            ? { ...current, deltaXPerIteration }
+                            : current,
+                        )
+                      }}
+                    />
+                  </label>
+
+                  <label className="property-field compact">
+                    <span>每轮 Y 位移</span>
+                    <NumberInput
+                      value={animation.deltaYPerIteration}
+                      disabled={readOnly}
+                      step="5"
+                      aria-label={`${animation.id} 每轮 Y 位移`}
+                      onChange={(event) => {
+                        const deltaYPerIteration = Number(event.target.value)
+                        if (!Number.isFinite(deltaYPerIteration)) return
+                        replaceAnimation(animation.id, (current) =>
+                          current.kind === 'move'
+                            ? { ...current, deltaYPerIteration }
+                            : current,
+                        )
+                      }}
+                    />
+                  </label>
+                </>
+              )}
 
               <label className="property-field compact">
                 <span>周期 ms</span>
@@ -445,14 +517,24 @@ export function ComponentVisualAnimationEditor({
       )}
 
       {!readOnly && (
-        <Button
-          variant="secondary"
-          size="small"
-          className="component-add-animation"
-          onClick={addAnimation}
-        >
-          + 添加 Spin 动画
-        </Button>
+        <div className="component-animation-add-actions">
+          <Button
+            variant="secondary"
+            size="small"
+            className="component-add-animation"
+            onClick={addSpinAnimation}
+          >
+            + 添加 Spin 动画
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            className="component-add-animation"
+            onClick={addMoveAnimation}
+          >
+            + 添加 Move 动画
+          </Button>
+        </div>
       )}
     </div>
   )
