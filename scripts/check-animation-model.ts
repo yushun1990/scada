@@ -157,7 +157,7 @@ assert.doesNotThrow(() => assertComponentVisualAnimations(definition, visual))
 assert.deepEqual(evaluateVisualAnimations(visual, { running: false }, 500), {})
 
 const overlay = evaluateVisualAnimations(visual, { running: true }, 500)
-assert.equal(overlay.wheel?.rotationDelta, 180)
+assert.equal(overlay.wheel?.['transform.rotation'], 180)
 
 const rendered = applyVisualAnimationOverlay(visual, overlay)
 assert.equal(rendered.layers[0]?.transform.rotation, 200)
@@ -200,7 +200,7 @@ const composedOverlay = evaluateVisualAnimations(
   { running: true },
   500,
 )
-assert.equal(composedOverlay.wheel?.rotationDelta, 270)
+assert.equal(composedOverlay.wheel?.['transform.rotation'], 270)
 
 const moveAnimation = {
   id: 'wheel-move',
@@ -221,8 +221,8 @@ const moveAnimation = {
 const moveVisual = { ...visual, animations: [moveAnimation] } as const
 assert.doesNotThrow(() => assertComponentVisualAnimations(definition, moveVisual))
 const moveOverlay = evaluateVisualAnimations(moveVisual, { running: false }, 500)
-assert.equal(moveOverlay.wheel?.translateX, 30)
-assert.equal(moveOverlay.wheel?.translateY, -10)
+assert.equal(moveOverlay.wheel?.['transform.x'], 30)
+assert.equal(moveOverlay.wheel?.['transform.y'], -10)
 const moved = applyVisualAnimationOverlay(moveVisual, moveOverlay)
 assert.equal(moved.layers[0]?.transform.x, 40)
 assert.equal(moved.layers[0]?.transform.y, 10)
@@ -240,8 +240,8 @@ const composedMoveOverlay = evaluateVisualAnimations(
   {},
   500,
 )
-assert.equal(composedMoveOverlay.wheel?.translateX, 20)
-assert.equal(composedMoveOverlay.wheel?.translateY, 10)
+assert.equal(composedMoveOverlay.wheel?.['transform.x'], 20)
+assert.equal(composedMoveOverlay.wheel?.['transform.y'], 10)
 
 const moveRuleVisual = {
   ...visual,
@@ -299,8 +299,8 @@ const scaleAnimation = {
 const scaleVisual = { ...visual, animations: [scaleAnimation] } as const
 assert.doesNotThrow(() => assertComponentVisualAnimations(definition, scaleVisual))
 const scaleOverlay = evaluateVisualAnimations(scaleVisual, {}, 500)
-assert.equal(scaleOverlay.wheel?.scaleXMultiplier, 1.5)
-assert.equal(scaleOverlay.wheel?.scaleYMultiplier, 0.75)
+assert.equal(scaleOverlay.wheel?.['transform.scaleX'], 1.5)
+assert.equal(scaleOverlay.wheel?.['transform.scaleY'], 0.75)
 const scaled = applyVisualAnimationOverlay(scaleVisual, scaleOverlay)
 assert.equal(scaled.layers[0]?.transform.scaleX, 1.5)
 assert.equal(scaled.layers[0]?.transform.scaleY, 0.75)
@@ -318,8 +318,8 @@ const composedScaleOverlay = evaluateVisualAnimations(
   {},
   500,
 )
-assert.equal(composedScaleOverlay.wheel?.scaleXMultiplier, 1.125)
-assert.equal(composedScaleOverlay.wheel?.scaleYMultiplier, 1.5)
+assert.equal(composedScaleOverlay.wheel?.['transform.scaleX'], 1.125)
+assert.equal(composedScaleOverlay.wheel?.['transform.scaleY'], 1.5)
 
 const scaleRuleVisual = {
   ...visual,
@@ -410,4 +410,4 @@ assert.throws(
   /scaleYMultiplier/,
 )
 
-console.log('Animation model checks passed: migration, timing, spin/move/scale overlays, rule ordering, semantic composition and validation are deterministic.')
+console.log('Animation model checks passed: migration, timing, spin/move/scale adapters, rule ordering, generic target composition and validation are deterministic.')
