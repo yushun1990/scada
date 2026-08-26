@@ -221,7 +221,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
 
   const rootNodes = getRootNodes(scene)
   const selectedNodes = selectedNodeIds
-    .map((nodeId) => rootNodes.find((node) => node.id === nodeId))
+    .map((nodeId) => scene.nodes.find((node) => node.id === nodeId))
     .filter((node): node is SceneNode => Boolean(node))
   const primaryNode = selectedNodes[selectedNodes.length - 1] ?? null
   const selectedConnection = scene.connections.find(
@@ -233,7 +233,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
       : null
 
   const canGroup =
-    selectedNodes.length >= 2 &&
+    selectedNodeIds.length >= 2 &&
+    selectedNodes.length === selectedNodeIds.length &&
     selectedNodes.every(
       (node) => node.parentId === selectedNodes[0]?.parentId,
     )
@@ -772,6 +773,11 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
       : []),
     ...SCENE_SIZE_PRESETS.map((preset) => ({ value: preset.id, label: preset.label })),
   ]
+  const hierarchyMode = canUngroup ? 'ungroup' : 'group'
+  const hierarchyTitle = hierarchyMode === 'ungroup'
+    ? '拆分组合'
+    : '组合选中对象'
+  const hierarchyEnabled = canUngroup || canGroup
 
   return (
     <div className="editor-shell">
@@ -885,22 +891,12 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
               <ToolbarButton
                 iconOnly
                 className="icon-button"
-                title="组合选中对象"
-                aria-label="组合选中对象"
-                disabled={!canGroup}
-                onClick={groupSelectedNodes}
+                title={hierarchyTitle}
+                aria-label={hierarchyTitle}
+                disabled={!hierarchyEnabled}
+                onClick={hierarchyMode === 'ungroup' ? ungroupSelectedNode : groupSelectedNodes}
               >
-                <GroupIcon />
-              </ToolbarButton>
-              <ToolbarButton
-                iconOnly
-                className="icon-button"
-                title="拆分组合"
-                aria-label="拆分组合"
-                disabled={!canUngroup}
-                onClick={ungroupSelectedNode}
-              >
-                <UngroupIcon />
+                {hierarchyMode === 'ungroup' ? <UngroupIcon /> : <GroupIcon />}
               </ToolbarButton>
               <ToolbarButton
                 iconOnly
@@ -1128,7 +1124,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     <span>线型</span>
                     <Select
                       value={selectedConnection.style.dash}
-                      ariaLabel="连线线型"
+                      ariaLabel="连线路由"
                       options={CONNECTION_DASH_OPTIONS}
                       onValueChange={(value) => {
                         const dash = value as 'solid' | 'dashed'
@@ -1174,7 +1170,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
               <div className="property-section-list">
                 <CollapsibleInspectorGroup title="批量属性" className="inspector-toggle-group">
                   <div className="selection-summary">
-                    已选择 <strong>{selectedNodes.length}</strong> 个根节点。
+                    已选择 <strong>{selectedNodes.length}</strong> 个节点。
                   </div>
                   <Checkbox
                     className="checkbox-field property-toggle"
