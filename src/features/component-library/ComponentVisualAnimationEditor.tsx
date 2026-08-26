@@ -12,6 +12,7 @@ import type {
 import type { ComponentVisualDefinition } from '../../component-system/visual'
 import type { VisualRuleOperator } from '../../component-system/visualRules'
 import { Button, Checkbox, Input, NumberInput, Select } from '../../ui'
+import './component-animation-editor.css'
 
 const OPERATOR_LABELS: Record<VisualRuleOperator, string> = {
   equals: '等于',
