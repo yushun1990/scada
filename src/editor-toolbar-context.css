@@ -1,0 +1,30 @@
+/* Shared editor toolbar semantics.
+ * Group/Ungroup occupy one stable slot: the icon changes with the current
+ * selection instead of making the toolbar grow and shrink. */
+.canvas-tool-group > button[aria-label="拆分组合"]:disabled {
+  display: none;
+}
+
+.canvas-tool-group:has(> button[aria-label="拆分组合"]:not(:disabled))
+  > button[aria-label="组合选中对象"] {
+  display: none;
+}
+
+/* Component Editor injects the common edit commands into the hierarchy group
+ * so its first command strip follows SCADA's Copy / Delete / Group-or-Ungroup /
+ * Undo / Redo order without duplicating toolbar markup. */
+.component-hierarchy-tool-group > .component-copy-command {
+  order: -4;
+}
+
+.component-hierarchy-tool-group > .component-delete-command {
+  order: -3;
+}
+
+.component-hierarchy-tool-group > .component-undo-command {
+  order: 1;
+}
+
+.component-hierarchy-tool-group > .component-redo-command {
+  order: 2;
+}
