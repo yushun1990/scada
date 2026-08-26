@@ -203,22 +203,21 @@ Implemented:
 - shared renderer/model-independent geometry command core
 - six Align commands and two Distribute commands
 - safe same-parent Group / Ungroup with transform preservation
-- private visual schema v3 with serialized animation definitions
+- private visual schema v3 with serialized animation experiment definitions
 - renderer-independent timing/easing/Property activation experiment foundation
-- Preview-only transient animation clock and overlay composition after Visual Rules
+- Preview-only transient clock and overlay composition after Visual Rules
 - dedicated selected-Layer `动画` Inspector group
-- Spin / Move / Scale / Fade authoring
+- Spin / Move / Scale / Fade / Blink authoring
 - Property-gated animation activation with typed condition semantics
-- additive rotation overlay composition
-- additive X/Y translation overlay composition
-- multiplicative X/Y scale overlay composition
-- multiplicative opacity overlay composition
-- save/reopen persistence for authored animation definitions
+- accepted continuous additive / multiplicative and discrete gate experiments
+- generic canonical Visual Runtime targets for x/y/rotation/scale/opacity/visible
+- generic `add` / `multiply` / `gate` transient composition descriptors
+- save/reopen persistence for current authored animation definitions
 - deployed browser smoke for every accepted animation experiment family
 
 Current gate:
 
-> M6.4.1 Spin runtime, M6.4.2 Spin authoring, M6.4.3 Move, M6.4.4 Scale and M6.4.5 Fade are accepted. The named families are visual-runtime experiments used to prove different composition channels, not the final promise that the stable API will expose one runtime type per effect. M6.4.6 Blink is next to prove discrete visibility semantics; after Blink, M6.4 must stop adding named effects and consolidate the proven behavior into generic Visual Runtime primitives.
+> M6.4.1 Spin runtime, M6.4.2 Spin authoring, M6.4.3 Move, M6.4.4 Scale, M6.4.5 Fade and M6.4.6 Blink are accepted. Named effect experimentation is closed. M6.4.7 Visual Runtime abstraction consolidation is active: current named definitions remain compatible authoring adapters while the transient runtime is being generalized around canonical visual targets and composition semantics.
 
 The detailed record is [`docs/progress/m6.4-animation-foundation.md`](docs/progress/m6.4-animation-foundation.md).
 
@@ -285,17 +284,17 @@ Do not reopen M6.3.4 with marquee, cross-parent grouping or resize/rotate snappi
 
 ### Intent of the named animation families
 
-The concrete families in M6.4 are experiment vehicles:
+The concrete families in M6.4 were experiment vehicles:
 
 ```text
 Spin   -> additive rotation
 Move   -> additive translation
 Scale  -> multiplicative transform scale
 Fade   -> multiplicative opacity
-Blink  -> discrete visibility
+Blink  -> discrete visibility gate
 ```
 
-Their purpose is to exercise the Visual Runtime over representative state channels, then extract a generic foundation from working behavior.
+Their purpose was to exercise the Visual Runtime over representative state channels, then extract a generic foundation from working behavior.
 
 The intended longer-term layering is:
 
@@ -324,16 +323,16 @@ Visual Rules
         ↓
 effective rule-resolved state
         ↓
-pure Animation Evaluator(time, Properties)
+pure time/property evaluation
         ↓
-transient Layer Overlay
+transient Visual Runtime Overlay
         ↓
 Renderer
         ↓
 Konva
 ```
 
-The Renderer does not own authored timing/activation semantics and animation frames are never written back into the component package.
+The Renderer does not own authored timing/activation semantics and runtime frames are never written back into the component package.
 
 ### M6.4.1 Spin model / evaluator — accepted · 2026-08-26
 
@@ -435,48 +434,94 @@ Verification:
 
 **Result: M6.4.5 accepted.**
 
-### M6.4.6 Blink / stepped visibility experiment — NEXT
+### M6.4.6 Blink / stepped visibility experiment — accepted · 2026-08-26
 
-Goal:
+Accepted:
 
-> Prove deterministic discrete-state animation semantics rather than another continuous numeric interpolation channel.
+- `blink` as a discrete visibility experiment, not an opacity trick
+- raw directed phase separated from eased continuous progress
+- visible first half-cycle / hidden second half-cycle
+- easing ignored for Blink and disabled in Blink authoring UI
+- visibility overlay uses gate semantics: `rendered = ruleResolved && gate`
+- multiple Blink gates compose with logical AND
+- Blink cannot force rule/base-hidden Layers visible
+- finite completion removes transient gate and restores rule/base state
+- typed Property activation
+- real Inspector authoring and deployed Blink smoke
 
-Blink should target transient Layer visibility and should not be implemented as a smooth-opacity trick.
+Final functional acceptance revision:
 
-It must settle:
+`c7072107c33d664744b845f2e1065aa6539a2a3c`
 
-- explicit-time visible/hidden phase calculation
-- delay and finite/infinite iteration behavior
-- direction behavior for a discrete cycle
-- deterministic composition when multiple visibility-affecting definitions target one Layer
-- ordering relative to Visual Rule resolved `visible`
-- Property-gated activation without persisted Layer mutation
-- static Design vs clock-driven Preview
-- real Inspector authoring and deployed smoke
+Verification:
 
-Do not add arbitrary keyframes or a timeline editor.
+- CI #531 ✅
+- Pages Deploy #124 ✅
+- Pages Browser Smoke #75 ✅
+- same #75 kept Spin / Move / Scale / Fade, Chromium / Firefox pointer and SCADA geometry regressions green
 
-### M6.4.7 Visual Runtime abstraction consolidation — after Blink
+**Result: M6.4.6 accepted. Named visual-effect experimentation is closed.**
+
+### M6.4.7 Visual Runtime abstraction consolidation — ACTIVE
 
 This is a required convergence slice, not optional cleanup.
 
-After representative continuous and discrete channels have been proven, stop adding named effect kinds and evaluate the common foundation:
+Goal:
+
+> Extract stable low-level visual runtime semantics from the five working experiments while retaining backward-compatible authoring behavior and the accepted renderer boundary.
+
+Proven evidence:
 
 ```text
-visual targets / properties
-absolute vs relative change semantics
-numeric interpolation
-multiplicative vs additive composition
-step/discrete composition
-timing lifecycle
-stable IDs / control handles
-Preview clock ownership
-runtime immutability
+continuous additive       rotation, x, y
+continuous multiplicative scaleX, scaleY, opacity
+discrete gate             visible
+raw cycle phase           delay / iteration / direction
+continuous interpolation  easing(raw phase)
+transient composition     Rules -> overlay -> renderer
+runtime immutability      no frame persistence / undo writes
 ```
 
-The result should become the generic low-level visual capability layer used later by Component Rules, Behavior and Controlled Script Runtime.
+First consolidation step implemented:
 
-`pulse` should not become a separate runtime primitive unless the consolidation proves a real semantic gap; Scale + `alternate` already covers its underlying runtime behavior.
+- canonical Visual Runtime targets:
+  - `transform.x`
+  - `transform.y`
+  - `transform.rotation`
+  - `transform.scaleX`
+  - `transform.scaleY`
+  - `opacity`
+  - `visible`
+- target descriptors declare value kind, composition mode and identity
+- generic composition vocabulary:
+  - `add`
+  - `multiply`
+  - `gate`
+- generic transient overlay uses canonical target names rather than effect-specific overlay field names
+- current Spin / Move / Scale / Fade / Blink definitions act as adapters into the generic runtime
+- `applyVisualAnimationOverlay` delegates to renderer-independent generic Visual Runtime application
+- dedicated `scripts/check-visual-runtime.ts` proves target composition and immutable application without depending on named animation effects
+
+Verification for the first consolidation step:
+
+- CI #539 ✅
+- exact signal: `Visual Runtime checks passed: canonical targets, add/multiply/gate composition, immutable application and type guards are independent of named animation effects.`
+- existing Spin / Move / Scale / Fade / Blink deterministic checks remain green through the generic target path
+
+M6.4.7 still needs to settle before acceptance:
+
+```text
+1. whether authored intent needs a generic persistent definition or adapters/presets are sufficient
+2. absolute vs relative numeric target semantics
+3. stable runtime control IDs / handles for future Behavior and Script
+4. activation ownership boundary: definition-local condition vs external behavior control
+5. compatibility strategy before any possible visual schema v4
+6. full deployed browser regression after consolidation
+```
+
+Do **not** perform a destructive schema rewrite just to make the model look generic. Schema v3 remains until the abstraction proves a real persistence need.
+
+`pulse` does not become a separate runtime primitive unless this consolidation discovers a real semantic gap; Scale + `alternate` already covers its underlying runtime behavior.
 
 ## M6.5 Controlled Script Runtime — pending
 
@@ -511,16 +556,16 @@ Current execution order from `main`:
 5. M6.4.3 Move                                            accepted
 6. M6.4.4 Scale                                           accepted
 7. M6.4.5 Fade                                            accepted
-8. M6.4.6 Blink / stepped visibility experiment           NEXT
-9. M6.4.7 Visual Runtime abstraction consolidation        next
+8. M6.4.6 Blink / stepped visibility experiment           accepted
+9. M6.4.7 Visual Runtime abstraction consolidation        ACTIVE
 10. M6.5 Controlled Script Runtime                        later
 11. M6.6 publish user-created composite component         later
 12. M7 packaging / adapters / production components       later
 ```
 
-The **next implementation step is M6.4.6 Blink**:
+The **next implementation step remains M6.4.7**:
 
-> Add one focused discrete visibility experiment using the accepted Preview clock, activation and transient-overlay boundary. Prove deterministic timing, rule ordering, persistence and deployed authoring. Then stop adding named animation effects and perform M6.4.7 abstraction consolidation.
+> Continue consolidation from the now-proven canonical target/composition layer. Resolve generic authored intent and stable runtime control semantics before deciding whether a persistent schema migration is justified. Preserve the current named definitions as compatibility adapters until an equivalent generic path is fully proven.
 
 ---
 
