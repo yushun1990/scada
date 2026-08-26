@@ -68,10 +68,21 @@ export type ScaleVisualAnimation = {
   activation: VisualAnimationActivation
 }
 
+export type FadeVisualAnimation = {
+  id: string
+  kind: 'fade'
+  enabled: boolean
+  layerId: string
+  opacityMultiplier: number
+  timing: VisualAnimationTiming
+  activation: VisualAnimationActivation
+}
+
 export type VisualAnimation =
   | SpinVisualAnimation
   | MoveVisualAnimation
   | ScaleVisualAnimation
+  | FadeVisualAnimation
 
 export type VisualAnimationLayerOverlay = {
   rotationDelta?: number
@@ -79,6 +90,7 @@ export type VisualAnimationLayerOverlay = {
   translateY?: number
   scaleXMultiplier?: number
   scaleYMultiplier?: number
+  opacityMultiplier?: number
 }
 
 export type VisualAnimationOverlay = Record<string, VisualAnimationLayerOverlay>
@@ -216,7 +228,8 @@ export function assertComponentVisualAnimations(
     if (
       candidate.kind !== 'spin' &&
       candidate.kind !== 'move' &&
-      candidate.kind !== 'scale'
+      candidate.kind !== 'scale' &&
+      candidate.kind !== 'fade'
     ) {
       throw new Error(`Visual Animation ${animationId} kind 无效`)
     }
@@ -240,12 +253,20 @@ export function assertComponentVisualAnimations(
       if (!isFiniteNumber(candidate.deltaYPerIteration)) {
         throw new Error(`Visual Animation ${animationId} deltaYPerIteration 必须是有限数字`)
       }
-    } else {
+    } else if (candidate.kind === 'scale') {
       if (!isFiniteNumber(candidate.scaleXMultiplier) || candidate.scaleXMultiplier <= 0) {
         throw new Error(`Visual Animation ${animationId} scaleXMultiplier 必须是大于 0 的有限数字`)
       }
       if (!isFiniteNumber(candidate.scaleYMultiplier) || candidate.scaleYMultiplier <= 0) {
         throw new Error(`Visual Animation ${animationId} scaleYMultiplier 必须是大于 0 的有限数字`)
+      }
+    } else {
+      if (
+        !isFiniteNumber(candidate.opacityMultiplier) ||
+        candidate.opacityMultiplier < 0 ||
+        candidate.opacityMultiplier > 1
+      ) {
+        throw new Error(`Visual Animation ${animationId} opacityMultiplier 必须在 0 到 1 之间`)
       }
     }
 
@@ -357,7 +378,7 @@ export function evaluateVisualAnimations(
         translateY:
           (current.translateY ?? 0) + animation.deltaYPerIteration * progress,
       }
-    } else {
+    } else if (animation.kind === 'scale') {
       overlay[animation.layerId] = {
         ...current,
         scaleXMultiplier:
@@ -366,6 +387,13 @@ export function evaluateVisualAnimations(
         scaleYMultiplier:
           (current.scaleYMultiplier ?? 1) *
           interpolateMultiplier(animation.scaleYMultiplier, progress),
+      }
+    } else {
+      overlay[animation.layerId] = {
+        ...current,
+        opacityMultiplier:
+          (current.opacityMultiplier ?? 1) *
+          interpolateMultiplier(animation.opacityMultiplier, progress),
       }
     }
   }
@@ -387,6 +415,7 @@ export function applyVisualAnimationOverlay(
 
       return {
         ...layer,
+        opacity: layer.opacity * (layerOverlay.opacityMultiplier ?? 1),
         transform: {
           ...layer.transform,
           x: layer.transform.x + (layerOverlay.translateX ?? 0),
