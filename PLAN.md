@@ -201,12 +201,15 @@ Implemented:
 - shared renderer/model-independent geometry command core
 - six Align commands and two Distribute commands
 - safe same-parent Group / Ungroup with transform preservation
+- private visual schema v3 with serialized animation definitions
+- renderer-independent spin animation model, timing, easing and Property activation
+- Preview-only transient animation clock and overlay composition after Visual Rules
 
 Current gate:
 
-> M6.3.4 Component canvas authoring commands are accepted. Deployed GitHub Pages browser acceptance now covers the component command flow, Chromium + Firefox pointer behavior, and the SCADA Align/Distribute regression after shared geometry extraction.
+> M6.4.1 spin model/evaluator is accepted. The renderer-independent animation boundary, v1/v2 -> v3 migration, deterministic model checks and deployed Preview proof are green. M6.4 remains active; animation authoring UI and additional animation families are subsequent slices.
 
-The detailed acceptance record is [`docs/progress/m6.3.4-component-canvas-authoring.md`](docs/progress/m6.3.4-component-canvas-authoring.md).
+The detailed record is [`docs/progress/m6.4-animation-foundation.md`](docs/progress/m6.4-animation-foundation.md).
 
 ---
 
@@ -284,7 +287,7 @@ Automated deployed-site browser acceptance runs after successful GitHub Pages de
 - `scripts/pages-component-hit-smoke.mjs`
 - `scripts/pages-scada-geometry-smoke.mjs`
 
-Final acceptance passed on 2026-08-26 in Pages Browser Smoke #24 against deployed revision `f5e7aea2e75489fbb4cc17a13106db994274c8b9`.
+Final M6.3.4 acceptance passed on 2026-08-26 in Pages Browser Smoke #24 against deployed revision `f5e7aea2e75489fbb4cc17a13106db994274c8b9`.
 
 The deployed acceptance proves:
 
@@ -301,20 +304,60 @@ Do not reopen M6.3.4 with marquee, cross-parent grouping or resize/rotate snappi
 
 ## M6.4 Animation foundation — active
 
-Provide reusable private visual animation primitives such as:
+Animations remain private component implementation details unless deliberately controlled through public Properties.
 
-- rotate / spin
-- blink
-- fade
-- pulse
-- move
-- scale
+The runtime boundary is now fixed:
 
-Animations remain component implementation details unless deliberately controlled through public Properties.
+```text
+serialized Layer state
+        ↓
+Visual Rules
+        ↓
+effective rule-resolved state
+        ↓
+pure Animation Evaluator(time, Properties)
+        ↓
+transient Layer Overlay
+        ↓
+Renderer
+        ↓
+Konva
+```
 
-Before implementation, define the animation runtime boundary clearly enough that animations can be evaluated without exposing raw Konva/DOM objects to authored component logic.
+The Renderer does not own authored timing/activation semantics and animation frames are never written back into the component package.
 
-The first M6.4 slice should settle the renderer-independent serialized animation model, target Layer identity, timing/activation semantics and composition with existing Layer state + Visual Rules before adding editor controls or renderer-specific execution.
+### M6.4.1 Spin model / evaluator — accepted · 2026-08-26
+
+Implemented and accepted:
+
+- `ComponentVisualDefinition` v3 with serialized `animations`
+- explicit v1/v2 -> v3 migration with `animations: []`
+- stable animation ids and stable Layer targets
+- first discriminated animation variant: `spin`
+- duration, delay, finite/infinite iterations, direction and bounded easing vocabulary
+- declarative `always` and Property-condition activation
+- definition-aware animation validation
+- pure deterministic animation progress/evaluation
+- additive rotation overlays
+- deterministic multiple-spin composition
+- Visual Rules resolve before animation overlays
+- Preview-only `requestAnimationFrame` clock owned by the React host
+- Design mode remains static
+- animation frame state never calls package `onChange`, never enters undo history and never persists geometry
+- Layer rename/delete/clone/group/ungroup reconciliation preserves or removes animation references consistently
+- Property rename/delete reconciliation updates or removes Property-activated animations
+
+Verification:
+
+- CI #496 passed Build, deterministic Animation model checks and Lint.
+- deterministic checks cover v1/v2 migration, timing boundaries, reverse/alternate, easing, Property activation, validation, multiple-spin composition and Rules -> Animation ordering.
+- Pages Browser Smoke #40 passed against deployed revision `a293d745dca1a7cf9122fc93072a8390f66a20d9`.
+- the deployed smoke proves Design frames remain static, Preview spin changes actual canvas pixels and persisted base rotation remains unchanged.
+- the same deployed run kept Chromium + Firefox pointer regressions and SCADA shared Align/Distribute regression green.
+
+**Result: M6.4.1 is accepted. M6.4 remains active.**
+
+Next M6.4 work should build authoring capability on this accepted model instead of bypassing it with Konva Tweens or DOM/CSS animation side channels. The next focused slice is animation authoring UI for the accepted spin definition before broadening the animation family.
 
 ## M6.5 Controlled Script Runtime — pending
 
@@ -340,28 +383,26 @@ Prove that a Workbench-authored component package can be consumed by SCADA Workb
 Current execution order from `main`:
 
 ```text
-1. M6.3.4 toolbar / snap ownership                    done
-2. M6.3.4.1 Layer multi-selection                     done
-3. M6.3.4.2 shared pure geometry command core         done
-4. M6.3.4.3 Align / Distribute                        done
-5. M6.3.4.4 safe Group / Ungroup                      done
-6. GitHub Pages browser smoke infrastructure          done
-7. Automated deployed-site M6.3.4 smoke               done
-8. Chromium + Firefox pointer regression              passed
-9. SCADA shared Align / Distribute regression         passed
-10. Mark M6.3.4 / M6.3 accepted                       done
-11. M6.4 Animation runtime/model boundary             ACTIVE
-12. M6.4 first animation implementation slice         next
-13. M6.5 Controlled Script Runtime                    later
-14. M6.6 publish user-created composite component     later
-15. M7 packaging / adapters / production components   later
+1. M6.3.4 / M6.3 acceptance                              done
+2. M6.4 animation architecture boundary                   done
+3. M6.4.1 visual schema v3 + migration                    done
+4. M6.4.1 pure spin evaluator + overlay composition       done
+5. M6.4.1 Preview clock + transient rendering             done
+6. M6.4.1 deterministic CI model checks                   passed
+7. M6.4.1 deployed Pages animation smoke                  passed
+8. Mark M6.4.1 accepted                                   done
+9. M6.4.2 spin authoring UI                               NEXT
+10. Additional animation families                         later M6.4
+11. M6.5 Controlled Script Runtime                        later
+12. M6.6 publish user-created composite component         later
+13. M7 packaging / adapters / production components       later
 ```
 
-The **next step is M6.4 architecture, not another canvas command**:
+The **next step is M6.4.2 spin authoring UI**:
 
-> Define a small serializable, renderer-independent animation model and deterministic evaluation/composition boundary, then implement the first animation primitive through that boundary.
+> Expose the already-accepted spin definition through the Component Workbench Inspector without changing the runtime boundary. Authoring controls should edit serialized definitions; Preview should continue to consume only the pure evaluator/overlay path.
 
-This ordering is deliberate: animation must become another private visual capability of a component, not a Konva-specific side channel that later Script Runtime has to depend on.
+Do not broaden into a generic timeline/keyframe editor in this slice. First prove that users can create, edit, enable/disable and remove a validated spin animation targeting the selected private Layer, including Property activation and timing fields.
 
 ---
 
@@ -375,6 +416,9 @@ The following should not distract the initial M6.4 foundation:
 - cross-parent Group in the first grouping slice
 - snapping during live drag
 - resize/rotate snapping before a separate need is established
+- arbitrary keyframe/timeline editor
+- CSS/Web Animations API as authored component contract
+- raw Konva Tween exposure
 - unrestricted component JavaScript execution
 - production component marketplace/package distribution
 - collaborative editing
