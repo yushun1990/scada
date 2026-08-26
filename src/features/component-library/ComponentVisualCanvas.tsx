@@ -18,7 +18,7 @@ import {
   TrashIcon,
   UndoIcon,
 } from '../../components/toolbar-icons'
-import { ToolbarButton } from '../../ui'
+import { NumberInput, ToolbarButton } from '../../ui'
 import {
   applyComponentLayerSnap,
   COMPONENT_SNAP_GRID_SIZE,
@@ -151,6 +151,7 @@ export function ComponentVisualCanvas({
   const [editToolbarHost, setEditToolbarHost] = useState<HTMLElement | null>(null)
   const [viewToolbarHost, setViewToolbarHost] = useState<HTMLElement | null>(null)
   const [gridVisible, setGridVisible] = useState(true)
+  const [gridSize, setGridSize] = useState(COMPONENT_SNAP_GRID_SIZE)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const selectedLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
@@ -476,7 +477,7 @@ export function ComponentVisualCanvas({
     }
 
     renderSnapGuides(
-      computeComponentLayerSnap(stage, node, visual, artboardScale),
+      computeComponentLayerSnap(stage, node, visual, artboardScale, gridSize),
     )
   }
 
@@ -492,7 +493,7 @@ export function ComponentVisualCanvas({
     if (stage && isEditable && snapEnabled) {
       applyComponentLayerSnap(
         node,
-        computeComponentLayerSnap(stage, node, visual, artboardScale),
+        computeComponentLayerSnap(stage, node, visual, artboardScale, gridSize),
       )
     }
 
@@ -570,17 +571,37 @@ export function ComponentVisualCanvas({
       )}
 
       {viewToolbarHost && createPortal(
-        <ToolbarButton
-          iconOnly
-          className={`icon-button toggle-button component-grid-toggle${gridVisible ? ' active' : ''}`}
-          title={gridVisible ? '隐藏格线' : '显示格线'}
-          aria-label="显示格线"
-          aria-pressed={gridVisible}
-          disabled={!isComposite || mode !== 'editor'}
-          onClick={() => setGridVisible((current) => !current)}
-        >
-          <GridIcon />
-        </ToolbarButton>,
+        <div className="grid-control" title="网格显示与间距">
+          <ToolbarButton
+            iconOnly
+            className={`icon-button toggle-button component-grid-toggle${gridVisible ? ' active' : ''}`}
+            title={gridVisible ? '隐藏格线' : '显示格线'}
+            aria-label="显示格线"
+            aria-pressed={gridVisible}
+            disabled={!isComposite || mode !== 'editor'}
+            onClick={() => setGridVisible((current) => !current)}
+          >
+            <GridIcon />
+          </ToolbarButton>
+          {gridVisible && (
+            <NumberInput
+              className="grid-size-input"
+              min="4"
+              max="128"
+              title="网格间距"
+              aria-label="网格间距"
+              value={gridSize}
+              disabled={!isComposite || mode !== 'editor'}
+              onChange={(event) => {
+                const nextGridSize = Number(event.target.value)
+
+                if (Number.isFinite(nextGridSize) && nextGridSize >= 4 && nextGridSize <= 128) {
+                  setGridSize(nextGridSize)
+                }
+              }}
+            />
+          )}
+        </div>,
         viewToolbarHost,
       )}
 
@@ -591,7 +612,7 @@ export function ComponentVisualCanvas({
             width: `${artboardWidth}px`,
             height: `${artboardHeight}px`,
             backgroundSize: showDesignGrid
-              ? `${COMPONENT_SNAP_GRID_SIZE * artboardScale}px ${COMPONENT_SNAP_GRID_SIZE * artboardScale}px`
+              ? `${gridSize * artboardScale}px ${gridSize * artboardScale}px`
               : undefined,
           }}
         >
