@@ -150,7 +150,7 @@ async function readPersistedAuthoredAnimation() {
 }
 
 async function chooseSelectOption(ariaLabel, optionName) {
-  await page.getByRole('button', { name: ariaLabel }).click()
+  await page.getByRole('combobox', { name: ariaLabel }).click()
   await page.getByRole('option', { name: optionName, exact: true }).click()
 }
 
