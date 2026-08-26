@@ -66,10 +66,13 @@ async function seedGeometry() {
     }
 
     const scene = JSON.parse(raw)
+    // Keep all three equal-size nodes near the scene center. The SCADA editor
+    // intentionally starts in fill mode, which may crop one scene axis, so the
+    // regression fixture must not depend on off-screen artboard edges.
     const positions = [
-      { x: 120, y: 120 },
-      { x: 420, y: 240 },
-      { x: 760, y: 360 },
+      { x: 360, y: 220 },
+      { x: 560, y: 320 },
+      { x: 820, y: 400 },
     ]
 
     if (scene.nodes.length !== positions.length) {
@@ -89,34 +92,20 @@ async function seedGeometry() {
   })
 }
 
-function viewportTransform(width, height) {
-  const sceneWidth = 1280
-  const sceneHeight = 720
-  const padding = 24
-  const availableWidth = Math.max(1, width - padding * 2)
-  const availableHeight = Math.max(1, height - padding * 2)
-  const scale = Math.min(
-    availableWidth / sceneWidth,
-    availableHeight / sceneHeight,
-  )
-
-  return {
-    x: width / 2 - (sceneWidth / 2) * scale,
-    y: height / 2 - (sceneHeight / 2) * scale,
-    scale,
-  }
-}
-
-async function marqueeSceneRect(left, top, right, bottom) {
+async function marqueeVisibleStage() {
   const stage = page.locator('.konva-host .konvajs-content').first()
   const box = await stage.boundingBox()
   assert.ok(box, 'SCADA Konva stage must be measurable')
 
-  const transform = viewportTransform(box.width, box.height)
-  const startX = box.x + transform.x + left * transform.scale
-  const startY = box.y + transform.y + top * transform.scale
-  const endX = box.x + transform.x + right * transform.scale
-  const endY = box.y + transform.y + bottom * transform.scale
+  // Drive the real visible canvas instead of mirroring SceneRenderer's private
+  // viewport transform. Fill mode leaves a 24px margin on the non-cropped axis;
+  // 32px keeps both marquee endpoints inside the scene while covering the
+  // central regression fixture on every supported viewport aspect ratio.
+  const inset = 32
+  const startX = box.x + inset
+  const startY = box.y + inset
+  const endX = box.x + box.width - inset
+  const endY = box.y + box.height - inset
 
   await page.mouse.move(startX, startY)
   await page.mouse.down()
@@ -150,13 +139,11 @@ try {
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('SCADA Editor', { exact: true }).waitFor()
 
-  // Select all three root nodes through the real canvas interaction path. Use
-  // nearly the full fixed artboard so the smoke does not depend on the current
-  // built-in component dimensions. SCADA does not render a textual
-  // multi-selection count; command enablement is the public editor state that
-  // proves the marquee produced the required 3-node selection (Align needs 2+,
-  // Distribute needs 3+).
-  await marqueeSceneRect(40, 40, 1240, 680)
+  // Select all three root nodes through the real canvas interaction path. The
+  // marquee uses the actual visible Stage bounds rather than a duplicated
+  // scene-to-viewport calculation. Command enablement is the public editor
+  // state proving the marquee produced the required 3-node selection.
+  await marqueeVisibleStage()
   assert.equal(
     await page.getByRole('button', { name: '左对齐' }).isEnabled(),
     true,
@@ -173,7 +160,7 @@ try {
   storedScene = await readStoredScene()
   assert.equal(storedScene.nodes.length, 3)
   for (const node of storedScene.nodes) {
-    assertClose(node.transform.x, 120, `left align ${node.id} x`)
+    assertClose(node.transform.x, 360, `left align ${node.id} x`)
   }
 
   // Undo restores the deliberately uneven seed geometry while preserving the
