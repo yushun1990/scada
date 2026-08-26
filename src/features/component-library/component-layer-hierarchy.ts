@@ -151,13 +151,13 @@ function nextLayerCopyId(
   return id
 }
 
-function nextRuleCopyId(ruleId: string, usedIds: Set<string>) {
+function nextReferenceCopyId(referenceId: string, usedIds: Set<string>) {
   let index = 1
-  let id = `${ruleId}-copy`
+  let id = `${referenceId}-copy`
 
   while (usedIds.has(id)) {
     index += 1
-    id = `${ruleId}-copy${index}`
+    id = `${referenceId}-copy${index}`
   }
 
   usedIds.add(id)
@@ -236,8 +236,24 @@ export function cloneComponentLayerSubtrees(
 
     return [{
       ...rule,
-      id: nextRuleCopyId(rule.id, usedRuleIds),
+      id: nextReferenceCopyId(rule.id, usedRuleIds),
       layerId,
+    }]
+  })
+  const usedAnimationIds = new Set(visual.animations.map((animation) => animation.id))
+  const clonedAnimations = visual.animations.flatMap((animation) => {
+    const layerId = idMap.get(animation.layerId)
+
+    if (!layerId) {
+      return []
+    }
+
+    return [{
+      ...animation,
+      id: nextReferenceCopyId(animation.id, usedAnimationIds),
+      layerId,
+      timing: { ...animation.timing },
+      activation: { ...animation.activation },
     }]
   })
 
@@ -246,6 +262,7 @@ export function cloneComponentLayerSubtrees(
       ...visual,
       layers: [...visual.layers, ...clonedLayers],
       rules: [...existingRules, ...clonedRules],
+      animations: [...visual.animations, ...clonedAnimations],
     },
     rootIds: roots.map((layer) => idMap.get(layer.id) ?? layer.id),
   }
@@ -274,6 +291,7 @@ export function deleteComponentLayers(
       ...visual,
       layers: visual.layers.filter((layer) => !deletedIds.has(layer.id)),
       rules: (visual.rules ?? []).filter((rule) => !deletedIds.has(rule.layerId)),
+      animations: visual.animations.filter((animation) => !deletedIds.has(animation.layerId)),
     },
     deletedIds: [...deletedIds],
   }
@@ -410,7 +428,12 @@ export function ungroupComponentLayer(
 
   return {
     status: 'ungrouped',
-    visual: { ...visual, layers },
+    visual: {
+      ...visual,
+      layers,
+      rules: (visual.rules ?? []).filter((rule) => rule.layerId !== group.id),
+      animations: visual.animations.filter((animation) => animation.layerId !== group.id),
+    },
     childIds,
   }
 }
