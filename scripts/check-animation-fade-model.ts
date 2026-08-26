@@ -76,7 +76,7 @@ const visual = {
 assert.doesNotThrow(() => assertComponentVisualAnimations(definition, visual))
 
 const halfOverlay = evaluateVisualAnimations(visual, {}, 500)
-assert.equal(halfOverlay.body?.opacityMultiplier, 0.5)
+assert.equal(halfOverlay.body?.opacity, 0.5)
 const halfRendered = applyVisualAnimationOverlay(visual, halfOverlay)
 assert.equal(halfRendered.layers[0]?.opacity, 0.4)
 assert.equal(visual.layers[0]?.opacity, 0.8, 'fade must not mutate persisted base opacity')
@@ -91,7 +91,7 @@ const composedOverlay = evaluateVisualAnimations(
   {},
   500,
 )
-assert.equal(composedOverlay.body?.opacityMultiplier, 0.375)
+assert.equal(composedOverlay.body?.opacity, 0.375)
 const composedRendered = applyVisualAnimationOverlay(visual, composedOverlay)
 assert.ok(Math.abs((composedRendered.layers[0]?.opacity ?? 0) - 0.3) < 1e-12)
 
@@ -129,7 +129,7 @@ const propertyFade = {
 const propertyVisual = { ...visual, animations: [propertyFade] } as const
 assert.deepEqual(evaluateVisualAnimations(propertyVisual, { running: false }, 500), {})
 assert.equal(
-  evaluateVisualAnimations(propertyVisual, { running: true }, 500).body?.opacityMultiplier,
+  evaluateVisualAnimations(propertyVisual, { running: true }, 500).body?.opacity,
   0.5,
 )
 
@@ -147,4 +147,4 @@ assert.throws(
   /opacityMultiplier/,
 )
 
-console.log('Fade animation model checks passed: opacity interpolation, multiplicative composition, rule ordering, property activation and validation are deterministic.')
+console.log('Fade animation model checks passed: opacity interpolation, multiplicative composition, rule ordering, property activation and validation are deterministic through the generic Visual Runtime target.')
