@@ -31,11 +31,12 @@ jobs:
       - name: Install Playwright
         run: |
           npm install --no-save playwright
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium firefox
 
       - name: Smoke deployed GitHub Pages
         env:
           SCADA_PAGES_URL: https://yushun1990.github.io/scada/
         run: |
           node scripts/pages-smoke.mjs
-          node scripts/pages-component-hit-smoke.mjs
+          SCADA_BROWSER=chromium node scripts/pages-component-hit-smoke.mjs
+          SCADA_BROWSER=firefox node scripts/pages-component-hit-smoke.mjs
