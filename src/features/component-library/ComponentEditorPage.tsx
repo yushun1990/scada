@@ -30,6 +30,7 @@ import { ComponentGeometryToolbarGroup } from './ComponentGeometryToolbarGroup'
 import { ComponentPreviewValues } from './ComponentPreviewValues'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
 import { COMPONENT_SNAP_GRID_SIZE } from './component-canvas-snap'
+import { ComponentVisualAnimationEditor } from './ComponentVisualAnimationEditor'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
 import { ComponentVisualRuleEditor } from './ComponentVisualRuleEditor'
 import { ComponentVisualStyleInspector } from './ComponentVisualStyleInspector'
@@ -478,6 +479,17 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                 <div className="property-section-list component-rule-inspector">
                   <CollapsibleInspectorGroup title="视觉规则" defaultOpen={false}>
                     <ComponentVisualRuleEditor
+                      definition={definition}
+                      visual={component.visual}
+                      layerId={singleSelectedLayerId}
+                      readOnly={editingDisabled}
+                      onChange={(visual) => updatePackage('visual', visual)}
+                    />
+                  </CollapsibleInspectorGroup>
+                </div>
+                <div className="property-section-list component-animation-inspector">
+                  <CollapsibleInspectorGroup title="动画" defaultOpen={false}>
+                    <ComponentVisualAnimationEditor
                       definition={definition}
                       visual={component.visual}
                       layerId={singleSelectedLayerId}
