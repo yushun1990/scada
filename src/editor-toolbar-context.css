@@ -17,6 +17,16 @@
   border-right: 0;
 }
 
+/* Grid visibility and spacing are one segmented control. Keep only the outer
+ * corners rounded; the two faces that meet at the divider stay square. */
+.canvas-toolbar .grid-control > .icon-button {
+  border-radius: 5px 0 0 5px;
+}
+
+.canvas-toolbar .grid-control > .grid-size-input {
+  border-radius: 0 5px 5px 0;
+}
+
 /* The scene-size shell must shrink-wrap the Base UI trigger. Legacy native
  * select styles otherwise leave a white tail to the right of the trigger. */
 .canvas-toolbar .scene-size-control {
