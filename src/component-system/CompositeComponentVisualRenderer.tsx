@@ -305,6 +305,33 @@ function moveFrontBranchLast(
   ]
 }
 
+function LayerBoundsHitArea({
+  width,
+  height,
+  listening,
+}: {
+  width: number
+  height: number
+  listening: boolean
+}) {
+  return (
+    <Rect
+      width={width}
+      height={height}
+      fill="#000"
+      listening={listening}
+      perfectDrawEnabled={false}
+      sceneFunc={() => {}}
+      hitFunc={(context, shape) => {
+        context.beginPath()
+        context.rect(0, 0, width, height)
+        context.closePath()
+        context.fillStrokeShape(shape)
+      }}
+    />
+  )
+}
+
 function VisualLayerNode({
   layer,
   childrenByParent,
@@ -319,6 +346,7 @@ function VisualLayerNode({
     frontBranchIds,
   )
   const draggable = listening && dragEnabled
+  const ownsEditorBoundsHitArea = listening && dragEnabled
   const ownsFullBoundsDragHitArea = draggableLayerId === layer.id
 
   return (
@@ -337,6 +365,13 @@ function VisualLayerNode({
       listening={listening}
       draggable={draggable}
     >
+      {ownsEditorBoundsHitArea && (
+        <LayerBoundsHitArea
+          width={transform.width}
+          height={transform.height}
+          listening={listening}
+        />
+      )}
       {(layer.kind === 'svg' || layer.kind === 'image') && (
         <VisualAssetLayer layer={layer} listening={listening} />
       )}
@@ -358,19 +393,10 @@ function VisualLayerNode({
         />
       ))}
       {ownsFullBoundsDragHitArea && (
-        <Rect
+        <LayerBoundsHitArea
           width={transform.width}
           height={transform.height}
-          fill="#000"
           listening={listening}
-          perfectDrawEnabled={false}
-          sceneFunc={() => {}}
-          hitFunc={(context, shape) => {
-            context.beginPath()
-            context.rect(0, 0, transform.width, transform.height)
-            context.closePath()
-            context.fillStrokeShape(shape)
-          }}
         />
       )}
     </Group>
