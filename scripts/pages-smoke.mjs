@@ -62,7 +62,7 @@ async function assertAxis(names, axis, expected, commandName) {
   }
 }
 
-async function seedSpinFixture() {
+async function seedAnimationAuthoringFixture() {
   return page.evaluate(() => {
     const componentId = window.location.hash
       .replace(/^#\/components\//, '')
@@ -81,11 +81,20 @@ async function seedSpinFixture() {
       throw new Error(`Persisted component ${componentId} missing`)
     }
 
+    entry.definition.properties = {
+      ...entry.definition.properties,
+      running: {
+        title: 'Running',
+        kind: 'boolean',
+        defaultValue: false,
+        bindable: true,
+      },
+    }
     entry.visual.layers = entry.visual.layers.filter(
       (layer) => layer.id !== 'animation-smoke-layer',
     )
     entry.visual.animations = (entry.visual.animations ?? []).filter(
-      (animation) => animation.id !== 'animation-smoke-spin',
+      (animation) => animation.layerId !== 'animation-smoke-layer',
     )
     entry.visual.layers.push({
       id: 'animation-smoke-layer',
@@ -110,21 +119,6 @@ async function seedSpinFixture() {
         strokeWidth: 2,
       },
     })
-    entry.visual.animations.push({
-      id: 'animation-smoke-spin',
-      kind: 'spin',
-      enabled: true,
-      layerId: 'animation-smoke-layer',
-      degreesPerIteration: 360,
-      timing: {
-        durationMs: 1000,
-        delayMs: 0,
-        iterations: 'infinite',
-        direction: 'normal',
-        easing: 'linear',
-      },
-      activation: { kind: 'always' },
-    })
 
     window.localStorage.setItem(key, JSON.stringify(entries))
     return entry.visual.layers.find(
@@ -133,7 +127,7 @@ async function seedSpinFixture() {
   })
 }
 
-async function readPersistedSpinRotation() {
+async function readPersistedAuthoredAnimation() {
   return page.evaluate(() => {
     const componentId = decodeURIComponent(
       window.location.hash.replace(/^#\/components\//, '').split('/')[0],
@@ -144,9 +138,20 @@ async function readPersistedSpinRotation() {
     const layer = entry?.visual?.layers?.find(
       (candidate) => candidate.id === 'animation-smoke-layer',
     )
+    const animation = entry?.visual?.animations?.find(
+      (candidate) => candidate.layerId === 'animation-smoke-layer',
+    )
 
-    return layer?.transform?.rotation ?? null
+    return {
+      rotation: layer?.transform?.rotation ?? null,
+      animation: animation ?? null,
+    }
   })
+}
+
+async function chooseSelectOption(ariaLabel, optionName) {
+  await page.getByRole('button', { name: ariaLabel }).click()
+  await page.getByRole('option', { name: optionName, exact: true }).click()
 }
 
 async function readSceneCanvasDataUrl() {
@@ -269,30 +274,69 @@ try {
 
   await page.getByRole('button', { name: '设计' }).click()
   await page.getByRole('button', { name: '保存' }).click()
-  assert.equal(await seedSpinFixture(), 0, 'spin fixture persists zero base rotation')
+  assert.equal(await seedAnimationAuthoringFixture(), 0, 'animation fixture persists zero base rotation')
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
-  await layerRow('Animation Smoke Rect').waitFor()
+  await layerRow('Animation Smoke Rect').click()
+
+  await page.getByRole('button', { name: '视觉规则' }).click()
+  await page.getByRole('button', { name: '+ 添加 Spin 动画' }).click()
+  assert.equal(await page.locator('.component-animation-item').count(), 1, 'spin animation added through inspector')
+
+  await page.getByLabel('animation1 每轮旋转角度').fill('180')
+  await page.getByLabel('animation1 周期').fill('800')
+  await page.getByLabel('animation1 延迟').fill('50')
+  await chooseSelectOption('animation1 循环模式', '指定次数')
+  await page.getByLabel('animation1 循环次数').fill('3')
+  await chooseSelectOption('animation1 方向', '反向')
+  await chooseSelectOption('animation1 缓动', '缓入缓出')
+  await chooseSelectOption('animation1 激活方式', 'Property 条件')
+  await page.locator('.component-animation-item .ui-checkbox').nth(1).click()
+
+  await page.getByRole('button', { name: '保存' }).click()
+  const authored = await readPersistedAuthoredAnimation()
+  assert.equal(authored.rotation, 0, 'authored animation must not mutate base rotation')
+  assert.equal(authored.animation?.kind, 'spin', 'inspector persists spin kind')
+  assert.equal(authored.animation?.degreesPerIteration, 180, 'inspector persists degrees')
+  assert.equal(authored.animation?.timing?.durationMs, 800, 'inspector persists duration')
+  assert.equal(authored.animation?.timing?.delayMs, 50, 'inspector persists delay')
+  assert.equal(authored.animation?.timing?.iterations, 3, 'inspector persists finite iterations')
+  assert.equal(authored.animation?.timing?.direction, 'reverse', 'inspector persists direction')
+  assert.equal(authored.animation?.timing?.easing, 'ease-in-out', 'inspector persists easing')
+  assert.equal(authored.animation?.activation?.kind, 'property', 'inspector persists property activation')
+  assert.equal(authored.animation?.activation?.propertyKey, 'running', 'inspector targets public property')
+  assert.equal(authored.animation?.activation?.compareValue, true, 'inspector persists property compare value')
+
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await root.click()
 
   const staticFrameA = await readSceneCanvasDataUrl()
   await page.waitForTimeout(250)
   const staticFrameB = await readSceneCanvasDataUrl()
-  assert.equal(staticFrameA, staticFrameB, 'design mode must remain visually static')
+  assert.equal(staticFrameA, staticFrameB, 'design mode must remain visually static after authored animation reload')
 
   await page.getByRole('button', { name: '预览' }).click()
+  await page.waitForTimeout(120)
+  const inactiveFrameA = await readSceneCanvasDataUrl()
+  await page.waitForTimeout(260)
+  const inactiveFrameB = await readSceneCanvasDataUrl()
+  assert.equal(inactiveFrameA, inactiveFrameB, 'property=false must keep authored spin inactive')
+
+  await page.locator('.component-preview-values .ui-checkbox').click()
   await page.waitForTimeout(120)
   const animatedFrameA = await readSceneCanvasDataUrl()
   await page.waitForTimeout(300)
   const animatedFrameB = await readSceneCanvasDataUrl()
-  assert.notEqual(animatedFrameA, animatedFrameB, 'preview spin must visibly change rendered canvas frames')
+  assert.notEqual(animatedFrameA, animatedFrameB, 'property=true must visibly activate authored preview spin')
   assert.equal(
-    await readPersistedSpinRotation(),
+    (await readPersistedAuthoredAnimation()).rotation,
     0,
     'preview animation frames must not persist rotation back into component data',
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages smoke passed: component authoring regression remains stable and preview spin renders transient frames without persisted geometry mutation.')
+  console.log('Pages smoke passed: component authoring regression remains stable; spin is authored, persisted, property-gated and previewed without geometry mutation.')
   console.log(`Persisted test component URL: ${savedUrl}`)
 } finally {
   await browser.close()
