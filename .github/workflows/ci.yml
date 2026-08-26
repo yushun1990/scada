@@ -26,6 +26,7 @@ jobs:
 
       - name: Animation model checks
         run: |
+          npx --yes tsx scripts/check-visual-runtime.ts
           npx --yes tsx scripts/check-animation-model.ts
           npx --yes tsx scripts/check-animation-fade-model.ts
           npx --yes tsx scripts/check-animation-blink-model.ts
