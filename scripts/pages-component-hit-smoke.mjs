@@ -49,7 +49,7 @@ try {
   // Empty sibling Group placed exactly over the visible bottom Group.
   await root.click()
   await kindSelect.click()
-  await page.getByRole('option', { name: '组合', exact: true }).click()
+  await page.getByRole('option', { name: 'Group', exact: true }).click()
   await addLayer.click()
   await layerRow('Group 2').waitFor()
   await setGeometry('Group 2', 48, 48, 128, 128)
