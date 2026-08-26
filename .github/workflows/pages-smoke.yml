@@ -36,4 +36,6 @@ jobs:
       - name: Smoke deployed GitHub Pages
         env:
           SCADA_PAGES_URL: https://yushun1990.github.io/scada/
-        run: node scripts/pages-smoke.mjs
+        run: |
+          node scripts/pages-smoke.mjs
+          node scripts/pages-component-hit-smoke.mjs
