@@ -86,6 +86,7 @@ export function computeComponentLayerSnap(
   node: Konva.Node,
   visual: ComponentVisualDefinition,
   artboardScale: number,
+  gridSize = COMPONENT_SNAP_GRID_SIZE,
 ): ComponentSnapResult {
   const movingLayerId = getCompositeVisualLayerId(node)
   const movingLayer = movingLayerId
@@ -99,7 +100,7 @@ export function computeComponentLayerSnap(
     }
   }
 
-  const gridSizePx = COMPONENT_SNAP_GRID_SIZE * artboardScale
+  const gridSizePx = Math.max(1, gridSize) * artboardScale
   const origin = node.getAbsolutePosition()
   let xCandidate = createGridCandidate(origin.x, gridSizePx)
   let yCandidate = createGridCandidate(origin.y, gridSizePx)
