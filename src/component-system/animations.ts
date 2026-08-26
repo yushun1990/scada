@@ -8,6 +8,8 @@ import type { ComponentVisualDefinition } from './visual'
 import {
   applyVisualRuntimeOverlay,
   composeVisualRuntimeContribution,
+  evaluateVisualRuntimeContributionTrack,
+  type VisualRuntimeContributionTrack,
   type VisualRuntimeLayerOverlay,
   type VisualRuntimeOverlay,
 } from './visualRuntime'
@@ -99,6 +101,15 @@ export type VisualAnimation =
   | ScaleVisualAnimation
   | FadeVisualAnimation
   | BlinkVisualAnimation
+
+export type CompiledVisualAnimation = {
+  id: string
+  enabled: boolean
+  layerId: string
+  timing: VisualAnimationTiming
+  activation: VisualAnimationActivation
+  tracks: readonly VisualRuntimeContributionTrack[]
+}
 
 export type VisualAnimationLayerOverlay = VisualRuntimeLayerOverlay
 export type VisualAnimationOverlay = VisualRuntimeOverlay
@@ -284,6 +295,73 @@ export function assertComponentVisualAnimations(
   }
 }
 
+export function compileVisualAnimation(animation: VisualAnimation): CompiledVisualAnimation {
+  let tracks: readonly VisualRuntimeContributionTrack[]
+
+  if (animation.kind === 'spin') {
+    tracks = [
+      {
+        target: 'transform.rotation',
+        sampling: 'continuous',
+        to: animation.degreesPerIteration,
+      },
+    ]
+  } else if (animation.kind === 'move') {
+    tracks = [
+      {
+        target: 'transform.x',
+        sampling: 'continuous',
+        to: animation.deltaXPerIteration,
+      },
+      {
+        target: 'transform.y',
+        sampling: 'continuous',
+        to: animation.deltaYPerIteration,
+      },
+    ]
+  } else if (animation.kind === 'scale') {
+    tracks = [
+      {
+        target: 'transform.scaleX',
+        sampling: 'continuous',
+        to: animation.scaleXMultiplier,
+      },
+      {
+        target: 'transform.scaleY',
+        sampling: 'continuous',
+        to: animation.scaleYMultiplier,
+      },
+    ]
+  } else if (animation.kind === 'fade') {
+    tracks = [
+      {
+        target: 'opacity',
+        sampling: 'continuous',
+        to: animation.opacityMultiplier,
+      },
+    ]
+  } else {
+    tracks = [
+      {
+        target: 'visible',
+        sampling: 'step',
+        threshold: 0.5,
+        before: true,
+        after: false,
+      },
+    ]
+  }
+
+  return {
+    id: animation.id,
+    enabled: animation.enabled,
+    layerId: animation.layerId,
+    timing: animation.timing,
+    activation: animation.activation,
+    tracks,
+  }
+}
+
 function matchesPropertyActivation(
   activation: Extract<VisualAnimationActivation, { kind: 'property' }>,
   values: ComponentProps,
@@ -301,10 +379,10 @@ function matchesPropertyActivation(
   return actual <= expected
 }
 
-function isAnimationActive(animation: VisualAnimation, values: ComponentProps) {
-  if (!animation.enabled) return false
-  if (animation.activation.kind === 'always') return true
-  return matchesPropertyActivation(animation.activation, values)
+function isProgramActive(program: CompiledVisualAnimation, values: ComponentProps) {
+  if (!program.enabled) return false
+  if (program.activation.kind === 'always') return true
+  return matchesPropertyActivation(program.activation, values)
 }
 
 function applyDirection(
@@ -361,10 +439,6 @@ export function evaluateVisualAnimationProgress(
   return phase === null ? null : applyEasing(phase, timing.easing)
 }
 
-function interpolateMultiplier(target: number, progress: number) {
-  return 1 + (target - 1) * progress
-}
-
 export function evaluateVisualAnimations(
   visual: ComponentVisualDefinition,
   values: ComponentProps,
@@ -373,60 +447,19 @@ export function evaluateVisualAnimations(
   const overlay: VisualAnimationOverlay = {}
 
   for (const animation of visual.animations) {
-    if (!isAnimationActive(animation, values)) continue
+    const program = compileVisualAnimation(animation)
+    if (!isProgramActive(program, values)) continue
 
-    const phase = evaluateVisualAnimationPhase(animation.timing, timeMs)
+    const phase = evaluateVisualAnimationPhase(program.timing, timeMs)
     if (phase === null) continue
-    const progress = animation.kind === 'blink'
-      ? phase
-      : applyEasing(phase, animation.timing.easing)
+    const easedProgress = applyEasing(phase, program.timing.easing)
 
-    if (animation.kind === 'spin') {
+    for (const track of program.tracks) {
       composeVisualRuntimeContribution(
         overlay,
-        animation.layerId,
-        'transform.rotation',
-        animation.degreesPerIteration * progress,
-      )
-    } else if (animation.kind === 'move') {
-      composeVisualRuntimeContribution(
-        overlay,
-        animation.layerId,
-        'transform.x',
-        animation.deltaXPerIteration * progress,
-      )
-      composeVisualRuntimeContribution(
-        overlay,
-        animation.layerId,
-        'transform.y',
-        animation.deltaYPerIteration * progress,
-      )
-    } else if (animation.kind === 'scale') {
-      composeVisualRuntimeContribution(
-        overlay,
-        animation.layerId,
-        'transform.scaleX',
-        interpolateMultiplier(animation.scaleXMultiplier, progress),
-      )
-      composeVisualRuntimeContribution(
-        overlay,
-        animation.layerId,
-        'transform.scaleY',
-        interpolateMultiplier(animation.scaleYMultiplier, progress),
-      )
-    } else if (animation.kind === 'fade') {
-      composeVisualRuntimeContribution(
-        overlay,
-        animation.layerId,
-        'opacity',
-        interpolateMultiplier(animation.opacityMultiplier, progress),
-      )
-    } else {
-      composeVisualRuntimeContribution(
-        overlay,
-        animation.layerId,
-        'visible',
-        progress < 0.5,
+        program.layerId,
+        track.target,
+        evaluateVisualRuntimeContributionTrack(track, phase, easedProgress),
       )
     }
   }
