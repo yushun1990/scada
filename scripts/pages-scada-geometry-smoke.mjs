@@ -150,11 +150,21 @@ try {
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('SCADA Editor', { exact: true }).waitFor()
 
-  // Select all three root nodes through the real canvas interaction path.
+  // Select all three root nodes through the real canvas interaction path. SCADA
+  // does not render a textual multi-selection count; command enablement is the
+  // public editor state that proves the marquee produced the required 3-node
+  // selection (Align needs 2+, Distribute needs 3+).
   await marqueeSceneRect(80, 80, 1050, 600)
-  await page.getByText('已选择 3 个节点。', { exact: true }).waitFor()
-  assert.equal(await page.getByRole('button', { name: '左对齐' }).isEnabled(), true)
-  assert.equal(await page.getByRole('button', { name: '水平等距分布' }).isEnabled(), true)
+  assert.equal(
+    await page.getByRole('button', { name: '左对齐' }).isEnabled(),
+    true,
+    'SCADA marquee must enable 2+ node alignment',
+  )
+  assert.equal(
+    await page.getByRole('button', { name: '水平等距分布' }).isEnabled(),
+    true,
+    'SCADA marquee must enable 3+ node distribution',
+  )
 
   await page.getByRole('button', { name: '左对齐' }).click()
   await saveScene()
