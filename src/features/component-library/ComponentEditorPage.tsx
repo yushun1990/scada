@@ -89,52 +89,101 @@ function normalizePreviewProps(
   return next
 }
 
-function reconcileVisualRules(
+function resolveReconciledProperty(
+  previousDefinition: ComponentDefinition,
+  nextDefinition: ComponentDefinition,
+  propertyKey: string,
+) {
+  const direct = nextDefinition.properties[propertyKey]
+  if (direct) {
+    return { propertyKey, property: direct }
+  }
+
+  const previousProperty = previousDefinition.properties[propertyKey]
+  const renamed = previousProperty
+    ? Object.entries(nextDefinition.properties).find(
+        ([key, candidate]) => key !== propertyKey && candidate === previousProperty,
+      )
+    : undefined
+
+  return renamed
+    ? { propertyKey: renamed[0], property: renamed[1] }
+    : null
+}
+
+function reconcileVisualPropertyReferences(
   previousDefinition: ComponentDefinition,
   nextDefinition: ComponentDefinition,
   visual: ComponentVisualDefinition,
 ): ComponentVisualDefinition {
-  if (!visual.rules?.length) return visual
+  const rules = (visual.rules ?? []).flatMap((rule) => {
+    const resolved = resolveReconciledProperty(
+      previousDefinition,
+      nextDefinition,
+      rule.propertyKey,
+    )
 
-  const nextRules = visual.rules.flatMap((rule) => {
-    let propertyKey = rule.propertyKey
-    let property = nextDefinition.properties[propertyKey]
+    if (!resolved) return []
 
-    if (!property) {
-      const previousProperty = previousDefinition.properties[propertyKey]
-      const renamed = previousProperty
-        ? Object.entries(nextDefinition.properties).find(
-            ([key, candidate]) => key !== propertyKey && candidate === previousProperty,
-          )
-        : undefined
-
-      if (!renamed) return []
-      propertyKey = renamed[0]
-      property = renamed[1]
-    }
-
-    const compareValueValid = isComponentPropertyValue(property, rule.compareValue)
-    const operatorValid = !NUMERIC_RULE_OPERATORS.has(rule.operator) || property.kind === 'number'
+    const compareValueValid = isComponentPropertyValue(
+      resolved.property,
+      rule.compareValue,
+    )
+    const operatorValid =
+      !NUMERIC_RULE_OPERATORS.has(rule.operator) ||
+      resolved.property.kind === 'number'
 
     return [{
       ...rule,
-      propertyKey,
+      propertyKey: resolved.propertyKey,
       operator: operatorValid ? rule.operator : 'equals' as const,
       compareValue: compareValueValid && operatorValid
         ? rule.compareValue
-        : property.defaultValue,
+        : resolved.property.defaultValue,
     }]
   })
 
-  return { ...visual, rules: nextRules }
+  const animations = visual.animations.flatMap((animation) => {
+    if (animation.activation.kind === 'always') {
+      return [animation]
+    }
+
+    const resolved = resolveReconciledProperty(
+      previousDefinition,
+      nextDefinition,
+      animation.activation.propertyKey,
+    )
+
+    if (!resolved) return []
+
+    const compareValueValid = isComponentPropertyValue(
+      resolved.property,
+      animation.activation.compareValue,
+    )
+    const operatorValid =
+      !NUMERIC_RULE_OPERATORS.has(animation.activation.operator) ||
+      resolved.property.kind === 'number'
+
+    return [{
+      ...animation,
+      activation: {
+        ...animation.activation,
+        propertyKey: resolved.propertyKey,
+        operator: operatorValid ? animation.activation.operator : 'equals' as const,
+        compareValue: compareValueValid && operatorValid
+          ? animation.activation.compareValue
+          : resolved.property.defaultValue,
+      },
+    }]
+  })
+
+  return { ...visual, rules, animations }
 }
 
-function reconcileVisualLayerRuleTargets(
+function reconcileVisualLayerReferences(
   previousVisual: ComponentVisualDefinition,
   nextVisual: ComponentVisualDefinition,
 ): ComponentVisualDefinition {
-  if (!nextVisual.rules?.length) return nextVisual
-
   const previousIds = new Set(previousVisual.layers.map((layer) => layer.id))
   const nextIds = new Set(nextVisual.layers.map((layer) => layer.id))
   const removedIds = [...previousIds].filter((id) => !nextIds.has(id))
@@ -146,15 +195,22 @@ function reconcileVisualLayerRuleTargets(
       ? { from: removedIds[0], to: addedIds[0] }
       : null
 
-  const rules = nextVisual.rules.flatMap((rule) => {
-    if (nextIds.has(rule.layerId)) return [rule]
-    if (renamedLayer && rule.layerId === renamedLayer.from) {
-      return [{ ...rule, layerId: renamedLayer.to }]
-    }
-    return []
+  const reconcileLayerId = (layerId: string) => {
+    if (nextIds.has(layerId)) return layerId
+    if (renamedLayer && layerId === renamedLayer.from) return renamedLayer.to
+    return null
+  }
+
+  const rules = (nextVisual.rules ?? []).flatMap((rule) => {
+    const layerId = reconcileLayerId(rule.layerId)
+    return layerId ? [{ ...rule, layerId }] : []
+  })
+  const animations = nextVisual.animations.flatMap((animation) => {
+    const layerId = reconcileLayerId(animation.layerId)
+    return layerId ? [{ ...animation, layerId }] : []
   })
 
-  return { ...nextVisual, rules }
+  return { ...nextVisual, rules, animations }
 }
 
 export function ComponentEditorPage({ componentId }: { componentId: string }) {
@@ -214,7 +270,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
       if (key === 'visual') {
         return {
           ...current,
-          visual: reconcileVisualLayerRuleTargets(
+          visual: reconcileVisualLayerReferences(
             current.visual,
             value as ComponentVisualDefinition,
           ),
@@ -230,7 +286,11 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     setComponent((current) => ({
       ...current,
       definition: nextDefinition,
-      visual: reconcileVisualRules(current.definition, nextDefinition, current.visual),
+      visual: reconcileVisualPropertyReferences(
+        current.definition,
+        nextDefinition,
+        current.visual,
+      ),
     }))
     setMessage('')
   }
@@ -555,7 +615,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   <div className="component-implementation-note">
                     <strong>{component.visual.mode === 'native' ? 'Native Renderer' : 'Composite Visual'}</strong>
                     <span>
-                      内部 Layer、Style、Visual Rules、未来 Animation / Script 都属于私有实现；SCADA Workbench 只消费公开 Properties / Actions / Events / Anchors。
+                      内部 Layer、Style、Visual Rules、Animation / Script 都属于私有实现；SCADA Workbench 只消费公开 Properties / Actions / Events / Anchors。
                     </span>
                   </div>
                 </CollapsibleInspectorGroup>
