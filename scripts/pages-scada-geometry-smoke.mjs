@@ -95,7 +95,7 @@ function viewportTransform(width, height) {
   const padding = 24
   const availableWidth = Math.max(1, width - padding * 2)
   const availableHeight = Math.max(1, height - padding * 2)
-  const scale = Math.max(
+  const scale = Math.min(
     availableWidth / sceneWidth,
     availableHeight / sceneHeight,
   )
