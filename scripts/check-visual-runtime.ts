@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import {
   applyVisualRuntimeOverlay,
   composeVisualRuntimeContribution,
+  evaluateVisualRuntimeContributionTrack,
   VISUAL_RUNTIME_TARGET_DESCRIPTORS,
   type VisualRuntimeOverlay,
 } from '../src/component-system/visualRuntime'
@@ -15,6 +16,42 @@ assert.deepEqual(VISUAL_RUNTIME_TARGET_DESCRIPTORS, {
   opacity: { valueKind: 'number', composition: 'multiply', identity: 1 },
   visible: { valueKind: 'boolean', composition: 'gate', identity: true },
 })
+
+assert.equal(
+  evaluateVisualRuntimeContributionTrack(
+    { target: 'transform.x', sampling: 'continuous', to: 100 },
+    0.5,
+    0.25,
+  ),
+  25,
+  'additive numeric tracks interpolate from composition identity 0 using eased progress',
+)
+assert.equal(
+  evaluateVisualRuntimeContributionTrack(
+    { target: 'transform.scaleX', sampling: 'continuous', to: 2 },
+    0.5,
+    0.25,
+  ),
+  1.25,
+  'multiplicative numeric tracks interpolate from composition identity 1 using eased progress',
+)
+assert.equal(
+  evaluateVisualRuntimeContributionTrack(
+    { target: 'opacity', sampling: 'continuous', to: 0 },
+    0.5,
+    0.25,
+  ),
+  0.75,
+)
+assert.equal(
+  evaluateVisualRuntimeContributionTrack(
+    { target: 'visible', sampling: 'step', threshold: 0.5, before: true, after: false },
+    0.6,
+    0.1,
+  ),
+  false,
+  'step tracks sample raw phase and ignore eased progress',
+)
 
 const overlay: VisualRuntimeOverlay = {}
 composeVisualRuntimeContribution(overlay, 'layer1', 'transform.x', 20)
@@ -111,4 +148,4 @@ assert.throws(
   /boolean contribution/,
 )
 
-console.log('Visual Runtime checks passed: canonical targets, add/multiply/gate composition, immutable application and type guards are independent of named animation effects.')
+console.log('Visual Runtime checks passed: canonical targets, continuous/step contribution sampling, add/multiply/gate composition, immutable application and type guards are independent of named animation effects.')
