@@ -5,6 +5,8 @@ import {
   evaluateVisualAnimationProgress,
   evaluateVisualAnimations,
 } from '../src/component-system/animations'
+import { normalizeStoredComponentVisual } from '../src/component-system/visualMigration'
+import { resolveComponentVisualRules } from '../src/component-system/visualRules'
 
 const linearTiming = {
   durationMs: 1000,
@@ -41,6 +43,43 @@ assert.equal(
   ),
   0.0625,
 )
+
+const migratedV1 = normalizeStoredComponentVisual(
+  {
+    version: 1,
+    mode: 'composite',
+    layers: [],
+    rules: [],
+  },
+  { width: 96, height: 72 },
+)
+assert.deepEqual(migratedV1, {
+  version: 3,
+  mode: 'composite',
+  designSize: { width: 96, height: 72 },
+  layers: [],
+  rules: [],
+  animations: [],
+})
+
+const migratedV2 = normalizeStoredComponentVisual(
+  {
+    version: 2,
+    mode: 'composite',
+    designSize: { width: 480, height: 360 },
+    layers: [],
+    rules: [],
+  },
+  { width: 96, height: 72 },
+)
+assert.deepEqual(migratedV2, {
+  version: 3,
+  mode: 'composite',
+  designSize: { width: 480, height: 360 },
+  layers: [],
+  rules: [],
+  animations: [],
+})
 
 const definition = {
   type: 'test.animation',
@@ -124,6 +163,32 @@ const rendered = applyVisualAnimationOverlay(visual, overlay)
 assert.equal(rendered.layers[0]?.transform.rotation, 200)
 assert.equal(visual.layers[0]?.transform.rotation, 20, 'base visual must remain immutable')
 
+const ruleVisual = {
+  ...visual,
+  rules: [
+    {
+      id: 'running-base-rotation',
+      enabled: true,
+      propertyKey: 'running',
+      operator: 'equals',
+      compareValue: true,
+      layerId: 'wheel',
+      target: 'transform.rotation',
+      value: 40,
+    },
+  ],
+} as const
+const ruleResolved = resolveComponentVisualRules(ruleVisual, { running: true })
+assert.equal(ruleResolved.layers[0]?.transform.rotation, 40)
+const ruleOverlay = evaluateVisualAnimations(ruleResolved, { running: true }, 500)
+const ruleAnimated = applyVisualAnimationOverlay(ruleResolved, ruleOverlay)
+assert.equal(
+  ruleAnimated.layers[0]?.transform.rotation,
+  220,
+  'animation rotation must add after Visual Rules resolve the base rotation',
+)
+assert.equal(ruleResolved.layers[0]?.transform.rotation, 40, 'animation must not mutate rule-resolved base')
+
 const secondSpin = {
   ...visual.animations[0],
   id: 'wheel-spin-2',
@@ -163,4 +228,4 @@ assert.throws(
   /不存在的 Property/,
 )
 
-console.log('Animation model checks passed: timing, direction, easing, activation, composition and validation are deterministic.')
+console.log('Animation model checks passed: migration, timing, direction, easing, activation, rule ordering, composition and validation are deterministic.')
