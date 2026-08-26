@@ -202,16 +202,19 @@ Implemented:
 - six Align commands and two Distribute commands
 - safe same-parent Group / Ungroup with transform preservation
 - private visual schema v3 with serialized animation definitions
-- renderer-independent spin animation model, timing, easing and Property activation
+- renderer-independent animation timing/easing/Property activation foundation
 - Preview-only transient animation clock and overlay composition after Visual Rules
 - dedicated selected-Layer `动画` Inspector group
-- spin add/remove, enable/disable and complete timing authoring
-- Property-gated spin activation authoring with typed condition semantics
+- Spin add/remove, enable/disable and complete timing authoring
+- Move add/remove, enable/disable and complete timing authoring
+- Property-gated animation activation with typed condition semantics
+- additive rotation overlay composition
+- additive X/Y translation overlay composition
 - save/reopen persistence for authored animation definitions
 
 Current gate:
 
-> M6.4.1 spin model/evaluator and M6.4.2 spin authoring UI are accepted. CI and deployed GitHub Pages prove the complete path from real Inspector authoring through persistence and Property-gated Preview, while animation frames remain transient and previous Component/SCADA regressions stay green. M6.4 remains active for additional animation families.
+> M6.4.1 spin model/evaluator, M6.4.2 spin authoring UI and M6.4.3 move animation family are accepted. CI and deployed GitHub Pages prove real Inspector authoring, persistence, Property-gated Preview, semantic animation composition and transient frames while previous Component/SCADA regressions remain green. M6.4 remains active; M6.4.4 will prove multiplicative scale overlay composition.
 
 The detailed record is [`docs/progress/m6.4-animation-foundation.md`](docs/progress/m6.4-animation-foundation.md).
 
@@ -347,50 +350,109 @@ Implemented and accepted:
 - Visual Rules resolve before animation overlays
 - Preview-only `requestAnimationFrame` clock owned by the React host
 - Design mode remains static
-- animation frame state never calls package `onChange`, never enters undo history and never persists geometry
-- Layer rename/delete/clone/group/ungroup reconciliation preserves or removes animation references consistently
-- Property rename/delete reconciliation updates or removes Property-activated animations
+- animation frames never call package `onChange`, never enter undo history and never persist geometry
+- Layer and Property reference reconciliation
 
 Verification:
 
-- CI #496 passed Build, deterministic Animation model checks and Lint.
-- deterministic checks cover v1/v2 migration, timing boundaries, reverse/alternate, easing, Property activation, validation, multiple-spin composition and Rules -> Animation ordering.
+- CI #496 passed Build, Animation model checks and Lint.
 - Pages Browser Smoke #40 passed against deployed revision `a293d745dca1a7cf9122fc93072a8390f66a20d9`.
-- the deployed smoke proves Design frames remain static, Preview spin changes actual canvas pixels and persisted base rotation remains unchanged.
-- the same deployed run kept Chromium + Firefox pointer regressions and SCADA shared Align/Distribute regression green.
 
-**Result: M6.4.1 is accepted.**
+**Result: M6.4.1 accepted.**
 
 ### M6.4.2 Spin authoring UI — accepted · 2026-08-26
 
 Implemented and accepted:
 
-- selected private Layer owns an independent `动画` Inspector group, sibling to `视觉规则`
-- list animations targeting the selected Layer
-- add/remove `spin` definitions
-- enable/disable
-- edit degrees per iteration, duration and delay
-- choose infinite/finite iterations and edit finite count
-- edit normal/reverse/alternate/alternate-reverse direction
-- edit linear/ease-in/ease-out/ease-in-out easing
-- choose `always` or Property-condition activation
-- Property activation reuses typed Visual Rule operator/value semantics
-- save/reopen round-trips authored animation definitions
-- Design remains static; Preview continues through the M6.4.1 pure evaluator path
+- independent selected-Layer `动画` Inspector group
+- add/remove/enable/disable Spin
+- author degrees, duration, delay, iterations, direction and easing
+- author `always` or typed Property-condition activation
+- save/reopen persistence
+- Preview remains evaluator-driven and Design remains static
 
 Verification:
 
-- final implementation revision `ebcfe6b5cc0694e0d27f8c36e88acb96b061b78d` passed CI #507: Build, Animation model checks and Lint.
-- Pages Browser Smoke #51 passed against the same deployed revision.
-- deployed smoke creates the spin through the real `动画` Inspector instead of injecting animation JSON.
-- smoke authors 180° / 800ms / 50ms delay / 3 iterations / reverse / ease-in-out and Property-gated activation, saves and reloads it, then verifies the persisted fields.
-- with `running == false`, Preview remains pixel-stable; changing the real Preview Property to `true` makes the Canvas change over time.
-- persisted base Layer rotation remains `0` after animated Preview frames.
-- Chromium + Firefox component pointer regressions and SCADA shared Align/Distribute regression remain green in the same run.
+- implementation revision `ebcfe6b5cc0694e0d27f8c36e88acb96b061b78d` passed CI #507.
+- Pages Browser Smoke #51 passed the real Inspector authoring flow.
+- later documentation deployment was confirmed with Pages Deploy #102 and Pages Browser Smoke #53 passing.
 
-**Result: M6.4.2 is accepted. M6.4 remains active.**
+**Result: M6.4.2 accepted.**
 
-The next M6.4 slice should extend the same renderer-independent model/evaluator/Inspector path with one additional animation family that proves a new overlay-composition channel. Do not add all remaining animation families at once and do not introduce a generic timeline/keyframe system.
+### M6.4.3 Move animation family — accepted · 2026-08-26
+
+Goal:
+
+> Prove additive translation as a second semantic overlay channel without changing the accepted animation clock, activation or renderer boundary.
+
+Implemented and accepted:
+
+- new `move` animation variant with `deltaXPerIteration` / `deltaYPerIteration`
+- finite-value validation for Move displacement
+- additive `translateX` / `translateY` overlay channels
+- deterministic multiple-Move composition
+- Visual Rules resolve X/Y before Move overlay
+- persisted and rule-resolved base transforms remain immutable
+- Animation Inspector generalized from Spin-only assumptions to the `VisualAnimation` union
+- `+ 添加 Move 动画` with X/Y displacement editing
+- Move reuses the accepted timing, direction, easing and Property activation controls
+- default Move: `ΔX 40 / ΔY 0 / 1000ms / infinite / normal / linear / always`
+
+Verification:
+
+- initial model expansion exposed a Spin-only Inspector type assumption in CI #510; the editor was generalized instead of bypassing the union.
+- generalized authoring revision `5d84a0341bc86820fb21cb38a19272465ffac662` passed CI #511.
+- final deployed acceptance revision `acb97885cde07ddc6ee42bd2e4fe8ef7fb8338fd` passed CI #512.
+- Pages Deploy #105 passed.
+- Pages Browser Smoke #56 passed.
+- dedicated `scripts/pages-animation-move-smoke.mjs` creates Move through the real `动画` Inspector, persists `ΔX 120 / ΔY 40 / 900ms / 30ms / alternate / ease-in-out / running == true`, reloads it, proves inactive/active Preview pixels, and verifies base X/Y/rotation remain unchanged.
+- the same #56 run kept real Spin authoring, Chromium + Firefox pointer regressions and SCADA shared Align/Distribute regression green.
+
+**Result: M6.4.3 accepted. M6.4 remains active.**
+
+### M6.4.4 Scale animation family — NEXT
+
+Goal:
+
+> Prove multiplicative scale composition as the third animation overlay channel.
+
+Proposed primitive:
+
+```ts
+type ScaleVisualAnimation = {
+  id: string
+  kind: 'scale'
+  enabled: boolean
+  layerId: string
+  scaleXMultiplier: number
+  scaleYMultiplier: number
+  timing: VisualAnimationTiming
+  activation: VisualAnimationActivation
+}
+```
+
+Evaluator semantics:
+
+```text
+current multiplier = 1 + (target multiplier - 1) × eased progress
+rendered scale     = rule-resolved scale × composed animation multiplier(s)
+```
+
+Multiple Scale animations targeting one Layer must multiply, not overwrite. `alternate` timing naturally gives grow/shrink behavior and leaves room for a later `pulse` family to reuse the same scale channel.
+
+M6.4.4 must carry Scale through the same accepted path:
+
+```text
+serialized definition
+  -> validation
+  -> deterministic evaluator/composition
+  -> selected-Layer Animation Inspector
+  -> save/reopen
+  -> Property-gated Preview
+  -> deployed browser acceptance
+```
+
+Do not introduce a timeline/keyframe editor or renderer-specific Tween API.
 
 ## M6.5 Controlled Script Runtime — pending
 
@@ -418,34 +480,34 @@ Current execution order from `main`:
 ```text
 1. M6.3.4 / M6.3 acceptance                              done
 2. M6.4 animation architecture boundary                   done
-3. M6.4.1 visual schema v3 + migration                    done
-4. M6.4.1 pure spin evaluator + overlay composition       done
-5. M6.4.1 Preview clock + transient rendering             done
-6. M6.4.1 deterministic CI model checks                   passed
-7. M6.4.1 deployed Pages animation smoke                  passed
-8. Mark M6.4.1 accepted                                   done
-9. M6.4.2 dedicated spin authoring Inspector              done
-10. M6.4.2 save/reopen + Property-gated Preview smoke     passed
-11. Mark M6.4.2 accepted                                  done
-12. M6.4.3 next animation-family slice                    NEXT
-13. M6.5 Controlled Script Runtime                        later
-14. M6.6 publish user-created composite component         later
-15. M7 packaging / adapters / production components       later
+3. M6.4.1 visual schema v3 + spin evaluator               done
+4. M6.4.1 Preview clock + deterministic/deployed checks   passed
+5. Mark M6.4.1 accepted                                   done
+6. M6.4.2 dedicated spin authoring Inspector              done
+7. M6.4.2 save/reopen + Property-gated Preview smoke      passed
+8. Mark M6.4.2 accepted                                   done
+9. M6.4.3 Move model + additive translation overlays      done
+10. M6.4.3 Move Inspector authoring                       done
+11. M6.4.3 deterministic checks / deployed smoke          passed
+12. Mark M6.4.3 accepted                                  done
+13. M6.4.4 Scale model + multiplicative overlay           NEXT
+14. M6.4.4 Scale Inspector + deployed smoke               next
+15. M6.5 Controlled Script Runtime                        later
+16. M6.6 publish user-created composite component         later
+17. M7 packaging / adapters / production components       later
 ```
 
-The **next step is M6.4.3 animation-family expansion**:
+The **next step is M6.4.4 Scale animation family**:
 
-> Choose the smallest additional family that proves one new semantic overlay-composition channel, then carry it through the already-accepted serialized model → validation → pure evaluator → dedicated Inspector → deployed Preview path.
+> Extend the accepted animation union with a Scale primitive and prove multiplicative `scaleX/scaleY` overlay composition through deterministic tests before exposing it in the Inspector.
 
-Candidate families are `move`, `scale/pulse`, `fade` and `blink`. The family order should be decided from composition value and implementation risk rather than implementing all of them together.
-
-Do not broaden into a generic timeline/keyframe editor. Keep authored definitions renderer-independent and keep frame state transient.
+Keep the same runtime clock and Property activation. Do not broaden into arbitrary keyframes, timeline sequencing or renderer-owned animation state.
 
 ---
 
 # 7. Near-term non-goals
 
-The following should not distract the initial M6.4 foundation:
+The following should not distract the active M6.4 work:
 
 - full vector illustration tooling
 - arbitrary path editing
