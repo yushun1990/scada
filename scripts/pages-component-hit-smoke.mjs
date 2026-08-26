@@ -37,7 +37,7 @@ async function readGeometry(name) {
 }
 
 try {
-  console.log(`Opening deployed Component Editor empty-overlay hit regression in ${browserName}: ${componentUrl}`)
+  console.log(`Opening deployed Component Editor empty-layer hit regression in ${browserName}: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
@@ -65,12 +65,6 @@ try {
   await layerRow('Group 2').waitFor()
   await setGeometry('Group 2', 48, 48, 128, 128)
 
-  // Select the empty overlay from the Layer Tree, then click the blank area in
-  // its visible selection box. The click must remain on Group 2 instead of
-  // falling through to Group 1 / its vector content.
-  await layerRow('Group 2').click()
-  assert.equal(await layerRow('Group 2').evaluate((node) => node.classList.contains('active')), true)
-
   const stage = page.locator('.component-artboard .konvajs-content').first()
   const box = await stage.boundingBox()
   assert.ok(box, 'component Konva stage must be measurable')
@@ -80,17 +74,40 @@ try {
   const centerX = box.x + (48 + 64) * scaleX
   const centerY = box.y + (48 + 64) * scaleY
 
+  // This is the user-reported path: start from the component root / no internal
+  // selection, then click the empty layer directly on canvas. The empty layer
+  // must be discoverable by its geometry even though it draws no pixels.
+  await root.click()
+  assert.equal(
+    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    false,
+    'empty overlay must start unselected',
+  )
+
   await page.mouse.click(centerX, centerY)
 
   assert.equal(
     await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
     true,
-    'clicking inside the selected empty overlay Group must keep that Group selected',
+    'clicking an unselected empty overlay Group on canvas must select that Group',
   )
   assert.equal(
     await layerRow('Group 1').evaluate((node) => node.classList.contains('active')),
     false,
-    'bottom Group must not steal clicks through the selected empty overlay Group',
+    'bottom Group must not steal the first canvas click through the empty overlay Group',
+  )
+  assert.equal(
+    await page.locator('.component-canvas-status .status-selection').getByText('组件根', { exact: true }).count(),
+    0,
+    'first canvas click on the empty Group must not fall back to component root',
+  )
+
+  // A second click while selected must still stay on the empty Group.
+  await page.mouse.click(centerX, centerY)
+  assert.equal(
+    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    true,
+    'clicking inside the selected empty overlay Group must keep that Group selected',
   )
 
   // Drag from the same blank area. This verifies the Konva hit target itself,
@@ -118,7 +135,7 @@ try {
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log(`Pages hit-test smoke passed in ${browserName}: empty selected overlay Group owns click and drag over bottom Group.`)
+  console.log(`Pages hit-test smoke passed in ${browserName}: unselected empty Group is canvas-selectable and owns subsequent drag.`)
 } finally {
   await browser.close()
 }
