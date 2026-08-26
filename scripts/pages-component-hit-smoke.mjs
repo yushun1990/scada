@@ -36,8 +36,15 @@ async function readGeometry(name) {
   }
 }
 
+function assertClose(actual, expected, message) {
+  assert.ok(
+    Math.abs(actual - expected) < 0.001,
+    `${message}: expected ${expected}, received ${actual}`,
+  )
+}
+
 try {
-  console.log(`Opening deployed Component Editor empty-layer hit regression in ${browserName}: ${componentUrl}`)
+  console.log(`Opening deployed Component Editor pointer regression in ${browserName}: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
@@ -65,14 +72,24 @@ try {
   await layerRow('Group 2').waitFor()
   await setGeometry('Group 2', 48, 48, 128, 128)
 
+  // A separate empty Group gives the modifier-click and snap lifecycle tests a
+  // non-overlapping target while still exercising empty-layer canvas hit areas.
+  await root.click()
+  await addLayer.click()
+  await layerRow('Group 3').waitFor()
+  await setGeometry('Group 3', 240, 48, 96, 96)
+
   const stage = page.locator('.component-artboard .konvajs-content').first()
   const box = await stage.boundingBox()
   assert.ok(box, 'component Konva stage must be measurable')
 
   const scaleX = box.width / 480
   const scaleY = box.height / 360
-  const centerX = box.x + (48 + 64) * scaleX
-  const centerY = box.y + (48 + 64) * scaleY
+  const canvasPoint = (x, y) => ({
+    x: box.x + x * scaleX,
+    y: box.y + y * scaleY,
+  })
+  const overlayCenter = canvasPoint(48 + 64, 48 + 64)
 
   // This is the user-reported path: start from the component root / no internal
   // selection, then click the empty layer directly on canvas. The empty layer
@@ -84,7 +101,7 @@ try {
     'empty overlay must start unselected',
   )
 
-  await page.mouse.click(centerX, centerY)
+  await page.mouse.click(overlayCenter.x, overlayCenter.y)
 
   assert.equal(
     await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
@@ -103,15 +120,16 @@ try {
   )
 
   // A second click while selected must still stay on the empty Group.
-  await page.mouse.click(centerX, centerY)
+  await page.mouse.click(overlayCenter.x, overlayCenter.y)
   assert.equal(
     await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
     true,
     'clicking inside the selected empty overlay Group must keep that Group selected',
   )
 
-  // Drag from the same blank area. This verifies the Konva hit target itself,
-  // not only React selection state: only the empty overlay Group may move.
+  // Drag from the same blank area with snapping disabled. This verifies the
+  // Konva hit target itself, not only React selection state: only the empty
+  // overlay Group may move.
   const bottomBefore = await readGeometry('Group 1')
   const overlayBefore = await readGeometry('Group 2')
   await layerRow('Group 2').click()
@@ -120,9 +138,9 @@ try {
     await snapButton.click()
   }
 
-  await page.mouse.move(centerX, centerY)
+  await page.mouse.move(overlayCenter.x, overlayCenter.y)
   await page.mouse.down()
-  await page.mouse.move(centerX + 24 * scaleX, centerY + 16 * scaleY, { steps: 4 })
+  await page.mouse.move(overlayCenter.x + 24 * scaleX, overlayCenter.y + 16 * scaleY, { steps: 4 })
   await page.mouse.up()
 
   const bottomAfter = await readGeometry('Group 1')
@@ -134,8 +152,70 @@ try {
     'dragging selected empty overlay from blank area must move the overlay Group',
   )
 
+  // Canvas modifier-click and Layer Tree must be two views of the same
+  // selection state. Start with no internal selection, click Group 2, then
+  // Ctrl-click Group 3 directly on the canvas.
+  const group2Center = canvasPoint(overlayAfter.x + 64, overlayAfter.y + 64)
+  const group3Before = await readGeometry('Group 3')
+  const group3Center = canvasPoint(group3Before.x + 48, group3Before.y + 48)
+  await root.click()
+  await page.mouse.click(group2Center.x, group2Center.y)
+  await page.keyboard.down('Control')
+  await page.mouse.click(group3Center.x, group3Center.y)
+  await page.keyboard.up('Control')
+
+  assert.equal(
+    await page.locator('.component-layer-row.active').count(),
+    2,
+    'canvas Ctrl-click must create a two-layer shared selection',
+  )
+  assert.equal(
+    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    true,
+    'canvas selection must be reflected by Group 2 in the Layer Tree',
+  )
+  assert.equal(
+    await layerRow('Group 3').evaluate((node) => node.classList.contains('active')),
+    true,
+    'canvas modifier selection must be reflected by Group 3 in the Layer Tree',
+  )
+  await page.locator('.component-canvas-status .status-selection').getByText('2 个图层', { exact: true }).waitFor()
+
+  // With snapping enabled, the authored geometry remains unchanged throughout
+  // dragmove and is committed once on pointer release. The raw pointer target
+  // puts Group 3 at (262, 190), both within the release-snap threshold of the
+  // 24-unit grid, so dragend must persist (264, 192).
+  await layerRow('Group 3').click()
+  if ((await snapButton.getAttribute('aria-pressed')) !== 'true') {
+    await snapButton.click()
+  }
+  const gridInput = page.getByRole('spinbutton', { name: '网格间距' })
+  await gridInput.fill('24')
+
+  const geometryInputs = page.locator('.component-layer-geometry-grid input')
+  const dragStart = canvasPoint(group3Before.x + 48, group3Before.y + 48)
+  const dragEnd = canvasPoint(262 + 48, 190 + 48)
+  await page.mouse.move(dragStart.x, dragStart.y)
+  await page.mouse.down()
+  await page.mouse.move(dragEnd.x, dragEnd.y, { steps: 6 })
+
+  assertClose(
+    Number(await geometryInputs.nth(0).inputValue()),
+    group3Before.x,
+    'dragmove must not persist x before pointer release',
+  )
+  assertClose(
+    Number(await geometryInputs.nth(1).inputValue()),
+    group3Before.y,
+    'dragmove must not persist y before pointer release',
+  )
+
+  await page.mouse.up()
+  assertClose(Number(await geometryInputs.nth(0).inputValue()), 264, 'dragend snaps Group 3 x once')
+  assertClose(Number(await geometryInputs.nth(1).inputValue()), 192, 'dragend snaps Group 3 y once')
+
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log(`Pages hit-test smoke passed in ${browserName}: unselected empty Group is canvas-selectable and owns subsequent drag.`)
+  console.log(`Pages pointer smoke passed in ${browserName}: empty-layer hit, canvas modifier selection and release-only snap are stable.`)
 } finally {
   await browser.close()
 }
