@@ -18,7 +18,7 @@ import {
   TrashIcon,
   UndoIcon,
 } from '../../components/toolbar-icons'
-import { ToolbarButton, ToolbarGroup } from '../../ui'
+import { ToolbarButton } from '../../ui'
 import {
   applyComponentLayerSnap,
   COMPONENT_SNAP_GRID_SIZE,
@@ -148,7 +148,8 @@ export function ComponentVisualCanvas({
   const redoStackRef = useRef<ComponentVisualDefinition[]>([])
   const applyingHistoryRef = useRef(false)
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
-  const [toolbarHost, setToolbarHost] = useState<HTMLElement | null>(null)
+  const [editToolbarHost, setEditToolbarHost] = useState<HTMLElement | null>(null)
+  const [viewToolbarHost, setViewToolbarHost] = useState<HTMLElement | null>(null)
   const [gridVisible, setGridVisible] = useState(true)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
@@ -198,9 +199,12 @@ export function ComponentVisualCanvas({
     }
 
     const canvasArea = element.closest('.component-canvas-area')
-    setToolbarHost(
-      canvasArea?.querySelector<HTMLElement>('.component-canvas-toolbar') ?? null,
-    )
+    const toolbar = canvasArea?.querySelector<HTMLElement>('.component-canvas-toolbar')
+    const hierarchyGroup = toolbar?.querySelector<HTMLElement>('.component-hierarchy-tool-group')
+    const snapButton = toolbar?.querySelector<HTMLElement>('.component-snap-toggle')
+
+    setEditToolbarHost(hierarchyGroup ?? null)
+    setViewToolbarHost(snapButton?.closest<HTMLElement>('.canvas-tool-group') ?? null)
 
     const updateViewport = () => {
       const next = measureCanvasViewport(element)
@@ -519,65 +523,65 @@ export function ComponentVisualCanvas({
 
   return (
     <>
-      {toolbarHost && createPortal(
+      {editToolbarHost && createPortal(
         <>
-          <ToolbarGroup className="canvas-tool-group component-edit-tool-group">
-            <ToolbarButton
-              iconOnly
-              className="icon-button"
-              title="复制选中图层"
-              aria-label="复制选中图层"
-              disabled={!isEditable || selectedLayerIds.length === 0}
-              onClick={duplicateSelection}
-            >
-              <CopyIcon />
-            </ToolbarButton>
-            <ToolbarButton
-              iconOnly
-              className="icon-button"
-              title="删除选中图层"
-              aria-label="删除选中图层"
-              disabled={!isEditable || selectedLayerIds.length === 0}
-              onClick={deleteSelection}
-            >
-              <TrashIcon />
-            </ToolbarButton>
-            <ToolbarButton
-              iconOnly
-              className="icon-button"
-              title="撤销 (Ctrl+Z)"
-              aria-label="撤销"
-              disabled={readOnly || !canUndo}
-              onClick={undoVisual}
-            >
-              <UndoIcon />
-            </ToolbarButton>
-            <ToolbarButton
-              iconOnly
-              className="icon-button"
-              title="重做 (Ctrl+Shift+Z)"
-              aria-label="重做"
-              disabled={readOnly || !canRedo}
-              onClick={redoVisual}
-            >
-              <RedoIcon />
-            </ToolbarButton>
-          </ToolbarGroup>
-          <ToolbarGroup className="canvas-tool-group component-view-tool-group">
-            <ToolbarButton
-              iconOnly
-              className={`icon-button toggle-button${gridVisible ? ' active' : ''}`}
-              title={gridVisible ? '隐藏格线' : '显示格线'}
-              aria-label="显示格线"
-              aria-pressed={gridVisible}
-              disabled={!isComposite || mode !== 'editor'}
-              onClick={() => setGridVisible((current) => !current)}
-            >
-              <GridIcon />
-            </ToolbarButton>
-          </ToolbarGroup>
+          <ToolbarButton
+            iconOnly
+            className="icon-button component-copy-command"
+            title="复制选中图层"
+            aria-label="复制选中图层"
+            disabled={!isEditable || selectedLayerIds.length === 0}
+            onClick={duplicateSelection}
+          >
+            <CopyIcon />
+          </ToolbarButton>
+          <ToolbarButton
+            iconOnly
+            className="icon-button component-delete-command"
+            title="删除选中图层"
+            aria-label="删除选中图层"
+            disabled={!isEditable || selectedLayerIds.length === 0}
+            onClick={deleteSelection}
+          >
+            <TrashIcon />
+          </ToolbarButton>
+          <ToolbarButton
+            iconOnly
+            className="icon-button component-undo-command"
+            title="撤销 (Ctrl+Z)"
+            aria-label="撤销"
+            disabled={readOnly || !canUndo}
+            onClick={undoVisual}
+          >
+            <UndoIcon />
+          </ToolbarButton>
+          <ToolbarButton
+            iconOnly
+            className="icon-button component-redo-command"
+            title="重做 (Ctrl+Shift+Z)"
+            aria-label="重做"
+            disabled={readOnly || !canRedo}
+            onClick={redoVisual}
+          >
+            <RedoIcon />
+          </ToolbarButton>
         </>,
-        toolbarHost,
+        editToolbarHost,
+      )}
+
+      {viewToolbarHost && createPortal(
+        <ToolbarButton
+          iconOnly
+          className={`icon-button toggle-button component-grid-toggle${gridVisible ? ' active' : ''}`}
+          title={gridVisible ? '隐藏格线' : '显示格线'}
+          aria-label="显示格线"
+          aria-pressed={gridVisible}
+          disabled={!isComposite || mode !== 'editor'}
+          onClick={() => setGridVisible((current) => !current)}
+        >
+          <GridIcon />
+        </ToolbarButton>,
+        viewToolbarHost,
       )}
 
       <div ref={canvasHostRef} className={`component-canvas-stage ${mode}`}>
