@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
-import { chromium } from 'playwright'
+import { chromium, firefox } from 'playwright'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/')
   .replace(/\/?$/, '/')
 const componentUrl = `${baseUrl}#/components/new`
-const browser = await chromium.launch({ headless: true })
+const browserName = process.env.SCADA_BROWSER ?? 'chromium'
+const browserType = browserName === 'firefox' ? firefox : chromium
+const browser = await browserType.launch({ headless: true })
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
 const page = await context.newPage()
 const pageErrors = []
@@ -25,8 +27,17 @@ async function setGeometry(name, x, y, width, height) {
   await inputs.nth(3).fill(String(height))
 }
 
+async function readGeometry(name) {
+  await layerRow(name).click()
+  const inputs = page.locator('.component-layer-geometry-grid input')
+  return {
+    x: Number(await inputs.nth(0).inputValue()),
+    y: Number(await inputs.nth(1).inputValue()),
+  }
+}
+
 try {
-  console.log(`Opening deployed Component Editor empty-overlay hit regression: ${componentUrl}`)
+  console.log(`Opening deployed Component Editor empty-overlay hit regression in ${browserName}: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
@@ -66,10 +77,10 @@ try {
 
   const scaleX = box.width / 480
   const scaleY = box.height / 360
-  await page.mouse.click(
-    box.x + (48 + 64) * scaleX,
-    box.y + (48 + 64) * scaleY,
-  )
+  const centerX = box.x + (48 + 64) * scaleX
+  const centerY = box.y + (48 + 64) * scaleY
+
+  await page.mouse.click(centerX, centerY)
 
   assert.equal(
     await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
@@ -82,8 +93,32 @@ try {
     'bottom Group must not steal clicks through the selected empty overlay Group',
   )
 
+  // Drag from the same blank area. This verifies the Konva hit target itself,
+  // not only React selection state: only the empty overlay Group may move.
+  const bottomBefore = await readGeometry('Group 1')
+  const overlayBefore = await readGeometry('Group 2')
+  await layerRow('Group 2').click()
+  const snapButton = page.getByRole('button', { name: '吸附' })
+  if ((await snapButton.getAttribute('aria-pressed')) === 'true') {
+    await snapButton.click()
+  }
+
+  await page.mouse.move(centerX, centerY)
+  await page.mouse.down()
+  await page.mouse.move(centerX + 24 * scaleX, centerY + 16 * scaleY, { steps: 4 })
+  await page.mouse.up()
+
+  const bottomAfter = await readGeometry('Group 1')
+  const overlayAfter = await readGeometry('Group 2')
+  assert.equal(bottomAfter.x, bottomBefore.x, 'dragging selected empty overlay must not move bottom Group x')
+  assert.equal(bottomAfter.y, bottomBefore.y, 'dragging selected empty overlay must not move bottom Group y')
+  assert.ok(
+    Math.abs(overlayAfter.x - overlayBefore.x) > 1 || Math.abs(overlayAfter.y - overlayBefore.y) > 1,
+    'dragging selected empty overlay from blank area must move the overlay Group',
+  )
+
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages hit-test smoke passed: empty selected overlay Group blocks click-through to bottom Group.')
+  console.log(`Pages hit-test smoke passed in ${browserName}: empty selected overlay Group owns click and drag over bottom Group.`)
 } finally {
   await browser.close()
 }
