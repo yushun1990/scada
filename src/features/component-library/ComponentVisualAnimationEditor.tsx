@@ -5,6 +5,7 @@ import type {
 } from '../../component-system/definition'
 import type {
   MoveVisualAnimation,
+  ScaleVisualAnimation,
   SpinVisualAnimation,
   VisualAnimation,
   VisualAnimationDirection,
@@ -42,7 +43,6 @@ const EASING_OPTIONS: Array<{ value: VisualAnimationEasing; label: string }> = [
 function nextAnimationId(animations: readonly VisualAnimation[]) {
   const ids = new Set(animations.map((animation) => animation.id))
   let index = 1
-
   while (ids.has(`animation${index}`)) index += 1
   return `animation${index}`
 }
@@ -61,7 +61,6 @@ function operatorOptions(property: ComponentPropertyDefinition) {
   const operators: VisualRuleOperator[] = property.kind === 'number'
     ? ['equals', 'notEquals', 'greaterThan', 'greaterOrEqual', 'lessThan', 'lessOrEqual']
     : ['equals', 'notEquals']
-
   return operators.map((value) => ({ value, label: OPERATOR_LABELS[value] }))
 }
 
@@ -69,8 +68,10 @@ function animationSummary(animation: VisualAnimation) {
   if (animation.kind === 'spin') {
     return `Spin · ${animation.degreesPerIteration}° / ${animation.timing.durationMs}ms`
   }
-
-  return `Move · ΔX ${animation.deltaXPerIteration} / ΔY ${animation.deltaYPerIteration} / ${animation.timing.durationMs}ms`
+  if (animation.kind === 'move') {
+    return `Move · ΔX ${animation.deltaXPerIteration} / ΔY ${animation.deltaYPerIteration} / ${animation.timing.durationMs}ms`
+  }
+  return `Scale · ×${animation.scaleXMultiplier} / ×${animation.scaleYMultiplier} / ${animation.timing.durationMs}ms`
 }
 
 function PropertyValueEditor({
@@ -193,7 +194,6 @@ export function ComponentVisualAnimationEditor({
       timing: createDefaultTiming(),
       activation: { kind: 'always' },
     }
-
     onChange({ ...visual, animations: [...allAnimations, animation] })
   }
 
@@ -208,7 +208,20 @@ export function ComponentVisualAnimationEditor({
       timing: createDefaultTiming(),
       activation: { kind: 'always' },
     }
+    onChange({ ...visual, animations: [...allAnimations, animation] })
+  }
 
+  function addScaleAnimation() {
+    const animation: ScaleVisualAnimation = {
+      id: nextAnimationId(allAnimations),
+      kind: 'scale',
+      enabled: true,
+      layerId,
+      scaleXMultiplier: 1.2,
+      scaleYMultiplier: 1.2,
+      timing: createDefaultTiming(),
+      activation: { kind: 'always' },
+    }
     onChange({ ...visual, animations: [...allAnimations, animation] })
   }
 
@@ -254,7 +267,7 @@ export function ComponentVisualAnimationEditor({
             />
 
             <div className="property-grid component-animation-grid">
-              {animation.kind === 'spin' ? (
+              {animation.kind === 'spin' && (
                 <label className="property-field compact">
                   <span>每轮旋转</span>
                   <NumberInput
@@ -266,14 +279,14 @@ export function ComponentVisualAnimationEditor({
                       const degreesPerIteration = Number(event.target.value)
                       if (!Number.isFinite(degreesPerIteration)) return
                       replaceAnimation(animation.id, (current) =>
-                        current.kind === 'spin'
-                          ? { ...current, degreesPerIteration }
-                          : current,
+                        current.kind === 'spin' ? { ...current, degreesPerIteration } : current,
                       )
                     }}
                   />
                 </label>
-              ) : (
+              )}
+
+              {animation.kind === 'move' && (
                 <>
                   <label className="property-field compact">
                     <span>每轮 X 位移</span>
@@ -286,14 +299,11 @@ export function ComponentVisualAnimationEditor({
                         const deltaXPerIteration = Number(event.target.value)
                         if (!Number.isFinite(deltaXPerIteration)) return
                         replaceAnimation(animation.id, (current) =>
-                          current.kind === 'move'
-                            ? { ...current, deltaXPerIteration }
-                            : current,
+                          current.kind === 'move' ? { ...current, deltaXPerIteration } : current,
                         )
                       }}
                     />
                   </label>
-
                   <label className="property-field compact">
                     <span>每轮 Y 位移</span>
                     <NumberInput
@@ -305,9 +315,46 @@ export function ComponentVisualAnimationEditor({
                         const deltaYPerIteration = Number(event.target.value)
                         if (!Number.isFinite(deltaYPerIteration)) return
                         replaceAnimation(animation.id, (current) =>
-                          current.kind === 'move'
-                            ? { ...current, deltaYPerIteration }
-                            : current,
+                          current.kind === 'move' ? { ...current, deltaYPerIteration } : current,
+                        )
+                      }}
+                    />
+                  </label>
+                </>
+              )}
+
+              {animation.kind === 'scale' && (
+                <>
+                  <label className="property-field compact">
+                    <span>X 倍率</span>
+                    <NumberInput
+                      value={animation.scaleXMultiplier}
+                      min="0.01"
+                      step="0.05"
+                      disabled={readOnly}
+                      aria-label={`${animation.id} X 缩放倍率`}
+                      onChange={(event) => {
+                        const scaleXMultiplier = Number(event.target.value)
+                        if (!Number.isFinite(scaleXMultiplier) || scaleXMultiplier <= 0) return
+                        replaceAnimation(animation.id, (current) =>
+                          current.kind === 'scale' ? { ...current, scaleXMultiplier } : current,
+                        )
+                      }}
+                    />
+                  </label>
+                  <label className="property-field compact">
+                    <span>Y 倍率</span>
+                    <NumberInput
+                      value={animation.scaleYMultiplier}
+                      min="0.01"
+                      step="0.05"
+                      disabled={readOnly}
+                      aria-label={`${animation.id} Y 缩放倍率`}
+                      onChange={(event) => {
+                        const scaleYMultiplier = Number(event.target.value)
+                        if (!Number.isFinite(scaleYMultiplier) || scaleYMultiplier <= 0) return
+                        replaceAnimation(animation.id, (current) =>
+                          current.kind === 'scale' ? { ...current, scaleYMultiplier } : current,
                         )
                       }}
                     />
@@ -415,9 +462,7 @@ export function ComponentVisualAnimationEditor({
                   ariaLabel={`${animation.id} 激活方式`}
                   options={[
                     { value: 'always', label: '始终运行' },
-                    ...(properties.length > 0
-                      ? [{ value: 'property', label: 'Property 条件' }]
-                      : []),
+                    ...(properties.length > 0 ? [{ value: 'property', label: 'Property 条件' }] : []),
                   ]}
                   onValueChange={(kind) => {
                     if (kind === 'always') {
@@ -427,7 +472,6 @@ export function ComponentVisualAnimationEditor({
                       }))
                       return
                     }
-
                     const [propertyKey, property] = properties[0] ?? []
                     if (!propertyKey || !property) return
                     replaceAnimation(animation.id, (current) => ({
@@ -470,7 +514,6 @@ export function ComponentVisualAnimationEditor({
                       }}
                     />
                   </label>
-
                   <label className="property-field compact">
                     <span>条件</span>
                     <Select
@@ -481,15 +524,11 @@ export function ComponentVisualAnimationEditor({
                       onValueChange={(operator) => replaceAnimation(animation.id, (current) => ({
                         ...current,
                         activation: current.activation.kind === 'property'
-                          ? {
-                              ...current.activation,
-                              operator: operator as VisualRuleOperator,
-                            }
+                          ? { ...current.activation, operator: operator as VisualRuleOperator }
                           : current.activation,
                       }))}
                     />
                   </label>
-
                   <label className="property-field compact">
                     <span>比较值</span>
                     <PropertyValueEditor
@@ -518,21 +557,14 @@ export function ComponentVisualAnimationEditor({
 
       {!readOnly && (
         <div className="component-animation-add-actions">
-          <Button
-            variant="secondary"
-            size="small"
-            className="component-add-animation"
-            onClick={addSpinAnimation}
-          >
+          <Button variant="secondary" size="small" className="component-add-animation" onClick={addSpinAnimation}>
             + 添加 Spin 动画
           </Button>
-          <Button
-            variant="secondary"
-            size="small"
-            className="component-add-animation"
-            onClick={addMoveAnimation}
-          >
+          <Button variant="secondary" size="small" className="component-add-animation" onClick={addMoveAnimation}>
             + 添加 Move 动画
+          </Button>
+          <Button variant="secondary" size="small" className="component-add-animation" onClick={addScaleAnimation}>
+            + 添加 Scale 动画
           </Button>
         </div>
       )}
