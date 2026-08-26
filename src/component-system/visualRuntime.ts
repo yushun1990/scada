@@ -42,16 +42,49 @@ export const VISUAL_RUNTIME_TARGET_DESCRIPTORS = {
 } as const
 
 export type VisualRuntimeTarget = keyof typeof VISUAL_RUNTIME_TARGET_DESCRIPTORS
+export type VisualRuntimeNumericTarget = Exclude<VisualRuntimeTarget, 'visible'>
 export type VisualRuntimeComposition =
   (typeof VISUAL_RUNTIME_TARGET_DESCRIPTORS)[VisualRuntimeTarget]['composition']
 export type VisualRuntimeValueKind =
   (typeof VISUAL_RUNTIME_TARGET_DESCRIPTORS)[VisualRuntimeTarget]['valueKind']
+
+export type VisualRuntimeContinuousContributionTrack = {
+  target: VisualRuntimeNumericTarget
+  sampling: 'continuous'
+  to: number
+}
+
+export type VisualRuntimeStepContributionTrack = {
+  target: 'visible'
+  sampling: 'step'
+  threshold: number
+  before: boolean
+  after: boolean
+}
+
+export type VisualRuntimeContributionTrack =
+  | VisualRuntimeContinuousContributionTrack
+  | VisualRuntimeStepContributionTrack
 
 export type VisualRuntimeLayerOverlay = {
   [Target in VisualRuntimeTarget]?: Target extends 'visible' ? boolean : number
 }
 
 export type VisualRuntimeOverlay = Record<string, VisualRuntimeLayerOverlay>
+
+export function evaluateVisualRuntimeContributionTrack(
+  track: VisualRuntimeContributionTrack,
+  phase: number,
+  easedProgress: number,
+): number | boolean {
+  if (track.sampling === 'step') {
+    return phase < track.threshold ? track.before : track.after
+  }
+
+  const descriptor = VISUAL_RUNTIME_TARGET_DESCRIPTORS[track.target]
+  const identity = descriptor.identity
+  return identity + (track.to - identity) * easedProgress
+}
 
 export function composeVisualRuntimeContribution(
   overlay: VisualRuntimeOverlay,
@@ -85,7 +118,7 @@ export function composeVisualRuntimeContribution(
 }
 
 function applyNumericContribution(
-  target: Exclude<VisualRuntimeTarget, 'visible'>,
+  target: VisualRuntimeNumericTarget,
   base: number,
   contribution: number | undefined,
 ) {
