@@ -33,6 +33,16 @@ export type UngroupComponentLayerResult =
       status: 'unsupported-transform'
     }
 
+export type CloneComponentLayerSubtreesResult = {
+  visual: ComponentVisualDefinition
+  rootIds: readonly string[]
+}
+
+export type DeleteComponentLayersResult = {
+  visual: ComponentVisualDefinition
+  deletedIds: readonly string[]
+}
+
 function getSelectedLayers(
   visual: ComponentVisualDefinition,
   layerIds: readonly string[],
@@ -40,6 +50,58 @@ function getSelectedLayers(
   const selectedIds = new Set(layerIds)
 
   return visual.layers.filter((layer) => selectedIds.has(layer.id))
+}
+
+function getLayerMap(layers: readonly ComponentVisualLayer[]) {
+  return new Map(layers.map((layer) => [layer.id, layer]))
+}
+
+function collectSubtreeIds(
+  layers: readonly ComponentVisualLayer[],
+  rootId: string,
+) {
+  const ids = new Set<string>()
+  const queue = [rootId]
+
+  while (queue.length > 0) {
+    const current = queue.shift()
+
+    if (!current || ids.has(current)) {
+      continue
+    }
+
+    ids.add(current)
+
+    for (const layer of layers) {
+      if (layer.parentId === current) {
+        queue.push(layer.id)
+      }
+    }
+  }
+
+  return ids
+}
+
+function getOutermostSelectedLayers(
+  visual: ComponentVisualDefinition,
+  layerIds: readonly string[],
+) {
+  const selectedIds = new Set(layerIds)
+  const layerMap = getLayerMap(visual.layers)
+
+  return getSelectedLayers(visual, layerIds).filter((layer) => {
+    let parentId = layer.parentId
+
+    while (parentId) {
+      if (selectedIds.has(parentId)) {
+        return false
+      }
+
+      parentId = layerMap.get(parentId)?.parentId ?? null
+    }
+
+    return true
+  })
 }
 
 function getGroupableLayers(
@@ -74,6 +136,34 @@ function nextGroupIdentity(layers: readonly ComponentVisualLayer[]) {
   }
 }
 
+function nextLayerCopyId(
+  layer: ComponentVisualLayer,
+  usedIds: Set<string>,
+) {
+  let index = 1
+
+  while (usedIds.has(`${layer.kind}${index}`)) {
+    index += 1
+  }
+
+  const id = `${layer.kind}${index}`
+  usedIds.add(id)
+  return id
+}
+
+function nextRuleCopyId(ruleId: string, usedIds: Set<string>) {
+  let index = 1
+  let id = `${ruleId}-copy`
+
+  while (usedIds.has(id)) {
+    index += 1
+    id = `${ruleId}-copy${index}`
+  }
+
+  usedIds.add(id)
+  return id
+}
+
 function createSelectionBoundsInParent(
   layers: readonly ComponentVisualLayer[],
 ) {
@@ -88,6 +178,104 @@ function createSelectionBoundsInParent(
     top,
     width: right - left,
     height: bottom - top,
+  }
+}
+
+export function cloneComponentLayerSubtrees(
+  visual: ComponentVisualDefinition,
+  layerIds: readonly string[],
+  offset = 12,
+): CloneComponentLayerSubtreesResult {
+  const roots = getOutermostSelectedLayers(visual, layerIds)
+
+  if (roots.length === 0) {
+    return { visual, rootIds: [] }
+  }
+
+  const sourceIds = new Set<string>()
+
+  for (const root of roots) {
+    for (const id of collectSubtreeIds(visual.layers, root.id)) {
+      sourceIds.add(id)
+    }
+  }
+
+  const sourceLayers = visual.layers.filter((layer) => sourceIds.has(layer.id))
+  const rootIds = new Set(roots.map((layer) => layer.id))
+  const usedLayerIds = new Set(visual.layers.map((layer) => layer.id))
+  const idMap = new Map<string, string>()
+
+  for (const layer of sourceLayers) {
+    idMap.set(layer.id, nextLayerCopyId(layer, usedLayerIds))
+  }
+
+  const clonedLayers = sourceLayers.map((layer) => {
+    const root = rootIds.has(layer.id)
+
+    return {
+      ...layer,
+      id: idMap.get(layer.id) ?? layer.id,
+      name: root ? `${layer.name} 副本` : layer.name,
+      parentId: layer.parentId ? idMap.get(layer.parentId) ?? layer.parentId : null,
+      transform: {
+        ...layer.transform,
+        x: layer.transform.x + (root ? offset : 0),
+        y: layer.transform.y + (root ? offset : 0),
+      },
+    } as ComponentVisualLayer
+  })
+
+  const existingRules = visual.rules ?? []
+  const usedRuleIds = new Set(existingRules.map((rule) => rule.id))
+  const clonedRules = existingRules.flatMap((rule) => {
+    const layerId = idMap.get(rule.layerId)
+
+    if (!layerId) {
+      return []
+    }
+
+    return [{
+      ...rule,
+      id: nextRuleCopyId(rule.id, usedRuleIds),
+      layerId,
+    }]
+  })
+
+  return {
+    visual: {
+      ...visual,
+      layers: [...visual.layers, ...clonedLayers],
+      rules: [...existingRules, ...clonedRules],
+    },
+    rootIds: roots.map((layer) => idMap.get(layer.id) ?? layer.id),
+  }
+}
+
+export function deleteComponentLayers(
+  visual: ComponentVisualDefinition,
+  layerIds: readonly string[],
+): DeleteComponentLayersResult {
+  const roots = getOutermostSelectedLayers(visual, layerIds)
+
+  if (roots.length === 0) {
+    return { visual, deletedIds: [] }
+  }
+
+  const deletedIds = new Set<string>()
+
+  for (const root of roots) {
+    for (const id of collectSubtreeIds(visual.layers, root.id)) {
+      deletedIds.add(id)
+    }
+  }
+
+  return {
+    visual: {
+      ...visual,
+      layers: visual.layers.filter((layer) => !deletedIds.has(layer.id)),
+      rules: (visual.rules ?? []).filter((rule) => !deletedIds.has(rule.layerId)),
+    },
+    deletedIds: [...deletedIds],
   }
 }
 
