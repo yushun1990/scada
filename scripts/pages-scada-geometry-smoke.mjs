@@ -150,11 +150,13 @@ try {
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('SCADA Editor', { exact: true }).waitFor()
 
-  // Select all three root nodes through the real canvas interaction path. SCADA
-  // does not render a textual multi-selection count; command enablement is the
-  // public editor state that proves the marquee produced the required 3-node
-  // selection (Align needs 2+, Distribute needs 3+).
-  await marqueeSceneRect(80, 80, 1050, 600)
+  // Select all three root nodes through the real canvas interaction path. Use
+  // nearly the full fixed artboard so the smoke does not depend on the current
+  // built-in component dimensions. SCADA does not render a textual
+  // multi-selection count; command enablement is the public editor state that
+  // proves the marquee produced the required 3-node selection (Align needs 2+,
+  // Distribute needs 3+).
+  await marqueeSceneRect(40, 40, 1240, 680)
   assert.equal(
     await page.getByRole('button', { name: '左对齐' }).isEnabled(),
     true,
