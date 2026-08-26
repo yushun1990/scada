@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type Konva from 'konva'
 import { Layer, Line, Stage, Transformer } from 'react-konva'
 import {
@@ -11,11 +12,23 @@ import type { ComponentProps } from '../../component-system/definition'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
 import { resolveComponentVisualRules } from '../../component-system/visualRules'
 import {
+  CopyIcon,
+  GridIcon,
+  RedoIcon,
+  TrashIcon,
+  UndoIcon,
+} from '../../components/toolbar-icons'
+import { ToolbarButton, ToolbarGroup } from '../../ui'
+import {
   applyComponentLayerSnap,
   COMPONENT_SNAP_GRID_SIZE,
   computeComponentLayerSnap,
   type ComponentSnapResult,
 } from './component-canvas-snap'
+import {
+  cloneComponentLayerSubtrees,
+  deleteComponentLayers,
+} from './component-layer-hierarchy'
 import {
   layerKindLabel,
   type ComponentLayerSelectionChange,
@@ -57,6 +70,7 @@ const TRANSFORMER_ANCHORS = [
 const WORKBENCH_ARTBOARD_MAX_WIDTH = 720
 const WORKBENCH_ARTBOARD_MAX_HEIGHT = 520
 const WORKBENCH_ARTBOARD_FIT_GUTTER = 4
+const COMPONENT_VISUAL_HISTORY_LIMIT = 100
 
 function isInsideTransformer(
   target: Konva.Node,
@@ -102,6 +116,14 @@ function measureCanvasViewport(element: HTMLDivElement): CanvasViewport {
   }
 }
 
+function isTextEditingTarget(target: EventTarget | null) {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  )
+}
+
 export function ComponentVisualCanvas({
   visual,
   propertyValues,
@@ -121,7 +143,15 @@ export function ComponentVisualCanvas({
   const transformerRef = useRef<Konva.Transformer>(null)
   const verticalGuideRef = useRef<Konva.Line>(null)
   const horizontalGuideRef = useRef<Konva.Line>(null)
+  const visualRef = useRef(visual)
+  const undoStackRef = useRef<ComponentVisualDefinition[]>([])
+  const redoStackRef = useRef<ComponentVisualDefinition[]>([])
+  const applyingHistoryRef = useRef(false)
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
+  const [toolbarHost, setToolbarHost] = useState<HTMLElement | null>(null)
+  const [gridVisible, setGridVisible] = useState(true)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
   const selectedLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
   const selectedVisibleLayerIds = useMemo(
     () => selectedLayerIds.filter((layerId) =>
@@ -152,8 +182,13 @@ export function ComponentVisualCanvas({
   const artboardHeight = visualDesignHeight * artboardScale
   const isComposite = visual.mode === 'composite'
   const isEditable = isComposite && mode === 'editor' && !readOnly
-  const showDesignGrid = isComposite && mode === 'editor'
+  const showDesignGrid = isComposite && mode === 'editor' && gridVisible
   const canTransformSelection = selectedLayerIds.length === 1
+
+  function syncHistoryAvailability() {
+    setCanUndo(undoStackRef.current.length > 0)
+    setCanRedo(redoStackRef.current.length > 0)
+  }
 
   useLayoutEffect(() => {
     const element = canvasHostRef.current
@@ -161,6 +196,11 @@ export function ComponentVisualCanvas({
     if (!element) {
       return
     }
+
+    const canvasArea = element.closest('.component-canvas-area')
+    setToolbarHost(
+      canvasArea?.querySelector<HTMLElement>('.component-canvas-toolbar') ?? null,
+    )
 
     const updateViewport = () => {
       const next = measureCanvasViewport(element)
@@ -181,6 +221,29 @@ export function ComponentVisualCanvas({
 
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    const previous = visualRef.current
+
+    if (previous === visual) {
+      return
+    }
+
+    if (applyingHistoryRef.current) {
+      applyingHistoryRef.current = false
+      visualRef.current = visual
+      syncHistoryAvailability()
+      return
+    }
+
+    undoStackRef.current = [
+      ...undoStackRef.current.slice(-(COMPONENT_VISUAL_HISTORY_LIMIT - 1)),
+      previous,
+    ]
+    redoStackRef.current = []
+    visualRef.current = visual
+    syncHistoryAvailability()
+  }, [visual])
 
   useEffect(() => {
     const transformer = transformerRef.current
@@ -206,6 +269,94 @@ export function ComponentVisualCanvas({
       clearSnapGuides()
     }
   }, [isEditable, snapEnabled])
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (isTextEditingTarget(event.target)) {
+        return
+      }
+
+      const modifier = event.ctrlKey || event.metaKey
+      const key = event.key.toLowerCase()
+      const isUndo = modifier && !event.shiftKey && key === 'z'
+      const isRedo = modifier && (key === 'y' || (event.shiftKey && key === 'z'))
+
+      if (isUndo && undoStackRef.current.length > 0 && !readOnly) {
+        event.preventDefault()
+        undoVisual()
+      } else if (isRedo && redoStackRef.current.length > 0 && !readOnly) {
+        event.preventDefault()
+        redoVisual()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  })
+
+  function undoVisual() {
+    const previous = undoStackRef.current[undoStackRef.current.length - 1]
+
+    if (!previous || readOnly) {
+      return
+    }
+
+    undoStackRef.current = undoStackRef.current.slice(0, -1)
+    redoStackRef.current = [
+      ...redoStackRef.current.slice(-(COMPONENT_VISUAL_HISTORY_LIMIT - 1)),
+      visualRef.current,
+    ]
+    applyingHistoryRef.current = true
+    onChange(previous)
+    syncHistoryAvailability()
+  }
+
+  function redoVisual() {
+    const next = redoStackRef.current[redoStackRef.current.length - 1]
+
+    if (!next || readOnly) {
+      return
+    }
+
+    redoStackRef.current = redoStackRef.current.slice(0, -1)
+    undoStackRef.current = [
+      ...undoStackRef.current.slice(-(COMPONENT_VISUAL_HISTORY_LIMIT - 1)),
+      visualRef.current,
+    ]
+    applyingHistoryRef.current = true
+    onChange(next)
+    syncHistoryAvailability()
+  }
+
+  function duplicateSelection() {
+    if (!isEditable || selectedLayerIds.length === 0) {
+      return
+    }
+
+    const result = cloneComponentLayerSubtrees(visual, selectedLayerIds)
+
+    if (result.rootIds.length === 0) {
+      return
+    }
+
+    onChange(result.visual)
+    onSelectionChange(result.rootIds[result.rootIds.length - 1] ?? null)
+  }
+
+  function deleteSelection() {
+    if (!isEditable || selectedLayerIds.length === 0) {
+      return
+    }
+
+    const result = deleteComponentLayers(visual, selectedLayerIds)
+
+    if (result.deletedIds.length === 0) {
+      return
+    }
+
+    onChange(result.visual)
+    onSelectionChange(null)
+  }
 
   function commitLayerTransform(node: Konva.Node) {
     if (!isEditable) {
@@ -368,6 +519,67 @@ export function ComponentVisualCanvas({
 
   return (
     <>
+      {toolbarHost && createPortal(
+        <>
+          <ToolbarGroup className="canvas-tool-group component-edit-tool-group">
+            <ToolbarButton
+              iconOnly
+              className="icon-button"
+              title="复制选中图层"
+              aria-label="复制选中图层"
+              disabled={!isEditable || selectedLayerIds.length === 0}
+              onClick={duplicateSelection}
+            >
+              <CopyIcon />
+            </ToolbarButton>
+            <ToolbarButton
+              iconOnly
+              className="icon-button"
+              title="删除选中图层"
+              aria-label="删除选中图层"
+              disabled={!isEditable || selectedLayerIds.length === 0}
+              onClick={deleteSelection}
+            >
+              <TrashIcon />
+            </ToolbarButton>
+            <ToolbarButton
+              iconOnly
+              className="icon-button"
+              title="撤销 (Ctrl+Z)"
+              aria-label="撤销"
+              disabled={readOnly || !canUndo}
+              onClick={undoVisual}
+            >
+              <UndoIcon />
+            </ToolbarButton>
+            <ToolbarButton
+              iconOnly
+              className="icon-button"
+              title="重做 (Ctrl+Shift+Z)"
+              aria-label="重做"
+              disabled={readOnly || !canRedo}
+              onClick={redoVisual}
+            >
+              <RedoIcon />
+            </ToolbarButton>
+          </ToolbarGroup>
+          <ToolbarGroup className="canvas-tool-group component-view-tool-group">
+            <ToolbarButton
+              iconOnly
+              className={`icon-button toggle-button${gridVisible ? ' active' : ''}`}
+              title={gridVisible ? '隐藏格线' : '显示格线'}
+              aria-label="显示格线"
+              aria-pressed={gridVisible}
+              disabled={!isComposite || mode !== 'editor'}
+              onClick={() => setGridVisible((current) => !current)}
+            >
+              <GridIcon />
+            </ToolbarButton>
+          </ToolbarGroup>
+        </>,
+        toolbarHost,
+      )}
+
       <div ref={canvasHostRef} className={`component-canvas-stage ${mode}`}>
         <div
           className={`component-artboard${showDesignGrid ? ' component-artboard-grid' : ''}`}
