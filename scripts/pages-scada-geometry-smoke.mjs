@@ -45,7 +45,7 @@ async function readStoredScene() {
   })
 }
 
-async function seedGeometry() {
+async function seedGroupedGeometry() {
   await page.evaluate(() => {
     const segments = window.location.hash
       .replace(/^#\/?/, '')
@@ -66,9 +66,6 @@ async function seedGeometry() {
     }
 
     const scene = JSON.parse(raw)
-    // Keep all three equal-size nodes near the scene center. The SCADA editor
-    // intentionally starts in fill mode, which may crop one scene axis, so the
-    // regression fixture must not depend on off-screen artboard edges.
     const positions = [
       { x: 360, y: 220 },
       { x: 560, y: 320 },
@@ -79,38 +76,45 @@ async function seedGeometry() {
       throw new Error(`Expected ${positions.length} nodes, received ${scene.nodes.length}`)
     }
 
-    scene.nodes.forEach((node, index) => {
-      node.parentId = null
-      node.transform = {
+    const groupId = 'smoke-geometry-group'
+    const children = scene.nodes.map((node, index) => ({
+      ...node,
+      parentId: groupId,
+      transform: {
         ...node.transform,
         ...positions[index],
         rotation: 0,
-      }
-    })
+      },
+    }))
+    const group = {
+      id: groupId,
+      type: 'core.group',
+      name: 'Smoke geometry group',
+      parentId: null,
+      visible: true,
+      locked: false,
+      transform: {
+        x: 0,
+        y: 0,
+        width: scene.width,
+        height: scene.height,
+        rotation: 0,
+      },
+      props: {
+        designWidth: scene.width,
+        designHeight: scene.height,
+      },
+      bindings: [],
+      behaviors: [],
+    }
 
+    // The geometry regression needs a stable three-node selection, not a
+    // second test of viewport/marquee behavior. Load one valid group as the
+    // fixture; the editor's real Ungroup command then produces the normal
+    // multi-selection through its public UI path.
+    scene.nodes = [group, ...children]
     window.localStorage.setItem(key, JSON.stringify(scene))
   })
-}
-
-async function marqueeVisibleStage() {
-  const stage = page.locator('.konva-host .konvajs-content').first()
-  const box = await stage.boundingBox()
-  assert.ok(box, 'SCADA Konva stage must be measurable')
-
-  // Drive the real visible canvas instead of mirroring SceneRenderer's private
-  // viewport transform. Fill mode leaves a 24px margin on the non-cropped axis;
-  // 32px keeps both marquee endpoints inside the scene while covering the
-  // central regression fixture on every supported viewport aspect ratio.
-  const inset = 32
-  const startX = box.x + inset
-  const startY = box.y + inset
-  const endX = box.x + box.width - inset
-  const endY = box.y + box.height - inset
-
-  await page.mouse.move(startX, startY)
-  await page.mouse.down()
-  await page.mouse.move(endX, endY, { steps: 8 })
-  await page.mouse.up()
 }
 
 try {
@@ -135,24 +139,31 @@ try {
     'SCADA smoke uses equal-size nodes from one component type',
   )
 
-  await seedGeometry()
+  await seedGroupedGeometry()
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('SCADA Editor', { exact: true }).waitFor()
 
-  // Select all three root nodes through the real canvas interaction path. The
-  // marquee uses the actual visible Stage bounds rather than a duplicated
-  // scene-to-viewport calculation. Command enablement is the public editor
-  // state proving the marquee produced the required 3-node selection.
-  await marqueeVisibleStage()
+  // The loaded group is the sole root and therefore the initial selection.
+  // Ungroup is a stable public UI path that intentionally selects every child,
+  // giving this regression the three-node state required by Align/Distribute
+  // without coupling it to separate marquee/viewport behavior.
+  const ungroupButton = page.getByRole('button', { name: '拆分组合' })
+  assert.equal(
+    await ungroupButton.isEnabled(),
+    true,
+    'SCADA grouped fixture must enable ungroup',
+  )
+  await ungroupButton.click()
+
   assert.equal(
     await page.getByRole('button', { name: '左对齐' }).isEnabled(),
     true,
-    'SCADA marquee must enable 2+ node alignment',
+    'SCADA ungroup selection must enable 2+ node alignment',
   )
   assert.equal(
     await page.getByRole('button', { name: '水平等距分布' }).isEnabled(),
     true,
-    'SCADA marquee must enable 3+ node distribution',
+    'SCADA ungroup selection must enable 3+ node distribution',
   )
 
   await page.getByRole('button', { name: '左对齐' }).click()
@@ -163,9 +174,9 @@ try {
     assertClose(node.transform.x, 360, `left align ${node.id} x`)
   }
 
-  // Undo restores the deliberately uneven seed geometry while preserving the
-  // multi-selection, then exercise the shared distribution command through the
-  // SCADA wrapper.
+  // Undo restores the deliberately uneven ungrouped geometry while preserving
+  // the three-node selection, then exercise the shared distribution command
+  // through the SCADA wrapper.
   await page.getByRole('button', { name: '撤销' }).click()
   await page.getByRole('button', { name: '水平等距分布' }).click()
   await saveScene()
@@ -179,7 +190,7 @@ try {
   assertClose(firstGap, secondGap, 'horizontal distribution produces equal x spacing')
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages SCADA geometry smoke passed: canvas multi-select, align and distribute use the shared geometry command path.')
+  console.log('Pages SCADA geometry smoke passed: real ungroup selection, align and distribute use the shared geometry command path.')
 } finally {
   await browser.close()
 }
