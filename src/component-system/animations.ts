@@ -57,12 +57,28 @@ export type MoveVisualAnimation = {
   activation: VisualAnimationActivation
 }
 
-export type VisualAnimation = SpinVisualAnimation | MoveVisualAnimation
+export type ScaleVisualAnimation = {
+  id: string
+  kind: 'scale'
+  enabled: boolean
+  layerId: string
+  scaleXMultiplier: number
+  scaleYMultiplier: number
+  timing: VisualAnimationTiming
+  activation: VisualAnimationActivation
+}
+
+export type VisualAnimation =
+  | SpinVisualAnimation
+  | MoveVisualAnimation
+  | ScaleVisualAnimation
 
 export type VisualAnimationLayerOverlay = {
   rotationDelta?: number
   translateX?: number
   translateY?: number
+  scaleXMultiplier?: number
+  scaleYMultiplier?: number
 }
 
 export type VisualAnimationOverlay = Record<string, VisualAnimationLayerOverlay>
@@ -147,9 +163,7 @@ function assertActivation(
     throw new Error(`Visual Animation ${animationId} activation 无效`)
   }
 
-  if (value.kind === 'always') {
-    return
-  }
+  if (value.kind === 'always') return
 
   if (typeof value.propertyKey !== 'string' || !value.propertyKey.trim()) {
     throw new Error(`Visual Animation ${animationId} propertyKey 无效`)
@@ -199,7 +213,11 @@ export function assertComponentVisualAnimations(
     }
     animationIds.add(animationId)
 
-    if (candidate.kind !== 'spin' && candidate.kind !== 'move') {
+    if (
+      candidate.kind !== 'spin' &&
+      candidate.kind !== 'move' &&
+      candidate.kind !== 'scale'
+    ) {
       throw new Error(`Visual Animation ${animationId} kind 无效`)
     }
 
@@ -215,12 +233,19 @@ export function assertComponentVisualAnimations(
       if (!isFiniteNumber(candidate.degreesPerIteration)) {
         throw new Error(`Visual Animation ${animationId} degreesPerIteration 必须是有限数字`)
       }
-    } else {
+    } else if (candidate.kind === 'move') {
       if (!isFiniteNumber(candidate.deltaXPerIteration)) {
         throw new Error(`Visual Animation ${animationId} deltaXPerIteration 必须是有限数字`)
       }
       if (!isFiniteNumber(candidate.deltaYPerIteration)) {
         throw new Error(`Visual Animation ${animationId} deltaYPerIteration 必须是有限数字`)
+      }
+    } else {
+      if (!isFiniteNumber(candidate.scaleXMultiplier) || candidate.scaleXMultiplier <= 0) {
+        throw new Error(`Visual Animation ${animationId} scaleXMultiplier 必须是大于 0 的有限数字`)
+      }
+      if (!isFiniteNumber(candidate.scaleYMultiplier) || candidate.scaleYMultiplier <= 0) {
+        throw new Error(`Visual Animation ${animationId} scaleYMultiplier 必须是大于 0 的有限数字`)
       }
     }
 
@@ -299,6 +324,10 @@ export function evaluateVisualAnimationProgress(
   return applyEasing(directedProgress, timing.easing)
 }
 
+function interpolateMultiplier(target: number, progress: number) {
+  return 1 + (target - 1) * progress
+}
+
 export function evaluateVisualAnimations(
   visual: ComponentVisualDefinition,
   values: ComponentProps,
@@ -320,13 +349,23 @@ export function evaluateVisualAnimations(
         rotationDelta:
           (current.rotationDelta ?? 0) + animation.degreesPerIteration * progress,
       }
-    } else {
+    } else if (animation.kind === 'move') {
       overlay[animation.layerId] = {
         ...current,
         translateX:
           (current.translateX ?? 0) + animation.deltaXPerIteration * progress,
         translateY:
           (current.translateY ?? 0) + animation.deltaYPerIteration * progress,
+      }
+    } else {
+      overlay[animation.layerId] = {
+        ...current,
+        scaleXMultiplier:
+          (current.scaleXMultiplier ?? 1) *
+          interpolateMultiplier(animation.scaleXMultiplier, progress),
+        scaleYMultiplier:
+          (current.scaleYMultiplier ?? 1) *
+          interpolateMultiplier(animation.scaleYMultiplier, progress),
       }
     }
   }
@@ -353,6 +392,8 @@ export function applyVisualAnimationOverlay(
           x: layer.transform.x + (layerOverlay.translateX ?? 0),
           y: layer.transform.y + (layerOverlay.translateY ?? 0),
           rotation: layer.transform.rotation + (layerOverlay.rotationDelta ?? 0),
+          scaleX: layer.transform.scaleX * (layerOverlay.scaleXMultiplier ?? 1),
+          scaleY: layer.transform.scaleY * (layerOverlay.scaleYMultiplier ?? 1),
         },
       }
     }),

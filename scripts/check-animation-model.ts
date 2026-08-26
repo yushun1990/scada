@@ -280,6 +280,89 @@ assert.equal(
   'move overlay must apply after Visual Rules and keep the rule-resolved base immutable',
 )
 
+const scaleAnimation = {
+  id: 'wheel-scale',
+  kind: 'scale',
+  enabled: true,
+  layerId: 'wheel',
+  scaleXMultiplier: 2,
+  scaleYMultiplier: 0.5,
+  timing: {
+    durationMs: 1000,
+    delayMs: 0,
+    iterations: 'infinite',
+    direction: 'normal',
+    easing: 'linear',
+  },
+  activation: { kind: 'always' },
+} as const
+const scaleVisual = { ...visual, animations: [scaleAnimation] } as const
+assert.doesNotThrow(() => assertComponentVisualAnimations(definition, scaleVisual))
+const scaleOverlay = evaluateVisualAnimations(scaleVisual, {}, 500)
+assert.equal(scaleOverlay.wheel?.scaleXMultiplier, 1.5)
+assert.equal(scaleOverlay.wheel?.scaleYMultiplier, 0.75)
+const scaled = applyVisualAnimationOverlay(scaleVisual, scaleOverlay)
+assert.equal(scaled.layers[0]?.transform.scaleX, 1.5)
+assert.equal(scaled.layers[0]?.transform.scaleY, 0.75)
+assert.equal(visual.layers[0]?.transform.scaleX, 1, 'scale must not mutate base scaleX')
+assert.equal(visual.layers[0]?.transform.scaleY, 1, 'scale must not mutate base scaleY')
+
+const secondScale = {
+  ...scaleAnimation,
+  id: 'wheel-scale-2',
+  scaleXMultiplier: 0.5,
+  scaleYMultiplier: 3,
+} as const
+const composedScaleOverlay = evaluateVisualAnimations(
+  { ...visual, animations: [scaleAnimation, secondScale] },
+  {},
+  500,
+)
+assert.equal(composedScaleOverlay.wheel?.scaleXMultiplier, 1.125)
+assert.equal(composedScaleOverlay.wheel?.scaleYMultiplier, 1.5)
+
+const scaleRuleVisual = {
+  ...visual,
+  rules: [
+    {
+      id: 'running-base-scale-x',
+      enabled: true,
+      propertyKey: 'running',
+      operator: 'equals',
+      compareValue: true,
+      layerId: 'wheel',
+      target: 'transform.scaleX',
+      value: 2,
+    },
+    {
+      id: 'running-base-scale-y',
+      enabled: true,
+      propertyKey: 'running',
+      operator: 'equals',
+      compareValue: true,
+      layerId: 'wheel',
+      target: 'transform.scaleY',
+      value: -2,
+    },
+  ],
+  animations: [scaleAnimation],
+} as const
+const scaleRuleResolved = resolveComponentVisualRules(scaleRuleVisual, { running: true })
+const scaleRuleOverlay = evaluateVisualAnimations(scaleRuleResolved, { running: true }, 500)
+const scaleRuleAnimated = applyVisualAnimationOverlay(scaleRuleResolved, scaleRuleOverlay)
+assert.equal(scaleRuleAnimated.layers[0]?.transform.scaleX, 3)
+assert.equal(scaleRuleAnimated.layers[0]?.transform.scaleY, -1.5)
+assert.equal(
+  scaleRuleResolved.layers[0]?.transform.scaleX,
+  2,
+  'scale overlay must multiply after Visual Rules and keep the rule-resolved base immutable',
+)
+assert.equal(
+  scaleRuleResolved.layers[0]?.transform.scaleY,
+  -2,
+  'positive animation multipliers must preserve a mirrored base scale sign',
+)
+
 const badLayer = structuredClone(visual)
 badLayer.animations[0].layerId = 'missing'
 assert.throws(
@@ -313,4 +396,18 @@ assert.throws(
   /deltaXPerIteration/,
 )
 
-console.log('Animation model checks passed: migration, timing, spin/move overlays, rule ordering, composition and validation are deterministic.')
+const badScaleZero = structuredClone(scaleVisual)
+badScaleZero.animations[0].scaleXMultiplier = 0
+assert.throws(
+  () => assertComponentVisualAnimations(definition, badScaleZero),
+  /scaleXMultiplier/,
+)
+
+const badScaleNegative = structuredClone(scaleVisual)
+badScaleNegative.animations[0].scaleYMultiplier = -1
+assert.throws(
+  () => assertComponentVisualAnimations(definition, badScaleNegative),
+  /scaleYMultiplier/,
+)
+
+console.log('Animation model checks passed: migration, timing, spin/move/scale overlays, rule ordering, semantic composition and validation are deterministic.')
