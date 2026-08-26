@@ -1,31 +1,28 @@
 .component-editor-shell .component-canvas-area.component-canvas-area {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows:
-    var(--ui-toolbar-height, 40px)
+    auto
     minmax(0, 1fr)
     var(--ui-status-height, 32px);
 }
 
+/* Reuse the SCADA workbench toolbar grammar directly: shared canvas-toolbar
+ * spacing, button sizing, group separators, and active/disabled states all
+ * come from workbench.css. Component Editor only owns grid placement here. */
 .component-editor-shell .component-canvas-toolbar.component-canvas-toolbar {
   grid-area: 1 / 1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
   width: 100%;
   min-width: 0;
-}
-
-.component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .canvas-tool-group {
-  width: auto;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
   justify-content: flex-start;
 }
 
-.component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .canvas-tool-group::after {
-  content: none;
+/* component-canvas-phase remains in the DOM as a hidden compatibility node,
+ * so :last-child from the shared toolbar rules cannot identify the final
+ * command group. Keep the SCADA behavior by removing the trailing separator
+ * from the last toolbar group explicitly. */
+.component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .canvas-tool-group:last-of-type {
+  padding-right: 0;
+  border-right: 0;
 }
 
 /* Snap state is exposed by the toggle itself. Runtime/editor status belongs to
