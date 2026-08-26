@@ -27,7 +27,7 @@ try {
   await addLayer.click()
   await layerRow('Group 1').waitFor()
 
-  const kindSelect = page.getByRole('button', { name: '新增图层类型' })
+  const kindSelect = page.locator('[aria-label="新增图层类型"]')
   await kindSelect.click()
   await page.getByRole('option', { name: '矢量图形', exact: true }).click()
   await addLayer.click()
