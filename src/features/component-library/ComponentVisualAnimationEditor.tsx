@@ -4,6 +4,7 @@ import type {
   ComponentScalarValue,
 } from '../../component-system/definition'
 import type {
+  BlinkVisualAnimation,
   FadeVisualAnimation,
   MoveVisualAnimation,
   ScaleVisualAnimation,
@@ -75,6 +76,8 @@ function animationSummary(animation: VisualAnimation) {
       return `Scale · ×${animation.scaleXMultiplier} / ×${animation.scaleYMultiplier} / ${animation.timing.durationMs}ms`
     case 'fade':
       return `Fade · ×${animation.opacityMultiplier} opacity / ${animation.timing.durationMs}ms`
+    case 'blink':
+      return `Blink · visible/hidden / ${animation.timing.durationMs}ms`
   }
 }
 
@@ -258,29 +261,37 @@ function AnimationKindFields({
     )
   }
 
+  if (animation.kind === 'fade') {
+    return (
+      <label className="property-field compact">
+        <span>透明倍率</span>
+        <NumberInput
+          value={animation.opacityMultiplier}
+          min="0"
+          max="1"
+          step="0.05"
+          disabled={readOnly}
+          aria-label={`${animation.id} 透明倍率`}
+          onChange={(event) => {
+            const opacityMultiplier = Number(event.target.value)
+            if (
+              !Number.isFinite(opacityMultiplier) ||
+              opacityMultiplier < 0 ||
+              opacityMultiplier > 1
+            ) return
+            replaceAnimation(animation.id, (current) =>
+              current.kind === 'fade' ? { ...current, opacityMultiplier } : current,
+            )
+          }}
+        />
+      </label>
+    )
+  }
+
   return (
-    <label className="property-field compact">
-      <span>透明倍率</span>
-      <NumberInput
-        value={animation.opacityMultiplier}
-        min="0"
-        max="1"
-        step="0.05"
-        disabled={readOnly}
-        aria-label={`${animation.id} 透明倍率`}
-        onChange={(event) => {
-          const opacityMultiplier = Number(event.target.value)
-          if (
-            !Number.isFinite(opacityMultiplier) ||
-            opacityMultiplier < 0 ||
-            opacityMultiplier > 1
-          ) return
-          replaceAnimation(animation.id, (current) =>
-            current.kind === 'fade' ? { ...current, opacityMultiplier } : current,
-          )
-        }}
-      />
-    </label>
+    <div className="component-inspector-help">
+      每个周期前半可见、后半隐藏；Blink 使用离散 phase，缓动不参与可见性切换。
+    </div>
   )
 }
 
@@ -380,6 +391,21 @@ export function ComponentVisualAnimationEditor({
       layerId,
       opacityMultiplier: 0,
       timing: createDefaultTiming(),
+      activation: { kind: 'always' },
+    }
+    appendAnimation(animation)
+  }
+
+  function addBlinkAnimation() {
+    const animation: BlinkVisualAnimation = {
+      id: nextAnimationId(allAnimations),
+      kind: 'blink',
+      enabled: true,
+      layerId,
+      timing: {
+        ...createDefaultTiming(),
+        durationMs: 600,
+      },
       activation: { kind: 'always' },
     }
     appendAnimation(animation)
@@ -516,7 +542,7 @@ export function ComponentVisualAnimationEditor({
                 <span>缓动</span>
                 <Select
                   value={animation.timing.easing}
-                  disabled={readOnly}
+                  disabled={readOnly || animation.kind === 'blink'}
                   ariaLabel={`${animation.id} 缓动`}
                   options={EASING_OPTIONS}
                   onValueChange={(easing) => updateTiming(animation.id, {
@@ -647,6 +673,9 @@ export function ComponentVisualAnimationEditor({
           </Button>
           <Button variant="secondary" size="small" className="component-add-animation" onClick={addFadeAnimation}>
             + 添加 Fade 动画
+          </Button>
+          <Button variant="secondary" size="small" className="component-add-animation" onClick={addBlinkAnimation}>
+            + 添加 Blink 动画
           </Button>
         </div>
       )}
