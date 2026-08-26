@@ -46,10 +46,23 @@ export type SpinVisualAnimation = {
   activation: VisualAnimationActivation
 }
 
-export type VisualAnimation = SpinVisualAnimation
+export type MoveVisualAnimation = {
+  id: string
+  kind: 'move'
+  enabled: boolean
+  layerId: string
+  deltaXPerIteration: number
+  deltaYPerIteration: number
+  timing: VisualAnimationTiming
+  activation: VisualAnimationActivation
+}
+
+export type VisualAnimation = SpinVisualAnimation | MoveVisualAnimation
 
 export type VisualAnimationLayerOverlay = {
   rotationDelta?: number
+  translateX?: number
+  translateY?: number
 }
 
 export type VisualAnimationOverlay = Record<string, VisualAnimationLayerOverlay>
@@ -186,7 +199,7 @@ export function assertComponentVisualAnimations(
     }
     animationIds.add(animationId)
 
-    if (candidate.kind !== 'spin') {
+    if (candidate.kind !== 'spin' && candidate.kind !== 'move') {
       throw new Error(`Visual Animation ${animationId} kind 无效`)
     }
 
@@ -198,8 +211,17 @@ export function assertComponentVisualAnimations(
       throw new Error(`Visual Animation ${animationId} 引用了不存在的 Layer：${String(candidate.layerId)}`)
     }
 
-    if (!isFiniteNumber(candidate.degreesPerIteration)) {
-      throw new Error(`Visual Animation ${animationId} degreesPerIteration 必须是有限数字`)
+    if (candidate.kind === 'spin') {
+      if (!isFiniteNumber(candidate.degreesPerIteration)) {
+        throw new Error(`Visual Animation ${animationId} degreesPerIteration 必须是有限数字`)
+      }
+    } else {
+      if (!isFiniteNumber(candidate.deltaXPerIteration)) {
+        throw new Error(`Visual Animation ${animationId} deltaXPerIteration 必须是有限数字`)
+      }
+      if (!isFiniteNumber(candidate.deltaYPerIteration)) {
+        throw new Error(`Visual Animation ${animationId} deltaYPerIteration 必须是有限数字`)
+      }
     }
 
     assertTiming(candidate.timing, animationId)
@@ -291,10 +313,21 @@ export function evaluateVisualAnimations(
     if (progress === null) continue
 
     const current = overlay[animation.layerId] ?? {}
-    overlay[animation.layerId] = {
-      ...current,
-      rotationDelta:
-        (current.rotationDelta ?? 0) + animation.degreesPerIteration * progress,
+
+    if (animation.kind === 'spin') {
+      overlay[animation.layerId] = {
+        ...current,
+        rotationDelta:
+          (current.rotationDelta ?? 0) + animation.degreesPerIteration * progress,
+      }
+    } else {
+      overlay[animation.layerId] = {
+        ...current,
+        translateX:
+          (current.translateX ?? 0) + animation.deltaXPerIteration * progress,
+        translateY:
+          (current.translateY ?? 0) + animation.deltaYPerIteration * progress,
+      }
     }
   }
 
@@ -317,6 +350,8 @@ export function applyVisualAnimationOverlay(
         ...layer,
         transform: {
           ...layer.transform,
+          x: layer.transform.x + (layerOverlay.translateX ?? 0),
+          y: layer.transform.y + (layerOverlay.translateY ?? 0),
           rotation: layer.transform.rotation + (layerOverlay.rotationDelta ?? 0),
         },
       }

@@ -202,6 +202,84 @@ const composedOverlay = evaluateVisualAnimations(
 )
 assert.equal(composedOverlay.wheel?.rotationDelta, 270)
 
+const moveAnimation = {
+  id: 'wheel-move',
+  kind: 'move',
+  enabled: true,
+  layerId: 'wheel',
+  deltaXPerIteration: 60,
+  deltaYPerIteration: -20,
+  timing: {
+    durationMs: 1000,
+    delayMs: 0,
+    iterations: 'infinite',
+    direction: 'normal',
+    easing: 'linear',
+  },
+  activation: { kind: 'always' },
+} as const
+const moveVisual = { ...visual, animations: [moveAnimation] } as const
+assert.doesNotThrow(() => assertComponentVisualAnimations(definition, moveVisual))
+const moveOverlay = evaluateVisualAnimations(moveVisual, { running: false }, 500)
+assert.equal(moveOverlay.wheel?.translateX, 30)
+assert.equal(moveOverlay.wheel?.translateY, -10)
+const moved = applyVisualAnimationOverlay(moveVisual, moveOverlay)
+assert.equal(moved.layers[0]?.transform.x, 40)
+assert.equal(moved.layers[0]?.transform.y, 10)
+assert.equal(visual.layers[0]?.transform.x, 10, 'move must not mutate base x')
+assert.equal(visual.layers[0]?.transform.y, 20, 'move must not mutate base y')
+
+const secondMove = {
+  ...moveAnimation,
+  id: 'wheel-move-2',
+  deltaXPerIteration: -20,
+  deltaYPerIteration: 40,
+} as const
+const composedMoveOverlay = evaluateVisualAnimations(
+  { ...visual, animations: [moveAnimation, secondMove] },
+  {},
+  500,
+)
+assert.equal(composedMoveOverlay.wheel?.translateX, 20)
+assert.equal(composedMoveOverlay.wheel?.translateY, 10)
+
+const moveRuleVisual = {
+  ...visual,
+  rules: [
+    {
+      id: 'running-base-x',
+      enabled: true,
+      propertyKey: 'running',
+      operator: 'equals',
+      compareValue: true,
+      layerId: 'wheel',
+      target: 'transform.x',
+      value: 100,
+    },
+    {
+      id: 'running-base-y',
+      enabled: true,
+      propertyKey: 'running',
+      operator: 'equals',
+      compareValue: true,
+      layerId: 'wheel',
+      target: 'transform.y',
+      value: 200,
+    },
+  ],
+  animations: [moveAnimation],
+} as const
+const moveRuleResolved = resolveComponentVisualRules(moveRuleVisual, { running: true })
+const moveRuleOverlay = evaluateVisualAnimations(moveRuleResolved, { running: true }, 500)
+const moveRuleAnimated = applyVisualAnimationOverlay(moveRuleResolved, moveRuleOverlay)
+assert.equal(moveRuleAnimated.layers[0]?.transform.x, 130)
+assert.equal(moveRuleAnimated.layers[0]?.transform.y, 190)
+assert.equal(
+  moveRuleResolved.layers[0]?.transform.x,
+  100,
+  'move overlay must apply after Visual Rules and keep the rule-resolved base immutable',
+)
+
 const badLayer = structuredClone(visual)
 badLayer.animations[0].layerId = 'missing'
 assert.throws(
@@ -228,4 +306,11 @@ assert.throws(
   /不存在的 Property/,
 )
 
-console.log('Animation model checks passed: migration, timing, direction, easing, activation, rule ordering, composition and validation are deterministic.')
+const badMove = structuredClone(moveVisual)
+badMove.animations[0].deltaXPerIteration = Number.POSITIVE_INFINITY
+assert.throws(
+  () => assertComponentVisualAnimations(definition, badMove),
+  /deltaXPerIteration/,
+)
+
+console.log('Animation model checks passed: migration, timing, spin/move overlays, rule ordering, composition and validation are deterministic.')
