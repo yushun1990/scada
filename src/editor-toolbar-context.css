@@ -1,18 +1,45 @@
-/* Shared editor toolbar semantics.
- * Group/Ungroup occupy one stable slot: the icon changes with the current
- * selection instead of making the toolbar grow and shrink. */
-.canvas-tool-group > button[aria-label="拆分组合"]:disabled {
-  display: none;
+/* Shared editor toolbar layout.
+ * Keep command groups content-sized, pin view controls to the far right,
+ * and let the final group own no trailing separator. */
+.canvas-toolbar {
+  justify-content: flex-start;
 }
 
-.canvas-tool-group:has(> button[aria-label="拆分组合"]:not(:disabled))
-  > button[aria-label="组合选中对象"] {
-  display: none;
+.canvas-toolbar > .canvas-tool-group {
+  flex: 0 0 auto;
+  width: max-content;
 }
 
-/* Component Editor injects the common edit commands into the hierarchy group
- * so its first command strip follows SCADA's Copy / Delete / Group-or-Ungroup /
- * Undo / Redo order without duplicating toolbar markup. */
+.canvas-toolbar > .view-tool-group,
+.component-editor-shell .component-canvas-toolbar > .canvas-tool-group:has(.component-snap-toggle) {
+  margin-left: auto;
+  padding-right: 0;
+  border-right: 0;
+}
+
+/* The scene-size shell must shrink-wrap the Base UI trigger. Legacy native
+ * select styles otherwise leave a white tail to the right of the trigger. */
+.canvas-toolbar .scene-size-control {
+  box-sizing: border-box;
+  width: 60px;
+  min-width: 60px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.canvas-toolbar .scene-size-control > button.ui-select-trigger {
+  box-sizing: border-box;
+  width: 60px;
+  min-width: 60px;
+  margin: 0;
+}
+
+/* Component Editor injects common edit commands into the hierarchy group so
+ * its first strip follows Copy / Delete / Group-or-Ungroup / Undo / Redo. */
 .component-hierarchy-tool-group > .component-copy-command {
   order: -4;
 }
