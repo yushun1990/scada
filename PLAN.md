@@ -204,7 +204,7 @@ Implemented:
 
 Current gate:
 
-> M6.3.4 feature implementation is complete. A deployed GitHub Pages Chromium smoke has passed; only a short pointer-specific/manual regression check remains before accepting the milestone.
+> M6.3.4 Component canvas authoring commands are accepted. Deployed GitHub Pages browser acceptance now covers the component command flow, Chromium + Firefox pointer behavior, and the SCADA Align/Distribute regression after shared geometry extraction.
 
 The detailed acceptance record is [`docs/progress/m6.3.4-component-canvas-authoring.md`](docs/progress/m6.3.4-component-canvas-authoring.md).
 
@@ -235,7 +235,7 @@ Implemented:
 - Layers → Canvas → contextual Inspector shell
 - shared Studio UI primitives
 
-## M6.3 Visual authoring foundation — active acceptance
+## M6.3 Visual authoring foundation — accepted · 2026-08-26
 
 ```text
 M6.3.0 Composite renderer foundation                  complete
@@ -243,7 +243,7 @@ M6.3.1 Direct component-canvas interaction            complete
 M6.3.1.1 Hit testing + private design space           complete
 M6.3.2 Typed visual styles                            complete
 M6.3.3 Property-driven Visual Rules                   complete
-M6.3.4 Component canvas authoring commands            acceptance pending
+M6.3.4 Component canvas authoring commands            accepted · 2026-08-26
 ```
 
 ### M6.3.4 Component canvas authoring commands
@@ -277,22 +277,29 @@ The implementation includes:
 - same-parent Group / Ungroup with stable child ids and transform preservation
 - Preview geometry lockout
 
-Automated deployed-site browser acceptance now runs after successful GitHub Pages deployment via:
+Automated deployed-site browser acceptance runs after successful GitHub Pages deployment via:
 
 - `.github/workflows/pages-smoke.yml`
 - `scripts/pages-smoke.mjs`
+- `scripts/pages-component-hit-smoke.mjs`
+- `scripts/pages-scada-geometry-smoke.mjs`
 
-The smoke passed on 2026-08-26 against the real Pages deployment and covers command enable rules, all alignment/distribution commands, Group → save → reload → Ungroup geometry preservation, Preview locking, snap-toggle state and browser runtime errors.
+Final acceptance passed on 2026-08-26 in Pages Browser Smoke #24 against deployed revision `f5e7aea2e75489fbb4cc17a13106db994274c8b9`.
 
-Remaining focused acceptance before M6.3.4 can be marked accepted:
+The deployed acceptance proves:
 
-1. visually confirm Canvas modifier-click and Layers panel share selection;
-2. visually confirm dragging remains pointer-direct and only snaps when released;
-3. quick SCADA Workbench Align/Distribute regression smoke after the shared geometry extraction.
+1. Component multi-selection, geometry command enablement, all Align/Distribute commands, Group persistence, Ungroup geometry preservation, Preview locking and snap-toggle state.
+2. Component pointer regression in both Chromium and Firefox: empty-layer hit testing, canvas modifier selection, pointer-direct dragging and release-only snapping.
+3. SCADA Workbench Align/Distribute regression through real editor selection state after the shared geometry extraction.
+4. No browser page errors in the tested flows.
 
-Do not expand M6.3.4 with marquee, cross-parent grouping or resize/rotate snapping merely because the milestone is near completion.
+The SCADA geometry smoke intentionally does not use marquee as a prerequisite. It loads a valid grouped three-node fixture, invokes the real SCADA `Ungroup` command to obtain the normal three-node selection, then verifies Align/Distribute through the real toolbar and persisted scene geometry. This keeps the geometry regression focused on the shared command path instead of coupling it to viewport/marquee behavior.
 
-## M6.4 Animation foundation — next after M6.3.4 acceptance
+**Result: M6.3.4 is accepted and the M6.3 Visual authoring foundation is closed.**
+
+Do not reopen M6.3.4 with marquee, cross-parent grouping or resize/rotate snapping merely because they are adjacent canvas features; those remain separate future slices if they become necessary.
+
+## M6.4 Animation foundation — active
 
 Provide reusable private visual animation primitives such as:
 
@@ -306,6 +313,8 @@ Provide reusable private visual animation primitives such as:
 Animations remain component implementation details unless deliberately controlled through public Properties.
 
 Before implementation, define the animation runtime boundary clearly enough that animations can be evaluated without exposing raw Konva/DOM objects to authored component logic.
+
+The first M6.4 slice should settle the renderer-independent serialized animation model, target Layer identity, timing/activation semantics and composition with existing Layer state + Visual Rules before adding editor controls or renderer-specific execution.
 
 ## M6.5 Controlled Script Runtime — pending
 
@@ -337,33 +346,35 @@ Current execution order from `main`:
 4. M6.3.4.3 Align / Distribute                        done
 5. M6.3.4.4 safe Group / Ungroup                      done
 6. GitHub Pages browser smoke infrastructure          done
-7. Automated deployed-site M6.3.4 smoke               passed
-8. Focused pointer + SCADA manual acceptance          ACTIVE
-9. Mark M6.3.4 accepted                               next gate transition
-10. M6.4 Animation foundation                         next implementation milestone
-11. M6.5 Controlled Script Runtime                    later
-12. M6.6 publish user-created composite component     later
-13. M7 packaging / adapters / production components   later
+7. Automated deployed-site M6.3.4 smoke               done
+8. Chromium + Firefox pointer regression              passed
+9. SCADA shared Align / Distribute regression         passed
+10. Mark M6.3.4 / M6.3 accepted                       done
+11. M6.4 Animation runtime/model boundary             ACTIVE
+12. M6.4 first animation implementation slice         next
+13. M6.5 Controlled Script Runtime                    later
+14. M6.6 publish user-created composite component     later
+15. M7 packaging / adapters / production components   later
 ```
 
-The **next step is not another authoring feature**:
+The **next step is M6.4 architecture, not another canvas command**:
 
-> Close the remaining focused M6.3.4 browser acceptance gate. If it passes, mark M6.3.4 accepted and begin M6.4 Animation foundation.
+> Define a small serializable, renderer-independent animation model and deterministic evaluation/composition boundary, then implement the first animation primitive through that boundary.
 
-This ordering is deliberate: adding more canvas features before accepting the current interaction grammar would make later regressions harder to isolate.
+This ordering is deliberate: animation must become another private visual capability of a component, not a Konva-specific side channel that later Script Runtime has to depend on.
 
 ---
 
 # 7. Near-term non-goals
 
-The following should not distract the current M6.3.4 acceptance or the initial M6.4 foundation:
+The following should not distract the initial M6.4 foundation:
 
 - full vector illustration tooling
 - arbitrary path editing
 - rulers / manual guides
 - cross-parent Group in the first grouping slice
 - snapping during live drag
-- resize/rotate snapping before movement authoring is accepted
+- resize/rotate snapping before a separate need is established
 - unrestricted component JavaScript execution
 - production component marketplace/package distribution
 - collaborative editing
