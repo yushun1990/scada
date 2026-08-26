@@ -41,6 +41,7 @@ jobs:
           node scripts/pages-animation-move-smoke.mjs
           node scripts/pages-animation-scale-smoke.mjs
           node scripts/pages-animation-fade-smoke.mjs
+          node scripts/pages-animation-blink-smoke.mjs
           SCADA_BROWSER=chromium node scripts/pages-component-hit-smoke.mjs
           SCADA_BROWSER=firefox node scripts/pages-component-hit-smoke.mjs
           node scripts/pages-scada-geometry-smoke.mjs
