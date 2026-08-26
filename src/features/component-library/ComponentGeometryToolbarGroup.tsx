@@ -74,6 +74,8 @@ export function ComponentGeometryToolbarGroup({
   const canDistribute = !disabled && items.length >= 3
   const canGroup = !disabled && canGroupComponentLayers(visual, selectedLayerIds)
   const canUngroup = !disabled && canUngroupComponentLayer(visual, selectedLayerIds)
+  const hierarchyMode = canUngroup ? 'ungroup' : 'group'
+  const hierarchyEnabled = canUngroup || canGroup
 
   function applyCommand(command: GeometryCommand, message: string) {
     if (disabled) {
@@ -134,28 +136,22 @@ export function ComponentGeometryToolbarGroup({
     onApplied('已拆分组合')
   }
 
+  const hierarchyTitle = hierarchyMode === 'ungroup'
+    ? '拆分组合'
+    : '组合选中图层'
+
   return (
     <>
       <ToolbarGroup className="canvas-tool-group component-hierarchy-tool-group">
         <ToolbarButton
           iconOnly
           className="icon-button"
-          title="组合选中图层"
-          aria-label="组合选中图层"
-          disabled={!canGroup}
-          onClick={groupSelection}
+          title={hierarchyTitle}
+          aria-label={hierarchyTitle}
+          disabled={!hierarchyEnabled}
+          onClick={hierarchyMode === 'ungroup' ? ungroupSelection : groupSelection}
         >
-          <GroupIcon />
-        </ToolbarButton>
-        <ToolbarButton
-          iconOnly
-          className="icon-button"
-          title="拆分组合"
-          aria-label="拆分组合"
-          disabled={!canUngroup}
-          onClick={ungroupSelection}
-        >
-          <UngroupIcon />
+          {hierarchyMode === 'ungroup' ? <UngroupIcon /> : <GroupIcon />}
         </ToolbarButton>
       </ToolbarGroup>
 
