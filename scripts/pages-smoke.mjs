@@ -62,6 +62,99 @@ async function assertAxis(names, axis, expected, commandName) {
   }
 }
 
+async function seedSpinFixture() {
+  return page.evaluate(() => {
+    const componentId = window.location.hash
+      .replace(/^#\/components\//, '')
+      .split('/')[0]
+
+    if (!componentId || componentId === 'new') {
+      throw new Error(`Persisted component id missing from ${window.location.hash}`)
+    }
+
+    const key = 'scada-editor-lab.components.v2'
+    const raw = window.localStorage.getItem(key)
+    const entries = raw ? JSON.parse(raw) : []
+    const entry = entries.find((candidate) => candidate.id === decodeURIComponent(componentId))
+
+    if (!entry) {
+      throw new Error(`Persisted component ${componentId} missing`)
+    }
+
+    entry.visual.layers = entry.visual.layers.filter(
+      (layer) => layer.id !== 'animation-smoke-layer',
+    )
+    entry.visual.animations = (entry.visual.animations ?? []).filter(
+      (animation) => animation.id !== 'animation-smoke-spin',
+    )
+    entry.visual.layers.push({
+      id: 'animation-smoke-layer',
+      name: 'Animation Smoke Rect',
+      kind: 'vector',
+      parentId: null,
+      transform: {
+        x: 190,
+        y: 120,
+        width: 120,
+        height: 28,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+      },
+      visible: true,
+      opacity: 1,
+      primitive: 'rect',
+      style: {
+        fill: '#2563eb',
+        stroke: '#1e3a8a',
+        strokeWidth: 2,
+      },
+    })
+    entry.visual.animations.push({
+      id: 'animation-smoke-spin',
+      kind: 'spin',
+      enabled: true,
+      layerId: 'animation-smoke-layer',
+      degreesPerIteration: 360,
+      timing: {
+        durationMs: 1000,
+        delayMs: 0,
+        iterations: 'infinite',
+        direction: 'normal',
+        easing: 'linear',
+      },
+      activation: { kind: 'always' },
+    })
+
+    window.localStorage.setItem(key, JSON.stringify(entries))
+    return entry.visual.layers.find(
+      (layer) => layer.id === 'animation-smoke-layer',
+    ).transform.rotation
+  })
+}
+
+async function readPersistedSpinRotation() {
+  return page.evaluate(() => {
+    const componentId = decodeURIComponent(
+      window.location.hash.replace(/^#\/components\//, '').split('/')[0],
+    )
+    const raw = window.localStorage.getItem('scada-editor-lab.components.v2')
+    const entries = raw ? JSON.parse(raw) : []
+    const entry = entries.find((candidate) => candidate.id === componentId)
+    const layer = entry?.visual?.layers?.find(
+      (candidate) => candidate.id === 'animation-smoke-layer',
+    )
+
+    return layer?.transform?.rotation ?? null
+  })
+}
+
+async function readSceneCanvasDataUrl() {
+  const canvas = page.locator('.konvajs-content canvas').first()
+  await canvas.waitFor()
+  return canvas.evaluate((element) => element.toDataURL())
+}
+
 const layerNames = ['Group 1', 'Group 2', 'Group 3']
 const alignCases = [
   ['左对齐', 'x', 8],
@@ -174,8 +267,32 @@ try {
   await layerRow('Group 3').click({ modifiers: ['Control'] })
   assert.equal(await page.locator('.component-layer-row.active').count(), 3, 'preview keeps Layer Tree selection navigation')
 
+  await page.getByRole('button', { name: '设计' }).click()
+  await page.getByRole('button', { name: '保存' }).click()
+  assert.equal(await seedSpinFixture(), 0, 'spin fixture persists zero base rotation')
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await layerRow('Animation Smoke Rect').waitFor()
+
+  const staticFrameA = await readSceneCanvasDataUrl()
+  await page.waitForTimeout(250)
+  const staticFrameB = await readSceneCanvasDataUrl()
+  assert.equal(staticFrameA, staticFrameB, 'design mode must remain visually static')
+
+  await page.getByRole('button', { name: '预览' }).click()
+  await page.waitForTimeout(120)
+  const animatedFrameA = await readSceneCanvasDataUrl()
+  await page.waitForTimeout(300)
+  const animatedFrameB = await readSceneCanvasDataUrl()
+  assert.notEqual(animatedFrameA, animatedFrameB, 'preview spin must visibly change rendered canvas frames')
+  assert.equal(
+    await readPersistedSpinRotation(),
+    0,
+    'preview animation frames must not persist rotation back into component data',
+  )
+
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages smoke passed: component multi-select, geometry commands, group persistence, ungroup preservation and preview locking.')
+  console.log('Pages smoke passed: component authoring regression remains stable and preview spin renders transient frames without persisted geometry mutation.')
   console.log(`Persisted test component URL: ${savedUrl}`)
 } finally {
   await browser.close()
