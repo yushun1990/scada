@@ -139,7 +139,7 @@ M6 Component Workbench v1                                     active
 M7 Packaging / production adapters / reusable component set    later
 ```
 
-The old roadmap that still described M5 as the current focus is obsolete. Runtime v0.1 was accepted on 2026-08-09 and Component Workbench is now the active implementation phase.
+Runtime v0.1 was accepted on 2026-08-09. Component Workbench is the active implementation phase.
 
 Runtime delivery history is recorded in [`docs/progress/runtime-v0.1.md`](docs/progress/runtime-v0.1.md).
 
@@ -193,18 +193,20 @@ Implemented:
 - Visual Rules
 - Preview property values and rule evaluation
 - selected-layer editor-only front priority
-- component design grid
+- component design grid with configurable spacing
 - grid/object movement snapping
 - drag-time alignment hints
 - total snap toggle in the Canvas Toolbar
+- shared Layer multi-selection with `selectedLayerIds` + `primaryLayerId`
+- shared renderer/model-independent geometry command core
+- six Align commands and two Distribute commands
+- safe same-parent Group / Ungroup with transform preservation
 
-Current limitation:
+Current gate:
 
-```text
-selection model = one selected visual layer
-```
+> M6.3.4 feature implementation is complete. A deployed GitHub Pages Chromium smoke has passed; only a short pointer-specific/manual regression check remains before accepting the milestone.
 
-This blocks proper component-canvas Align / Distribute / Group commands and is the next structural problem to solve.
+The detailed acceptance record is [`docs/progress/m6.3.4-component-canvas-authoring.md`](docs/progress/m6.3.4-component-canvas-authoring.md).
 
 ---
 
@@ -233,9 +235,7 @@ Implemented:
 - Layers → Canvas → contextual Inspector shell
 - shared Studio UI primitives
 
-## M6.3 Visual authoring foundation — active
-
-Completed slices:
+## M6.3 Visual authoring foundation — active acceptance
 
 ```text
 M6.3.0 Composite renderer foundation                  complete
@@ -243,7 +243,7 @@ M6.3.1 Direct component-canvas interaction            complete
 M6.3.1.1 Hit testing + private design space           complete
 M6.3.2 Typed visual styles                            complete
 M6.3.3 Property-driven Visual Rules                   complete
-M6.3.4 Component canvas authoring commands            active
+M6.3.4 Component canvas authoring commands            acceptance pending
 ```
 
 ### M6.3.4 Component canvas authoring commands
@@ -252,123 +252,47 @@ Goal:
 
 > Bring the Component Workbench canvas to the same editing grammar as the SCADA canvas where the concepts are genuinely shared, without blindly copying scene-only features.
 
-Already completed in this slice:
+Implementation complete:
 
-- component design grid
-- one total snap toggle
+```text
+M6.3.4.1 Layer multi-selection                        complete
+M6.3.4.2 Shared geometry command core                 complete
+M6.3.4.3 Align / Distribute toolbar commands          complete
+M6.3.4.4 Safe sibling Group / Ungroup                 complete
+```
+
+The implementation includes:
+
+- formal Canvas Toolbar ownership
+- configurable design grid
+- total snap toggle
 - object + grid movement snapping
-- drag-time guide hints without live positional snapping
-- snap only at `dragend`
-- Canvas Toolbar is owned by the Component Editor layout and rendered above the canvas
-- Header remains limited to document-level actions and Design/Preview mode
+- drag-time guide hints without persisted live snapping
+- snap application at `dragend`
+- Canvas + Layers shared multi-selection state
+- primary Layer semantics for single-object Inspector editing
+- shared pure alignment/distribution math
+- all six Align commands
+- horizontal/vertical Distribute
+- same-parent Group / Ungroup with stable child ids and transform preservation
+- Preview geometry lockout
 
-Next required foundation:
+Automated deployed-site browser acceptance now runs after successful GitHub Pages deployment via:
 
-### M6.3.4.1 Multi-selection model
+- `.github/workflows/pages-smoke.yml`
+- `scripts/pages-smoke.mjs`
 
-Replace the single selected Layer identity as the primary canvas command model:
+The smoke passed on 2026-08-26 against the real Pages deployment and covers command enable rules, all alignment/distribution commands, Group → save → reload → Ungroup geometry preservation, Preview locking, snap-toggle state and browser runtime errors.
 
-```text
-selectedLayerId: string | null
-        ↓
-selectedLayerIds: readonly string[]
-primaryLayerId: string | null
-```
+Remaining focused acceptance before M6.3.4 can be marked accepted:
 
-Requirements:
+1. visually confirm Canvas modifier-click and Layers panel share selection;
+2. visually confirm dragging remains pointer-direct and only snaps when released;
+3. quick SCADA Workbench Align/Distribute regression smoke after the shared geometry extraction.
 
-- normal click selects one Layer
-- `Shift/Ctrl/Meta + click` toggles Layer membership
-- Layer Tree must participate in the same selection state
-- selecting Component Root clears Layer multi-selection
-- right Inspector uses the primary Layer for single-object editing
-- multi-selection must not change persisted z-order
-- Preview keeps selection navigation but disables geometry mutations
+Do not expand M6.3.4 with marquee, cross-parent grouping or resize/rotate snapping merely because the milestone is near completion.
 
-A marquee selection can follow after command selection is stable; it is not required to unlock Align / Group.
-
-### M6.3.4.2 Shared geometry command core
-
-SCADA Workbench and Component Workbench must not keep separate alignment mathematics.
-
-Extract renderer/model-independent geometry operations around simple bounds/transform inputs:
-
-```text
-alignLeft
-alignCenterX
-alignRight
-alignTop
-alignCenterY
-alignBottom
-distributeHorizontal
-distributeVertical
-```
-
-Each workbench remains responsible for converting its own model to/from the shared geometry representation.
-
-No shared helper should depend directly on `SceneNode`, `ComponentVisualLayer`, React or Konva.
-
-### M6.3.4.3 Align / Distribute toolbar commands
-
-Canvas Toolbar target:
-
-```text
-[Snap]
-  │
-  ├─ [Align Left] [Center X] [Right]
-  ├─ [Align Top] [Center Y] [Bottom]
-  └─ [Distribute H] [Distribute V]
-```
-
-Enable rules:
-
-```text
-1 selected Layer      Align disabled, Distribute disabled
-2+ selected Layers    Align enabled
-3+ selected Layers    Distribute enabled
-```
-
-Alignment acts on the selected Layer set only and must preserve hierarchy / z-order.
-
-### M6.3.4.4 Group / Ungroup commands
-
-Component Group is a private Visual Layer hierarchy operation, not a Scene group.
-
-Enable rules:
-
-```text
-2+ compatible selected siblings    Group enabled
-1 selected Group                   Ungroup enabled
-```
-
-Initial Group scope should be deliberately strict:
-
-- selected Layers must share the same parent
-- grouping must preserve world-space appearance
-- child local transforms must be recalculated against the new Group
-- sibling z-order must remain deterministic
-- Visual Rule layer ids remain stable
-- Ungroup must preserve appearance and child identities
-
-Do not introduce cross-parent grouping until same-parent behavior is proven.
-
-### M6.3.4.5 Acceptance gate
-
-M6.3.4 is accepted when manual browser smoke confirms:
-
-- snap button sits in the formal Canvas Toolbar above the canvas
-- drag remains pointer-direct with snap only after release
-- Layer Tree and canvas share one multi-selection model
-- two selected Layers can align on all six axes
-- three selected Layers can distribute horizontally/vertically
-- compatible sibling Layers can Group
-- one Group can Ungroup
-- geometry appearance is preserved through Group/Ungroup
-- save/reopen preserves the resulting hierarchy/transforms
-- Preview does not permit geometry commands
-- SCADA editor behavior is not regressed by shared geometry extraction
-
-## M6.4 Animation foundation — next after M6.3.4
+## M6.4 Animation foundation — next after M6.3.4 acceptance
 
 Provide reusable private visual animation primitives such as:
 
@@ -380,6 +304,8 @@ Provide reusable private visual animation primitives such as:
 - scale
 
 Animations remain component implementation details unless deliberately controlled through public Properties.
+
+Before implementation, define the animation runtime boundary clearly enough that animations can be evaluated without exposing raw Konva/DOM objects to authored component logic.
 
 ## M6.5 Controlled Script Runtime — pending
 
@@ -405,46 +331,32 @@ Prove that a Workbench-authored component package can be consumed by SCADA Workb
 Current execution order from `main`:
 
 ```text
-1. M6.3.4 toolbar/snap ownership                         done
-
-2. M6.3.4.1 component Layer multi-selection
-   - selection state model
-   - modifier-click canvas selection
-   - Layer Tree multi-selection
-   - primary selection for Inspector
-
-3. M6.3.4.2 shared pure geometry command core
-   - extract alignment/distribution math
-   - keep workbench adapters separate
-
-4. M6.3.4.3 Align / Distribute commands
-   - toolbar icons consistent with SCADA Workbench
-   - strict enable/disable rules
-
-5. M6.3.4.4 Group / Ungroup
-   - same-parent selection first
-   - preserve world-space appearance and ids
-
-6. Manual M6.3.4 browser acceptance
-
-7. M6.4 Animation foundation
-
-8. M6.5 Controlled Script Runtime
-
-9. M6.6 publish one user-created composite component into SCADA Workbench
-
-10. M7 packaging / adapters / reusable production component set
+1. M6.3.4 toolbar / snap ownership                    done
+2. M6.3.4.1 Layer multi-selection                     done
+3. M6.3.4.2 shared pure geometry command core         done
+4. M6.3.4.3 Align / Distribute                        done
+5. M6.3.4.4 safe Group / Ungroup                      done
+6. GitHub Pages browser smoke infrastructure          done
+7. Automated deployed-site M6.3.4 smoke               passed
+8. Focused pointer + SCADA manual acceptance          ACTIVE
+9. Mark M6.3.4 accepted                               next gate transition
+10. M6.4 Animation foundation                         next implementation milestone
+11. M6.5 Controlled Script Runtime                    later
+12. M6.6 publish user-created composite component     later
+13. M7 packaging / adapters / production components   later
 ```
 
-The **next code slice** is therefore deliberately narrow:
+The **next step is not another authoring feature**:
 
-> Introduce a real component-Layer multi-selection model shared by the Canvas and Layer Tree. Do not implement Align/Group by inventing ad-hoc temporary selection state inside the toolbar.
+> Close the remaining focused M6.3.4 browser acceptance gate. If it passes, mark M6.3.4 accepted and begin M6.4 Animation foundation.
+
+This ordering is deliberate: adding more canvas features before accepting the current interaction grammar would make later regressions harder to isolate.
 
 ---
 
 # 7. Near-term non-goals
 
-The following should not distract M6.3.4:
+The following should not distract the current M6.3.4 acceptance or the initial M6.4 foundation:
 
 - full vector illustration tooling
 - arbitrary path editing
@@ -452,7 +364,6 @@ The following should not distract M6.3.4:
 - cross-parent Group in the first grouping slice
 - snapping during live drag
 - resize/rotate snapping before movement authoring is accepted
-- animation before basic canvas editing commands are stable
 - unrestricted component JavaScript execution
 - production component marketplace/package distribution
 - collaborative editing
