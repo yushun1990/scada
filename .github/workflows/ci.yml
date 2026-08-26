@@ -24,5 +24,8 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Animation model checks
+        run: npx --yes tsx scripts/check-animation-model.ts
+
       - name: Lint
         run: npm run lint
