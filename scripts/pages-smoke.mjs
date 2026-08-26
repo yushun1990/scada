@@ -132,9 +132,10 @@ try {
   assertClose(middle.y, 32, 'vertical distribution middle y')
 
   await resetGeometry()
-  const beforeGroup = Object.fromEntries(
-    await Promise.all(layerNames.map(async (name) => [name, await readGeometry(name)])),
-  )
+  const beforeGroup = {}
+  for (const name of layerNames) {
+    beforeGroup[name] = await readGeometry(name)
+  }
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '组合选中图层' }).click()
   assert.equal(await page.locator('.component-layer-row').count(), 4, 'group wrapper added')
