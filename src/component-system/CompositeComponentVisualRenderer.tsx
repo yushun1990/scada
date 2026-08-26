@@ -337,15 +337,6 @@ function VisualLayerNode({
       listening={listening}
       draggable={draggable}
     >
-      {ownsFullBoundsDragHitArea && (
-        <Rect
-          width={transform.width}
-          height={transform.height}
-          fill="rgba(0, 0, 0, 0.001)"
-          listening={listening}
-          perfectDrawEnabled={false}
-        />
-      )}
       {(layer.kind === 'svg' || layer.kind === 'image') && (
         <VisualAssetLayer layer={layer} listening={listening} />
       )}
@@ -366,6 +357,15 @@ function VisualLayerNode({
           draggableLayerId={draggableLayerId}
         />
       ))}
+      {ownsFullBoundsDragHitArea && (
+        <Rect
+          width={transform.width}
+          height={transform.height}
+          fill="rgba(0, 0, 0, 0.001)"
+          listening={listening}
+          perfectDrawEnabled={false}
+        />
+      )}
     </Group>
   )
 }
