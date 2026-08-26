@@ -17,6 +17,7 @@ import {
   type VisualRuleTargetField,
 } from '../../component-system/visualRules'
 import { Button, Checkbox, Input, NumberInput, Select } from '../../ui'
+import { ComponentVisualAnimationEditor } from './ComponentVisualAnimationEditor'
 
 const OPERATOR_LABELS: Record<VisualRuleOperator, string> = {
   equals: '等于',
@@ -464,6 +465,20 @@ export function ComponentVisualRuleEditor({
           + 添加视觉规则
         </Button>
       )}
+
+      <section className="component-animation-section" aria-label="Layer 动画">
+        <div className="component-behavior-section-heading">
+          <strong>动画</strong>
+          <span>Spin authoring · M6.4.2</span>
+        </div>
+        <ComponentVisualAnimationEditor
+          definition={definition}
+          visual={visual}
+          layerId={layerId}
+          readOnly={readOnly}
+          onChange={onChange}
+        />
+      </section>
     </div>
   )
 }
