@@ -3,13 +3,13 @@ import { builtInComponentRegistry } from '../../component-system/builtins'
 import type { ComponentDefinition } from '../../component-system/definition'
 import { assertComponentDefinition } from '../../component-system/validation'
 import {
-  COMPONENT_VISUAL_VERSION,
   assertComponentVisualDefinition,
   cloneComponentVisual,
   createEmptyCompositeVisual,
   createNativeVisual,
   type ComponentVisualDefinition,
 } from '../../component-system/visual'
+import { normalizeStoredComponentVisual } from '../../component-system/visualMigration'
 import { assertComponentVisualRules } from '../../component-system/visualRules'
 
 const COMPONENTS_STORAGE_KEY = 'scada-editor-lab.components.v2'
@@ -116,24 +116,10 @@ function parseVisual(
     return createEmptyCompositeVisual()
   }
 
-  const normalized =
-    isRecord(value) && value.version === 1
-      ? {
-          ...value,
-          version: COMPONENT_VISUAL_VERSION,
-          designSize: {
-            width: definition.size.defaultWidth,
-            height: definition.size.defaultHeight,
-          },
-          animations: [],
-        }
-      : isRecord(value) && value.version === 2
-        ? {
-            ...value,
-            version: COMPONENT_VISUAL_VERSION,
-            animations: [],
-          }
-        : value
+  const normalized = normalizeStoredComponentVisual(value, {
+    width: definition.size.defaultWidth,
+    height: definition.size.defaultHeight,
+  })
 
   try {
     assertComponentVisualDefinition(normalized)
