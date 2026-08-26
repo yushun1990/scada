@@ -107,7 +107,11 @@ function assertTiming(value: unknown, animationId: string): asserts value is Vis
 
   if (
     value.iterations !== 'infinite' &&
-    (!Number.isInteger(value.iterations) || value.iterations <= 0)
+    (
+      typeof value.iterations !== 'number' ||
+      !Number.isInteger(value.iterations) ||
+      value.iterations <= 0
+    )
   ) {
     throw new Error(`Visual Animation ${animationId} iterations 必须是正整数或 infinite`)
   }
