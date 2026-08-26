@@ -78,11 +78,21 @@ export type FadeVisualAnimation = {
   activation: VisualAnimationActivation
 }
 
+export type BlinkVisualAnimation = {
+  id: string
+  kind: 'blink'
+  enabled: boolean
+  layerId: string
+  timing: VisualAnimationTiming
+  activation: VisualAnimationActivation
+}
+
 export type VisualAnimation =
   | SpinVisualAnimation
   | MoveVisualAnimation
   | ScaleVisualAnimation
   | FadeVisualAnimation
+  | BlinkVisualAnimation
 
 export type VisualAnimationLayerOverlay = {
   rotationDelta?: number
@@ -91,6 +101,7 @@ export type VisualAnimationLayerOverlay = {
   scaleXMultiplier?: number
   scaleYMultiplier?: number
   opacityMultiplier?: number
+  visibleGate?: boolean
 }
 
 export type VisualAnimationOverlay = Record<string, VisualAnimationLayerOverlay>
@@ -229,7 +240,8 @@ export function assertComponentVisualAnimations(
       candidate.kind !== 'spin' &&
       candidate.kind !== 'move' &&
       candidate.kind !== 'scale' &&
-      candidate.kind !== 'fade'
+      candidate.kind !== 'fade' &&
+      candidate.kind !== 'blink'
     ) {
       throw new Error(`Visual Animation ${animationId} kind 无效`)
     }
@@ -260,7 +272,7 @@ export function assertComponentVisualAnimations(
       if (!isFiniteNumber(candidate.scaleYMultiplier) || candidate.scaleYMultiplier <= 0) {
         throw new Error(`Visual Animation ${animationId} scaleYMultiplier 必须是大于 0 的有限数字`)
       }
-    } else {
+    } else if (candidate.kind === 'fade') {
       if (
         !isFiniteNumber(candidate.opacityMultiplier) ||
         candidate.opacityMultiplier < 0 ||
@@ -322,7 +334,7 @@ function applyEasing(progress: number, easing: VisualAnimationEasing) {
     : 1 - Math.pow(-2 * progress + 2, 2) / 2
 }
 
-export function evaluateVisualAnimationProgress(
+export function evaluateVisualAnimationPhase(
   timing: VisualAnimationTiming,
   timeMs: number,
 ): number | null {
@@ -340,9 +352,16 @@ export function evaluateVisualAnimationProgress(
 
   const iteration = Math.floor(elapsed / timing.durationMs)
   const localProgress = (elapsed - iteration * timing.durationMs) / timing.durationMs
-  const directedProgress = applyDirection(localProgress, iteration, timing.direction)
 
-  return applyEasing(directedProgress, timing.easing)
+  return applyDirection(localProgress, iteration, timing.direction)
+}
+
+export function evaluateVisualAnimationProgress(
+  timing: VisualAnimationTiming,
+  timeMs: number,
+): number | null {
+  const phase = evaluateVisualAnimationPhase(timing, timeMs)
+  return phase === null ? null : applyEasing(phase, timing.easing)
 }
 
 function interpolateMultiplier(target: number, progress: number) {
@@ -359,8 +378,11 @@ export function evaluateVisualAnimations(
   for (const animation of visual.animations) {
     if (!isAnimationActive(animation, values)) continue
 
-    const progress = evaluateVisualAnimationProgress(animation.timing, timeMs)
-    if (progress === null) continue
+    const phase = evaluateVisualAnimationPhase(animation.timing, timeMs)
+    if (phase === null) continue
+    const progress = animation.kind === 'blink'
+      ? phase
+      : applyEasing(phase, animation.timing.easing)
 
     const current = overlay[animation.layerId] ?? {}
 
@@ -388,12 +410,17 @@ export function evaluateVisualAnimations(
           (current.scaleYMultiplier ?? 1) *
           interpolateMultiplier(animation.scaleYMultiplier, progress),
       }
-    } else {
+    } else if (animation.kind === 'fade') {
       overlay[animation.layerId] = {
         ...current,
         opacityMultiplier:
           (current.opacityMultiplier ?? 1) *
           interpolateMultiplier(animation.opacityMultiplier, progress),
+      }
+    } else {
+      overlay[animation.layerId] = {
+        ...current,
+        visibleGate: (current.visibleGate ?? true) && progress < 0.5,
       }
     }
   }
@@ -415,6 +442,7 @@ export function applyVisualAnimationOverlay(
 
       return {
         ...layer,
+        visible: layer.visible && (layerOverlay.visibleGate ?? true),
         opacity: layer.opacity * (layerOverlay.opacityMultiplier ?? 1),
         transform: {
           ...layer.transform,
