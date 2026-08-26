@@ -1,3 +1,4 @@
+import { assertComponentVisualAnimations } from '../../component-system/animations'
 import { builtInComponentRegistry } from '../../component-system/builtins'
 import type { ComponentDefinition } from '../../component-system/definition'
 import { assertComponentDefinition } from '../../component-system/validation'
@@ -124,13 +125,21 @@ function parseVisual(
             width: definition.size.defaultWidth,
             height: definition.size.defaultHeight,
           },
+          animations: [],
         }
-      : value
+      : isRecord(value) && value.version === 2
+        ? {
+            ...value,
+            version: COMPONENT_VISUAL_VERSION,
+            animations: [],
+          }
+        : value
 
   try {
     assertComponentVisualDefinition(normalized)
     const visual = cloneComponentVisual(normalized)
     assertComponentVisualRules(definition, visual)
+    assertComponentVisualAnimations(definition, visual)
     return visual
   } catch {
     return null
@@ -342,6 +351,7 @@ export function saveComponentDefinition(component: ComponentLibraryEntry) {
   assertComponentDefinition(component.definition)
   assertComponentVisualDefinition(component.visual)
   assertComponentVisualRules(component.definition, component.visual)
+  assertComponentVisualAnimations(component.definition, component.visual)
 
   const components = readCustomComponents()
   const duplicate = [...BUILT_IN_COMPONENTS, ...components].find(
