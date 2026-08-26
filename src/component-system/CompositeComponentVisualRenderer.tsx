@@ -361,9 +361,16 @@ function VisualLayerNode({
         <Rect
           width={transform.width}
           height={transform.height}
-          fill="rgba(0, 0, 0, 0.001)"
+          fill="#000"
           listening={listening}
           perfectDrawEnabled={false}
+          sceneFunc={() => {}}
+          hitFunc={(context, shape) => {
+            context.beginPath()
+            context.rect(0, 0, transform.width, transform.height)
+            context.closePath()
+            context.fillStrokeShape(shape)
+          }}
         />
       )}
     </Group>
