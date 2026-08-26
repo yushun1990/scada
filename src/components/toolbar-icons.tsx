@@ -39,10 +39,10 @@ export function TrashIcon(props: SVGProps<SVGSVGElement>) {
 export function GroupIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      <rect x="3" y="3" width="8" height="8" rx="1.5" />
+      <rect x="13" y="13" width="8" height="8" rx="1.5" />
+      <path d="M11 7h6a2 2 0 0 1 2 2v4" opacity="0.55" />
+      <path d="M17 11V5" opacity="0.55" />
     </svg>
   )
 }
@@ -50,10 +50,10 @@ export function GroupIcon(props: SVGProps<SVGSVGElement>) {
 export function UngroupIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <rect x="3" y="3" width="8" height="8" rx="1.5" />
-      <rect x="13" y="13" width="8" height="8" rx="1.5" />
-      <path d="M11 7h6a2 2 0 0 1 2 2v4" opacity="0.55" />
-      <path d="M17 11V5" opacity="0.55" />
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
     </svg>
   )
 }
