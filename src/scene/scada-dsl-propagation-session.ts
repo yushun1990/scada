@@ -77,7 +77,9 @@ function dependencyComponentProperty(
  * A Value Binding is a graph node. If binding B reads component.a and binding
  * A writes component.a, the graph contains A -> B. Any strongly cyclic path is
  * excluded from propagation so a malformed authored program cannot oscillate
- * the Preview Runtime indefinitely.
+ * the Preview Runtime indefinitely. SCADA derived state is declarative; even a
+ * mathematically stable cycle is treated as an authoring error rather than a
+ * fixed-point program the user must reason about.
  */
 function findCyclicValueBindingIds(compiled: ScadaDslCompiledRuntime) {
   const writersByProperty = new Map<string, string[]>()
@@ -158,9 +160,9 @@ export function createScadaDslPropagationSession(
 ): ScadaDslPropagationSession {
   let primaryDevice = options.primaryDevice ?? null
   let behaviorBranches: ScadaDslBehaviorBranchState = {}
+  let componentValues = new Map<string, ComponentScalarValue>()
   let disposed = false
 
-  const componentValues = new Map<string, ComponentScalarValue>()
   const cyclicValueBindingIds = findCyclicValueBindingIds(compiled)
   const structuralDiagnostics = cycleDiagnostics(compiled, cyclicValueBindingIds)
   const maxPropagationSteps = options.maxPropagationSteps
@@ -174,22 +176,44 @@ export function createScadaDslPropagationSession(
     if (disposed) throw new Error('SCADA DSL propagation session 已释放')
   }
 
-  function getComponentProperty(property: string) {
-    if (componentValues.has(property)) return componentValues.get(property)
+  function readComponentProperty(
+    values: ReadonlyMap<string, ComponentScalarValue>,
+    property: string,
+  ) {
+    if (values.has(property)) return values.get(property)
     return options.readComponentBaseProperty?.(property)
   }
 
-  function createContext(): ScadaDslEvaluationContext {
+  function getComponentProperty(property: string) {
+    return readComponentProperty(componentValues, property)
+  }
+
+  function createContext(
+    values: ReadonlyMap<string, ComponentScalarValue>,
+  ): ScadaDslEvaluationContext {
     return {
       primaryDevice,
       readSourceValue: options.readSourceValue,
-      readComponentProperty: getComponentProperty,
+      readComponentProperty: (property) =>
+        readComponentProperty(values, property),
     }
   }
 
+  /**
+   * One source/component update is propagated as a transaction:
+   *
+   * 1. stage every affected declarative Property until the acyclic graph is
+   *    stable;
+   * 2. evaluate affected Behaviors exactly once against that settled state;
+   * 3. commit runtime-local Property/branch state and expose only final effects.
+   *
+   * If the hard propagation limit is exceeded, staged state is discarded and
+   * no Property or Action effect escapes to the host.
+   */
   function propagate(seedTargets: ScadaDslRuntimeTargets): ScadaDslPropagationResult {
     assertActive()
 
+    const stagedComponentValues = new Map(componentValues)
     const pendingValueIds: string[] = []
     const queuedValueIds = new Set<string>()
     const affectedBehaviorIds = new Set(
@@ -198,7 +222,6 @@ export function createScadaDslPropagationSession(
     const finalValueUpdates = new Map<string, ScadaDslValueUpdate>()
     const diagnostics: ScadaDslPropagationDiagnostic[] = []
     let steps = 0
-    let aborted = false
 
     const enqueueValueBinding = (id: string) => {
       if (cyclicValueBindingIds.has(id) || queuedValueIds.has(id)) return
@@ -216,10 +239,15 @@ export function createScadaDslPropagationSession(
         diagnostics.push({
           kind: 'limit',
           ownerId: 'propagation-session',
-          message: `Value Binding 传播超过 ${maxPropagationSteps} 步，已中止本次传播`,
+          message: `Value Binding 传播超过 ${maxPropagationSteps} 步，已回滚本次传播`,
         })
-        aborted = true
-        break
+        return {
+          valueUpdates: [],
+          componentActions: [],
+          diagnostics,
+          steps,
+          aborted: true,
+        }
       }
 
       const bindingId = pendingValueIds.shift()!
@@ -230,7 +258,7 @@ export function createScadaDslPropagationSession(
 
       const evaluation = evaluateScadaDslRuntimeTargets(
         { valueBindings: [binding], behaviors: [] },
-        createContext(),
+        createContext(stagedComponentValues),
         behaviorBranches,
       )
       diagnostics.push(...convertRuntimeDiagnostics(evaluation.diagnostics))
@@ -238,11 +266,17 @@ export function createScadaDslPropagationSession(
       const update = evaluation.valueUpdates[0]
       if (!update) continue
 
-      const previous = getComponentProperty(update.property)
+      const previous = readComponentProperty(
+        stagedComponentValues,
+        update.property,
+      )
       if (Object.is(previous, update.value)) continue
 
-      componentValues.set(update.property, update.value)
-      finalValueUpdates.set(update.bindingId, update)
+      stagedComponentValues.set(update.property, update.value)
+      // The host only needs the final write for one Component Property, even if
+      // multiple upstream changes caused the binding to be reevaluated inside
+      // this transaction.
+      finalValueUpdates.set(update.property, update)
 
       const downstream = getScadaDslComponentPropertyUpdateTargets(
         compiled,
@@ -256,33 +290,32 @@ export function createScadaDslPropagationSession(
       }
     }
 
-    if (!aborted && affectedBehaviorIds.size > 0) {
+    let componentActions: readonly ScadaDslComponentActionEffect[] = []
+    let nextBehaviorBranches = behaviorBranches
+
+    if (affectedBehaviorIds.size > 0) {
       const behaviors = [...affectedBehaviorIds]
         .map((id) => compiled.behaviorsById.get(id))
         .filter((behavior): behavior is NonNullable<typeof behavior> => Boolean(behavior))
       const evaluation = evaluateScadaDslRuntimeTargets(
         { valueBindings: [], behaviors },
-        createContext(),
+        createContext(stagedComponentValues),
         behaviorBranches,
       )
-      behaviorBranches = evaluation.nextBehaviorBranches
+      nextBehaviorBranches = evaluation.nextBehaviorBranches
       diagnostics.push(...convertRuntimeDiagnostics(evaluation.diagnostics))
-
-      return {
-        valueUpdates: [...finalValueUpdates.values()],
-        componentActions: evaluation.componentActions,
-        diagnostics,
-        steps,
-        aborted,
-      }
+      componentActions = evaluation.componentActions
     }
+
+    componentValues = stagedComponentValues
+    behaviorBranches = nextBehaviorBranches
 
     return {
       valueUpdates: [...finalValueUpdates.values()],
-      componentActions: [],
+      componentActions,
       diagnostics,
       steps,
-      aborted,
+      aborted: false,
     }
   }
 
@@ -323,7 +356,7 @@ export function createScadaDslPropagationSession(
       const evaluation = evaluateScadaDslComponentEvent(
         compiled,
         event,
-        createContext(),
+        createContext(componentValues),
       )
       return {
         deviceActions: evaluation.deviceActions,
