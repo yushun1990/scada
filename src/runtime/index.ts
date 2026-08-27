@@ -1,6 +1,16 @@
 export type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
 export { resolveEffectiveComponentProps } from './effective-component-props'
 export {
+  assertControlledScriptInvocation,
+  assertControlledScriptSource,
+  DEFAULT_CONTROLLED_SCRIPT_LIMITS,
+  resolveControlledScriptLimits,
+  type ControlledScriptEngine,
+  type ControlledScriptExecutionLimits,
+  type ControlledScriptInstance,
+  type ControlledScriptInvocation,
+} from './controlled-script-engine'
+export {
   createControlledScriptHostBridge,
   normalizeControlledScriptValue,
   type ControlledScriptHostBridge,
