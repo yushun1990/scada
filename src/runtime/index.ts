@@ -1,6 +1,10 @@
 export type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
 export { resolveEffectiveComponentProps } from './effective-component-props'
 export {
+  ControlledRuntimeSession,
+  type ControlledRuntimeSessionCallbacks,
+} from './controlled-runtime-session'
+export {
   DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES,
   MOCK_INDICATOR_STATE_KEY,
   createDefaultPreviewMockSources,
