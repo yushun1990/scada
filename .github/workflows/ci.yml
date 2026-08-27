@@ -39,6 +39,7 @@ jobs:
           npx --yes tsx scripts/check-scada-dsl.ts
           npx --yes tsx scripts/check-scada-dsl-semantics.ts
           npx --yes tsx scripts/check-scada-dsl-analysis.ts
+          npx --yes tsx scripts/check-scada-dsl-runtime.ts
 
       - name: Lint
         run: npm run lint
