@@ -37,6 +37,7 @@ jobs:
           npx --yes tsx scripts/check-controlled-script-engine-contract.ts
           npx --yes tsx scripts/check-scada-behavior-contract.ts
           npx --yes tsx scripts/check-scada-dsl.ts
+          npx --yes tsx scripts/check-scada-dsl-semantics.ts
 
       - name: Lint
         run: npm run lint
