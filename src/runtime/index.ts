@@ -1,6 +1,14 @@
 export type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
 export { resolveEffectiveComponentProps } from './effective-component-props'
 export {
+  createControlledScriptHostBridge,
+  normalizeControlledScriptValue,
+  type ControlledScriptHostBridge,
+  type ControlledScriptHostCall,
+  type ControlledScriptPrimitive,
+  type ControlledScriptValue,
+} from './controlled-script-protocol'
+export {
   ControlledRuntimeSession,
   type ControlledRuntimeSessionCallbacks,
 } from './controlled-runtime-session'
