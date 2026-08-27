@@ -69,9 +69,11 @@ if (firstAssignment?.kind === 'assignment') {
 const behaviorProgram = parseScadaDsl(`
 if device.fault and device.pressure > 1.2 {
   component.showFault()
-} else if device.running {
+}
+else if device.running {
   component.showRunning()
-} else {
+}
+else {
   component.showStopped()
 }
 `)
@@ -85,6 +87,21 @@ if (ifStatement.condition.kind === 'binary') {
 }
 assert.equal(ifStatement.consequent[0]?.kind, 'call-statement')
 assert.equal(ifStatement.alternate?.[0]?.kind, 'if')
+
+const interactionProgram = parseScadaDsl(`
+on component.startRequested {
+  device.start()
+}
+`)
+assert.deepEqual(interactionProgram.diagnostics, [])
+assert.equal(interactionProgram.program?.statements.length, 1)
+const onStatement = interactionProgram.program?.statements[0]
+assert.equal(onStatement?.kind, 'on')
+if (onStatement?.kind === 'on') {
+  assert.deepEqual(onStatement.event.path, ['component', 'startRequested'])
+  assert.equal(onStatement.body.length, 1)
+  assert.equal(onStatement.body[0]?.kind, 'call-statement')
+}
 
 const directActions = parseScadaDsl(`
 device.start()
@@ -116,7 +133,7 @@ assert.ok((unsupportedLoop.diagnostics[0]?.message.length ?? 0) > 0)
 
 const bareReference = parseScadaDsl('component.state')
 assert.equal(bareReference.program, null)
-assert.match(bareReference.diagnostics[0]?.message ?? '', /赋值、Action 调用或 if\/else/)
+assert.match(bareReference.diagnostics[0]?.message ?? '', /赋值、Action 调用、if\/else 或 on Event/)
 
 const catalog = createScadaDslCapabilityCatalog(component, [
   {
@@ -177,7 +194,8 @@ const componentEvent = catalog.items.find(
   (item) => item.symbol === 'component' && item.member === 'startRequested',
 )
 assert.equal(componentEvent?.capabilityKind, 'event')
+assert.equal(getScadaDslInsertText(componentEvent!), 'component.startRequested')
 
 console.log(
-  'SCADA DSL checks passed: the text-first surface supports direct Property assignment, expression if/else, action-oriented if/else blocks, direct Action calls, arithmetic/boolean expressions, parser diagnostics, completion candidates, and click-to-insert capability text without making DSL the persisted behavior model.',
+  'SCADA DSL checks passed: the text-first surface supports Property assignment, expression and statement if/else, explicit on Component Event interaction blocks, direct Action syntax for editor completion, arithmetic/boolean expressions, diagnostics, completion candidates, and click-to-insert capability text without making DSL the persisted behavior model.',
 )
