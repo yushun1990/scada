@@ -8,7 +8,6 @@ import {
 import type {
   ScadaDslBinaryOperator,
   ScadaDslCapabilityCatalog,
-  ScadaDslCapabilityItem,
   ScadaDslExpression,
   ScadaDslIfStatement,
   ScadaDslProgram,
@@ -18,24 +17,12 @@ import type {
 } from './scada-dsl'
 
 export type ScadaDslSemanticReference =
-  | {
-      kind: 'component-property'
-      property: string
-    }
-  | {
-      kind: 'source-property'
-      reference: ScadaPropertyReference
-    }
+  | { kind: 'component-property'; property: string }
+  | { kind: 'source-property'; reference: ScadaPropertyReference }
 
 export type ScadaDslSemanticExpression =
-  | {
-      kind: 'literal'
-      value: ComponentScalarValue
-    }
-  | {
-      kind: 'reference'
-      reference: ScadaDslSemanticReference
-    }
+  | { kind: 'literal'; value: ComponentScalarValue }
+  | { kind: 'reference'; reference: ScadaDslSemanticReference }
   | {
       kind: 'unary'
       operator: 'not' | '-'
@@ -92,11 +79,6 @@ export type ScadaDslSemanticResult = {
 }
 
 export type ScadaDslLoweringOptions = {
-  /**
-   * The editor symbol that represents the copy/rebind-safe primary device.
-   * References through this symbol lower to `scope: primary-device` instead of
-   * capturing the concrete source id that happened to be selected while editing.
-   */
   primaryDeviceSymbol?: string
 }
 
@@ -126,10 +108,7 @@ function findCapability(
   )
 
   if (matches.length === 0) {
-    throw new SemanticFailure(
-      `找不到能力 ${symbol}.${member}`,
-      reference.span,
-    )
+    throw new SemanticFailure(`找不到能力 ${symbol}.${member}`, reference.span)
   }
 
   if (matches.length > 1) {
@@ -157,19 +136,13 @@ function lowerPropertyReference(
   }
 
   if (capability.symbol === 'component') {
-    return {
-      kind: 'component-property',
-      property: capability.member,
-    }
+    return { kind: 'component-property', property: capability.member }
   }
 
   if (capability.symbol === primaryDeviceSymbol) {
     return {
       kind: 'source-property',
-      reference: {
-        scope: 'primary-device',
-        property: capability.member,
-      },
+      reference: { scope: 'primary-device', property: capability.member },
     }
   }
 
@@ -188,62 +161,54 @@ function lowerExpression(
   catalog: ScadaDslCapabilityCatalog,
   primaryDeviceSymbol: string,
 ): ScadaDslSemanticExpression {
-  if (expression.kind === 'literal') {
-    return {
-      kind: 'literal',
-      value: expression.value,
-    }
-  }
-
-  if (expression.kind === 'reference') {
-    return {
-      kind: 'reference',
-      reference: lowerPropertyReference(
-        expression,
-        catalog,
-        primaryDeviceSymbol,
-      ),
-    }
-  }
-
-  if (expression.kind === 'unary') {
-    return {
-      kind: 'unary',
-      operator: expression.operator,
-      operand: lowerExpression(
-        expression.operand,
-        catalog,
-        primaryDeviceSymbol,
-      ),
-    }
-  }
-
-  if (expression.kind === 'binary') {
-    return {
-      kind: 'binary',
-      operator: expression.operator,
-      left: lowerExpression(expression.left, catalog, primaryDeviceSymbol),
-      right: lowerExpression(expression.right, catalog, primaryDeviceSymbol),
-    }
-  }
-
-  return {
-    kind: 'conditional',
-    condition: lowerExpression(
-      expression.condition,
-      catalog,
-      primaryDeviceSymbol,
-    ),
-    consequent: lowerExpression(
-      expression.consequent,
-      catalog,
-      primaryDeviceSymbol,
-    ),
-    alternate: lowerExpression(
-      expression.alternate,
-      catalog,
-      primaryDeviceSymbol,
-    ),
+  switch (expression.kind) {
+    case 'literal':
+      return { kind: 'literal', value: expression.value }
+    case 'reference':
+      return {
+        kind: 'reference',
+        reference: lowerPropertyReference(
+          expression,
+          catalog,
+          primaryDeviceSymbol,
+        ),
+      }
+    case 'unary':
+      return {
+        kind: 'unary',
+        operator: expression.operator,
+        operand: lowerExpression(
+          expression.operand,
+          catalog,
+          primaryDeviceSymbol,
+        ),
+      }
+    case 'binary':
+      return {
+        kind: 'binary',
+        operator: expression.operator,
+        left: lowerExpression(expression.left, catalog, primaryDeviceSymbol),
+        right: lowerExpression(expression.right, catalog, primaryDeviceSymbol),
+      }
+    case 'conditional':
+      return {
+        kind: 'conditional',
+        condition: lowerExpression(
+          expression.condition,
+          catalog,
+          primaryDeviceSymbol,
+        ),
+        consequent: lowerExpression(
+          expression.consequent,
+          catalog,
+          primaryDeviceSymbol,
+        ),
+        alternate: lowerExpression(
+          expression.alternate,
+          catalog,
+          primaryDeviceSymbol,
+        ),
+      }
   }
 }
 
@@ -277,9 +242,7 @@ function lowerActionBlock(
   catalog: ScadaDslCapabilityCatalog,
   primaryDeviceSymbol: string,
 ) {
-  const actions: ScadaDslComponentActionInvocation[] = []
-
-  for (const statement of statements) {
+  return statements.map((statement) => {
     if (statement.kind === 'assignment') {
       throw new SemanticFailure(
         '条件块内不要命令式修改 Property；请使用 `component.property = if ... then ... else ...` 表达声明式 Value Binding',
@@ -294,67 +257,8 @@ function lowerActionBlock(
       )
     }
 
-    actions.push(
-      lowerComponentAction(statement, catalog, primaryDeviceSymbol),
-    )
-  }
-
-  return actions
-}
-
-function lowerBehavior(
-  statement: ScadaDslIfStatement,
-  statementIndex: number,
-  catalog: ScadaDslCapabilityCatalog,
-  primaryDeviceSymbol: string,
-): ScadaDslBehaviorPlan {
-  const branches: ScadaDslBehaviorBranchPlan[] = []
-  let current: ScadaDslIfStatement | null = statement
-  let branchIndex = 0
-
-  while (current) {
-    branches.push({
-      id: `behavior:${statementIndex}:branch:${branchIndex}`,
-      condition: lowerExpression(
-        current.condition,
-        catalog,
-        primaryDeviceSymbol,
-      ),
-      actions: lowerActionBlock(
-        current.consequent,
-        catalog,
-        primaryDeviceSymbol,
-      ),
-    })
-    branchIndex += 1
-
-    const alternate = current.alternate
-    if (!alternate) {
-      current = null
-      continue
-    }
-
-    if (alternate.length === 1 && alternate[0]?.kind === 'if') {
-      current = alternate[0]
-      continue
-    }
-
-    branches.push({
-      id: `behavior:${statementIndex}:branch:${branchIndex}`,
-      condition: null,
-      actions: lowerActionBlock(
-        alternate,
-        catalog,
-        primaryDeviceSymbol,
-      ),
-    })
-    current = null
-  }
-
-  return {
-    id: `behavior:${statementIndex}`,
-    branches,
-  }
+    return lowerComponentAction(statement, catalog, primaryDeviceSymbol)
+  })
 }
 
 function lowerValueBinding(
@@ -378,12 +282,56 @@ function lowerValueBinding(
   return {
     id: `value:${statementIndex}`,
     targetProperty: target.member,
-    expression: lowerExpression(
-      statement.value,
-      catalog,
-      primaryDeviceSymbol,
-    ),
+    expression: lowerExpression(statement.value, catalog, primaryDeviceSymbol),
   }
+}
+
+function lowerBehavior(
+  statement: ScadaDslIfStatement,
+  statementIndex: number,
+  catalog: ScadaDslCapabilityCatalog,
+  primaryDeviceSymbol: string,
+): ScadaDslBehaviorPlan {
+  const branches: ScadaDslBehaviorBranchPlan[] = []
+  let current: ScadaDslIfStatement | null = statement
+  let branchIndex = 0
+
+  while (current !== null) {
+    branches.push({
+      id: `behavior:${statementIndex}:branch:${branchIndex}`,
+      condition: lowerExpression(
+        current.condition,
+        catalog,
+        primaryDeviceSymbol,
+      ),
+      actions: lowerActionBlock(
+        current.consequent,
+        catalog,
+        primaryDeviceSymbol,
+      ),
+    })
+    branchIndex += 1
+
+    const alternate: readonly ScadaDslStatement[] | null = current.alternate
+    if (alternate === null) {
+      current = null
+    } else if (alternate.length === 1 && alternate[0]?.kind === 'if') {
+      current = alternate[0]
+    } else {
+      branches.push({
+        id: `behavior:${statementIndex}:branch:${branchIndex}`,
+        condition: null,
+        actions: lowerActionBlock(
+          alternate,
+          catalog,
+          primaryDeviceSymbol,
+        ),
+      })
+      current = null
+    }
+  }
+
+  return { id: `behavior:${statementIndex}`, branches }
 }
 
 export function lowerScadaDslProgram(
@@ -407,10 +355,7 @@ export function lowerScadaDslProgram(
             primaryDeviceSymbol,
           ),
         )
-        continue
-      }
-
-      if (statement.kind === 'if') {
+      } else if (statement.kind === 'if') {
         behaviors.push(
           lowerBehavior(
             statement,
@@ -419,36 +364,24 @@ export function lowerScadaDslProgram(
             primaryDeviceSymbol,
           ),
         )
-        continue
+      } else {
+        throw new SemanticFailure(
+          '顶层 Action 没有明确触发时机；请把 Component Action 放入 if/else Behavior，设备 Action 留给后续显式 Interaction/Event 绑定',
+          statement.span,
+        )
       }
-
-      throw new SemanticFailure(
-        '顶层 Action 没有明确触发时机；请把 Component Action 放入 if/else Behavior，设备 Action 留给后续显式 Interaction/Event 绑定',
-        statement.span,
-      )
     } catch (error) {
       if (error instanceof SemanticFailure) {
         diagnostics.push(error.diagnostic)
-        continue
+      } else {
+        throw error
       }
-      throw error
     }
   }
 
-  if (diagnostics.length > 0) {
-    return {
-      plan: null,
-      diagnostics,
-    }
-  }
-
-  return {
-    plan: {
-      valueBindings,
-      behaviors,
-    },
-    diagnostics: [],
-  }
+  return diagnostics.length > 0
+    ? { plan: null, diagnostics }
+    : { plan: { valueBindings, behaviors }, diagnostics: [] }
 }
 
 export type ScadaDslEvaluationContext = {
@@ -480,27 +413,17 @@ export function evaluateScadaDslSemanticExpression(
       expression.reference.reference,
       context.primaryDevice,
     )
-
-    if (!resolved) {
-      return undefined
-    }
-
-    return context.readSourceValue(resolved.sourceId, resolved.property)
+    return resolved
+      ? context.readSourceValue(resolved.sourceId, resolved.property)
+      : undefined
   }
 
   if (expression.kind === 'unary') {
-    const value = evaluateScadaDslSemanticExpression(
-      expression.operand,
-      context,
-    )
-
+    const value = evaluateScadaDslSemanticExpression(expression.operand, context)
     if (expression.operator === 'not') {
       return typeof value === 'boolean' ? !value : undefined
     }
-
-    return typeof value === 'number'
-      ? finiteNumber(-value)
-      : undefined
+    return typeof value === 'number' ? finiteNumber(-value) : undefined
   }
 
   if (expression.kind === 'conditional') {
@@ -508,11 +431,9 @@ export function evaluateScadaDslSemanticExpression(
       expression.condition,
       context,
     )
-
     if (typeof condition !== 'boolean') {
       return undefined
     }
-
     return evaluateScadaDslSemanticExpression(
       condition ? expression.consequent : expression.alternate,
       context,
@@ -524,15 +445,12 @@ export function evaluateScadaDslSemanticExpression(
     if (typeof left !== 'boolean') {
       return undefined
     }
-
     if (expression.operator === 'and' && !left) {
       return false
     }
-
     if (expression.operator === 'or' && left) {
       return true
     }
-
     const right = evaluateScadaDslSemanticExpression(expression.right, context)
     return typeof right === 'boolean' ? right : undefined
   }
@@ -556,16 +474,9 @@ export function evaluateScadaDslSemanticExpression(
     if (typeof left !== 'number' || typeof right !== 'number') {
       return undefined
     }
-
-    if (expression.operator === '>') {
-      return left > right
-    }
-    if (expression.operator === '>=') {
-      return left >= right
-    }
-    if (expression.operator === '<') {
-      return left < right
-    }
+    if (expression.operator === '>') return left > right
+    if (expression.operator === '>=') return left >= right
+    if (expression.operator === '<') return left < right
     return left <= right
   }
 
@@ -573,20 +484,12 @@ export function evaluateScadaDslSemanticExpression(
     return undefined
   }
 
-  if (expression.operator === '+') {
-    return finiteNumber(left + right)
-  }
-  if (expression.operator === '-') {
-    return finiteNumber(left - right)
-  }
-  if (expression.operator === '*') {
-    return finiteNumber(left * right)
-  }
-  if (expression.operator === '/') {
-    return right === 0 ? undefined : finiteNumber(left / right)
-  }
-
-  return right === 0 ? undefined : finiteNumber(left % right)
+  if (expression.operator === '+') return finiteNumber(left + right)
+  if (expression.operator === '-') return finiteNumber(left - right)
+  if (expression.operator === '*') return finiteNumber(left * right)
+  if (right === 0) return undefined
+  if (expression.operator === '/') return finiteNumber(left / right)
+  return finiteNumber(left % right)
 }
 
 export function selectScadaDslBehaviorBranch(
@@ -598,12 +501,7 @@ export function selectScadaDslBehaviorBranch(
       return branch
     }
 
-    const matched = evaluateScadaDslSemanticExpression(
-      branch.condition,
-      context,
-    )
-
-    if (matched === true) {
+    if (evaluateScadaDslSemanticExpression(branch.condition, context) === true) {
       return branch
     }
   }
@@ -612,15 +510,10 @@ export function selectScadaDslBehaviorBranch(
 }
 
 /**
- * Action-oriented if/else uses branch-entry semantics:
- *
- * - the active branch fires once on initial activation;
- * - repeated telemetry that keeps the same branch active does not replay it;
- * - moving to another branch fires that branch once;
- * - leaving an if-without-else to "no branch" performs no implicit action.
- *
- * Persistent visual truth should still use Value Binding. Component Actions are
- * for branch-entry / transient behavior.
+ * Action-oriented if/else uses branch-entry semantics: the active branch fires
+ * once on initial activation, repeated telemetry in the same branch does not
+ * replay it, and moving to another branch fires that branch once. Persistent
+ * visual truth should still use declarative Value Binding.
  */
 export function shouldFireScadaDslBehaviorBranch(
   previousBranchId: string | null,
