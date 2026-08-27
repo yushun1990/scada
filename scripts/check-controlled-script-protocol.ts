@@ -93,8 +93,8 @@ assert.equal(
 assert.equal(session.getEffectiveProperties().speed, 42)
 await bridge.dispatch({ kind: 'property.clear', key: 'speed' })
 assert.equal(session.getEffectiveProperties().speed, 10)
-await assert.rejects(
-  bridge.dispatch({ kind: 'property.set', key: 'speed', value: { nested: true } }),
+assert.throws(
+  () => bridge.dispatch({ kind: 'property.set', key: 'speed', value: { nested: true } }),
   /Property value 必须是 scalar/,
 )
 
@@ -143,8 +143,8 @@ await bridge.dispatch({
   target: 'opacity',
 })
 assert.deepEqual(session.getVisualAbsoluteState(), {})
-await assert.rejects(
-  bridge.dispatch({
+assert.throws(
+  () => bridge.dispatch({
     kind: 'visual.set',
     layerId: 'body',
     target: 'opacity',
@@ -187,4 +187,4 @@ assert.throws(() => normalizeControlledScriptValue(tooDeep), /深度上限/)
 
 session.dispose()
 
-console.log('Controlled Script protocol checks passed: sandbox-bound values are finite JSON-compatible data, bridge calls map only to declared Controlled Runtime capabilities, async action results are normalized, and cyclic/prototype-rich values are rejected.')
+console.log('Controlled Script protocol checks passed: sandbox-bound values are finite JSON-compatible data, synchronous Property/Visual/Event calls fail synchronously, async Action results are normalized, and cyclic/prototype-rich values are rejected.')
