@@ -33,6 +33,7 @@ jobs:
           npx --yes tsx scripts/check-animation-blink-model.ts
           npx --yes tsx scripts/check-controlled-runtime-contract.ts
           npx --yes tsx scripts/check-controlled-runtime-session.ts
+          npx --yes tsx scripts/check-controlled-script-protocol.ts
 
       - name: Lint
         run: npm run lint
