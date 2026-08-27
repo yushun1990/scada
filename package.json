@@ -14,7 +14,9 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@jitl/quickjs-wasmfile-release-sync": "0.32.0",
     "konva": "^10.3.0",
+    "quickjs-emscripten-core": "0.32.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-konva": "^19.2.5"
