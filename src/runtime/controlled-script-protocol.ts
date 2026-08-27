@@ -39,7 +39,9 @@ export type ControlledScriptHostCall =
     }
 
 export type ControlledScriptHostBridge = Readonly<{
-  dispatch: (call: ControlledScriptHostCall) => Promise<ControlledScriptValue>
+  dispatch: (
+    call: ControlledScriptHostCall,
+  ) => ControlledScriptValue | Promise<ControlledScriptValue>
 }>
 
 const MAX_SCRIPT_VALUE_DEPTH = 32
@@ -135,11 +137,26 @@ function visualValueFromScriptValue(value: ControlledScriptValue) {
   throw new Error('Controlled Script Visual value 必须是 number 或 boolean')
 }
 
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'then' in value &&
+    typeof (value as { then?: unknown }).then === 'function'
+  )
+}
+
+function normalizeActionResult(actionName: string, result: unknown): ControlledScriptValue {
+  return result === undefined
+    ? null
+    : normalizeControlledScriptValue(result, `Action ${actionName} result`)
+}
+
 export function createControlledScriptHostBridge(
   runtime: ControlledComponentRuntime,
 ): ControlledScriptHostBridge {
   return Object.freeze({
-    async dispatch(call: ControlledScriptHostCall): Promise<ControlledScriptValue> {
+    dispatch(call: ControlledScriptHostCall): ControlledScriptValue | Promise<ControlledScriptValue> {
       if (call.kind === 'property.get') {
         return normalizeControlledScriptValue(
           runtime.properties.get(call.key),
@@ -163,10 +180,10 @@ export function createControlledScriptHostBridge(
       }
 
       if (call.kind === 'action.invoke') {
-        const result = await runtime.actions.invoke(call.actionName, call.input)
-        return result === undefined
-          ? null
-          : normalizeControlledScriptValue(result, `Action ${call.actionName} result`)
+        const result = runtime.actions.invoke(call.actionName, call.input)
+        return isPromiseLike(result)
+          ? Promise.resolve(result).then((resolved) => normalizeActionResult(call.actionName, resolved))
+          : normalizeActionResult(call.actionName, result)
       }
 
       if (call.kind === 'visual.set') {
