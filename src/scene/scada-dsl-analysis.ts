@@ -104,7 +104,6 @@ function findCapability(
 function inferReferenceType(
   reference: ScadaDslReferenceExpression,
   catalog: ScadaDslCapabilityCatalog,
-  diagnostics: ScadaDslTypeDiagnostic[],
 ): InferredType {
   const capability = findCapability(reference, catalog)
   if (!capability || capability.capabilityKind !== 'property' || !capability.property) {
@@ -157,7 +156,7 @@ function inferExpressionType(
   }
 
   if (expression.kind === 'reference') {
-    return inferReferenceType(expression, catalog, diagnostics)
+    return inferReferenceType(expression, catalog)
   }
 
   if (expression.kind === 'unary') {
