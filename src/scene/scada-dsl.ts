@@ -96,10 +96,18 @@ export type ScadaDslIfStatement = {
   span: ScadaDslSpan
 }
 
+export type ScadaDslOnStatement = {
+  kind: 'on'
+  event: ScadaDslReferenceExpression
+  body: readonly ScadaDslStatement[]
+  span: ScadaDslSpan
+}
+
 export type ScadaDslStatement =
   | ScadaDslAssignmentStatement
   | ScadaDslCallStatement
   | ScadaDslIfStatement
+  | ScadaDslOnStatement
 
 export type ScadaDslProgram = {
   kind: 'program'
@@ -138,6 +146,7 @@ const KEYWORDS = new Set([
   'if',
   'else',
   'then',
+  'on',
   'true',
   'false',
   'null',
@@ -189,29 +198,18 @@ function tokenizeScadaDsl(source: string): Token[] {
 
       while (index < source.length) {
         const current = source[index]!
-
         if (current === quote) {
           index += 1
           closed = true
           break
         }
-
         if (current === '\\') {
           const next = source[index + 1]
-          if (next === undefined) {
-            break
-          }
-
-          const escaped = next === 'n'
-            ? '\n'
-            : next === 't'
-              ? '\t'
-              : next
-          value += escaped
+          if (next === undefined) break
+          value += next === 'n' ? '\n' : next === 't' ? '\t' : next
           index += 2
           continue
         }
-
         value += current
         index += 1
       }
@@ -229,23 +227,17 @@ function tokenizeScadaDsl(source: string): Token[] {
     if (/\d/u.test(char) || (char === '.' && /\d/u.test(source[index + 1] ?? ''))) {
       const start = index
       let seenDot = false
-
       while (index < source.length) {
         const current = source[index]!
         if (current === '.') {
-          if (seenDot) {
-            break
-          }
+          if (seenDot) break
           seenDot = true
           index += 1
           continue
         }
-        if (!/\d/u.test(current)) {
-          break
-        }
+        if (!/\d/u.test(current)) break
         index += 1
       }
-
       tokens.push({
         kind: 'number',
         value: source.slice(start, index),
@@ -321,27 +313,22 @@ class ScadaDslParser {
   parseProgram(): ScadaDslProgram {
     const statements: ScadaDslStatement[] = []
     this.skipSeparators()
-
     while (!this.is('eof')) {
       statements.push(this.parseStatement())
       this.skipSeparators()
     }
-
-    const end = this.current().end
     return {
       kind: 'program',
       statements,
-      span: { start: 0, end },
+      span: { start: 0, end: this.current().end },
     }
   }
 
   private parseStatement(): ScadaDslStatement {
-    if (this.isKeyword('if')) {
-      return this.parseIfStatement()
-    }
+    if (this.isKeyword('if')) return this.parseIfStatement()
+    if (this.isKeyword('on')) return this.parseOnStatement()
 
     const target = this.parseReference()
-
     if (this.matchOperator('=')) {
       const value = this.parseExpression()
       return {
@@ -354,14 +341,13 @@ class ScadaDslParser {
 
     if (this.isPunctuation('(')) {
       const call = this.parseCallAfterCallee(target)
-      return {
-        kind: 'call-statement',
-        call,
-        span: call.span,
-      }
+      return { kind: 'call-statement', call, span: call.span }
     }
 
-    throw new ParseFailure('语句必须是 Property 赋值、Action 调用或 if/else', this.current())
+    throw new ParseFailure(
+      '语句必须是 Property 赋值、Action 调用、if/else 或 on Event',
+      this.current(),
+    )
   }
 
   private parseIfStatement(): ScadaDslIfStatement {
@@ -372,6 +358,7 @@ class ScadaDslParser {
 
     let alternate: readonly ScadaDslStatement[] | null = null
     let end = this.previous().end
+    this.skipSeparators()
 
     if (this.matchKeyword('else')) {
       if (this.isKeyword('if')) {
@@ -394,27 +381,37 @@ class ScadaDslParser {
     }
   }
 
+  private parseOnStatement(): ScadaDslOnStatement {
+    const onToken = this.expectKeyword('on')
+    const event = this.parseReference()
+    this.expectPunctuation('{')
+    const body = this.parseBlock()
+    return {
+      kind: 'on',
+      event,
+      body,
+      span: { start: onToken.start, end: this.previous().end },
+    }
+  }
+
   private parseBlock() {
     const statements: ScadaDslStatement[] = []
     this.skipSeparators()
-
     while (!this.isPunctuation('}')) {
       if (this.is('eof')) {
-        throw new ParseFailure('if/else 块缺少 }', this.current())
+        throw new ParseFailure('块缺少 }', this.current())
       }
       statements.push(this.parseStatement())
       this.skipSeparators()
     }
-
     this.expectPunctuation('}')
     return statements
   }
 
   private parseExpression(): ScadaDslExpression {
-    if (this.isKeyword('if')) {
-      return this.parseConditionalExpression()
-    }
-    return this.parseOrExpression()
+    return this.isKeyword('if')
+      ? this.parseConditionalExpression()
+      : this.parseOrExpression()
   }
 
   private parseConditionalExpression(): ScadaDslConditionalExpression {
@@ -424,7 +421,6 @@ class ScadaDslParser {
     const consequent = this.parseExpression()
     this.expectKeyword('else')
     const alternate = this.parseExpression()
-
     return {
       kind: 'conditional',
       condition,
@@ -436,41 +432,31 @@ class ScadaDslParser {
 
   private parseOrExpression(): ScadaDslExpression {
     let expression = this.parseAndExpression()
-
     while (this.matchKeyword('or')) {
-      const right = this.parseAndExpression()
-      expression = this.binary('or', expression, right)
+      expression = this.binary('or', expression, this.parseAndExpression())
     }
-
     return expression
   }
 
   private parseAndExpression(): ScadaDslExpression {
     let expression = this.parseEqualityExpression()
-
     while (this.matchKeyword('and')) {
-      const right = this.parseEqualityExpression()
-      expression = this.binary('and', expression, right)
+      expression = this.binary('and', expression, this.parseEqualityExpression())
     }
-
     return expression
   }
 
   private parseEqualityExpression(): ScadaDslExpression {
     let expression = this.parseComparisonExpression()
-
     while (this.isOperator('==') || this.isOperator('!=')) {
       const operator = this.advance().value as '==' | '!='
-      const right = this.parseComparisonExpression()
-      expression = this.binary(operator, expression, right)
+      expression = this.binary(operator, expression, this.parseComparisonExpression())
     }
-
     return expression
   }
 
   private parseComparisonExpression(): ScadaDslExpression {
     let expression = this.parseAdditiveExpression()
-
     while (
       this.isOperator('>') ||
       this.isOperator('>=') ||
@@ -478,38 +464,30 @@ class ScadaDslParser {
       this.isOperator('<=')
     ) {
       const operator = this.advance().value as '>' | '>=' | '<' | '<='
-      const right = this.parseAdditiveExpression()
-      expression = this.binary(operator, expression, right)
+      expression = this.binary(operator, expression, this.parseAdditiveExpression())
     }
-
     return expression
   }
 
   private parseAdditiveExpression(): ScadaDslExpression {
     let expression = this.parseMultiplicativeExpression()
-
     while (this.isOperator('+') || this.isOperator('-')) {
       const operator = this.advance().value as '+' | '-'
-      const right = this.parseMultiplicativeExpression()
-      expression = this.binary(operator, expression, right)
+      expression = this.binary(operator, expression, this.parseMultiplicativeExpression())
     }
-
     return expression
   }
 
   private parseMultiplicativeExpression(): ScadaDslExpression {
     let expression = this.parseUnaryExpression()
-
     while (
       this.isOperator('*') ||
       this.isOperator('/') ||
       this.isOperator('%')
     ) {
       const operator = this.advance().value as '*' | '/' | '%'
-      const right = this.parseUnaryExpression()
-      expression = this.binary(operator, expression, right)
+      expression = this.binary(operator, expression, this.parseUnaryExpression())
     }
-
     return expression
   }
 
@@ -524,7 +502,6 @@ class ScadaDslParser {
         span: { start, end: operand.span.end },
       }
     }
-
     if (this.matchOperator('-')) {
       const start = this.previous().start
       const operand = this.parseUnaryExpression()
@@ -535,13 +512,11 @@ class ScadaDslParser {
         span: { start, end: operand.span.end },
       }
     }
-
     return this.parsePrimaryExpression()
   }
 
   private parsePrimaryExpression(): ScadaDslExpression {
     const token = this.current()
-
     if (token.kind === 'number') {
       this.advance()
       return {
@@ -550,7 +525,6 @@ class ScadaDslParser {
         span: { start: token.start, end: token.end },
       }
     }
-
     if (token.kind === 'string') {
       this.advance()
       return {
@@ -559,64 +533,46 @@ class ScadaDslParser {
         span: { start: token.start, end: token.end },
       }
     }
-
-    if (this.matchKeyword('true')) {
-      return this.literalFromPrevious(true)
-    }
-
-    if (this.matchKeyword('false')) {
-      return this.literalFromPrevious(false)
-    }
-
-    if (this.matchKeyword('null')) {
-      return this.literalFromPrevious(null)
-    }
-
+    if (this.matchKeyword('true')) return this.literalFromPrevious(true)
+    if (this.matchKeyword('false')) return this.literalFromPrevious(false)
+    if (this.matchKeyword('null')) return this.literalFromPrevious(null)
     if (this.matchPunctuation('(')) {
       const expression = this.parseExpression()
       this.expectPunctuation(')')
       return expression
     }
-
-    if (token.kind === 'identifier') {
-      return this.parseReference()
-    }
-
+    if (token.kind === 'identifier') return this.parseReference()
     throw new ParseFailure('这里需要 Property、字面量或表达式', token)
   }
 
   private parseReference(): ScadaDslReferenceExpression {
-    const first = this.expect('identifier', '这里需要 Property 或 Action 引用')
+    const first = this.expect('identifier', '这里需要 Property、Action 或 Event 引用')
     const path = [first.value]
     let end = first.end
-
     while (this.matchPunctuation('.')) {
-      const member = this.expect('identifier', '点号后需要 Property 或 Action 名称')
+      const member = this.expect('identifier', '点号后需要能力名称')
       path.push(member.value)
       end = member.end
     }
-
     if (path.length < 2) {
-      throw new ParseFailure('引用至少需要“对象.能力”两段，例如 device.pressure', first)
+      throw new ParseFailure(
+        '引用至少需要“对象.能力”两段，例如 device.pressure',
+        first,
+      )
     }
-
-    return {
-      kind: 'reference',
-      path,
-      span: { start: first.start, end },
-    }
+    return { kind: 'reference', path, span: { start: first.start, end } }
   }
 
-  private parseCallAfterCallee(callee: ScadaDslReferenceExpression): ScadaDslCallExpression {
+  private parseCallAfterCallee(
+    callee: ScadaDslReferenceExpression,
+  ): ScadaDslCallExpression {
     this.expectPunctuation('(')
     const args: ScadaDslExpression[] = []
-
     if (!this.isPunctuation(')')) {
       do {
         args.push(this.parseExpression())
       } while (this.matchPunctuation(','))
     }
-
     const close = this.expectPunctuation(')')
     return {
       kind: 'call',
@@ -640,7 +596,9 @@ class ScadaDslParser {
     }
   }
 
-  private literalFromPrevious(value: ComponentScalarValue): ScadaDslLiteralExpression {
+  private literalFromPrevious(
+    value: ComponentScalarValue,
+  ): ScadaDslLiteralExpression {
     const token = this.previous()
     return {
       kind: 'literal',
@@ -650,12 +608,7 @@ class ScadaDslParser {
   }
 
   private skipSeparators() {
-    while (
-      this.is('newline') ||
-      this.isPunctuation(';')
-    ) {
-      this.advance()
-    }
+    while (this.is('newline') || this.isPunctuation(';')) this.advance()
   }
 
   private current() {
@@ -668,9 +621,7 @@ class ScadaDslParser {
 
   private advance() {
     const token = this.current()
-    if (token.kind !== 'eof') {
-      this.index += 1
-    }
+    if (token.kind !== 'eof') this.index += 1
     return token
   }
 
@@ -694,34 +645,26 @@ class ScadaDslParser {
   }
 
   private matchKeyword(value: string) {
-    if (!this.isKeyword(value)) {
-      return false
-    }
+    if (!this.isKeyword(value)) return false
     this.advance()
     return true
   }
 
   private matchOperator(value: string) {
-    if (!this.isOperator(value)) {
-      return false
-    }
+    if (!this.isOperator(value)) return false
     this.advance()
     return true
   }
 
   private matchPunctuation(value: string) {
-    if (!this.isPunctuation(value)) {
-      return false
-    }
+    if (!this.isPunctuation(value)) return false
     this.advance()
     return true
   }
 
   private expect(kind: TokenKind, message: string) {
     const token = this.current()
-    if (token.kind !== kind) {
-      throw new ParseFailure(message, token)
-    }
+    if (token.kind !== kind) throw new ParseFailure(message, token)
     return this.advance()
   }
 
@@ -750,10 +693,7 @@ export function parseScadaDsl(source: string): ScadaDslParseResult {
     }
   } catch (error) {
     if (error instanceof ParseFailure) {
-      return {
-        program: null,
-        diagnostics: [error.diagnostic],
-      }
+      return { program: null, diagnostics: [error.diagnostic] }
     }
     throw error
   }
@@ -801,7 +741,6 @@ function appendCapabilities(
       property,
     })
   }
-
   for (const [member, action] of Object.entries(source.actions)) {
     items.push({
       sourceId: source.sourceId,
@@ -813,7 +752,6 @@ function appendCapabilities(
       action,
     })
   }
-
   for (const [member, event] of Object.entries(source.events ?? {})) {
     items.push({
       sourceId: source.sourceId,
@@ -832,7 +770,6 @@ export function createScadaDslCapabilityCatalog(
   sources: readonly ScadaDslSourceDefinition[],
 ): ScadaDslCapabilityCatalog {
   const items: ScadaDslCapabilityItem[] = []
-
   appendCapabilities(items, {
     sourceId: 'component',
     title: component.title,
@@ -841,11 +778,7 @@ export function createScadaDslCapabilityCatalog(
     actions: component.actions,
     events: component.events,
   })
-
-  for (const source of sources) {
-    appendCapabilities(items, source)
-  }
-
+  for (const source of sources) appendCapabilities(items, source)
   return { items }
 }
 
@@ -866,29 +799,33 @@ export function getScadaDslCompletionItems(
 ): ScadaDslCompletionResult {
   const safeCursor = Math.max(0, Math.min(cursor, source.length))
   const before = source.slice(0, safeCursor)
-  const match = before.match(/([A-Za-z_\u4E00-\u9FFF][A-Za-z0-9_\u4E00-\u9FFF]*)\.([A-Za-z0-9_\u4E00-\u9FFF]*)$/u)
+  const match = before.match(
+    /([A-Za-z_\u4E00-\u9FFF][A-Za-z0-9_\u4E00-\u9FFF]*)\.([A-Za-z0-9_\u4E00-\u9FFF]*)$/u,
+  )
 
   if (match) {
     const symbol = match[1]!
     const memberPrefix = match[2]!
-    const replacementStart = safeCursor - memberPrefix.length
     return {
-      replacement: { start: replacementStart, end: safeCursor },
+      replacement: {
+        start: safeCursor - memberPrefix.length,
+        end: safeCursor,
+      },
       items: catalog.items.filter(
         (item) => item.symbol === symbol && item.member.startsWith(memberPrefix),
       ),
     }
   }
 
-  const rootMatch = before.match(/([A-Za-z_\u4E00-\u9FFF][A-Za-z0-9_\u4E00-\u9FFF]*)$/u)
+  const rootMatch = before.match(
+    /([A-Za-z_\u4E00-\u9FFF][A-Za-z0-9_\u4E00-\u9FFF]*)$/u,
+  )
   const rootPrefix = rootMatch?.[1] ?? ''
   const symbols = new Set<string>()
   const rootItems: ScadaDslCapabilityItem[] = []
 
   for (const item of catalog.items) {
-    if (!item.symbol.startsWith(rootPrefix) || symbols.has(item.symbol)) {
-      continue
-    }
+    if (!item.symbol.startsWith(rootPrefix) || symbols.has(item.symbol)) continue
     symbols.add(item.symbol)
     rootItems.push(item)
   }
