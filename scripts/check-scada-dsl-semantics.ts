@@ -50,6 +50,7 @@ const component: ComponentDefinition = {
   },
   events: {
     startRequested: { title: 'Start requested' },
+    stopRequested: { title: 'Stop requested' },
   },
   anchors: [],
 }
@@ -78,6 +79,17 @@ const catalog = createScadaDslCapabilityCatalog(component, [
     },
     actions: {},
   },
+  {
+    sourceId: 'valve-09',
+    title: 'Outlet valve',
+    symbol: 'valve',
+    properties: {
+      opening: { title: 'Opening', kind: 'number', defaultValue: 0 },
+    },
+    actions: {
+      close: { title: 'Close' },
+    },
+  },
 ])
 
 const parsed = parseScadaDsl(`
@@ -86,10 +98,20 @@ component.level = outlet.pressure * 100
 
 if device.fault and outlet.pressure > 1.2 {
   component.showFault()
-} else if device.running {
+}
+else if device.running {
   component.showRunning()
-} else {
+}
+else {
   component.showStopped()
+}
+
+on component.startRequested {
+  device.start()
+}
+
+on component.stopRequested {
+  valve.close()
 }
 `)
 assert.deepEqual(parsed.diagnostics, [])
@@ -100,6 +122,7 @@ assert.deepEqual(lowered.diagnostics, [])
 assert.ok(lowered.plan)
 assert.equal(lowered.plan!.valueBindings.length, 2)
 assert.equal(lowered.plan!.behaviors.length, 1)
+assert.equal(lowered.plan!.interactions.length, 2)
 
 const stateBinding = lowered.plan!.valueBindings[0]!
 assert.equal(stateBinding.targetProperty, 'state')
@@ -134,10 +157,26 @@ if (levelBinding.expression.kind === 'binary') {
   }
 }
 
+const startInteraction = lowered.plan!.interactions[0]!
+assert.equal(startInteraction.event, 'startRequested')
+assert.deepEqual(startInteraction.action.target, {
+  scope: 'primary-device',
+  action: 'start',
+})
+
+const stopInteraction = lowered.plan!.interactions[1]!
+assert.equal(stopInteraction.event, 'stopRequested')
+assert.deepEqual(stopInteraction.action.target, {
+  scope: 'external',
+  sourceId: 'valve-09',
+  action: 'close',
+})
+
 // The primary-device editor symbol must not capture the concrete device that
 // happened to be selected while authoring; copy/rebind only swaps the context.
 assert.doesNotMatch(JSON.stringify(lowered.plan), /pump-01/)
 assert.match(JSON.stringify(lowered.plan), /outlet-pressure/)
+assert.match(JSON.stringify(lowered.plan), /valve-09/)
 
 const values = new Map<string, ComponentScalarValue>([
   ['pump-02:fault', true],
@@ -295,6 +334,55 @@ assert.match(
   /左侧必须是当前组件公开的 Component Property/,
 )
 
+const invalidInteractionSource = parseScadaDsl(`
+on device.fault {
+  device.stop()
+}
+`)
+assert.ok(invalidInteractionSource.program)
+const invalidInteractionSourceResult = lowerScadaDslProgram(
+  invalidInteractionSource.program!,
+  catalog,
+)
+assert.equal(invalidInteractionSourceResult.plan, null)
+assert.match(
+  invalidInteractionSourceResult.diagnostics[0]?.message ?? '',
+  /必须是当前组件公开的 Component Event/,
+)
+
+const componentActionAsExternal = parseScadaDsl(`
+on component.startRequested {
+  component.showRunning()
+}
+`)
+assert.ok(componentActionAsExternal.program)
+const componentActionAsExternalResult = lowerScadaDslProgram(
+  componentActionAsExternal.program!,
+  catalog,
+)
+assert.equal(componentActionAsExternalResult.plan, null)
+assert.match(
+  componentActionAsExternalResult.diagnostics[0]?.message ?? '',
+  /目标必须是主设备或显式外部设备公开的 Action/,
+)
+
+const multiActionInteraction = parseScadaDsl(`
+on component.startRequested {
+  device.start()
+  device.stop()
+}
+`)
+assert.ok(multiActionInteraction.program)
+const multiActionInteractionResult = lowerScadaDslProgram(
+  multiActionInteraction.program!,
+  catalog,
+)
+assert.equal(multiActionInteractionResult.plan, null)
+assert.match(
+  multiActionInteractionResult.diagnostics[0]?.message ?? '',
+  /只绑定一个设备 Action/,
+)
+
 console.log(
-  'SCADA DSL semantic checks passed: readable DSL lowers to structured primary/external references, assignments remain declarative Value Bindings, ordered if/else branches fire Component Actions only on branch entry, repeated telemetry does not replay actions, and data-driven device automation is rejected.',
+  'SCADA DSL semantic checks passed: DSL lowers into structured Value/Behavior/Interaction plans, primary-device references remain copy/rebind-safe, ordered if/else fires Component Actions only on branch entry, repeated telemetry does not replay actions, explicit Component Events may invoke one primary/external device Action, and data-driven device automation is rejected.',
 )
