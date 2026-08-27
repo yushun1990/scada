@@ -45,7 +45,7 @@ export class ControlledRuntimeSession {
 
   constructor(
     private readonly definition: ComponentDefinition,
-    private readonly visual: ComponentVisualDefinition,
+    visual: ComponentVisualDefinition,
     private readonly readBaseProperties: () => Readonly<ComponentProps>,
     private readonly callbacks: ControlledRuntimeSessionCallbacks = {},
   ) {
@@ -76,7 +76,8 @@ export class ControlledRuntimeSession {
       setVisualValue: (layerId, target, value) => {
         this.requireActive()
         const state = this.absoluteVisualValues.get(layerId) ?? {}
-        ;(state as Record<string, number | boolean | undefined>)[target] = value
+        const values = state as Record<string, number | boolean | undefined>
+        values[target] = value
         this.absoluteVisualValues.set(layerId, state)
       },
       clearVisualValue: (layerId, target) => {
