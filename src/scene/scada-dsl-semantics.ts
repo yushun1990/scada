@@ -1,6 +1,7 @@
 import type { ComponentScalarValue } from '../component-system/definition'
 import {
   resolveScadaPropertyReference,
+  type ScadaDeviceActionReference,
   type ScadaPrimaryDeviceContext,
   type ScadaPropertyReference,
   type ScadaRuntimeValueReader,
@@ -10,6 +11,7 @@ import type {
   ScadaDslCapabilityCatalog,
   ScadaDslExpression,
   ScadaDslIfStatement,
+  ScadaDslOnStatement,
   ScadaDslProgram,
   ScadaDslReferenceExpression,
   ScadaDslSpan,
@@ -63,9 +65,21 @@ export type ScadaDslBehaviorPlan = {
   branches: readonly ScadaDslBehaviorBranchPlan[]
 }
 
+export type ScadaDslDeviceActionInvocation = {
+  target: ScadaDeviceActionReference
+  arguments: readonly ScadaDslSemanticExpression[]
+}
+
+export type ScadaDslInteractionPlan = {
+  id: string
+  event: string
+  action: ScadaDslDeviceActionInvocation
+}
+
 export type ScadaDslSemanticPlan = {
   valueBindings: readonly ScadaDslValueBindingPlan[]
   behaviors: readonly ScadaDslBehaviorPlan[]
+  interactions: readonly ScadaDslInteractionPlan[]
 }
 
 export type ScadaDslSemanticDiagnostic = {
@@ -257,6 +271,13 @@ function lowerActionBlock(
       )
     }
 
+    if (statement.kind === 'on') {
+      throw new SemanticFailure(
+        'on Event Interaction 只能出现在顶层，不能嵌套进数据驱动 Behavior',
+        statement.span,
+      )
+    }
+
     return lowerComponentAction(statement, catalog, primaryDeviceSymbol)
   })
 }
@@ -321,17 +342,64 @@ function lowerBehavior(
       branches.push({
         id: `behavior:${statementIndex}:branch:${branchIndex}`,
         condition: null,
-        actions: lowerActionBlock(
-          alternate,
-          catalog,
-          primaryDeviceSymbol,
-        ),
+        actions: lowerActionBlock(alternate, catalog, primaryDeviceSymbol),
       })
       current = null
     }
   }
 
   return { id: `behavior:${statementIndex}`, branches }
+}
+
+function lowerInteraction(
+  statement: ScadaDslOnStatement,
+  statementIndex: number,
+  catalog: ScadaDslCapabilityCatalog,
+  primaryDeviceSymbol: string,
+): ScadaDslInteractionPlan {
+  const event = findCapability(statement.event, catalog)
+  if (event.symbol !== 'component' || event.capabilityKind !== 'event') {
+    throw new SemanticFailure(
+      'on 的触发源必须是当前组件公开的 Component Event',
+      statement.event.span,
+    )
+  }
+
+  if (statement.body.length !== 1 || statement.body[0]?.kind !== 'call-statement') {
+    throw new SemanticFailure(
+      'Interaction 第一版每个 on Event 只绑定一个设备 Action；需要多个独立动作时请写多个 on 块',
+      statement.span,
+    )
+  }
+
+  const call = statement.body[0]
+  const action = findCapability(call.call.callee, catalog)
+  if (action.capabilityKind !== 'action' || action.symbol === 'component') {
+    throw new SemanticFailure(
+      'on Event 的目标必须是主设备或显式外部设备公开的 Action',
+      call.span,
+    )
+  }
+
+  const target: ScadaDeviceActionReference =
+    action.symbol === primaryDeviceSymbol
+      ? { scope: 'primary-device', action: action.member }
+      : {
+          scope: 'external',
+          sourceId: action.sourceId,
+          action: action.member,
+        }
+
+  return {
+    id: `interaction:${statementIndex}`,
+    event: event.member,
+    action: {
+      target,
+      arguments: call.call.arguments.map((argument) =>
+        lowerExpression(argument, catalog, primaryDeviceSymbol),
+      ),
+    },
+  }
 }
 
 export function lowerScadaDslProgram(
@@ -342,6 +410,7 @@ export function lowerScadaDslProgram(
   const primaryDeviceSymbol = options.primaryDeviceSymbol ?? 'device'
   const valueBindings: ScadaDslValueBindingPlan[] = []
   const behaviors: ScadaDslBehaviorPlan[] = []
+  const interactions: ScadaDslInteractionPlan[] = []
   const diagnostics: ScadaDslSemanticDiagnostic[] = []
 
   for (const [statementIndex, statement] of program.statements.entries()) {
@@ -364,9 +433,18 @@ export function lowerScadaDslProgram(
             primaryDeviceSymbol,
           ),
         )
+      } else if (statement.kind === 'on') {
+        interactions.push(
+          lowerInteraction(
+            statement,
+            statementIndex,
+            catalog,
+            primaryDeviceSymbol,
+          ),
+        )
       } else {
         throw new SemanticFailure(
-          '顶层 Action 没有明确触发时机；请把 Component Action 放入 if/else Behavior，设备 Action 留给后续显式 Interaction/Event 绑定',
+          '顶层 Action 没有明确触发时机；Component Action 请放入 if/else Behavior，设备 Action 请放入 on Component Event Interaction',
           statement.span,
         )
       }
@@ -381,7 +459,7 @@ export function lowerScadaDslProgram(
 
   return diagnostics.length > 0
     ? { plan: null, diagnostics }
-    : { plan: { valueBindings, behaviors }, diagnostics: [] }
+    : { plan: { valueBindings, behaviors, interactions }, diagnostics: [] }
 }
 
 export type ScadaDslEvaluationContext = {
@@ -400,9 +478,7 @@ export function evaluateScadaDslSemanticExpression(
   expression: ScadaDslSemanticExpression,
   context: ScadaDslEvaluationContext,
 ): ComponentScalarValue | undefined {
-  if (expression.kind === 'literal') {
-    return expression.value
-  }
+  if (expression.kind === 'literal') return expression.value
 
   if (expression.kind === 'reference') {
     if (expression.reference.kind === 'component-property') {
@@ -431,9 +507,7 @@ export function evaluateScadaDslSemanticExpression(
       expression.condition,
       context,
     )
-    if (typeof condition !== 'boolean') {
-      return undefined
-    }
+    if (typeof condition !== 'boolean') return undefined
     return evaluateScadaDslSemanticExpression(
       condition ? expression.consequent : expression.alternate,
       context,
@@ -442,15 +516,9 @@ export function evaluateScadaDslSemanticExpression(
 
   if (expression.operator === 'and' || expression.operator === 'or') {
     const left = evaluateScadaDslSemanticExpression(expression.left, context)
-    if (typeof left !== 'boolean') {
-      return undefined
-    }
-    if (expression.operator === 'and' && !left) {
-      return false
-    }
-    if (expression.operator === 'or' && left) {
-      return true
-    }
+    if (typeof left !== 'boolean') return undefined
+    if (expression.operator === 'and' && !left) return false
+    if (expression.operator === 'or' && left) return true
     const right = evaluateScadaDslSemanticExpression(expression.right, context)
     return typeof right === 'boolean' ? right : undefined
   }
@@ -459,9 +527,7 @@ export function evaluateScadaDslSemanticExpression(
   const right = evaluateScadaDslSemanticExpression(expression.right, context)
 
   if (expression.operator === '==' || expression.operator === '!=') {
-    if (left === undefined || right === undefined) {
-      return undefined
-    }
+    if (left === undefined || right === undefined) return undefined
     return expression.operator === '==' ? left === right : left !== right
   }
 
@@ -471,19 +537,14 @@ export function evaluateScadaDslSemanticExpression(
     expression.operator === '<' ||
     expression.operator === '<='
   ) {
-    if (typeof left !== 'number' || typeof right !== 'number') {
-      return undefined
-    }
+    if (typeof left !== 'number' || typeof right !== 'number') return undefined
     if (expression.operator === '>') return left > right
     if (expression.operator === '>=') return left >= right
     if (expression.operator === '<') return left < right
     return left <= right
   }
 
-  if (typeof left !== 'number' || typeof right !== 'number') {
-    return undefined
-  }
-
+  if (typeof left !== 'number' || typeof right !== 'number') return undefined
   if (expression.operator === '+') return finiteNumber(left + right)
   if (expression.operator === '-') return finiteNumber(left - right)
   if (expression.operator === '*') return finiteNumber(left * right)
@@ -497,15 +558,11 @@ export function selectScadaDslBehaviorBranch(
   context: ScadaDslEvaluationContext,
 ): ScadaDslBehaviorBranchPlan | null {
   for (const branch of behavior.branches) {
-    if (branch.condition === null) {
-      return branch
-    }
-
+    if (branch.condition === null) return branch
     if (evaluateScadaDslSemanticExpression(branch.condition, context) === true) {
       return branch
     }
   }
-
   return null
 }
 
