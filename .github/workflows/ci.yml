@@ -32,6 +32,7 @@ jobs:
           npx --yes tsx scripts/check-animation-fade-model.ts
           npx --yes tsx scripts/check-animation-blink-model.ts
           npx --yes tsx scripts/check-controlled-runtime-contract.ts
+          npx --yes tsx scripts/check-controlled-runtime-session.ts
 
       - name: Lint
         run: npm run lint
