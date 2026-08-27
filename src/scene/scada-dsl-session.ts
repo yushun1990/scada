@@ -58,21 +58,6 @@ function sameScalar(
   return Object.is(left, right)
 }
 
-function mergeTargets(
-  output: {
-    valueBindingIds: Set<string>
-    behaviorIds: Set<string>
-  },
-  targets: ScadaDslRuntimeTargets,
-) {
-  for (const binding of targets.valueBindings) {
-    output.valueBindingIds.add(binding.id)
-  }
-  for (const behavior of targets.behaviors) {
-    output.behaviorIds.add(behavior.id)
-  }
-}
-
 /**
  * Host-owned propagation lifecycle for one component instance.
  *
@@ -111,6 +96,15 @@ export class ScadaDslPropagationSession {
     }
   }
 
+  private readStagedProperty(
+    stagedValues: ReadonlyMap<string, ComponentScalarValue>,
+    property: string,
+  ) {
+    return stagedValues.has(property)
+      ? stagedValues.get(property)
+      : this.options.readComponentProperty(property)
+  }
+
   private createContext(
     stagedValues: ReadonlyMap<string, ComponentScalarValue>,
   ): ScadaDslEvaluationContext {
@@ -118,7 +112,7 @@ export class ScadaDslPropagationSession {
       primaryDevice: this.options.getPrimaryDevice(),
       readSourceValue: this.options.readSourceValue,
       readComponentProperty: (property) =>
-        stagedValues.get(property) ?? this.options.readComponentProperty(property),
+        this.readStagedProperty(stagedValues, property),
     }
   }
 
@@ -179,8 +173,10 @@ export class ScadaDslPropagationSession {
         continue
       }
 
-      const previous = stagedValues.get(binding.targetProperty) ??
-        this.options.readComponentProperty(binding.targetProperty)
+      const previous = this.readStagedProperty(
+        stagedValues,
+        binding.targetProperty,
+      )
       if (sameScalar(previous, value)) continue
 
       const transitionKey = [
