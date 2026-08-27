@@ -22,6 +22,7 @@ export type ControlledRuntimeVisualValue = number | boolean
 export type ControlledRuntimeHost = {
   readProperty: (key: string) => ComponentScalarValue
   writeProperty: (key: string, value: ComponentScalarValue) => void
+  clearProperty: (key: string) => void
   emitEvent: (eventName: string, payload?: unknown) => void
   invokeAction: (actionName: string, input?: unknown) => unknown | Promise<unknown>
   setVisualValue: (
@@ -29,11 +30,14 @@ export type ControlledRuntimeHost = {
     target: VisualRuntimeTarget,
     value: ControlledRuntimeVisualValue,
   ) => void
-  contributeVisualValue: (
+  clearVisualValue: (layerId: string, target: VisualRuntimeTarget) => void
+  setVisualContribution: (
+    controlId: string,
     layerId: string,
     target: VisualRuntimeTarget,
     contribution: ControlledRuntimeVisualValue,
   ) => void
+  clearVisualContribution: (controlId: string) => void
   reportDiagnostic: (entry: ControlledRuntimeDiagnosticEntry) => void
 }
 
@@ -41,6 +45,7 @@ export type ControlledComponentRuntime = Readonly<{
   properties: Readonly<{
     get: (key: string) => ComponentScalarValue
     set: (key: string, value: ComponentScalarValue) => void
+    clear: (key: string) => void
   }>
   events: Readonly<{
     emit: (eventName: string, payload?: unknown) => void
@@ -54,11 +59,14 @@ export type ControlledComponentRuntime = Readonly<{
       target: VisualRuntimeTarget,
       value: ControlledRuntimeVisualValue,
     ) => void
+    clear: (layerId: string, target: VisualRuntimeTarget) => void
     contribute: (
+      controlId: string,
       layerId: string,
       target: VisualRuntimeTarget,
       contribution: ControlledRuntimeVisualValue,
     ) => void
+    clearContribution: (controlId: string) => void
   }>
   diagnostics: Readonly<{
     log: (
@@ -92,6 +100,12 @@ function requireAction(definition: ComponentDefinition, actionName: string) {
 function requireLayer(visual: ComponentVisualDefinition, layerId: string) {
   if (!visual.layers.some((layer) => layer.id === layerId)) {
     throw new Error(`Controlled Runtime 引用了不存在的 Layer：${layerId}`)
+  }
+}
+
+function requireControlId(controlId: string) {
+  if (!controlId.trim()) {
+    throw new Error('Controlled Runtime visual controlId 不能为空')
   }
 }
 
@@ -170,6 +184,10 @@ export function createControlledComponentRuntime(
       }
       host.writeProperty(key, value)
     },
+    clear(key: string) {
+      requireProperty(definition, key)
+      host.clearProperty(key)
+    },
   })
 
   const events = Object.freeze({
@@ -196,14 +214,24 @@ export function createControlledComponentRuntime(
       assertAbsoluteVisualValue(target, value)
       host.setVisualValue(layerId, target, value)
     },
+    clear(layerId: string, target: VisualRuntimeTarget) {
+      requireLayer(visual, layerId)
+      host.clearVisualValue(layerId, target)
+    },
     contribute(
+      controlId: string,
       layerId: string,
       target: VisualRuntimeTarget,
       contribution: ControlledRuntimeVisualValue,
     ) {
+      requireControlId(controlId)
       requireLayer(visual, layerId)
       assertVisualContribution(target, contribution)
-      host.contributeVisualValue(layerId, target, contribution)
+      host.setVisualContribution(controlId, layerId, target, contribution)
+    },
+    clearContribution(controlId: string) {
+      requireControlId(controlId)
+      host.clearVisualContribution(controlId)
     },
   })
 
