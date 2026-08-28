@@ -1,9 +1,7 @@
-import { builtInComponentRegistry } from '../component-system/builtins'
 import type { ComponentRegistry } from '../component-system/registry'
 import { isGroupNode, type SceneDocument } from '../scene/model'
 import { ComponentPropertyStore } from './component-property-store'
 import type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
-import { createDefaultPreviewMockSources } from './mock-data-source'
 import { RuntimeValueStore } from './runtime-value-store'
 
 const MAX_BEHAVIOR_DISPATCH_DEPTH = 32
@@ -38,8 +36,8 @@ export class PreviewRuntime {
   private behaviorDispatchDepth = 0
 
   constructor(
-    sources: readonly RuntimeDataSource[] = [],
-    registry: ComponentRegistry = builtInComponentRegistry,
+    sources: readonly RuntimeDataSource[],
+    registry: ComponentRegistry,
   ) {
     this.sources = [...sources]
     this.registry = registry
@@ -292,7 +290,3 @@ export class PreviewRuntime {
     this.behaviorDispatchDepth = 0
   }
 }
-
-export const previewRuntime = new PreviewRuntime(
-  createDefaultPreviewMockSources(),
-)
