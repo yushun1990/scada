@@ -39,6 +39,10 @@ export class ComponentRegistry {
     return registration
   }
 
+  unregister(type: string) {
+    return this.registrations.delete(type)
+  }
+
   has(type: string) {
     return this.registrations.has(type)
   }
