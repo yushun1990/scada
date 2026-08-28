@@ -1,16 +1,21 @@
-import type { ComponentDefinition, ComponentProps } from './definition'
+import type {
+  ComponentActionArguments,
+  ComponentDefinition,
+  ComponentEventPayload,
+  ComponentProps,
+} from './definition'
 import type { ComponentRenderer } from './renderer'
 
 export type ComponentActionHandlerContext = {
   nodeId: string
   componentType: string
   props: Readonly<ComponentProps>
-  emit: (eventName: string, payload?: unknown) => void
+  emit: (eventName: string, payload?: ComponentEventPayload) => void
 }
 
 export type ComponentActionHandler = (
   context: ComponentActionHandlerContext,
-  input?: unknown,
+  argumentsValue: ComponentActionArguments,
 ) => unknown | Promise<unknown>
 
 export type ComponentRegistration = {
