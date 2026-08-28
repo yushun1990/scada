@@ -1,6 +1,12 @@
 export type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
 export { resolveEffectiveComponentProps } from './effective-component-props'
 export {
+  ComponentPropertyStore,
+  type ComponentDerivedPropertyUpdate,
+  type ComponentPropertySnapshot,
+  type ComponentPropertyStoreListener,
+} from './component-property-store'
+export {
   assertControlledScriptInvocation,
   assertControlledScriptSource,
   DEFAULT_CONTROLLED_SCRIPT_LIMITS,
