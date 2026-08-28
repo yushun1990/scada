@@ -189,6 +189,14 @@ ScadaDeviceActionDispatcher       outbound device/platform effects
 
 Do not route outbound actions through a telemetry source abstraction merely because one already exists.
 
+### 3.10 Persisted SCADA semantics are structured and canonical
+
+DSL source text is an authoring surface, not the long-term runtime persistence authority.
+
+Persisted Value Binding / Behavior / Interaction semantics must use canonical structured references and stable semantic IDs rather than compile-session statement positions.
+
+Scene v7 is the first Scene revision carrying this canonical `scadaSemantics` contract. Legacy v5 bindings and v6 behaviors remain compatibility-only data and are not silently promoted into new semantics.
+
 ---
 
 # 4. Milestone status
@@ -219,7 +227,8 @@ M6.5.8 Transactional propagation session                       accepted
 M6.5.9A Runtime semantic hardening                             accepted · 2026-08-28
 M6.5.9B Preview Runtime state ownership                        accepted · 2026-08-28
 M6.5.9C Narrow Preview integration                             accepted · 2026-08-28
-M6.5.10 Typed Action/Event contract + device dispatch          implementation complete · review gate
+M6.5.10 Typed Action/Event contract + device dispatch          accepted · 2026-08-28
+M6.5.11 Stable persistence semantics                           accepted · 2026-08-28
 ```
 
 The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
@@ -267,6 +276,7 @@ Important rules:
 - Action arguments are ordered scalar arrays validated against public metadata before handler execution.
 - Event payloads are named scalar records validated against public metadata before publication.
 - Device/Platform Action effects cross an explicit outbound dispatcher boundary separate from inbound telemetry.
+- Scene persistence stores canonical semantic structures, not authoring aliases or statement-position IDs.
 
 QuickJS is **not** the current product center. Existing controlled-runtime experiments remain useful implementation evidence, but unrestricted or general-purpose scripting stays frozen unless a later requirement proves it necessary.
 
@@ -344,17 +354,11 @@ Device/Platform Action effect
 host dispatcher
 ```
 
-Do not persist the compiled program into Scene v6 merely because the Preview bridge exists. Stable persistence remains M6.5.11 work.
-
 ---
 
-# 7. M6.5.10 Typed Action / Event contract and device action dispatch — current review gate
+# 7. M6.5.10 Typed Action / Event contract and device action dispatch — accepted · 2026-08-28
 
-Goal:
-
-> Give Component Actions, Component Events and outbound Device/Platform Actions one explicit public contract before those semantics become long-term persisted scene data.
-
-Implementation establishes:
+Accepted implementation:
 
 - ordered Component Action parameter metadata
 - explicit parameter names, scalar/select kind, nullability and trailing optionality
@@ -368,7 +372,7 @@ Implementation establishes:
 - an explicit `ScadaDeviceActionDispatcher` / `ScadaDeviceActionInvocation` outbound host interface
 - strict separation between inbound `RuntimeDataSource` and outbound Device/Platform Action dispatch
 
-Accepted runtime shape under review:
+Accepted runtime shape:
 
 ```text
 DSL component.action(a, b)
@@ -390,38 +394,58 @@ ScadaDeviceActionInvocation
 ScadaDeviceActionDispatcher
 ```
 
-Important boundaries:
+Important boundaries remain:
 
 - an Event without a payload schema accepts no payload
 - Event payloads reject unknown fields
 - Action optional parameters must be trailing
 - dynamic select values are validated against declared options at runtime
 - Event payload fields are not yet exposed as DSL `event.*` expression references
-- no production network/RPC adapter is required at this gate
-
-Regression coverage must include component-definition validation, runtime Action/Event validation, DSL arity/type rejection, parameterized Component Action execution against the settled Preview snapshot and typed Device Action dispatch.
-
-After this review gate is accepted, proceed directly to M6.5.11.
+- no production network/RPC adapter is required by the accepted gate
 
 ---
 
-# 8. M6.5.11 Stable persistence semantics — NEXT after 6.5.10 acceptance
+# 8. M6.5.11 Stable persistence semantics — accepted · 2026-08-28
 
-Before storing the new scene semantics as the long-term scene format, settle:
+Accepted persistence flow:
 
-- stable binding/behavior/interaction IDs independent of statement position
-- canonical structured references after DSL authoring resolution
-- scene-schema migration strategy
-- compatibility with legacy Scene v6 behavior
-- persistence representation for the accepted semantic model
+```text
+DSL source
+    ↓ parse / lower / analyze
+validated semantic plan
+    ↓ canonical persistence conversion
+PersistedScadaSemantics v1
+    ↓
+Scene v7 component.scadaSemantics
+```
 
-The DSL text is an authoring surface, not automatically the persistence model.
+Accepted work:
 
-Do not introduce a Scene schema revision only because implementation internals changed; require a real persisted-contract need.
+- stable Value Binding / Behavior / Interaction IDs independent of unrelated DSL statement position
+- canonical primary-device-relative and explicit-source references after authoring symbol resolution
+- a versioned structured `PersistedScadaSemantics` representation
+- direct restore from persisted semantics into an executable semantic/compiled runtime plan without reparsing DSL text
+- duplicate persisted ID, duplicate Value writer and Component Property cycle rejection
+- current component-contract validation for persisted Component Property, Component Action and Component Event references
+- Scene schema v7 with explicit `scadaSemantics: object | null` on serialized component nodes
+- v1-v6 Scene migration to v7 with `scadaSemantics: null`
+- preservation of legacy v5 runtime-value bindings and v6 Event -> Component Action behaviors as compatibility-only data
+- save normalization through the current Scene parser/migrator rather than raw `JSON.stringify(scene)`
+- deterministic persistence regression coverage in CI
+
+Persistence rule:
+
+> DSL source text and compile-session IDs are authoring/runtime-construction artifacts. The long-term Scene format stores canonical structured semantics with stable identity.
+
+Scene v7 is justified by the new persisted SCADA semantic contract; it is not schema churn caused only by internal implementation changes.
+
+Legacy v6 behavior remains compatibility-only and is not silently translated into new semantics.
+
+Detailed acceptance record: `docs/progress/m6.5.11-stable-persistence-semantics.md`.
 
 ---
 
-# 9. M6.6 Local persistence foundation
+# 9. M6.6 Local persistence foundation — NEXT
 
 This milestone replaces direct feature-level browser storage with an explicit storage boundary.
 
@@ -474,7 +498,7 @@ Example shape, not frozen schema:
 
 IndexedDB is preferred over `localStorage` for the long-term local layer because the project will eventually store larger structured documents and potentially binary assets.
 
-Do not interrupt active M6.5 runtime work merely to migrate storage early.
+M6.6 must keep local authoring backend-independent and should provide Memory repositories using the same public interfaces before browser storage details leak back into Workbench features.
 
 ---
 
@@ -510,7 +534,7 @@ Backend responsibilities may include:
 
 Backend responsibilities must **not** expand into SCADA runtime ownership.
 
-No backend server needs to be provisioned for the current M6.5 work.
+No backend server needs to be provisioned for the current M6 work.
 
 ---
 
@@ -543,20 +567,20 @@ The repository should not pay an architectural or operational cost merely so loc
 
 # 12. Immediate execution sequence
 
-Current execution order from `main` plus the active review branch:
+Current execution order from `main` plus the accepted runtime/persistence gates:
 
 ```text
 1. M6.5.9A runtime semantic hardening                                  accepted · 2026-08-28
 2. M6.5.9B Preview Runtime state ownership                             accepted · 2026-08-28
 3. M6.5.9C narrow Preview integration                                  accepted · 2026-08-28
-4. M6.5.10 typed Action/Event contract + action dispatcher             current review gate
-5. M6.5.11 stable scene persistence semantics                          NEXT after 6.5.10 acceptance
-6. M6.6 storage abstraction + IndexedDB + debug snapshot               after runtime semantics
+4. M6.5.10 typed Action/Event contract + action dispatcher             accepted · 2026-08-28
+5. M6.5.11 stable scene persistence semantics                          accepted · 2026-08-28
+6. M6.6 storage abstraction + IndexedDB + debug snapshot               NEXT
 7. M6.7 user component publication / optional backend                  later
 8. M7 packaging / production adapters / reusable component set         later
 ```
 
-The **next implementation step after the current M6.5.10 review gate is M6.5.11**.
+The **next implementation step is M6.6 Local persistence foundation**.
 
 Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision a backend before a remote-publication requirement exists.
 
@@ -581,7 +605,7 @@ Runtime tests should prefer explicit inputs and deterministic snapshots over tim
 
 # 14. Near-term non-goals
 
-The following should not distract the active M6.5 work:
+The following should not distract the active M6 work:
 
 - production backend provisioning
 - component marketplace
