@@ -1,3 +1,11 @@
+import type {
+  ComponentActionArguments,
+  ComponentEventPayload,
+} from '../component-system/definition'
+import {
+  normalizeComponentActionArguments,
+  normalizeComponentEventPayload,
+} from '../component-system/interactions'
 import type { ComponentRegistry } from '../component-system/registry'
 import type { ComponentSceneNode, SceneDocument } from '../scene/model'
 import { ComponentPropertyStore } from './component-property-store'
@@ -18,7 +26,7 @@ export type ComponentRuntimeEvent = {
   nodeId: string
   componentType: string
   eventName: string
-  payload?: unknown
+  payload?: ComponentEventPayload
 }
 
 export type ComponentRuntimeEventListener = (
@@ -95,8 +103,8 @@ export class PreviewRuntime {
    *
    * While claimed, Component Events are still published to subscribers, but
    * legacy Scene v6 Event -> Component Action behaviors are not auto-dispatched
-   * for that node. M6.5.9C can therefore attach Interaction Binding handling
-   * without accidentally running both semantic models for the same event.
+   * for that node. The compiled Interaction path therefore cannot race the
+   * compatibility Event -> Component Action path.
    */
   claimCompiledSemantics(nodeId: string) {
     this.requireComponentTarget(nodeId)
@@ -115,7 +123,11 @@ export class PreviewRuntime {
     }
   }
 
-  invokeAction(nodeId: string, actionName: string, input?: unknown) {
+  invokeAction(
+    nodeId: string,
+    actionName: string,
+    argumentsValue: ComponentActionArguments = [],
+  ) {
     const target = this.requireComponentTarget(nodeId)
     const action = target.registration.definition.actions[actionName]
 
@@ -133,6 +145,12 @@ export class PreviewRuntime {
       )
     }
 
+    const normalizedArguments = normalizeComponentActionArguments(
+      action,
+      argumentsValue,
+      `Component ${target.node.type} Action ${actionName}`,
+    )
+
     // Renderer and Action handlers consume the exact same immutable, settled
     // host-owned snapshot. Neither path independently reconstructs props.
     const props = this.componentProps.getNodeSnapshot(nodeId)
@@ -146,26 +164,36 @@ export class PreviewRuntime {
           this.emitEvent(nodeId, eventName, payload)
         },
       },
-      input,
+      normalizedArguments,
     )
   }
 
-  emitEvent(nodeId: string, eventName: string, payload?: unknown) {
+  emitEvent(
+    nodeId: string,
+    eventName: string,
+    payload?: ComponentEventPayload,
+  ) {
     const target = this.requireComponentTarget(nodeId)
+    const eventDefinition = target.registration.definition.events[eventName]
 
-    if (!target.registration.definition.events[eventName]) {
+    if (!eventDefinition) {
       throw new Error(
         `Component ${target.node.type} does not declare event ${eventName}`,
       )
     }
 
+    const normalizedPayload = normalizeComponentEventPayload(
+      eventDefinition,
+      payload,
+      `Component ${target.node.type} Event ${eventName}`,
+    )
     const event: ComponentRuntimeEvent = Object.freeze({
       sequence: ++this.eventSequence,
       timestamp: Date.now(),
       nodeId,
       componentType: target.node.type,
       eventName,
-      payload,
+      payload: normalizedPayload,
     })
 
     for (const listener of [...this.eventListeners]) {
