@@ -4,6 +4,7 @@ import {
   parseSceneDocument,
   serializeSceneDocument,
 } from '../../scene/validation'
+import { prepareComponentRuntimeRegistry } from '../component-library/storage'
 
 export type ScadaWorkSummary = {
   id: string
@@ -53,6 +54,7 @@ function parseRecord(workId: string, document: string, updatedAt: string) {
 }
 
 async function ensureInitialWork() {
+  await prepareComponentRuntimeRegistry()
   await ensureBrowserPersistenceReady()
   const records = await browserPersistence.scenes.list()
   if (records.length > 0) return records
@@ -78,6 +80,7 @@ export async function listScadaWorks(): Promise<ScadaWorkSummary[]> {
 }
 
 export async function prepareScadaScene(workId: string) {
+  await prepareComponentRuntimeRegistry()
   await ensureBrowserPersistenceReady()
   const record = await browserPersistence.scenes.get(workId)
 
