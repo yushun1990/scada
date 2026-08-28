@@ -1,6 +1,16 @@
 # SCADA Editor Lab Development Plan
 
-## 1. Product direction
+## 1. Purpose of this document
+
+`PLAN.md` is the current execution roadmap and architecture gate for the project.
+
+It intentionally does **not** duplicate the full delivery history. Detailed acceptance records belong under `docs/progress/`.
+
+When this file and an older progress note disagree about the next step, this file is the source of truth for current sequencing.
+
+---
+
+## 2. Product direction
 
 This repository is a browser-first, generic SCADA authoring and runtime experiment.
 
@@ -15,6 +25,7 @@ Workspace
 │           ├─ move / resize / rotate / connect
 │           ├─ configure public properties
 │           ├─ bind runtime data
+│           ├─ define narrow presentation / interaction behavior
 │           └─ preview / run
 │
 └─ Component Library
@@ -23,8 +34,7 @@ Workspace
             ├─ public contract
             ├─ layered visual composition
             ├─ rules / expressions
-            ├─ animation / visual behavior
-            ├─ controlled script
+            ├─ animation / private visual behavior
             └─ preview / diagnostics
 ```
 
@@ -32,18 +42,13 @@ The guiding product rule remains:
 
 > Increasing Component Workbench power must not increase normal SCADA scene-authoring complexity.
 
-Detailed architecture remains in:
-
-- [`docs/architecture/component-system.md`](docs/architecture/component-system.md)
-- [`docs/architecture/editor-foundation.md`](docs/architecture/editor-foundation.md)
-- [`docs/architecture/visual-connections.md`](docs/architecture/visual-connections.md)
-- [`docs/product/editor-ui.md`](docs/product/editor-ui.md)
+SCADA is not a general rule engine. Its scene-level runtime should remain focused on presentation state and explicit user/component interactions.
 
 ---
 
-## 2. Architectural invariants
+## 3. Architectural invariants
 
-### 2.1 Public contract vs private implementation
+### 3.1 Public contract vs private implementation
 
 Reusable component public contract:
 
@@ -58,534 +63,482 @@ Visual Layers
 SVG / Image / Vector / Text internals
 Visual Rules
 Visual animation / behavior
-Internal state
-Scripts
+Internal transient state
+Scripts / implementation details
 Native renderer details
 ```
 
 SCADA Workbench consumes only the public contract.
 
-A component may internally map public data to private visual behavior, but a scene author should not bind directly to private Layer implementation details.
+A scene author must not bind directly to private Layer implementation details.
 
-### 2.2 Component creation source must not change component capability
+### 3.2 Renderer-independent runtime boundary
 
-A component visual may come from:
+User-authored behavior must not receive raw React, DOM or `Konva.Node` objects as its public programming contract.
 
-```text
-Native renderer
-Composite visual tree
-SVG
-Bitmap
-Vector primitives
-Text
-Groups
-```
-
-These sources may be mixed and nested. They do not decide whether the component supports Properties, Actions, Events, Anchors, Rules, Animation or Script.
-
-### 2.3 Component Workbench may be powerful; SCADA Workbench should remain simple
-
-Advanced authoring complexity belongs in component development. Scene authors should not need to understand a component's private Layer Tree, animation implementation or scripts.
-
-### 2.4 Renderer-independent component boundary
-
-User-authored component logic must not receive raw React, DOM or `Konva.Node` objects as its public programming contract.
-
-Target boundary:
+Target layering:
 
 ```text
-Component Rule / Behavior / Script
+Scene Value / Behavior / Interaction semantics
         ↓
-Controlled Runtime API
+Compiled runtime model
         ↓
-Visual Runtime Model
+Host-owned runtime state and effects
         ↓
-Konva renderer
-```
-
-### 2.5 Visual connection and runtime behavior remain separate
-
-```text
-SceneConnection
-= visible pipe / wire / process line
-
-Runtime Binding / Behavior
-= property data / event / action semantics
-```
-
-Visual anchors are not runtime ports.
-
-### 2.6 Editing interaction must be predictable
-
-For both SCADA Workbench and Component Workbench:
-
-- dragging follows the pointer directly
-- snapping does not modify position during drag
-- alignment/snap guides are hints only while dragging
-- actual snapping happens once on pointer release / `dragend`
-- grid display and snap enable state are independent concepts
-- canvas commands belong in the Canvas Toolbar, not the document Header
-
----
-
-# 3. Milestone status
-
-```text
-M0 Application shell / Workspace                              complete enough
-M1 Canvas / viewport / fixed artboard                         mostly complete
-M2 Editing commands / history / hierarchy                     usable
-M3 Generic visual connections                                 usable
-M4 Generic component kernel / registry                        accepted
-M5 SCADA Runtime v0.1                                         accepted
-M6 Component Workbench v1                                     active
-M7 Packaging / production adapters / reusable component set    later
-```
-
-Runtime v0.1 was accepted on 2026-08-09. Component Workbench is the active implementation phase.
-
-Runtime delivery history is recorded in [`docs/progress/runtime-v0.1.md`](docs/progress/runtime-v0.1.md).
-
-Component Workbench history is recorded in the individual M6 progress documents under `docs/progress/`.
-
----
-
-# 4. Current implementation map
-
-## 4.1 SCADA Workbench
-
-Implemented or usable:
-
-- fixed scene sizes
-- viewport zoom / fit / pan
-- grid display and snap
-- single / multi-selection
-- marquee selection
-- move / resize / rotate
-- alignment guides
-- align / distribute
-- persistent Group / Ungroup
-- lock / visibility
-- undo / redo
-- duplicate
-- component palette
-- schema-driven Property Inspector
-- runtime data binding
-- Preview runtime lifecycle
-- Action / Event runtime kernel
-- persisted Event -> Action behavior
-- visual anchors and SceneConnections
-
-Current movement invariant:
-
-> SCADA node movement does not snap while dragging; grid/object snap is evaluated once after drag ends.
-
-## 4.2 Component Workbench
-
-Implemented:
-
-- package-backed public `ComponentDefinition`
-- Properties / Actions / Events / Anchors authoring
-- private heterogeneous Layer Tree
-- Group / SVG / Image / Vector / Text layers
-- private `designSize` coordinate system
-- composite renderer
-- direct canvas select / move / resize / rotate
-- contextual Properties inspector
-- typed visual styles
-- Visual Rules
-- Preview property values and rule evaluation
-- selected-layer editor-only front priority
-- component design grid with configurable spacing
-- grid/object movement snapping
-- drag-time alignment hints
-- total snap toggle in the Canvas Toolbar
-- shared Layer multi-selection with `selectedLayerIds` + `primaryLayerId`
-- shared renderer/model-independent geometry command core
-- six Align commands and two Distribute commands
-- safe same-parent Group / Ungroup with transform preservation
-- private visual schema v3 with serialized animation experiment definitions
-- renderer-independent timing/easing/Property activation experiment foundation
-- Preview-only transient clock and overlay composition after Visual Rules
-- dedicated selected-Layer `动画` Inspector group
-- Spin / Move / Scale / Fade / Blink authoring
-- Property-gated animation activation with typed condition semantics
-- accepted continuous additive / multiplicative and discrete gate experiments
-- generic canonical Visual Runtime targets for x/y/rotation/scale/opacity/visible
-- generic `add` / `multiply` / `gate` transient composition descriptors
-- save/reopen persistence for current authored animation definitions
-- deployed browser smoke for every accepted animation experiment family
-
-Current gate:
-
-> M6.4.1 Spin runtime, M6.4.2 Spin authoring, M6.4.3 Move, M6.4.4 Scale, M6.4.5 Fade and M6.4.6 Blink are accepted. Named effect experimentation is closed. M6.4.7 Visual Runtime abstraction consolidation is active: current named definitions remain compatible authoring adapters while the transient runtime is being generalized around canonical visual targets and composition semantics.
-
-The detailed record is [`docs/progress/m6.4-animation-foundation.md`](docs/progress/m6.4-animation-foundation.md).
-
----
-
-# 5. M6 Component Workbench v1
-
-## M6.1 Package-backed public contract — complete
-
-The Workbench owns the real serializable `ComponentDefinition` and authors:
-
-- metadata
-- default/minimum instance size
-- public Properties
-- public bindable Properties
-- Actions
-- Events
-- visual Anchors
-
-## M6.2 Layer Tree and Workbench shell — accepted / refined
-
-Implemented:
-
-- private versioned `ComponentVisualDefinition`
-- Group / SVG / Image / Vector / Text hierarchy
-- nesting / reorder / rename / delete
-- private visual `designSize`
-- Layers → Canvas → contextual Inspector shell
-- shared Studio UI primitives
-
-## M6.3 Visual authoring foundation — accepted · 2026-08-26
-
-```text
-M6.3.0 Composite renderer foundation                  complete
-M6.3.1 Direct component-canvas interaction            complete
-M6.3.1.1 Hit testing + private design space           complete
-M6.3.2 Typed visual styles                            complete
-M6.3.3 Property-driven Visual Rules                   complete
-M6.3.4 Component canvas authoring commands            accepted · 2026-08-26
-```
-
-M6.3.4 accepted behavior includes:
-
-- formal Canvas Toolbar ownership
-- configurable design grid
-- total snap toggle
-- object + grid movement snapping applied at `dragend`
-- drag-time guide hints without live persisted snapping
-- Canvas + Layers shared multi-selection state
-- primary Layer semantics for single-object Inspector editing
-- shared pure alignment/distribution math
-- all six Align commands
-- horizontal/vertical Distribute
-- same-parent Group / Ungroup with stable child ids and transform preservation
-- Preview geometry lockout
-
-Final M6.3.4 acceptance passed on 2026-08-26 in Pages Browser Smoke #24 against deployed revision `f5e7aea2e75489fbb4cc17a13106db994274c8b9`.
-
-**Result: M6.3 Visual authoring foundation is closed.**
-
-Do not reopen M6.3.4 with marquee, cross-parent grouping or resize/rotate snapping merely because they are adjacent canvas features; those remain separate future slices if needed.
-
-## M6.4 Animation / visual runtime foundation — active
-
-### Intent of the named animation families
-
-The concrete families in M6.4 were experiment vehicles:
-
-```text
-Spin   -> additive rotation
-Move   -> additive translation
-Scale  -> multiplicative transform scale
-Fade   -> multiplicative opacity
-Blink  -> discrete visibility gate
-```
-
-Their purpose was to exercise the Visual Runtime over representative state channels, then extract a generic foundation from working behavior.
-
-The intended longer-term layering is:
-
-```text
-private Layer visual properties / operations
-        ↓
-generic Visual Runtime primitives
-        ↓
-component-private Rules / Behavior / Script
-        ↓
-public Properties / Actions / Events
-        ↓
-SCADA Workbench data binding / behavior
-```
-
-A component may therefore use low-level visual functions internally while exposing domain-oriented capabilities such as `running`, `opening`, `start`, `stop` or `fault` externally.
-
-Do not treat `spin`, `move`, `scale`, `fade`, `blink` as a requirement for the final public runtime vocabulary.
-
-### Accepted runtime boundary
-
-```text
-serialized Layer state
-        ↓
-Visual Rules
-        ↓
-effective rule-resolved state
-        ↓
-pure time/property evaluation
-        ↓
-transient Visual Runtime Overlay
+Component / Visual Runtime
         ↓
 Renderer
         ↓
 Konva
 ```
 
-The Renderer does not own authored timing/activation semantics and runtime frames are never written back into the component package.
+Runtime evaluation should produce deterministic state changes/effects. The host owns side effects.
 
-### M6.4.1 Spin model / evaluator — accepted · 2026-08-26
-
-Accepted:
-
-- visual schema v3 with serialized `animations`
-- v1/v2 -> v3 migration
-- stable animation and Layer references
-- deterministic duration/delay/iterations/direction/easing
-- declarative `always` / typed Property activation
-- pure explicit-time evaluator
-- additive rotation composition
-- Visual Rules before animation overlays
-- Preview-owned `requestAnimationFrame` clock
-- static Design mode and immutable persisted base state
-
-Verification:
-
-- CI #496 ✅
-- Pages Browser Smoke #40 ✅
-
-### M6.4.2 Spin authoring UI — accepted · 2026-08-26
-
-Accepted:
-
-- dedicated selected-Layer `动画` Inspector
-- add/remove/enable/disable Spin
-- complete timing authoring
-- typed Property-condition activation
-- save/reopen persistence
-- real deployed Inspector authoring smoke
-
-Verification:
-
-- implementation revision `ebcfe6b5cc0694e0d27f8c36e88acb96b061b78d`
-- CI #507 ✅
-- Pages Browser Smoke #51 ✅
-- later documentation deployment #102 / Browser Smoke #53 ✅
-
-### M6.4.3 Move animation family — accepted · 2026-08-26
-
-Accepted:
-
-- `move` with X/Y displacement per iteration
-- additive translation overlay
-- deterministic multiple-Move composition
-- Rules resolve X/Y before Move
-- generalized multi-family Animation Inspector
-- real deployed Move authoring / persistence / activation smoke
-
-Final verification:
-
-- revision `acb97885cde07ddc6ee42bd2e4fe8ef7fb8338fd`
-- CI #512 ✅
-- Pages Deploy #105 ✅
-- Pages Browser Smoke #56 ✅
-
-### M6.4.4 Scale animation family — accepted · 2026-08-26
-
-Accepted:
-
-- `scale` with positive X/Y target multipliers
-- multiplicative scale overlay composition
-- deterministic multiple-Scale composition
-- rule-resolved scale multiplied afterward
-- mirrored negative base scale sign preserved
-- Inspector Scale authoring and deployed smoke
-
-Final verification:
-
-- revision `7eafdf4d71565a0095d80704fabfe2265ff7fb01`
-- CI #516 ✅
-- Pages Deploy #109 ✅
-- Pages Browser Smoke #60 ✅
-
-### M6.4.5 Fade animation family — accepted · 2026-08-26
-
-Accepted:
-
-- `fade` with opacity target multiplier in `[0, 1]`
-- multiplicative opacity overlay composition
-- deterministic multiple-Fade composition
-- Visual Rules resolve opacity before Fade
-- base opacity remains immutable
-- selected-Layer Fade authoring via the real Inspector
-- dedicated Fade deterministic model checks wired into CI
-- deployed Fade authoring / persistence / Property-gated Preview smoke
-
-Final acceptance revision:
-
-`a2687a1c0ce8c47cbf06903ddd9694082419993d`
-
-Verification:
-
-- CI #523 ✅
-- Pages Deploy #116 ✅
-- Pages Browser Smoke #67 ✅
-- same #67 kept Spin / Move / Scale, Chromium / Firefox pointer and SCADA geometry regressions green
-
-**Result: M6.4.5 accepted.**
-
-### M6.4.6 Blink / stepped visibility experiment — accepted · 2026-08-26
-
-Accepted:
-
-- `blink` as a discrete visibility experiment, not an opacity trick
-- raw directed phase separated from eased continuous progress
-- visible first half-cycle / hidden second half-cycle
-- easing ignored for Blink and disabled in Blink authoring UI
-- visibility overlay uses gate semantics: `rendered = ruleResolved && gate`
-- multiple Blink gates compose with logical AND
-- Blink cannot force rule/base-hidden Layers visible
-- finite completion removes transient gate and restores rule/base state
-- typed Property activation
-- real Inspector authoring and deployed Blink smoke
-
-Final functional acceptance revision:
-
-`c7072107c33d664744b845f2e1065aa6539a2a3c`
-
-Verification:
-
-- CI #531 ✅
-- Pages Deploy #124 ✅
-- Pages Browser Smoke #75 ✅
-- same #75 kept Spin / Move / Scale / Fade, Chromium / Firefox pointer and SCADA geometry regressions green
-
-**Result: M6.4.6 accepted. Named visual-effect experimentation is closed.**
-
-### M6.4.7 Visual Runtime abstraction consolidation — ACTIVE
-
-This is a required convergence slice, not optional cleanup.
-
-Goal:
-
-> Extract stable low-level visual runtime semantics from the five working experiments while retaining backward-compatible authoring behavior and the accepted renderer boundary.
-
-Proven evidence:
+### 3.3 Visual connection and runtime behavior remain separate
 
 ```text
-continuous additive       rotation, x, y
-continuous multiplicative scaleX, scaleY, opacity
-discrete gate             visible
-raw cycle phase           delay / iteration / direction
-continuous interpolation  easing(raw phase)
-transient composition     Rules -> overlay -> renderer
-runtime immutability      no frame persistence / undo writes
+SceneConnection
+= visible pipe / wire / process line
+
+Value / Behavior / Interaction Binding
+= runtime semantics
 ```
 
-First consolidation step implemented:
+Visual anchors are not runtime ports.
 
-- canonical Visual Runtime targets:
-  - `transform.x`
-  - `transform.y`
-  - `transform.rotation`
-  - `transform.scaleX`
-  - `transform.scaleY`
-  - `opacity`
-  - `visible`
-- target descriptors declare value kind, composition mode and identity
-- generic composition vocabulary:
-  - `add`
-  - `multiply`
-  - `gate`
-- generic transient overlay uses canonical target names rather than effect-specific overlay field names
-- current Spin / Move / Scale / Fade / Blink definitions act as adapters into the generic runtime
-- `applyVisualAnimationOverlay` delegates to renderer-independent generic Visual Runtime application
-- dedicated `scripts/check-visual-runtime.ts` proves target composition and immutable application without depending on named animation effects
+### 3.4 One effective Component Property truth
 
-Verification for the first consolidation step:
+Renderer reads and Component Action handlers must observe the same effective Component Property snapshot.
 
-- CI #539 ✅
-- exact signal: `Visual Runtime checks passed: canonical targets, add/multiply/gate composition, immutable application and type guards are independent of named animation effects.`
-- existing Spin / Move / Scale / Fade / Blink deterministic checks remain green through the generic target path
-
-M6.4.7 still needs to settle before acceptance:
+The project must not evolve into two independent property states such as:
 
 ```text
-1. whether authored intent needs a generic persistent definition or adapters/presets are sufficient
-2. absolute vs relative numeric target semantics
-3. stable runtime control IDs / handles for future Behavior and Script
-4. activation ownership boundary: definition-local condition vs external behavior control
-5. compatibility strategy before any possible visual schema v4
-6. full deployed browser regression after consolidation
+Renderer props        !=        Action handler props
 ```
 
-Do **not** perform a destructive schema rewrite just to make the model look generic. Schema v3 remains until the abstraction proves a real persistence need.
+Authored/default values, external bindings and derived DSL values may be separate layers internally, but their final effective snapshot must have one owner and one ordering rule.
 
-`pulse` does not become a separate runtime primitive unless this consolidation discovers a real semantic gap; Scale + `alternate` already covers its underlying runtime behavior.
+### 3.5 Declarative Value Bindings must remain deterministic
 
-## M6.5 Controlled Script Runtime — pending
+A Component Property may have at most one declarative Value Binding writer in one compiled scene program.
 
-Target API categories:
+The following must be rejected rather than resolved by event arrival order:
 
 ```text
-Property API
-Event / Action API
-Visual API
-Diagnostics
+component.temperature = device.a
+component.temperature = device.b
 ```
 
-Scripts must not receive unrestricted DOM / React / Konva / browser-global access.
+Missing/unresolved derived values must have explicit invalidation semantics. Implicit stale-value retention is not acceptable as the default DSL behavior.
 
-Visual Script APIs should operate on stable Visual Runtime model concepts produced by M6.4.7, not renderer nodes and not a growing collection of special-case effect functions.
+### 3.6 Primary-device rebind is transactional
 
-## M6.6 User component registration / publication — pending
+Primary-device rebind must not leave mixed state such as:
 
-Prove that a Workbench-authored component package can be consumed by SCADA Workbench through the same generic repository/registry path as built-ins without component-specific editor code.
+```text
+new primary device
++ old derived Component Properties
++ partially reset Behavior branch state
+```
+
+Either the rebind commits a coherent new runtime state or the previous committed state remains intact.
+
+### 3.7 Local-first persistence is the default authoring model
+
+Normal authoring must not require a backend server.
+
+Target persistence layering:
+
+```text
+Workbench / Runtime-facing repositories
+        ↓
+Storage abstraction
+        ├─ IndexedDB implementation       browser production/local authoring
+        └─ Memory implementation          deterministic tests / fixtures
+```
+
+Current `localStorage` persistence is transitional.
+
+The storage layer must support deterministic export/import of a debug snapshot so browser-only failures can be reproduced outside the user's browser.
+
+### 3.8 Backend is optional infrastructure, not runtime authority
+
+The backend must remain thin and must not own:
+
+- SCADA runtime evaluation
+- component rendering
+- DSL execution
+- device presentation state
+
+A remote backend becomes useful when the product needs publication, sharing, synchronization or centralized package persistence.
+
+Local editing should remain possible without it.
 
 ---
 
-# 6. Immediate execution sequence
+# 4. Milestone status
+
+```text
+M0 Application shell / Workspace                               complete enough
+M1 Canvas / viewport / fixed artboard                          usable
+M2 Editing commands / history / hierarchy                      usable
+M3 Generic visual connections                                  usable
+M4 Generic component kernel / registry                         accepted
+M5 SCADA Runtime v0.1                                          accepted
+M6 Component Workbench + scene semantics                       active
+M7 Packaging / production adapters / reusable component set     later
+```
+
+Important accepted M6 baseline:
+
+```text
+M6.1 Package-backed public component contract                  accepted
+M6.2 Layer Tree / Workbench shell                              accepted
+M6.3 Visual authoring foundation                               accepted · 2026-08-26
+M6.4 Animation / generic Visual Runtime foundation             accepted baseline
+M6.5.4 Text-first SCADA DSL surface                            accepted
+M6.5.5 Semantic lowering                                       accepted
+M6.5.6 Static analysis                                         accepted
+M6.5.7 Compiled runtime index                                  accepted
+M6.5.8 Transactional propagation session                       accepted
+```
+
+The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
+
+Detailed delivery history remains under `docs/progress/`.
+
+---
+
+# 5. Current runtime model
+
+Scene-level semantics are intentionally narrow:
+
+```text
+Value Binding
+multiple runtime values
+        ↓ pure expression
+Component Property
+
+Behavior Binding
+runtime data transition / condition
+        ↓
+Component Action
+        ↓
+component-private transient behavior
+
+Interaction Binding
+Component / user Event
+        ↓
+Device / Platform Action
+```
+
+Important rules:
+
+- Value Binding is declarative and reconstructible.
+- Behavior Binding reacts to data and may invoke Component Actions.
+- Interaction Binding is the only SCADA DSL path that may invoke a Device/Platform Action.
+- Data-driven device orchestration is outside this SCADA layer.
+- `device.*` remains relative to the component instance's primary device.
+- explicit external references remain stable and explicit.
+- propagation evaluates affected Value Bindings first, settles derived Component Properties, then evaluates affected Behaviors once against the settled state.
+- propagation cycles are authoring errors and are isolated rather than accepted as fixed-point programs.
+- runtime/propagation evaluation returns effects; host code executes side effects.
+
+QuickJS is **not** the current product center. Existing controlled-runtime experiments remain useful implementation evidence, but unrestricted or general-purpose scripting stays frozen unless a later requirement proves it necessary.
+
+---
+
+# 6. Current gate — M6.5.9 runtime semantic hardening and Preview integration
+
+Do **not** jump directly from M6.5.8 to a broad Preview adapter.
+
+M6.5.9 is split into three ordered slices.
+
+## M6.5.9A Runtime semantic hardening — NEXT
+
+Goal:
+
+> Make the compiled scene program deterministic and rebind-safe before connecting it to real Preview state.
+
+Required work:
+
+1. reject multiple Value Binding writers targeting the same Component Property
+2. define missing/unresolved derived-value invalidation semantics
+3. prevent old derived values from leaking across primary-device rebind
+4. make primary-device rebind atomic, including Behavior branch state rollback on failure
+5. provide one validated compile entry point that performs the required parse/lower/analyze/structural checks before runtime construction
+6. add regression fixtures for duplicate writers, missing values, rebind invalidation and rollback
+
+Default semantic direction:
+
+> A failed/unresolved derived Value Binding relinquishes its derived override so the effective property can fall back according to the host's normal authored/default layering. Last-known-good retention, if ever required, belongs to an explicit data-source/runtime policy rather than being an accidental DSL behavior.
+
+## M6.5.9B Preview Runtime state ownership
+
+Goal:
+
+> Define one host-owned effective Component Property model before applying DSL propagation effects to the renderer.
+
+Required work:
+
+- define effective property layering/order
+- ensure Renderer and Component Action handlers read the same settled snapshot
+- keep external RuntimeValueStore responsibilities separate from Component Property state
+- define the compatibility boundary for legacy Scene v6 bindings/behaviors
+- prevent legacy Event -> Component Action dispatch and new Interaction Binding dispatch from accidentally firing in parallel
+- document the `componentPropertyChanged` host sequencing contract or replace it with a less implicit API
+
+Legacy Scene v6 behavior remains compatibility-only. Do not extend it as the new behavior model.
+
+A later Scene schema revision may migrate/remove it after the new model is proven.
+
+## M6.5.9C Narrow Preview integration
+
+Goal:
+
+> Connect the accepted compiled runtime to Preview through the state ownership model established in M6.5.9B.
+
+Target flow:
+
+```text
+external source update
+        ↓
+compiled reverse index
+        ↓
+transactional propagation session
+        ↓
+settled effective Component Properties
+        ├─ Renderer
+        └─ Component Action handler context
+
+Component Event
+        ↓
+Interaction Binding
+        ↓
+Device/Platform Action effect
+        ↓
+host dispatcher
+```
+
+Acceptance must include an end-to-end Preview regression proving:
+
+- source property update changes the expected rendered component property
+- downstream derived property propagation settles before Behavior evaluation
+- Component Action sees the same effective props as the Renderer
+- component event produces one expected device/platform action effect
+- primary-device rebind does not leak the old device's derived values
+- aborted propagation/rebind produces no partial host effects
+
+---
+
+# 7. M6.5.10 Typed Action / Event contract and device action dispatch
+
+Current public Action/Event metadata is insufficient for general typed DSL integration.
+
+Before broad persistence/UI authoring, settle:
+
+- Action parameter/input schema
+- Event payload schema
+- DSL action-call argument model
+- runtime handler input model
+- static validation against the public contract
+- explicit host interface for Device/Platform Action dispatch
+
+Do not overload `RuntimeDataSource` merely because it already represents incoming values. Reading telemetry and dispatching actions are separate host capabilities.
+
+---
+
+# 8. M6.5.11 Stable persistence semantics
+
+Before storing the new scene semantics as the long-term scene format, settle:
+
+- stable binding/behavior/interaction IDs independent of statement position
+- canonical structured references after DSL authoring resolution
+- scene-schema migration strategy
+- compatibility with legacy Scene v6 behavior
+- persistence representation for the accepted semantic model
+
+The DSL text is an authoring surface, not automatically the persistence model.
+
+Do not introduce a Scene schema revision only because implementation internals changed; require a real persisted-contract need.
+
+---
+
+# 9. M6.6 Local persistence foundation
+
+This milestone replaces direct feature-level browser storage with an explicit storage boundary.
+
+Target architecture:
+
+```text
+SCADA Works / Component Library
+        ↓
+Repository interfaces
+        ├─ SceneRepository
+        ├─ ComponentRepository
+        └─ WorkspaceRepository as needed
+        ↓
+IndexedDB
+```
+
+Test architecture:
+
+```text
+same repository interfaces
+        ↓
+Memory repositories
+        ↓
+unit / integration fixtures
+```
+
+Required capabilities:
+
+- IndexedDB-backed local persistence
+- migration from currently supported `localStorage` data where practical
+- versioned storage schema
+- deterministic migration tests
+- export debug snapshot
+- import debug snapshot
+- reset local database
+- storage diagnostics
+
+Debug snapshot should be a portable, versioned representation of the user-relevant local state so a browser-only bug can become a committed regression fixture.
+
+Example shape, not frozen schema:
+
+```json
+{
+  "schemaVersion": 1,
+  "works": [],
+  "components": [],
+  "settings": {}
+}
+```
+
+IndexedDB is preferred over `localStorage` for the long-term local layer because the project will eventually store larger structured documents and potentially binary assets.
+
+Do not interrupt M6.5.9 runtime work merely to migrate storage early.
+
+---
+
+# 10. M6.7 User component registration / publication
+
+Only after runtime semantics and local storage boundaries are stable should remote component publication become active work.
+
+Goal:
+
+> Prove that a Workbench-authored component package can be consumed by SCADA Workbench through the same generic repository/registry path as built-ins without component-specific editor code.
+
+Expected local/remote split:
+
+```text
+Component Workbench
+        ↓ autosave / local draft
+IndexedDB
+        ↓ explicit publish
+Remote Component Repository / API
+        ↓
+SCADA Workbench / other clients
+```
+
+The existing thin Fastify/PostgreSQL experiment may be reused or redesigned at this point.
+
+Backend responsibilities may include:
+
+- component package persistence
+- publication state
+- revision/version metadata
+- remote retrieval/sharing
+- later synchronization if explicitly needed
+
+Backend responsibilities must **not** expand into SCADA runtime ownership.
+
+No backend server needs to be provisioned for the current M6.5 work.
+
+---
+
+# 11. Backend deployment policy
+
+Current state:
+
+- backend source code exists under `server/`
+- deployment assets exist under `deploy/`
+- current front-end authoring paths use browser-local persistence
+- the current runtime work does not require a live backend
+- the previous backend host is no longer considered required infrastructure
+
+Policy until M6.7:
+
+> Treat production backend deployment as deferred infrastructure.
+
+Before the next intentional backend deployment, re-evaluate:
+
+- API contract
+- package lifecycle (`draft` / `published`)
+- revision/version semantics
+- authentication model
+- component type uniqueness
+- whether SCADA Works require remote persistence at all
+
+The repository should not pay an architectural or operational cost merely so local browser state is externally visible during development. Debug snapshots and deterministic fixtures are the preferred debugging bridge.
+
+---
+
+# 12. Immediate execution sequence
 
 Current execution order from `main`:
 
 ```text
-1. M6.3.4 / M6.3 acceptance                              done
-2. M6.4 animation architecture boundary                   done
-3. M6.4.1 Spin runtime                                    accepted
-4. M6.4.2 Spin authoring                                  accepted
-5. M6.4.3 Move                                            accepted
-6. M6.4.4 Scale                                           accepted
-7. M6.4.5 Fade                                            accepted
-8. M6.4.6 Blink / stepped visibility experiment           accepted
-9. M6.4.7 Visual Runtime abstraction consolidation        ACTIVE
-10. M6.5 Controlled Script Runtime                        later
-11. M6.6 publish user-created composite component         later
-12. M7 packaging / adapters / production components       later
+1. Refresh PLAN / README / backend status documentation                current housekeeping
+2. M6.5.9A runtime semantic hardening                                  NEXT
+3. M6.5.9B Preview Runtime state ownership                             next
+4. M6.5.9C narrow Preview integration                                  next
+5. M6.5.10 typed Action/Event contract + action dispatcher             next
+6. M6.5.11 stable scene persistence semantics                          next
+7. M6.6 storage abstraction + IndexedDB + debug snapshot               after runtime semantics
+8. M6.7 user component publication / optional backend                  later
+9. M7 packaging / production adapters / reusable component set         later
 ```
 
-The **next implementation step remains M6.4.7**:
+The **next implementation step is M6.5.9A**.
 
-> Continue consolidation from the now-proven canonical target/composition layer. Resolve generic authored intent and stable runtime control semantics before deciding whether a persistent schema migration is justified. Preserve the current named definitions as compatibility adapters until an equivalent generic path is fully proven.
+Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision a backend before a remote-publication requirement exists.
 
 ---
 
-# 7. Near-term non-goals
+# 13. Verification policy
 
-The following should not distract the active M6.4 work:
+A milestone is not accepted merely because the TypeScript compiles.
 
+Use the narrowest relevant verification set:
+
+- deterministic model/runtime scripts for semantic behavior
+- CI for build, runtime checks and lint
+- regression fixtures for every repaired runtime edge case
+- deployed Pages smoke when browser/UI behavior changes
+- storage migration fixtures when persistence formats change
+- debug snapshots when a browser-only failure must be reproduced
+
+Runtime tests should prefer explicit inputs and deterministic snapshots over timing-sensitive renderer inspection whenever possible.
+
+---
+
+# 14. Near-term non-goals
+
+The following should not distract the active M6.5 work:
+
+- production backend provisioning
+- component marketplace
+- collaborative editing
+- general-purpose process orchestration
+- data-driven device command chains
+- unrestricted JavaScript execution
+- arbitrary DOM / React / Konva access from authored logic
+- arbitrary keyframe/timeline editor
+- new named animation families without a demonstrated generic-runtime gap
 - full vector illustration tooling
 - arbitrary path editing
-- rulers / manual guides
-- cross-parent Group in the first grouping slice
-- snapping during live drag
-- resize/rotate snapping before a separate need is established
-- arbitrary keyframe/timeline editor
-- CSS/Web Animations API as authored component contract
-- raw Konva Tween exposure
-- unrestricted component JavaScript execution
-- a separate Pulse runtime primitive
-- production component marketplace/package distribution
-- collaborative editing
 - protocol-specific component APIs
+- premature Scene schema churn
 
-These items are deferred, not rejected.
+These items are deferred or outside the SCADA layer, not necessarily rejected forever.
