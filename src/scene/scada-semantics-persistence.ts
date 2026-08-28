@@ -14,6 +14,21 @@ export type PersistedScadaSemanticReference =
   | { kind: 'component-property'; property: string }
   | { kind: 'source-property'; reference: ScadaPropertyReference }
 
+export type PersistedScadaBinaryOperator =
+  | 'or'
+  | 'and'
+  | '=='
+  | '!='
+  | '>'
+  | '>='
+  | '<'
+  | '<='
+  | '+'
+  | '-'
+  | '*'
+  | '/'
+  | '%'
+
 export type PersistedScadaExpression =
   | { kind: 'literal'; value: ComponentScalarValue }
   | { kind: 'reference'; reference: PersistedScadaSemanticReference }
@@ -24,20 +39,7 @@ export type PersistedScadaExpression =
     }
   | {
       kind: 'binary'
-      operator:
-        | 'or'
-        | 'and'
-        | '=='
-        | '!='
-        | '>'
-        | '>='
-        | '<'
-        | '<='
-        | '+'
-        | '-'
-        | '*'
-        | '/'
-        | '%'
+      operator: PersistedScadaBinaryOperator
       left: PersistedScadaExpression
       right: PersistedScadaExpression
     }
@@ -88,6 +90,22 @@ export type PersistedScadaSemantics = {
   interactions: readonly PersistedScadaInteraction[]
 }
 
+const BINARY_OPERATORS = new Set<PersistedScadaBinaryOperator>([
+  'or',
+  'and',
+  '==',
+  '!=',
+  '>',
+  '>=',
+  '<',
+  '<=',
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+])
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -103,6 +121,13 @@ function isScalar(value: unknown): value is ComponentScalarValue {
 
 function nonEmpty(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
+}
+
+function isBinaryOperator(value: unknown): value is PersistedScadaBinaryOperator {
+  return (
+    typeof value === 'string' &&
+    BINARY_OPERATORS.has(value as PersistedScadaBinaryOperator)
+  )
 }
 
 function clonePropertyReference(reference: ScadaPropertyReference): ScadaPropertyReference {
@@ -374,21 +399,11 @@ function parseExpression(value: unknown): PersistedScadaExpression | null {
   }
 
   if (value.kind === 'binary') {
-    const operators = new Set([
-      'or', 'and', '==', '!=', '>', '>=', '<', '<=', '+', '-', '*', '/', '%',
-    ])
-    if (typeof value.operator !== 'string' || !operators.has(value.operator)) {
-      return null
-    }
+    if (!isBinaryOperator(value.operator)) return null
     const left = parseExpression(value.left)
     const right = parseExpression(value.right)
     return left && right
-      ? {
-          kind: 'binary',
-          operator: value.operator as PersistedScadaExpression & never,
-          left,
-          right,
-        } as PersistedScadaExpression
+      ? { kind: 'binary', operator: value.operator, left, right }
       : null
   }
 
@@ -501,7 +516,9 @@ export function parsePersistedScadaSemantics(
       throw new Error('Persisted SCADA Value Binding is invalid')
     }
     const expression = parseExpression(candidate.expression)
-    if (!expression) throw new Error('Persisted SCADA Value Binding expression is invalid')
+    if (!expression) {
+      throw new Error('Persisted SCADA Value Binding expression is invalid')
+    }
     return {
       id: claimId(candidate.id, 'Value Binding'),
       targetProperty: candidate.targetProperty,
@@ -529,7 +546,9 @@ export function parsePersistedScadaSemantics(
           throw new Error('Persisted SCADA Component Action is invalid')
         }
         const args = parseActionArguments(action.arguments)
-        if (!args) throw new Error('Persisted SCADA Component Action arguments are invalid')
+        if (!args) {
+          throw new Error('Persisted SCADA Component Action arguments are invalid')
+        }
         return { action: action.action, arguments: args }
       })
       return {
