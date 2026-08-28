@@ -1,5 +1,17 @@
-import { useCallback, useEffect, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from 'react'
 import { Button, Pressable } from '../../ui'
+import {
+  exportBrowserDebugSnapshot,
+  getBrowserStorageDiagnostics,
+  importBrowserDebugSnapshot,
+  resetBrowserPersistence,
+} from '../../storage/browser-persistence'
 import {
   createScadaWork,
   listScadaWorks,
@@ -41,6 +53,7 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
   const [components, setComponents] = useState<ComponentLibraryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const snapshotInputRef = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -87,6 +100,92 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
     navigate('#/components/new')
   }
 
+  async function exportDebugSnapshot() {
+    try {
+      const snapshot = await exportBrowserDebugSnapshot()
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
+        type: 'application/json',
+      })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `scada-debug-snapshot-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      setMessage('本地调试快照已导出')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '调试快照导出失败')
+    }
+  }
+
+  async function importDebugSnapshot(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      await importBrowserDebugSnapshot(JSON.parse(await file.text()))
+      await refresh()
+      setMessage(`已导入调试快照 ${file.name}`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '调试快照导入失败')
+    }
+  }
+
+  async function showStorageDiagnostics() {
+    try {
+      const diagnostics = await getBrowserStorageDiagnostics()
+      const migration = diagnostics.legacyMigration as { status?: unknown } | null
+      setMessage(
+        `IndexedDB v${diagnostics.databaseVersion} · ${diagnostics.sceneCount} scenes · ${diagnostics.componentCount} components · migration ${String(migration?.status ?? 'unknown')}`,
+      )
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '存储诊断失败')
+    }
+  }
+
+  async function resetStorage() {
+    if (!window.confirm('确认清空本地 SCADA 作品与自定义组件？此操作不可撤销。')) {
+      return
+    }
+
+    try {
+      await resetBrowserPersistence()
+      await refresh()
+      setMessage('本地数据库已重置')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '本地数据库重置失败')
+    }
+  }
+
+  const storageTools = (
+    <div className="workspace-storage-tools" aria-label="本地存储工具">
+      <Button variant="secondary" size="small" onClick={() => void showStorageDiagnostics()}>
+        存储诊断
+      </Button>
+      <Button variant="secondary" size="small" onClick={() => void exportDebugSnapshot()}>
+        导出调试快照
+      </Button>
+      <Button
+        variant="secondary"
+        size="small"
+        onClick={() => snapshotInputRef.current?.click()}
+      >
+        导入调试快照
+      </Button>
+      <Button variant="ghost" size="small" onClick={() => void resetStorage()}>
+        重置本地数据
+      </Button>
+      <input
+        ref={snapshotInputRef}
+        className="hidden-input"
+        type="file"
+        accept="application/json,.json"
+        onChange={(event) => void importDebugSnapshot(event)}
+      />
+    </div>
+  )
+
   return (
     <div className="workspace-shell">
       <aside className="workspace-sidebar">
@@ -120,6 +219,8 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
             </span>
           </Pressable>
         </nav>
+
+        {storageTools}
       </aside>
 
       <main className="workspace-main">
