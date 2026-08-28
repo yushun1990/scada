@@ -202,7 +202,8 @@ M6.5.6 Static analysis                                         accepted
 M6.5.7 Compiled runtime index                                  accepted
 M6.5.8 Transactional propagation session                       accepted
 M6.5.9A Runtime semantic hardening                             accepted · 2026-08-28
-M6.5.9B Preview Runtime state ownership                        implementation complete · review gate
+M6.5.9B Preview Runtime state ownership                        accepted · 2026-08-28
+M6.5.9C Narrow Preview integration                             implementation complete · review gate
 ```
 
 The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
@@ -243,8 +244,10 @@ Important rules:
 - `device.*` remains relative to the component instance's primary device.
 - explicit external references remain stable and explicit.
 - propagation evaluates affected Value Bindings first, settles derived Component Properties, then evaluates affected Behaviors once against the settled state.
+- one RuntimeValueStore publication is propagated as one source transaction when multiple tracked source properties change together.
 - propagation cycles are authoring errors and are isolated rather than accepted as fixed-point programs.
 - runtime/propagation evaluation returns effects; host code executes side effects.
+- Preview owns one settled Component Property snapshot used by both Renderer and Component Action handlers.
 
 QuickJS is **not** the current product center. Existing controlled-runtime experiments remain useful implementation evidence, but unrestricted or general-purpose scripting stays frozen unless a later requirement proves it necessary.
 
@@ -252,9 +255,7 @@ QuickJS is **not** the current product center. Existing controlled-runtime exper
 
 # 6. Current gate — M6.5.9 runtime semantic hardening and Preview integration
 
-Do **not** jump from the compiled runtime directly to a broad Preview adapter.
-
-M6.5.9 is split into three ordered slices.
+M6.5.9 is split into three ordered slices. A and B are accepted; C is the current review gate.
 
 ## M6.5.9A Runtime semantic hardening — accepted · 2026-08-28
 
@@ -275,13 +276,13 @@ Accepted semantic direction:
 
 > A failed/unresolved derived Value Binding relinquishes its derived override so the effective property can fall back according to the host's normal authored/default layering. Last-known-good retention, if ever required, belongs to an explicit data-source/runtime policy rather than being an accidental DSL behavior.
 
-## M6.5.9B Preview Runtime state ownership — current review gate
+## M6.5.9B Preview Runtime state ownership — accepted · 2026-08-28
 
 Goal:
 
 > Define one host-owned effective Component Property model before applying DSL propagation effects to the renderer.
 
-Implementation establishes:
+Accepted work:
 
 - deterministic effective property layering/order
 - one immutable settled Component Property snapshot owned by Preview
@@ -296,18 +297,31 @@ Legacy Scene v6 behavior remains compatibility-only. Do not extend it as the new
 
 A later Scene schema revision may migrate/remove it after the new model is proven.
 
-After this review gate is accepted, proceed directly to M6.5.9C.
-
-## M6.5.9C Narrow Preview integration — NEXT after 9B acceptance
+## M6.5.9C Narrow Preview integration — current review gate
 
 Goal:
 
 > Connect the accepted compiled runtime to Preview through the state ownership model established in M6.5.9B.
 
-Target flow:
+Implementation establishes:
+
+- one narrow runtime attachment from a validated compiled program to one live Preview component instance
+- external RuntimeValueStore publications routed only through relevant compiled reverse-index dependencies
+- multi-property source publications propagated as one transaction rather than source-arrival-order fragments
+- an explicit Component Property base snapshot that excludes the compiled derived layer
+- atomic derived-state commit into the host-owned Preview Component Property store
+- Component Action effects executing only after the settled property snapshot is committed
+- Renderer and Component Action handlers observing the exact same settled snapshot object
+- Component Events routed into compiled Interaction Bindings while legacy Scene v6 Event behavior is suppressed for the claimed node
+- Device / Platform Action effects exposed through a narrow host dispatcher callback
+- successful Primary Device rebind committing without old-device derived leakage
+- aborted source propagation/rebind exposing no partial derived Property or Component Action host effects
+- disposal releasing compiled-derived state and restoring the legacy compatibility path
+
+Accepted target flow under review:
 
 ```text
-external source update
+external source publication
         ↓
 compiled reverse index
         ↓
@@ -326,18 +340,13 @@ Device/Platform Action effect
 host dispatcher
 ```
 
-Acceptance must include an end-to-end Preview regression proving:
+The regression fixture covers every M6.5.9C acceptance item, including forced source-batch and rebind aborts.
 
-- source property update changes the expected rendered component property
-- downstream derived property propagation settles before Behavior evaluation
-- Component Action sees the same effective props as the Renderer
-- component event produces one expected device/platform action effect
-- primary-device rebind does not leak the old device's derived values
-- aborted propagation/rebind produces no partial host effects
+Do not persist the compiled program into Scene v6 merely to complete this gate. Stable persistence remains M6.5.11 work.
 
 ---
 
-# 7. M6.5.10 Typed Action / Event contract and device action dispatch
+# 7. M6.5.10 Typed Action / Event contract and device action dispatch — NEXT after 9C acceptance
 
 Current public Action/Event metadata is insufficient for general typed DSL integration.
 
@@ -351,6 +360,8 @@ Before broad persistence/UI authoring, settle:
 - explicit host interface for Device/Platform Action dispatch
 
 Do not overload `RuntimeDataSource` merely because it already represents incoming values. Reading telemetry and dispatching actions are separate host capabilities.
+
+M6.5.9C intentionally executes only zero-argument Component Action effects through the Preview bridge. Parameterized Component Actions are diagnosed rather than guessed because mapping DSL positional arguments into the current single `unknown` handler input belongs to this gate.
 
 ---
 
@@ -423,7 +434,7 @@ Example shape, not frozen schema:
 
 IndexedDB is preferred over `localStorage` for the long-term local layer because the project will eventually store larger structured documents and potentially binary assets.
 
-Do not interrupt M6.5.9 runtime work merely to migrate storage early.
+Do not interrupt active M6.5 runtime work merely to migrate storage early.
 
 ---
 
@@ -496,16 +507,16 @@ Current execution order from `main` plus the active review branch:
 
 ```text
 1. M6.5.9A runtime semantic hardening                                  accepted · 2026-08-28
-2. M6.5.9B Preview Runtime state ownership                             current review gate
-3. M6.5.9C narrow Preview integration                                  NEXT after 9B acceptance
-4. M6.5.10 typed Action/Event contract + action dispatcher             next
+2. M6.5.9B Preview Runtime state ownership                             accepted · 2026-08-28
+3. M6.5.9C narrow Preview integration                                  current review gate
+4. M6.5.10 typed Action/Event contract + action dispatcher             NEXT after 9C acceptance
 5. M6.5.11 stable scene persistence semantics                          next
 6. M6.6 storage abstraction + IndexedDB + debug snapshot               after runtime semantics
 7. M6.7 user component publication / optional backend                  later
 8. M7 packaging / production adapters / reusable component set         later
 ```
 
-The **next implementation step after the current M6.5.9B review gate is M6.5.9C**.
+The **next implementation step after the current M6.5.9C review gate is M6.5.10**.
 
 Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision a backend before a remote-publication requirement exists.
 

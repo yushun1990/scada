@@ -50,13 +50,16 @@ function freezeProps(props: ComponentProps): ComponentPropertySnapshot {
  *     < compiled-DSL derived overrides
  *
  * RuntimeValueStore remains external-source state. This store owns only the
- * settled Component Property snapshots consumed by renderers and Component
- * Action handlers.
+ * Component Property layers consumed by renderers and Component Action
+ * handlers. The base snapshot deliberately excludes compiled-derived overrides
+ * so a propagation session can evaluate its own derived graph without reading
+ * yesterday's derived state back as host input.
  */
 export class ComponentPropertyStore {
   private scene: SceneDocument | null = null
   private runtimeValues: RuntimeValueSnapshot = Object.freeze({})
   private readonly derivedOverrides = new Map<string, ComponentProps>()
+  private readonly baseSnapshots = new Map<string, ComponentPropertySnapshot>()
   private readonly snapshots = new Map<string, ComponentPropertySnapshot>()
   private readonly listeners = new Set<ComponentPropertyStoreListener>()
 
@@ -69,6 +72,11 @@ export class ComponentPropertyStore {
     }
   }
 
+  /** default + authored + legacy Scene v6 binding; no compiled DSL override. */
+  getNodeBaseSnapshot = (nodeId: string): ComponentPropertySnapshot =>
+    this.baseSnapshots.get(nodeId) ?? EMPTY_COMPONENT_PROPS
+
+  /** Final settled snapshot consumed by Preview Renderer and Component Actions. */
   getNodeSnapshot = (nodeId: string): ComponentPropertySnapshot =>
     this.snapshots.get(nodeId) ?? EMPTY_COMPONENT_PROPS
 
@@ -76,6 +84,8 @@ export class ComponentPropertyStore {
     this.scene = scene
     this.runtimeValues = runtimeValues
     this.derivedOverrides.clear()
+    this.baseSnapshots.clear()
+    this.snapshots.clear()
     this.recomputeAll(true)
   }
 
@@ -135,10 +145,12 @@ export class ComponentPropertyStore {
   reset() {
     const hadState =
       this.scene !== null ||
+      this.baseSnapshots.size > 0 ||
       this.snapshots.size > 0 ||
       this.derivedOverrides.size > 0
     this.scene = null
     this.runtimeValues = Object.freeze({})
+    this.baseSnapshots.clear()
     this.snapshots.clear()
     this.derivedOverrides.clear()
     if (hadState) this.publish()
@@ -168,6 +180,7 @@ export class ComponentPropertyStore {
 
     for (const nodeId of [...this.snapshots.keys()]) {
       if (liveNodeIds.has(nodeId)) continue
+      this.baseSnapshots.delete(nodeId)
       this.snapshots.delete(nodeId)
       this.derivedOverrides.delete(nodeId)
       changed = true
@@ -179,20 +192,29 @@ export class ComponentPropertyStore {
 
   private recomputeNode(node: ComponentSceneNode, publish: boolean) {
     const registration = this.registry.get(node.type)
-    const effective = freezeProps(
+    const base = freezeProps(
       registration
         ? resolveEffectiveComponentProps(
             registration.definition,
             node.props,
             node.bindings,
             this.runtimeValues,
-            this.derivedOverrides.get(node.id),
           )
         : node.props,
     )
-    const previous = this.snapshots.get(node.id)
-    if (snapshotsEqual(previous, effective)) return false
-    this.snapshots.set(node.id, effective)
+    const effective = freezeProps({
+      ...base,
+      ...(this.derivedOverrides.get(node.id) ?? {}),
+    })
+
+    const previousBase = this.baseSnapshots.get(node.id)
+    const previousEffective = this.snapshots.get(node.id)
+    const baseChanged = !snapshotsEqual(previousBase, base)
+    const effectiveChanged = !snapshotsEqual(previousEffective, effective)
+
+    if (!baseChanged && !effectiveChanged) return false
+    if (baseChanged) this.baseSnapshots.set(node.id, base)
+    if (effectiveChanged) this.snapshots.set(node.id, effective)
     if (publish) this.publish()
     return true
   }

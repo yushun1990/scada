@@ -43,6 +43,14 @@ export {
   type ComponentRuntimeEventListener,
 } from './preview-runtime'
 export {
+  attachPreviewScadaSemantics,
+  createPreviewScadaRuntimeValueKey,
+  type PreviewScadaDeviceActionDispatcher,
+  type PreviewScadaSemanticsAttachment,
+  type PreviewScadaSemanticsOptions,
+  type PreviewScadaSourceValueKey,
+} from './preview-scada-semantics'
+export {
   RuntimeValueStore,
   type RuntimeValue,
   type RuntimeValueSnapshot,
