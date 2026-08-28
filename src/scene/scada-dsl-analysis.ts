@@ -1,4 +1,5 @@
 import type {
+  ComponentContractValueDefinition,
   ComponentPropertyDefinition,
   ComponentScalarValue,
 } from '../component-system/definition'
@@ -82,6 +83,28 @@ function propertyTypes(
     types.push('null')
   }
 
+  return uniqueTypes(types)
+}
+
+function contractValueTypes(
+  definition: ComponentContractValueDefinition,
+): readonly ScadaDslStaticType[] {
+  const types: ScadaDslStaticType[] = []
+
+  if (definition.kind === 'number') types.push('number')
+  else if (definition.kind === 'boolean') types.push('boolean')
+  else if (definition.kind === 'string' || definition.kind === 'color') {
+    types.push('string')
+  } else if (definition.options?.length) {
+    for (const option of definition.options) {
+      types.push(typeof option.value === 'number' ? 'number' : 'string')
+    }
+  } else {
+    // An unbounded select may accept either supported scalar select family.
+    types.push('string', 'number')
+  }
+
+  if (definition.nullable) types.push('null')
   return uniqueTypes(types)
 }
 
@@ -294,13 +317,63 @@ function inferExpressionType(
   }
 }
 
+function requiredActionArgumentCount(
+  parameters: readonly { optional?: boolean }[],
+) {
+  let count = 0
+  parameters.forEach((parameter, index) => {
+    if (!parameter.optional) count = index + 1
+  })
+  return count
+}
+
 function checkActionArguments(
   statement: Extract<ScadaDslStatement, { kind: 'call-statement' }>,
   catalog: ScadaDslCapabilityCatalog,
   diagnostics: ScadaDslTypeDiagnostic[],
 ) {
-  for (const argument of statement.call.arguments) {
-    inferExpressionType(argument, catalog, diagnostics)
+  const inferredArguments = statement.call.arguments.map((argument) =>
+    inferExpressionType(argument, catalog, diagnostics),
+  )
+  const capability = findCapability(statement.call.callee, catalog)
+  if (
+    !capability ||
+    capability.capabilityKind !== 'action' ||
+    !capability.action
+  ) {
+    // Semantic lowering owns unknown/not-an-Action diagnostics.
+    return
+  }
+
+  const parameters = capability.action.parameters ?? []
+  const minimum = requiredActionArgumentCount(parameters)
+  const maximum = parameters.length
+  if (
+    statement.call.arguments.length < minimum ||
+    statement.call.arguments.length > maximum
+  ) {
+    diagnostics.push({
+      message: `Action ${statement.call.callee.path.join('.')} 参数数量无效：需要 ${minimum}..${maximum} 个，实际 ${statement.call.arguments.length} 个`,
+      span: statement.call.span,
+    })
+  }
+
+  const comparableCount = Math.min(
+    statement.call.arguments.length,
+    parameters.length,
+  )
+  for (let index = 0; index < comparableCount; index += 1) {
+    const inferred = inferredArguments[index]!
+    const parameter = parameters[index]!
+    if (!inferred.valid) continue
+
+    const accepted = contractValueTypes(parameter)
+    if (!isAssignable(inferred.types, accepted)) {
+      diagnostics.push({
+        message: `Action ${statement.call.callee.path.join('.')} 参数 ${index + 1}（${parameter.name}）需要 ${formatTypes(accepted)}，实际可能是 ${formatTypes(inferred.types)}`,
+        span: statement.call.arguments[index]!.span,
+      })
+    }
   }
 }
 

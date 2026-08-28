@@ -21,15 +21,49 @@ export type ComponentPropertyDefinition = {
   options?: readonly ComponentPropertyOption[]
 }
 
+/**
+ * Scalar public-contract value used by Action parameters and Event payload
+ * fields. Unlike Component Properties, these values have no default value, so
+ * nullability is explicit instead of inferred from a default.
+ */
+export type ComponentContractValueDefinition = {
+  title: string
+  kind: ComponentPropertyKind
+  description?: string
+  nullable?: boolean
+  options?: readonly ComponentPropertyOption[]
+}
+
+export type ComponentActionParameterDefinition = ComponentContractValueDefinition & {
+  name: string
+  /** Optional Action parameters must be trailing in parameter order. */
+  optional?: boolean
+}
+
 export type ComponentActionDefinition = {
   title: string
   description?: string
+  /** Ordered parameters map directly to ordered DSL/runtime Action arguments. */
+  parameters?: readonly ComponentActionParameterDefinition[]
+}
+
+export type ComponentEventPayloadFieldDefinition = ComponentContractValueDefinition & {
+  /** Missing fields are rejected unless explicitly optional. */
+  optional?: boolean
 }
 
 export type ComponentEventDefinition = {
   title: string
   description?: string
+  /**
+   * Event payloads are named records. When omitted, the Event accepts no
+   * payload. A declared payload schema rejects unknown fields.
+   */
+  payload?: Readonly<Record<string, ComponentEventPayloadFieldDefinition>>
 }
+
+export type ComponentActionArguments = readonly ComponentScalarValue[]
+export type ComponentEventPayload = Readonly<Record<string, ComponentScalarValue>>
 
 export type VisualAnchorRole = 'neutral' | 'source' | 'target' | 'both'
 
@@ -70,33 +104,57 @@ export type ComponentDefinition = {
 
 export type ComponentProps = Record<string, ComponentScalarValue>
 
-export function isComponentPropertyValue(
-  definition: ComponentPropertyDefinition,
+function isComponentScalarForContract(
+  kind: ComponentPropertyKind,
+  options: readonly ComponentPropertyOption[] | undefined,
+  allowNull: boolean,
   value: unknown,
 ): value is ComponentScalarValue {
-  if (value === null) {
-    return definition.defaultValue === null
-  }
+  if (value === null) return allowNull
 
-  if (definition.kind === 'number') {
+  if (kind === 'number') {
     return typeof value === 'number' && Number.isFinite(value)
   }
 
-  if (definition.kind === 'boolean') {
+  if (kind === 'boolean') {
     return typeof value === 'boolean'
   }
 
-  if (definition.kind === 'select') {
+  if (kind === 'select') {
     if (typeof value !== 'string' && typeof value !== 'number') {
       return false
     }
 
-    return definition.options?.length
-      ? definition.options.some((option) => option.value === value)
+    return options?.length
+      ? options.some((option) => option.value === value)
       : true
   }
 
   return typeof value === 'string'
+}
+
+export function isComponentContractValue(
+  definition: ComponentContractValueDefinition,
+  value: unknown,
+): value is ComponentScalarValue {
+  return isComponentScalarForContract(
+    definition.kind,
+    definition.options,
+    definition.nullable === true,
+    value,
+  )
+}
+
+export function isComponentPropertyValue(
+  definition: ComponentPropertyDefinition,
+  value: unknown,
+): value is ComponentScalarValue {
+  return isComponentScalarForContract(
+    definition.kind,
+    definition.options,
+    definition.defaultValue === null,
+    value,
+  )
 }
 
 export function createDefaultPropsFromDefinition(

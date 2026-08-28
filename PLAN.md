@@ -174,6 +174,21 @@ A remote backend becomes useful when the product needs publication, sharing, syn
 
 Local editing should remain possible without it.
 
+### 3.9 Action / Event public contracts are explicit
+
+Component Actions and Events are public runtime APIs, not untyped callback names.
+
+Action parameters are ordered scalar values validated against the public component definition. Event payloads are declared named scalar records with explicit required/optional fields.
+
+Inbound runtime values and outbound Device/Platform Actions remain different host capabilities:
+
+```text
+RuntimeDataSource                  inbound telemetry/value state
+ScadaDeviceActionDispatcher       outbound device/platform effects
+```
+
+Do not route outbound actions through a telemetry source abstraction merely because one already exists.
+
 ---
 
 # 4. Milestone status
@@ -203,7 +218,8 @@ M6.5.7 Compiled runtime index                                  accepted
 M6.5.8 Transactional propagation session                       accepted
 M6.5.9A Runtime semantic hardening                             accepted · 2026-08-28
 M6.5.9B Preview Runtime state ownership                        accepted · 2026-08-28
-M6.5.9C Narrow Preview integration                             implementation complete · review gate
+M6.5.9C Narrow Preview integration                             accepted · 2026-08-28
+M6.5.10 Typed Action/Event contract + device dispatch          implementation complete · review gate
 ```
 
 The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
@@ -248,20 +264,19 @@ Important rules:
 - propagation cycles are authoring errors and are isolated rather than accepted as fixed-point programs.
 - runtime/propagation evaluation returns effects; host code executes side effects.
 - Preview owns one settled Component Property snapshot used by both Renderer and Component Action handlers.
+- Action arguments are ordered scalar arrays validated against public metadata before handler execution.
+- Event payloads are named scalar records validated against public metadata before publication.
+- Device/Platform Action effects cross an explicit outbound dispatcher boundary separate from inbound telemetry.
 
 QuickJS is **not** the current product center. Existing controlled-runtime experiments remain useful implementation evidence, but unrestricted or general-purpose scripting stays frozen unless a later requirement proves it necessary.
 
 ---
 
-# 6. Current gate — M6.5.9 runtime semantic hardening and Preview integration
+# 6. M6.5.9 runtime semantic hardening and Preview integration — accepted · 2026-08-28
 
-M6.5.9 is split into three ordered slices. A and B are accepted; C is the current review gate.
+M6.5.9 was intentionally split into three ordered slices so Preview integration did not outrun deterministic runtime semantics or state ownership.
 
 ## M6.5.9A Runtime semantic hardening — accepted · 2026-08-28
-
-Goal:
-
-> Make the compiled scene program deterministic and rebind-safe before connecting it to real Preview state.
 
 Accepted work:
 
@@ -278,10 +293,6 @@ Accepted semantic direction:
 
 ## M6.5.9B Preview Runtime state ownership — accepted · 2026-08-28
 
-Goal:
-
-> Define one host-owned effective Component Property model before applying DSL propagation effects to the renderer.
-
 Accepted work:
 
 - deterministic effective property layering/order
@@ -295,15 +306,9 @@ Accepted work:
 
 Legacy Scene v6 behavior remains compatibility-only. Do not extend it as the new behavior model.
 
-A later Scene schema revision may migrate/remove it after the new model is proven.
+## M6.5.9C Narrow Preview integration — accepted · 2026-08-28
 
-## M6.5.9C Narrow Preview integration — current review gate
-
-Goal:
-
-> Connect the accepted compiled runtime to Preview through the state ownership model established in M6.5.9B.
-
-Implementation establishes:
+Accepted work:
 
 - one narrow runtime attachment from a validated compiled program to one live Preview component instance
 - external RuntimeValueStore publications routed only through relevant compiled reverse-index dependencies
@@ -313,12 +318,11 @@ Implementation establishes:
 - Component Action effects executing only after the settled property snapshot is committed
 - Renderer and Component Action handlers observing the exact same settled snapshot object
 - Component Events routed into compiled Interaction Bindings while legacy Scene v6 Event behavior is suppressed for the claimed node
-- Device / Platform Action effects exposed through a narrow host dispatcher callback
 - successful Primary Device rebind committing without old-device derived leakage
 - aborted source propagation/rebind exposing no partial derived Property or Component Action host effects
 - disposal releasing compiled-derived state and restoring the legacy compatibility path
 
-Accepted target flow under review:
+Accepted flow:
 
 ```text
 external source publication
@@ -340,32 +344,68 @@ Device/Platform Action effect
 host dispatcher
 ```
 
-The regression fixture covers every M6.5.9C acceptance item, including forced source-batch and rebind aborts.
-
-Do not persist the compiled program into Scene v6 merely to complete this gate. Stable persistence remains M6.5.11 work.
+Do not persist the compiled program into Scene v6 merely because the Preview bridge exists. Stable persistence remains M6.5.11 work.
 
 ---
 
-# 7. M6.5.10 Typed Action / Event contract and device action dispatch — NEXT after 9C acceptance
+# 7. M6.5.10 Typed Action / Event contract and device action dispatch — current review gate
 
-Current public Action/Event metadata is insufficient for general typed DSL integration.
+Goal:
 
-Before broad persistence/UI authoring, settle:
+> Give Component Actions, Component Events and outbound Device/Platform Actions one explicit public contract before those semantics become long-term persisted scene data.
 
-- Action parameter/input schema
-- Event payload schema
-- DSL action-call argument model
-- runtime handler input model
-- static validation against the public contract
-- explicit host interface for Device/Platform Action dispatch
+Implementation establishes:
 
-Do not overload `RuntimeDataSource` merely because it already represents incoming values. Reading telemetry and dispatching actions are separate host capabilities.
+- ordered Component Action parameter metadata
+- explicit parameter names, scalar/select kind, nullability and trailing optionality
+- named Component Event payload schemas with required/optional fields
+- definition validation for malformed Action/Event contracts
+- one ordered DSL Action argument model shared with runtime effects
+- static Action arity/type validation for Component, primary-device and external Action calls
+- validated/frozen Action argument arrays before Component Action handlers run
+- validated/frozen Event payloads before Component Events are published
+- parameterized Component Actions executing through the M6.5.9C Preview bridge
+- an explicit `ScadaDeviceActionDispatcher` / `ScadaDeviceActionInvocation` outbound host interface
+- strict separation between inbound `RuntimeDataSource` and outbound Device/Platform Action dispatch
 
-M6.5.9C intentionally executes only zero-argument Component Action effects through the Preview bridge. Parameterized Component Actions are diagnosed rather than guessed because mapping DSL positional arguments into the current single `unknown` handler input belongs to this gate.
+Accepted runtime shape under review:
+
+```text
+DSL component.action(a, b)
+        ↓
+ordered compiled arguments
+        ↓
+PreviewRuntime.invokeAction
+        ↓ validate / freeze
+Component Action handler(context, [a, b])
+
+Component implementation emits Event payload
+        ↓ validate / freeze
+Component Runtime Event
+        ↓
+Interaction Binding
+        ↓
+ScadaDeviceActionInvocation
+        ↓
+ScadaDeviceActionDispatcher
+```
+
+Important boundaries:
+
+- an Event without a payload schema accepts no payload
+- Event payloads reject unknown fields
+- Action optional parameters must be trailing
+- dynamic select values are validated against declared options at runtime
+- Event payload fields are not yet exposed as DSL `event.*` expression references
+- no production network/RPC adapter is required at this gate
+
+Regression coverage must include component-definition validation, runtime Action/Event validation, DSL arity/type rejection, parameterized Component Action execution against the settled Preview snapshot and typed Device Action dispatch.
+
+After this review gate is accepted, proceed directly to M6.5.11.
 
 ---
 
-# 8. M6.5.11 Stable persistence semantics
+# 8. M6.5.11 Stable persistence semantics — NEXT after 6.5.10 acceptance
 
 Before storing the new scene semantics as the long-term scene format, settle:
 
@@ -508,15 +548,15 @@ Current execution order from `main` plus the active review branch:
 ```text
 1. M6.5.9A runtime semantic hardening                                  accepted · 2026-08-28
 2. M6.5.9B Preview Runtime state ownership                             accepted · 2026-08-28
-3. M6.5.9C narrow Preview integration                                  current review gate
-4. M6.5.10 typed Action/Event contract + action dispatcher             NEXT after 9C acceptance
-5. M6.5.11 stable scene persistence semantics                          next
+3. M6.5.9C narrow Preview integration                                  accepted · 2026-08-28
+4. M6.5.10 typed Action/Event contract + action dispatcher             current review gate
+5. M6.5.11 stable scene persistence semantics                          NEXT after 6.5.10 acceptance
 6. M6.6 storage abstraction + IndexedDB + debug snapshot               after runtime semantics
 7. M6.7 user component publication / optional backend                  later
 8. M7 packaging / production adapters / reusable component set         later
 ```
 
-The **next implementation step after the current M6.5.9C review gate is M6.5.10**.
+The **next implementation step after the current M6.5.10 review gate is M6.5.11**.
 
 Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision a backend before a remote-publication requirement exists.
 

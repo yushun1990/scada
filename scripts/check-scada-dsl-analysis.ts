@@ -47,7 +47,12 @@ const component: ComponentDefinition = {
     },
   },
   actions: {
-    showFault: { title: 'Show fault' },
+    showFault: {
+      title: 'Show fault',
+      parameters: [
+        { name: 'pressure', title: 'Pressure', kind: 'number' },
+      ],
+    },
     showRunning: { title: 'Show running' },
     pulse: { title: 'Pulse' },
   },
@@ -68,7 +73,12 @@ const catalog = createScadaDslCapabilityCatalog(component, [
       pressure: { title: 'Pressure', kind: 'number', defaultValue: 0 },
     },
     actions: {
-      start: { title: 'Start' },
+      start: {
+        title: 'Start',
+        parameters: [
+          { name: 'pressure', title: 'Pressure', kind: 'number' },
+        ],
+      },
       stop: { title: 'Stop' },
     },
   },
@@ -145,6 +155,28 @@ assert.ok(invalidConditionalBranch.program)
 assert.match(
   checkScadaDslTypes(invalidConditionalBranch.program!, catalog).diagnostics[0]?.message ?? '',
   /不能把 number \| string 赋给 component\.level/,
+)
+
+const invalidActionType = parseScadaDsl(`
+if device.fault {
+  component.showFault("bad")
+}
+`)
+assert.ok(invalidActionType.program)
+assert.match(
+  checkScadaDslTypes(invalidActionType.program!, catalog).diagnostics[0]?.message ?? '',
+  /Action component\.showFault 参数 1.*需要 number.*实际可能是 string/,
+)
+
+const invalidActionArity = parseScadaDsl(`
+on component.startRequested {
+  device.start()
+}
+`)
+assert.ok(invalidActionArity.program)
+assert.match(
+  checkScadaDslTypes(invalidActionArity.program!, catalog).diagnostics[0]?.message ?? '',
+  /Action device\.start 参数数量无效/,
 )
 
 const lowered = lowerScadaDslProgram(valid.program!, catalog)
@@ -261,5 +293,5 @@ assert.deepEqual(dependencies.interactions[0], {
 assert.doesNotMatch(JSON.stringify(dependencies), /pump-01/)
 
 console.log(
-  'SCADA DSL analysis checks passed: static typing rejects boolean/number misuse before runtime, select/string and numeric assignments remain explicit, and dependency extraction separates trigger dependencies from read-only Action argument dependencies while preserving primary-device rebinding.',
+  'SCADA DSL analysis checks passed: static typing rejects Property, expression and typed Action argument mismatches before runtime, while dependency extraction keeps read-only Action arguments separate from triggers and preserves primary-device rebinding.',
 )

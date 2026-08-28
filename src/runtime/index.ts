@@ -29,6 +29,11 @@ export {
   type ControlledRuntimeSessionCallbacks,
 } from './controlled-runtime-session'
 export {
+  createScadaDeviceActionInvocation,
+  type ScadaDeviceActionDispatcher,
+  type ScadaDeviceActionInvocation,
+} from './device-action-dispatcher'
+export {
   DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES,
   MOCK_INDICATOR_STATE_KEY,
   createDefaultPreviewMockSources,
@@ -45,7 +50,6 @@ export {
 export {
   attachPreviewScadaSemantics,
   createPreviewScadaRuntimeValueKey,
-  type PreviewScadaDeviceActionDispatcher,
   type PreviewScadaSemanticsAttachment,
   type PreviewScadaSemanticsOptions,
   type PreviewScadaSourceValueKey,
