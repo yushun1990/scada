@@ -1,4 +1,5 @@
 export * from './definition'
+export * from './interactions'
 export * from './renderer'
 export * from './registration'
 export * from './default-anchors'
