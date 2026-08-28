@@ -201,6 +201,8 @@ M6.5.5 Semantic lowering                                       accepted
 M6.5.6 Static analysis                                         accepted
 M6.5.7 Compiled runtime index                                  accepted
 M6.5.8 Transactional propagation session                       accepted
+M6.5.9A Runtime semantic hardening                             accepted · 2026-08-28
+M6.5.9B Preview Runtime state ownership                        implementation complete · review gate
 ```
 
 The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
@@ -250,17 +252,17 @@ QuickJS is **not** the current product center. Existing controlled-runtime exper
 
 # 6. Current gate — M6.5.9 runtime semantic hardening and Preview integration
 
-Do **not** jump directly from M6.5.8 to a broad Preview adapter.
+Do **not** jump from the compiled runtime directly to a broad Preview adapter.
 
 M6.5.9 is split into three ordered slices.
 
-## M6.5.9A Runtime semantic hardening — NEXT
+## M6.5.9A Runtime semantic hardening — accepted · 2026-08-28
 
 Goal:
 
 > Make the compiled scene program deterministic and rebind-safe before connecting it to real Preview state.
 
-Required work:
+Accepted work:
 
 1. reject multiple Value Binding writers targeting the same Component Property
 2. define missing/unresolved derived-value invalidation semantics
@@ -269,30 +271,34 @@ Required work:
 5. provide one validated compile entry point that performs the required parse/lower/analyze/structural checks before runtime construction
 6. add regression fixtures for duplicate writers, missing values, rebind invalidation and rollback
 
-Default semantic direction:
+Accepted semantic direction:
 
 > A failed/unresolved derived Value Binding relinquishes its derived override so the effective property can fall back according to the host's normal authored/default layering. Last-known-good retention, if ever required, belongs to an explicit data-source/runtime policy rather than being an accidental DSL behavior.
 
-## M6.5.9B Preview Runtime state ownership
+## M6.5.9B Preview Runtime state ownership — current review gate
 
 Goal:
 
 > Define one host-owned effective Component Property model before applying DSL propagation effects to the renderer.
 
-Required work:
+Implementation establishes:
 
-- define effective property layering/order
-- ensure Renderer and Component Action handlers read the same settled snapshot
-- keep external RuntimeValueStore responsibilities separate from Component Property state
-- define the compatibility boundary for legacy Scene v6 bindings/behaviors
-- prevent legacy Event -> Component Action dispatch and new Interaction Binding dispatch from accidentally firing in parallel
-- document the `componentPropertyChanged` host sequencing contract or replace it with a less implicit API
+- deterministic effective property layering/order
+- one immutable settled Component Property snapshot owned by Preview
+- Renderer and Component Action handlers reading the same settled snapshot
+- external RuntimeValueStore responsibilities separate from Component Property state
+- legacy Scene v6 bindings as a lower-priority compatibility layer
+- explicit compiled-semantics ownership that suppresses legacy Event -> Component Action dispatch for claimed nodes
+- an explicit `componentPropertyChanged` host sequencing contract
+- a runtime core that can be tested without loading built-in renderer assets
 
 Legacy Scene v6 behavior remains compatibility-only. Do not extend it as the new behavior model.
 
 A later Scene schema revision may migrate/remove it after the new model is proven.
 
-## M6.5.9C Narrow Preview integration
+After this review gate is accepted, proceed directly to M6.5.9C.
+
+## M6.5.9C Narrow Preview integration — NEXT after 9B acceptance
 
 Goal:
 
@@ -486,21 +492,20 @@ The repository should not pay an architectural or operational cost merely so loc
 
 # 12. Immediate execution sequence
 
-Current execution order from `main`:
+Current execution order from `main` plus the active review branch:
 
 ```text
-1. Refresh PLAN / README / backend status documentation                current housekeeping
-2. M6.5.9A runtime semantic hardening                                  NEXT
-3. M6.5.9B Preview Runtime state ownership                             next
-4. M6.5.9C narrow Preview integration                                  next
-5. M6.5.10 typed Action/Event contract + action dispatcher             next
-6. M6.5.11 stable scene persistence semantics                          next
-7. M6.6 storage abstraction + IndexedDB + debug snapshot               after runtime semantics
-8. M6.7 user component publication / optional backend                  later
-9. M7 packaging / production adapters / reusable component set         later
+1. M6.5.9A runtime semantic hardening                                  accepted · 2026-08-28
+2. M6.5.9B Preview Runtime state ownership                             current review gate
+3. M6.5.9C narrow Preview integration                                  NEXT after 9B acceptance
+4. M6.5.10 typed Action/Event contract + action dispatcher             next
+5. M6.5.11 stable scene persistence semantics                          next
+6. M6.6 storage abstraction + IndexedDB + debug snapshot               after runtime semantics
+7. M6.7 user component publication / optional backend                  later
+8. M7 packaging / production adapters / reusable component set         later
 ```
 
-The **next implementation step is M6.5.9A**.
+The **next implementation step after the current M6.5.9B review gate is M6.5.9C**.
 
 Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision a backend before a remote-publication requirement exists.
 
