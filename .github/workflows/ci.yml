@@ -48,6 +48,7 @@ jobs:
           npx --yes tsx scripts/check-typed-action-event-contract.ts
           npx --yes tsx scripts/check-scada-semantics-persistence.ts
           npx --yes tsx scripts/check-storage-repositories.ts
+          npx --yes tsx scripts/check-local-storage-migration.ts
 
       - name: Lint
         run: npm run lint
