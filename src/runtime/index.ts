@@ -1,6 +1,12 @@
 export type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
 export { resolveEffectiveComponentProps } from './effective-component-props'
 export {
+  ComponentPropertyStore,
+  type ComponentDerivedPropertyUpdate,
+  type ComponentPropertySnapshot,
+  type ComponentPropertyStoreListener,
+} from './component-property-store'
+export {
   assertControlledScriptInvocation,
   assertControlledScriptSource,
   DEFAULT_CONTROLLED_SCRIPT_LIMITS,
@@ -30,9 +36,9 @@ export {
   type PreviewRuntimeValueSourceDefinition,
   type SequenceMockDataSourceOptions,
 } from './mock-data-source'
+export { previewRuntime } from './default-preview-runtime'
 export {
   PreviewRuntime,
-  previewRuntime,
   type ComponentRuntimeEvent,
   type ComponentRuntimeEventListener,
 } from './preview-runtime'

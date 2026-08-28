@@ -8,6 +8,7 @@ import {
 import type Konva from 'konva'
 import { Group, Rect } from 'react-konva'
 import { builtInComponentRegistry } from '../component-system/builtins'
+import type { ComponentProps } from '../component-system/definition'
 import { previewRuntime, resolveEffectiveComponentProps } from '../runtime'
 import type { RuntimeValueSnapshot } from '../runtime'
 import { getNodeBounds } from '../scene/geometry'
@@ -28,8 +29,9 @@ type Point = {
 }
 
 const EMPTY_RUNTIME_VALUES: RuntimeValueSnapshot = Object.freeze({})
+const EMPTY_COMPONENT_PROPS: Readonly<ComponentProps> = Object.freeze({})
 const subscribeToNothing = () => () => undefined
-const getEmptyRuntimeValues = () => EMPTY_RUNTIME_VALUES
+const getEmptyComponentProps = () => EMPTY_COMPONENT_PROPS
 
 export type SceneNodeRendererProps = {
   scene: SceneDocument
@@ -65,23 +67,26 @@ export const SceneNodeRenderer = forwardRef<
   const effectiveLocked = parentLocked || node.locked
   const displayVisible = editorMode || effectiveVisible
   const displayOpacity = effectiveVisible ? 1 : 0.2
-  const previewRuntimeActive =
-    runtimeValues === undefined && selectable && !editorMode
+  const previewStateActive = runtimeValues === undefined && !editorMode
+  const previewRuntimeLeaseActive = previewStateActive && selectable
 
   useEffect(() => {
-    if (!previewRuntimeActive) {
+    if (!previewRuntimeLeaseActive) {
       return
     }
 
     return previewRuntime.acquire(scene)
-  }, [previewRuntimeActive, scene])
+  }, [previewRuntimeLeaseActive, scene])
 
-  const previewRuntimeValues = useSyncExternalStore(
-    previewRuntimeActive ? previewRuntime.values.subscribe : subscribeToNothing,
-    previewRuntimeActive ? previewRuntime.values.getSnapshot : getEmptyRuntimeValues,
-    getEmptyRuntimeValues,
+  const previewOwnedProps = useSyncExternalStore(
+    previewStateActive
+      ? previewRuntime.componentProps.subscribe
+      : subscribeToNothing,
+    previewStateActive
+      ? () => previewRuntime.componentProps.getNodeSnapshot(node.id)
+      : getEmptyComponentProps,
+    getEmptyComponentProps,
   )
-  const effectiveRuntimeValues = runtimeValues ?? previewRuntimeValues
 
   const bindRootRef = useCallback(
     (instance: Konva.Group | null) => {
@@ -281,7 +286,7 @@ export const SceneNodeRenderer = forwardRef<
             selectable={false}
             parentVisible={effectiveVisible}
             parentLocked={effectiveLocked}
-            runtimeValues={effectiveRuntimeValues}
+            runtimeValues={runtimeValues}
           />
         ))}
       </Group>
@@ -291,12 +296,14 @@ export const SceneNodeRenderer = forwardRef<
   const registration = builtInComponentRegistry.get(node.type)
   const ComponentRenderer = registration?.renderer
   const effectiveProps = registration
-    ? resolveEffectiveComponentProps(
-        registration.definition,
-        node.props,
-        node.bindings,
-        effectiveRuntimeValues,
-      )
+    ? previewStateActive && previewRuntime.isRunning
+      ? previewOwnedProps
+      : resolveEffectiveComponentProps(
+          registration.definition,
+          node.props,
+          node.bindings,
+          runtimeValues ?? EMPTY_RUNTIME_VALUES,
+        )
     : node.props
   const commonRendererProps = {
     nodeId: selectable ? node.id : undefined,
