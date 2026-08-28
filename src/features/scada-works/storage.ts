@@ -15,6 +15,8 @@ export type ScadaWorkSummary = {
   updatedAt: string
 }
 
+const sceneCache = new Map<string, SceneDocument>()
+
 function createWorkId() {
   const suffix = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
   return `work-${suffix}`
@@ -36,9 +38,15 @@ function summarizeScene(
   }
 }
 
+function cloneScene(scene: SceneDocument) {
+  return parseSceneDocument(serializeSceneDocument(scene))
+}
+
 function parseRecord(workId: string, document: string, updatedAt: string) {
   try {
-    return summarizeScene(workId, parseSceneDocument(document), updatedAt)
+    const scene = parseSceneDocument(document)
+    sceneCache.set(workId, scene)
+    return summarizeScene(workId, scene, updatedAt)
   } catch {
     return null
   }
@@ -50,13 +58,15 @@ async function ensureInitialWork() {
   if (records.length > 0) return records
 
   const scene = createDefaultScene()
+  const document = serializeSceneDocument(scene)
   const updatedAt = new Date().toISOString()
   await browserPersistence.scenes.put({
     id: 'legacy',
-    document: serializeSceneDocument(scene),
+    document,
     updatedAt,
   })
-  return [{ id: 'legacy', document: serializeSceneDocument(scene), updatedAt }]
+  sceneCache.set('legacy', scene)
+  return [{ id: 'legacy', document, updatedAt }]
 }
 
 export async function listScadaWorks(): Promise<ScadaWorkSummary[]> {
@@ -67,24 +77,38 @@ export async function listScadaWorks(): Promise<ScadaWorkSummary[]> {
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 }
 
-export async function loadScadaScene(workId: string): Promise<SceneDocument> {
+export async function prepareScadaScene(workId: string) {
   await ensureBrowserPersistenceReady()
   const record = await browserPersistence.scenes.get(workId)
 
   if (record) {
     try {
-      return parseSceneDocument(record.document)
+      sceneCache.set(workId, parseSceneDocument(record.document))
+      return
     } catch {
-      // Fall through to a valid default scene without mutating the corrupt row.
+      // Keep the corrupt IndexedDB row intact for diagnostics and open fallback.
     }
   }
 
   const scene = createDefaultScene()
   scene.name = '未命名 SCADA'
-  return scene
+  sceneCache.set(workId, scene)
 }
 
-export async function saveScadaScene(
+/**
+ * Synchronous read used by the existing editor state initializer only after
+ * ScadaEditorLoader has awaited prepareScadaScene().
+ */
+export function loadScadaScene(workId: string): SceneDocument {
+  const cached = sceneCache.get(workId)
+  if (cached) return cloneScene(cached)
+
+  const fallback = createDefaultScene()
+  fallback.name = '未命名 SCADA'
+  return fallback
+}
+
+export async function saveScadaSceneAsync(
   workId: string,
   scene: SceneDocument,
 ): Promise<ScadaWorkSummary> {
@@ -93,8 +117,25 @@ export async function saveScadaScene(
   const normalized = parseSceneDocument(document)
   const updatedAt = new Date().toISOString()
 
-  await browserPersistence.scenes.put({ workId, id: workId, document, updatedAt } as never)
+  await browserPersistence.scenes.put({
+    id: workId,
+    document,
+    updatedAt,
+  })
+  sceneCache.set(workId, normalized)
   return summarizeScene(workId, normalized, updatedAt)
+}
+
+/**
+ * Compatibility adapter for the current synchronous Save button. New storage
+ * integrations should call saveScadaSceneAsync directly. The next UI slice
+ * removes this adapter once the editor button awaits persistence explicitly.
+ */
+export function saveScadaScene(workId: string, scene: SceneDocument) {
+  sceneCache.set(workId, cloneScene(scene))
+  void saveScadaSceneAsync(workId, scene).catch((error: unknown) => {
+    window.dispatchEvent(new CustomEvent('scada-storage-error', { detail: error }))
+  })
 }
 
 export async function createScadaWork(): Promise<ScadaWorkSummary> {
@@ -102,5 +143,5 @@ export async function createScadaWork(): Promise<ScadaWorkSummary> {
   const scene = createDefaultScene()
   const works = await listScadaWorks()
   scene.name = `SCADA 作品 ${works.length + 1}`
-  return saveScadaScene(workId, scene)
+  return saveScadaSceneAsync(workId, scene)
 }
