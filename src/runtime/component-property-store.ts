@@ -125,8 +125,8 @@ export class ComponentPropertyStore {
   }
 
   clearDerivedOverrides(nodeId: string) {
-    if (!this.derivedOverrides.delete(nodeId)) return false
     const node = this.requireComponentNode(nodeId)
+    if (!this.derivedOverrides.delete(nodeId)) return false
     return this.recomputeNode(node, true)
   }
 
@@ -176,15 +176,17 @@ export class ComponentPropertyStore {
   }
 
   private recomputeNode(node: ComponentSceneNode, publish: boolean) {
-    const registration = this.registry.require(node.type)
+    const registration = this.registry.get(node.type)
     const effective = freezeProps(
-      resolveEffectiveComponentProps(
-        registration.definition,
-        node.props,
-        node.bindings,
-        this.runtimeValues,
-        this.derivedOverrides.get(node.id),
-      ),
+      registration
+        ? resolveEffectiveComponentProps(
+            registration.definition,
+            node.props,
+            node.bindings,
+            this.runtimeValues,
+            this.derivedOverrides.get(node.id),
+          )
+        : node.props,
     )
     const previous = this.snapshots.get(node.id)
     if (snapshotsEqual(previous, effective)) return false
