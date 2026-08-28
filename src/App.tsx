@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ComponentEditorPage } from './features/component-library/ComponentEditorPage'
-import { ScadaEditorPage } from './features/scada-editor/ScadaEditorPage'
+import {
+  ComponentEditorStorageGate,
+  ScadaEditorStorageGate,
+} from './features/workspace/EditorStorageGate'
 import { WorkspacePage } from './features/workspace/WorkspacePage'
 import { Button, Separator } from './ui'
 import './inspector-compact.css'
@@ -71,6 +73,31 @@ function StudioWorkspaceExit({ module }: { module: WorkspaceModule }) {
   )
 }
 
+function StorageWriteErrorNotice() {
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    const handleError = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      setMessage(
+        detail instanceof Error
+          ? `本地保存失败：${detail.message}`
+          : '本地保存失败，请导出调试快照后重试',
+      )
+    }
+    window.addEventListener('scada-storage-error', handleError)
+    return () => window.removeEventListener('scada-storage-error', handleError)
+  }, [])
+
+  if (!message) return null
+
+  return (
+    <div className="canvas-toast" role="alert" aria-live="assertive">
+      {message}
+    </div>
+  )
+}
+
 function App() {
   const [route, setRoute] = useState<AppRoute>(resolveRoute)
 
@@ -83,8 +110,9 @@ function App() {
   if (route.page === 'scada') {
     return (
       <>
-        <ScadaEditorPage key={route.workId} workId={route.workId} />
+        <ScadaEditorStorageGate key={route.workId} workId={route.workId} />
         <StudioWorkspaceExit key={`scada-${route.workId}`} module="works" />
+        <StorageWriteErrorNotice />
       </>
     )
   }
@@ -92,13 +120,22 @@ function App() {
   if (route.page === 'component') {
     return (
       <>
-        <ComponentEditorPage key={route.componentId} componentId={route.componentId} />
+        <ComponentEditorStorageGate
+          key={route.componentId}
+          componentId={route.componentId}
+        />
         <StudioWorkspaceExit key={`component-${route.componentId}`} module="components" />
+        <StorageWriteErrorNotice />
       </>
     )
   }
 
-  return <WorkspacePage module={route.module} />
+  return (
+    <>
+      <WorkspacePage module={route.module} />
+      <StorageWriteErrorNotice />
+    </>
+  )
 }
 
 export default App
