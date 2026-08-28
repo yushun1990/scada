@@ -2,10 +2,8 @@ import assert from 'node:assert/strict'
 import type { ComponentProps } from '../src/component-system/definition'
 import type { ComponentRegistration } from '../src/component-system/registration'
 import { ComponentRegistry } from '../src/component-system/registry'
-import {
-  attachPreviewScadaSemantics,
-  PreviewRuntime,
-} from '../src/runtime'
+import { PreviewRuntime } from '../src/runtime/preview-runtime'
+import { attachPreviewScadaSemantics } from '../src/runtime/preview-scada-semantics'
 import {
   createScadaDslCapabilityCatalog,
 } from '../src/scene/scada-dsl'
