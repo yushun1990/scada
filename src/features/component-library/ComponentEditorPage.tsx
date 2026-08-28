@@ -317,7 +317,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     const nextLayerIds = [...layerIds]
 
     setSelectedLayerIds(nextLayerIds)
-    setPrimaryLayerId(nextLayerIds[nextSelectedLayerIds.length - 1] ?? null)
+    setPrimaryLayerId(nextLayerIds[nextLayerIds.length - 1] ?? null)
     setInspectorTab('properties')
   }
 
