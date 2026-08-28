@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button, Pressable } from '../../ui'
 import {
   createScadaWork,
@@ -37,29 +37,46 @@ function navigate(path: string) {
 }
 
 export function WorkspacePage({ module }: WorkspacePageProps) {
-  const [works, setWorks] = useState<ScadaWorkSummary[]>(() => listScadaWorks())
-  const [components, setComponents] = useState<ComponentLibraryEntry[]>(() =>
-    listComponentDefinitions(),
-  )
+  const [works, setWorks] = useState<ScadaWorkSummary[]>([])
+  const [components, setComponents] = useState<ComponentLibraryEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
+
+  const refresh = useCallback(async () => {
+    try {
+      const [nextWorks, nextComponents] = await Promise.all([
+        listScadaWorks(),
+        listComponentDefinitions(),
+      ])
+      setWorks(nextWorks)
+      setComponents(nextComponents)
+      setMessage('')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '本地数据加载失败')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    const refresh = () => {
-      setWorks(listScadaWorks())
-      setComponents(listComponentDefinitions())
-    }
-
-    window.addEventListener('focus', refresh)
-    return () => window.removeEventListener('focus', refresh)
-  }, [])
+    void refresh()
+    const handleFocus = () => void refresh()
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [refresh])
 
   function openWork(workId: string) {
     navigate(`#/scada/${encodeURIComponent(workId)}`)
   }
 
-  function createWork() {
-    const work = createScadaWork()
-    setWorks(listScadaWorks())
-    openWork(work.id)
+  async function createWork() {
+    try {
+      const work = await createScadaWork()
+      await refresh()
+      openWork(work.id)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '创建作品失败')
+    }
   }
 
   function openComponent(componentId: string) {
@@ -106,6 +123,7 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
       </aside>
 
       <main className="workspace-main">
+        {message && <div className="workspace-message" role="status">{message}</div>}
         {module === 'works' ? (
           <section className="workspace-section">
             <header className="workspace-section-header">
@@ -114,12 +132,17 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
                 <h1>SCADA 作品</h1>
                 <p>每个作品拥有独立场景存储，默认在当前页面进入编辑器；需要并行编辑时可由浏览器另开标签页。</p>
               </div>
-              <Button variant="primary" className="workspace-primary-button" onClick={createWork}>
+              <Button
+                variant="primary"
+                className="workspace-primary-button"
+                disabled={loading}
+                onClick={() => void createWork()}
+              >
                 + 新建作品
               </Button>
             </header>
 
-            <div className="workspace-card-grid">
+            <div className="workspace-card-grid" aria-busy={loading}>
               {works.map((work) => (
                 <article className="workspace-card" key={work.id}>
                   <div className="work-preview" aria-hidden="true">
@@ -161,12 +184,17 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
                 <h1>组件库开发</h1>
                 <p>组件开发工作台维护可复用组件的公开契约与私有实现，SCADA 组态只消费被明确暴露的能力。</p>
               </div>
-              <Button variant="primary" className="workspace-primary-button" onClick={createComponent}>
+              <Button
+                variant="primary"
+                className="workspace-primary-button"
+                disabled={loading}
+                onClick={createComponent}
+              >
                 + 新建组件
               </Button>
             </header>
 
-            <div className="component-table" role="table" aria-label="组件列表">
+            <div className="component-table" role="table" aria-label="组件列表" aria-busy={loading}>
               <div className="component-table-row component-table-head" role="row">
                 <span>组件</span>
                 <span>类型</span>
