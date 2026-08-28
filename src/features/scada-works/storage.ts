@@ -1,5 +1,4 @@
-import type { SceneDocument } from '../../scene/model'
-import { createDefaultScene } from '../../scene/default-scene'
+import { createDefaultScene, type SceneDocument } from '../../scene/model'
 import {
   parseSceneDocument,
   serializeSceneDocument,
