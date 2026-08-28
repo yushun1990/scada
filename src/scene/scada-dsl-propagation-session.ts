@@ -33,6 +33,11 @@ export type ScadaDslPropagationResult = {
   aborted: boolean
 }
 
+export type ScadaDslSourcePropertyChange = {
+  sourceId: string
+  property: string
+}
+
 export type ScadaDslPropagationSessionOptions = {
   primaryDevice?: ScadaPrimaryDeviceContext | null
   readSourceValue: ScadaRuntimeValueReader
@@ -45,6 +50,9 @@ export type ScadaDslPropagationSessionOptions = {
 export type ScadaDslPropagationSession = {
   initialize(): ScadaDslPropagationResult
   sourcePropertyChanged(sourceId: string, property: string): ScadaDslPropagationResult
+  sourcePropertiesChanged(
+    changes: readonly ScadaDslSourcePropertyChange[],
+  ): ScadaDslPropagationResult
   componentPropertyChanged(property: string): ScadaDslPropagationResult
   componentEvent(event: string): {
     deviceActions: readonly ScadaDslDeviceActionEffect[]
@@ -196,6 +204,38 @@ export function createScadaDslPropagationSession(
       readSourceValue: options.readSourceValue,
       readComponentProperty: (property) =>
         readComponentProperty(values, property),
+    }
+  }
+
+  function collectSourceTargets(
+    changes: readonly ScadaDslSourcePropertyChange[],
+  ): ScadaDslRuntimeTargets {
+    const valueBindingIds = new Set<string>()
+    const behaviorIds = new Set<string>()
+
+    for (const change of changes) {
+      const targets = getScadaDslSourceUpdateTargets(
+        compiled,
+        change.sourceId,
+        change.property,
+        primaryDevice,
+      )
+      for (const binding of targets.valueBindings) {
+        valueBindingIds.add(binding.id)
+      }
+      for (const behavior of targets.behaviors) {
+        behaviorIds.add(behavior.id)
+      }
+    }
+
+    // Preserve authored semantic-plan order rather than source-arrival order.
+    return {
+      valueBindings: compiled.plan.valueBindings.filter((binding) =>
+        valueBindingIds.has(binding.id),
+      ),
+      behaviors: compiled.plan.behaviors.filter((behavior) =>
+        behaviorIds.has(behavior.id),
+      ),
     }
   }
 
@@ -352,14 +392,12 @@ export function createScadaDslPropagationSession(
 
     sourcePropertyChanged(sourceId, property) {
       assertActive()
-      return propagate(
-        getScadaDslSourceUpdateTargets(
-          compiled,
-          sourceId,
-          property,
-          primaryDevice,
-        ),
-      )
+      return propagate(collectSourceTargets([{ sourceId, property }]))
+    },
+
+    sourcePropertiesChanged(changes) {
+      assertActive()
+      return propagate(collectSourceTargets(changes))
     },
 
     componentPropertyChanged(property) {
