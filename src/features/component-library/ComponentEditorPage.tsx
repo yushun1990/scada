@@ -42,7 +42,7 @@ import {
 import {
   createComponentDraft,
   getComponentDefinition,
-  saveComponentDefinition,
+  saveComponentDefinitionAsync,
   type ComponentLibraryEntry,
   type ComponentStatus,
 } from './storage'
@@ -348,9 +348,9 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     setInspectorTab('properties')
   }
 
-  function save() {
+  async function save() {
     try {
-      const saved = saveComponentDefinition(component)
+      const saved = await saveComponentDefinitionAsync(component)
       setComponent(saved)
       setMessage('组件已保存')
       window.location.hash = `#/components/${encodeURIComponent(saved.id)}`
@@ -380,7 +380,11 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
 
         <div className="component-header-actions">
           <div className="document-toolbar" role="toolbar" aria-label="组件文档操作">
-            <Button variant="primary" disabled={builtInReadOnly} onClick={save}>
+            <Button
+              variant="primary"
+              disabled={builtInReadOnly}
+              onClick={() => void save()}
+            >
               保存
             </Button>
           </div>

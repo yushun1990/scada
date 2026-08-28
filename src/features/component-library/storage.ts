@@ -167,17 +167,3 @@ export async function saveComponentDefinitionAsync(
   const next = prepareSavedComponent(component)
   return persistPreparedComponent(next)
 }
-
-/**
- * Compatibility adapter for the current synchronous Component Editor Save
- * button. New integrations should await saveComponentDefinitionAsync.
- */
-export function saveComponentDefinition(component: ComponentLibraryEntry) {
-  const next = prepareSavedComponent(component)
-  customCache.set(next.id, cloneComponentLibraryEntry(next))
-  customCacheReady = true
-  void persistPreparedComponent(next).catch((error: unknown) => {
-    window.dispatchEvent(new CustomEvent('scada-storage-error', { detail: error }))
-  })
-  return cloneComponentLibraryEntry(next)
-}

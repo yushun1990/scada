@@ -147,7 +147,7 @@ Either the rebind commits a coherent new runtime state or the previous committed
 
 Normal authoring must not require a backend server.
 
-Target persistence layering:
+Accepted persistence layering:
 
 ```text
 Workbench / Runtime-facing repositories
@@ -157,9 +157,9 @@ Storage abstraction
         └─ Memory implementation          deterministic tests / fixtures
 ```
 
-Current `localStorage` persistence is transitional.
+`localStorage` is now legacy migration input only. Normal authoring reads and writes through the repository boundary backed by IndexedDB.
 
-The storage layer must support deterministic export/import of a debug snapshot so browser-only failures can be reproduced outside the user's browser.
+The storage layer supports deterministic export/import of a debug snapshot so browser-only failures can be reproduced outside the user's browser.
 
 ### 3.8 Backend is optional infrastructure, not runtime authority
 
@@ -229,6 +229,7 @@ M6.5.9B Preview Runtime state ownership                        accepted · 2026-
 M6.5.9C Narrow Preview integration                             accepted · 2026-08-28
 M6.5.10 Typed Action/Event contract + device dispatch          accepted · 2026-08-28
 M6.5.11 Stable persistence semantics                           accepted · 2026-08-28
+M6.6 Local persistence foundation                              accepted · 2026-08-28
 ```
 
 The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
@@ -445,79 +446,103 @@ Detailed acceptance record: `docs/progress/m6.5.11-stable-persistence-semantics.
 
 ---
 
-# 9. M6.6 Local persistence foundation — NEXT
+# 9. M6.6 Local persistence foundation — accepted · 2026-08-28
 
-This milestone replaces direct feature-level browser storage with an explicit storage boundary.
-
-Target architecture:
+Accepted architecture:
 
 ```text
 SCADA Works / Component Library
         ↓
-Repository interfaces
-        ├─ SceneRepository
-        ├─ ComponentRepository
-        └─ WorkspaceRepository as needed
+async domain storage services
         ↓
-IndexedDB
+SceneRepository / ComponentRepository
+        ├─ IndexedDB       browser/local authoring
+        └─ Memory          deterministic tests
 ```
 
-Test architecture:
+Accepted work:
 
-```text
-same repository interfaces
-        ↓
-Memory repositories
-        ↓
-unit / integration fixtures
-```
+- async repository contracts established before the browser driver
+- deterministic Memory repositories using the same public interfaces
+- one versioned `scada-editor-lab` IndexedDB database
+- dedicated `scenes`, `components`, and `meta` object stores
+- deterministic migration planning for supported legacy `localStorage` Scene/Work and Component data
+- domain-owned canonicalization during migration
+- legacy corruption isolated instead of poisoning valid neighboring documents
+- `localStorage` reduced to one-time migration input rather than an active write authority
+- Workspace async reads and creation through the repository-backed services
+- editor hydration gates before synchronous scene/component state construction
+- versioned portable debug snapshot export/import
+- atomic IndexedDB Scene + Component snapshot replacement
+- local reset and storage diagnostics
+- deterministic repository/snapshot/migration fixtures in CI
+- SCADA Editor Save awaiting repository persistence before reporting success
+- Component Editor Save awaiting repository persistence before reporting success
+- removal of the fire-and-forget synchronous Save compatibility adapters
 
-Required capabilities:
+Persistence success rule:
 
-- IndexedDB-backed local persistence
-- migration from currently supported `localStorage` data where practical
-- versioned storage schema
-- deterministic migration tests
-- export debug snapshot
-- import debug snapshot
-- reset local database
-- storage diagnostics
+> A document is not “saved” merely because an in-memory cache was updated. The editor reports success only after the asynchronous repository write completes.
 
-Debug snapshot should be a portable, versioned representation of the user-relevant local state so a browser-only bug can become a committed regression fixture.
-
-Example shape, not frozen schema:
-
-```json
-{
-  "schemaVersion": 1,
-  "works": [],
-  "components": [],
-  "settings": {}
-}
-```
-
-IndexedDB is preferred over `localStorage` for the long-term local layer because the project will eventually store larger structured documents and potentially binary assets.
-
-M6.6 must keep local authoring backend-independent and should provide Memory repositories using the same public interfaces before browser storage details leak back into Workbench features.
+Detailed acceptance record: `docs/progress/m6.6-local-persistence-foundation.md`.
 
 ---
 
-# 10. M6.7 User component registration / publication
-
-Only after runtime semantics and local storage boundaries are stable should remote component publication become active work.
+# 10. M6.7 User component registration / publication — NEXT
 
 Goal:
 
 > Prove that a Workbench-authored component package can be consumed by SCADA Workbench through the same generic repository/registry path as built-ins without component-specific editor code.
 
+M6.7 must begin with **local activation**, not backend deployment.
+
+## M6.7A Local user-component activation — NEXT
+
+First prove this path using the already accepted IndexedDB repository:
+
+```text
+Component Workbench
+        ↓ save ready package
+IndexedDB ComponentRepository
+        ↓ hydrate / validate
+runtime ComponentRegistration
+        ↓
+shared ComponentRegistry
+        ↓
+SCADA palette / scene validation / renderer / inspector / Preview
+```
+
+Acceptance direction:
+
+- `ready` Workbench-authored composite packages can become runtime registrations
+- `draft` packages are not offered as normal SCADA components
+- built-ins and user components are consumed through one generic registry-facing path
+- user component type collisions with built-ins or other active packages are rejected deterministically
+- stale user registrations are removed when repository contents change
+- Scene loading validates against the hydrated registry rather than a built-in-only registry
+- public Properties and Anchors behave exactly through the generic component contract
+- custom composite visuals use the existing generic visual/rule/animation runtime rather than component-specific renderer code
+
+Important implementation boundary:
+
+> Persisted `implementationDraft` text is not executable merely because a package is activated.
+
+User-authored Action/Event metadata must not silently become no-op runtime implementations. The first activation slice may constrain runtime-capable user packages until an explicit trusted/controlled implementation contract exists.
+
+## M6.7B Publication lifecycle — after local activation
+
+Only after M6.7A proves that package origin is independent of runtime consumption should remote publication become active work.
+
 Expected local/remote split:
 
 ```text
 Component Workbench
-        ↓ autosave / local draft
+        ↓ local draft/save
 IndexedDB
         ↓ explicit publish
 Remote Component Repository / API
+        ↓ retrieve package
+same validation / registration path
         ↓
 SCADA Workbench / other clients
 ```
@@ -534,7 +559,7 @@ Backend responsibilities may include:
 
 Backend responsibilities must **not** expand into SCADA runtime ownership.
 
-No backend server needs to be provisioned for the current M6 work.
+No backend server needs to be provisioned for M6.7A.
 
 ---
 
@@ -544,15 +569,15 @@ Current state:
 
 - backend source code exists under `server/`
 - deployment assets exist under `deploy/`
-- current front-end authoring paths use browser-local persistence
+- current front-end authoring paths use browser-local IndexedDB persistence
 - the current runtime work does not require a live backend
 - the previous backend host is no longer considered required infrastructure
 
-Policy until M6.7:
+Policy during M6.7A:
 
 > Treat production backend deployment as deferred infrastructure.
 
-Before the next intentional backend deployment, re-evaluate:
+Before M6.7B or the next intentional backend deployment, re-evaluate:
 
 - API contract
 - package lifecycle (`draft` / `published`)
@@ -575,14 +600,15 @@ Current execution order from `main` plus the accepted runtime/persistence gates:
 3. M6.5.9C narrow Preview integration                                  accepted · 2026-08-28
 4. M6.5.10 typed Action/Event contract + action dispatcher             accepted · 2026-08-28
 5. M6.5.11 stable scene persistence semantics                          accepted · 2026-08-28
-6. M6.6 storage abstraction + IndexedDB + debug snapshot               NEXT
-7. M6.7 user component publication / optional backend                  later
-8. M7 packaging / production adapters / reusable component set         later
+6. M6.6 storage abstraction + IndexedDB + debug snapshot               accepted · 2026-08-28
+7. M6.7A local user-component activation                               NEXT
+8. M6.7B remote publication lifecycle / optional backend               after 7A
+9. M7 packaging / production adapters / reusable component set         later
 ```
 
-The **next implementation step is M6.6 Local persistence foundation**.
+The **next implementation step is M6.7A Local user-component activation**.
 
-Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision a backend before a remote-publication requirement exists.
+Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision a backend before local user-component activation proves the shared runtime package path.
 
 ---
 
@@ -607,7 +633,7 @@ Runtime tests should prefer explicit inputs and deterministic snapshots over tim
 
 The following should not distract the active M6 work:
 
-- production backend provisioning
+- production backend provisioning before M6.7A is accepted
 - component marketplace
 - collaborative editing
 - general-purpose process orchestration

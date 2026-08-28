@@ -126,18 +126,6 @@ export async function saveScadaSceneAsync(
   return summarizeScene(workId, normalized, updatedAt)
 }
 
-/**
- * Compatibility adapter for the current synchronous Save button. New storage
- * integrations should call saveScadaSceneAsync directly. The next UI slice
- * removes this adapter once the editor button awaits persistence explicitly.
- */
-export function saveScadaScene(workId: string, scene: SceneDocument) {
-  sceneCache.set(workId, cloneScene(scene))
-  void saveScadaSceneAsync(workId, scene).catch((error: unknown) => {
-    window.dispatchEvent(new CustomEvent('scada-storage-error', { detail: error }))
-  })
-}
-
 export async function createScadaWork(): Promise<ScadaWorkSummary> {
   const workId = createWorkId()
   const scene = createDefaultScene()

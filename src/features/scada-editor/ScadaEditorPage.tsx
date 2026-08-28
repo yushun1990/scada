@@ -7,7 +7,7 @@ import {
   useState,
   type ChangeEvent,
 } from 'react'
-import { loadScadaScene, saveScadaScene } from '../scada-works/storage'
+import { loadScadaScene, saveScadaSceneAsync } from '../scada-works/storage'
 import { builtInComponentRegistry } from '../../component-system/builtins'
 import {
   DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES,
@@ -717,9 +717,13 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     setMessage(`画板已切换为 ${preset.width} × ${preset.height}`)
   }
 
-  function saveScene() {
-    saveScadaScene(workId, scene)
-    setMessage('场景已保存')
+  async function saveScene() {
+    try {
+      await saveScadaSceneAsync(workId, scene)
+      setMessage('场景已保存')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '场景保存失败')
+    }
   }
 
   function exportScene() {
@@ -794,7 +798,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
           <div className="document-toolbar" role="toolbar" aria-label="场景文档操作">
             <Button variant="secondary" onClick={() => importInputRef.current?.click()}>导入</Button>
             <Button variant="secondary" onClick={exportScene}>导出</Button>
-            <Button variant="primary" onClick={saveScene}>保存</Button>
+            <Button variant="primary" onClick={() => void saveScene()}>保存</Button>
             <Input
               ref={importInputRef}
               className="hidden-input"
