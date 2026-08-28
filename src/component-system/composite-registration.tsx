@@ -5,6 +5,7 @@ import {
   useState,
 } from 'react'
 import type Konva from 'konva'
+import { Group } from 'react-konva'
 import {
   applyVisualAnimationOverlay,
   evaluateVisualAnimations,
@@ -82,9 +83,8 @@ export function createCompositeComponentRegistration(
       }, [])
 
       return (
-        <CompositeComponentVisualRenderer
+        <Group
           ref={ref}
-          visual={renderedVisual}
           x={x}
           y={y}
           width={width}
@@ -95,7 +95,19 @@ export function createCompositeComponentRegistration(
           visible={visible}
           opacity={opacity}
           listening={listening}
-        />
+        >
+          <CompositeComponentVisualRenderer
+            visual={renderedVisual}
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            rotation={0}
+            visible
+            opacity={1}
+            listening={listening}
+          />
+        </Group>
       )
     },
   )
