@@ -36,9 +36,9 @@ export {
   type PreviewRuntimeValueSourceDefinition,
   type SequenceMockDataSourceOptions,
 } from './mock-data-source'
+export { previewRuntime } from './default-preview-runtime'
 export {
   PreviewRuntime,
-  previewRuntime,
   type ComponentRuntimeEvent,
   type ComponentRuntimeEventListener,
 } from './preview-runtime'
