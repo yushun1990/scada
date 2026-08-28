@@ -1,5 +1,4 @@
 import { builtInComponentRegistry } from '../../component-system/builtins'
-import type { ComponentDefinition } from '../../component-system/definition'
 import { createEmptyCompositeVisual, createNativeVisual } from '../../component-system/visual'
 import { browserPersistence, ensureBrowserPersistenceReady } from '../../storage/browser-persistence'
 import {
@@ -9,7 +8,6 @@ import {
   parseComponentLibraryDocument,
   serializeComponentLibraryDocument,
   type ComponentLibraryEntry,
-  type ComponentStatus,
 } from './component-document'
 
 export {
@@ -19,6 +17,8 @@ export {
 } from './component-document'
 
 const BUILT_IN_UPDATED_AT = '2026-08-09T00:00:00.000Z'
+const customCache = new Map<string, ComponentLibraryEntry>()
+let customCacheReady = false
 
 function getBuiltInComponentId(type: string) {
   return `builtin-${type.replace(/[^a-zA-Z0-9_-]+/g, '-')}`
@@ -51,30 +51,40 @@ function sortComponents(entries: ComponentLibraryEntry[]) {
   )
 }
 
-async function readCustomComponents() {
+export async function prepareComponentLibrary() {
   await ensureBrowserPersistenceReady()
   const records = await browserPersistence.components.list()
-  return records.flatMap((record) => {
+  customCache.clear()
+
+  for (const record of records) {
     const entry = parseComponentLibraryDocument(record.document)
-    return entry ? [entry] : []
-  })
+    if (entry) customCache.set(entry.id, entry)
+  }
+
+  customCacheReady = true
+}
+
+export async function prepareComponentDefinition(componentId: string) {
+  if (BUILT_IN_COMPONENTS.some((component) => component.id === componentId)) {
+    return
+  }
+  if (!customCacheReady) await prepareComponentLibrary()
 }
 
 export async function listComponentDefinitions() {
-  const custom = await readCustomComponents()
+  await prepareComponentLibrary()
   return sortComponents([
     ...BUILT_IN_COMPONENTS.map(cloneComponentLibraryEntry),
-    ...custom.map(cloneComponentLibraryEntry),
+    ...[...customCache.values()].map(cloneComponentLibraryEntry),
   ])
 }
 
-export async function getComponentDefinition(componentId: string) {
+/** Synchronous read after ComponentEditorLoader has completed hydration. */
+export function getComponentDefinition(componentId: string) {
   const builtIn = BUILT_IN_COMPONENTS.find((component) => component.id === componentId)
   if (builtIn) return cloneComponentLibraryEntry(builtIn)
 
-  await ensureBrowserPersistenceReady()
-  const record = await browserPersistence.components.get(componentId)
-  const entry = record ? parseComponentLibraryDocument(record.document) : null
+  const entry = customCache.get(componentId)
   return entry ? cloneComponentLibraryEntry(entry) : null
 }
 
@@ -108,16 +118,15 @@ export function createComponentDraft(): ComponentLibraryEntry {
   }
 }
 
-export async function saveComponentDefinition(
-  component: ComponentLibraryEntry,
-) {
+function prepareSavedComponent(component: ComponentLibraryEntry) {
   if (component.builtIn) {
     throw new Error('内置组件当前不允许覆盖保存')
   }
 
-  await ensureBrowserPersistenceReady()
-  const all = await listComponentDefinitions()
-  const duplicate = all.find(
+  const duplicate = [
+    ...BUILT_IN_COMPONENTS,
+    ...customCache.values(),
+  ].find(
     (item) =>
       item.id !== component.id &&
       item.definition.type === component.definition.type,
@@ -133,17 +142,42 @@ export async function saveComponentDefinition(
     updatedAt: new Date().toISOString(),
     builtIn: false,
   }
+  // Validate before the optimistic cache is changed.
+  serializeComponentLibraryDocument(next)
+  return next
+}
+
+async function persistPreparedComponent(next: ComponentLibraryEntry) {
+  await ensureBrowserPersistenceReady()
   const document = serializeComponentLibraryDocument(next)
   await browserPersistence.components.put({
     id: next.id,
     document,
     updatedAt: next.updatedAt,
   })
+  customCache.set(next.id, cloneComponentLibraryEntry(next))
+  customCacheReady = true
   return cloneComponentLibraryEntry(next)
 }
 
-export function createEmptyComponentDefinition(): ComponentDefinition {
-  return createComponentDraft().definition
+export async function saveComponentDefinitionAsync(
+  component: ComponentLibraryEntry,
+) {
+  if (!customCacheReady) await prepareComponentLibrary()
+  const next = prepareSavedComponent(component)
+  return persistPreparedComponent(next)
 }
 
-export type { ComponentDefinition, ComponentStatus }
+/**
+ * Compatibility adapter for the current synchronous Component Editor Save
+ * button. New integrations should await saveComponentDefinitionAsync.
+ */
+export function saveComponentDefinition(component: ComponentLibraryEntry) {
+  const next = prepareSavedComponent(component)
+  customCache.set(next.id, cloneComponentLibraryEntry(next))
+  customCacheReady = true
+  void persistPreparedComponent(next).catch((error: unknown) => {
+    window.dispatchEvent(new CustomEvent('scada-storage-error', { detail: error }))
+  })
+  return cloneComponentLibraryEntry(next)
+}
