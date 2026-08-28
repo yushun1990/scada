@@ -4,11 +4,7 @@ import {
 } from '../../component-system/builtins'
 import { createCompositeComponentRegistration } from '../../component-system/composite-registration'
 import type { ComponentLibraryEntry } from './component-document'
-import {
-  createUserComponentActivationController,
-  type UserComponentActivationDiagnostic,
-  type UserComponentActivationResult,
-} from './runtime-activation-core'
+import { createUserComponentActivationController } from './runtime-activation-core'
 
 export type {
   UserComponentActivationDiagnostic,
@@ -28,14 +24,10 @@ const controller = createUserComponentActivationController({
  */
 export function replaceStudioUserComponentPackages(
   entries: readonly ComponentLibraryEntry[],
-): UserComponentActivationResult {
+) {
   return controller.replace(entries)
 }
 
 export function getActiveUserComponentTypes() {
   return controller.getActiveTypes()
 }
-
-// Keep these type imports visibly used by this product binding so declaration
-// generation preserves the public diagnostic/result surface.
-void (0 as unknown as UserComponentActivationDiagnostic | null)
