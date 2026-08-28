@@ -1,7 +1,8 @@
 import { builtInComponentRegistry } from '../component-system/builtins'
+import type { ComponentRegistry } from '../component-system/registry'
 import { isGroupNode, type SceneDocument } from '../scene/model'
+import { ComponentPropertyStore } from './component-property-store'
 import type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
-import { resolveEffectiveComponentProps } from './effective-component-props'
 import { createDefaultPreviewMockSources } from './mock-data-source'
 import { RuntimeValueStore } from './runtime-value-store'
 
@@ -22,18 +23,27 @@ export type ComponentRuntimeEventListener = (
 
 export class PreviewRuntime {
   readonly values = new RuntimeValueStore()
+  readonly componentProps: ComponentPropertyStore
 
   private readonly sources: readonly RuntimeDataSource[]
+  private readonly registry: ComponentRegistry
   private readonly eventListeners = new Set<ComponentRuntimeEventListener>()
+  private readonly compiledSemanticClaims = new Map<string, number>()
   private sourceStops: RuntimeDataSourceStop[] = []
+  private runtimeValueStop: (() => void) | null = null
   private scene: SceneDocument | null = null
   private leaseCount = 0
   private running = false
   private eventSequence = 0
   private behaviorDispatchDepth = 0
 
-  constructor(sources: readonly RuntimeDataSource[] = []) {
+  constructor(
+    sources: readonly RuntimeDataSource[] = [],
+    registry: ComponentRegistry = builtInComponentRegistry,
+  ) {
     this.sources = [...sources]
+    this.registry = registry
+    this.componentProps = new ComponentPropertyStore(registry)
   }
 
   get isRunning() {
@@ -76,6 +86,31 @@ export class PreviewRuntime {
     }
   }
 
+  /**
+   * Reserve one component node for the compiled SCADA semantics path.
+   *
+   * While claimed, Component Events are still published to subscribers, but
+   * legacy Scene v6 Event -> Component Action behaviors are not auto-dispatched
+   * for that node. M6.5.9C can therefore attach Interaction Binding handling
+   * without accidentally running both semantic models for the same event.
+   */
+  claimCompiledSemantics(nodeId: string) {
+    this.requireComponentTarget(nodeId)
+    this.compiledSemanticClaims.set(
+      nodeId,
+      (this.compiledSemanticClaims.get(nodeId) ?? 0) + 1,
+    )
+
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      const count = this.compiledSemanticClaims.get(nodeId) ?? 0
+      if (count <= 1) this.compiledSemanticClaims.delete(nodeId)
+      else this.compiledSemanticClaims.set(nodeId, count - 1)
+    }
+  }
+
   invokeAction(nodeId: string, actionName: string, input?: unknown) {
     const target = this.requireComponentTarget(nodeId)
     const action = target.registration.definition.actions[actionName]
@@ -94,14 +129,9 @@ export class PreviewRuntime {
       )
     }
 
-    const props = Object.freeze(
-      resolveEffectiveComponentProps(
-        target.registration.definition,
-        target.node.props,
-        target.node.bindings,
-        this.values.getSnapshot(),
-      ),
-    )
+    // Renderer and Action handlers consume the exact same immutable, settled
+    // host-owned snapshot. Neither path independently reconstructs props.
+    const props = this.componentProps.getNodeSnapshot(nodeId)
 
     return handler(
       {
@@ -138,7 +168,9 @@ export class PreviewRuntime {
       listener(event)
     }
 
-    this.dispatchBehaviors(event)
+    if (!this.compiledSemanticClaims.has(nodeId)) {
+      this.dispatchLegacySceneBehaviors(event)
+    }
     return event
   }
 
@@ -150,7 +182,7 @@ export class PreviewRuntime {
     }
   }
 
-  private dispatchBehaviors(event: ComponentRuntimeEvent) {
+  private dispatchLegacySceneBehaviors(event: ComponentRuntimeEvent) {
     if (!this.scene) {
       return
     }
@@ -204,14 +236,23 @@ export class PreviewRuntime {
 
     return {
       node,
-      registration: builtInComponentRegistry.require(node.type),
+      registration: this.registry.require(node.type),
     }
   }
 
   private start() {
+    if (!this.scene) {
+      throw new Error('Preview runtime cannot start without a scene')
+    }
+
     this.values.clear()
     this.eventSequence = 0
     this.behaviorDispatchDepth = 0
+    this.compiledSemanticClaims.clear()
+    this.componentProps.attachScene(this.scene, this.values.getSnapshot())
+    this.runtimeValueStop = this.values.subscribe(() => {
+      this.componentProps.syncRuntimeValues(this.values.getSnapshot())
+    })
     this.running = true
     const sourceStops: RuntimeDataSourceStop[] = []
 
@@ -224,6 +265,9 @@ export class PreviewRuntime {
         stop()
       }
 
+      this.runtimeValueStop?.()
+      this.runtimeValueStop = null
+      this.componentProps.reset()
       this.running = false
       this.values.clear()
       throw error
@@ -238,8 +282,12 @@ export class PreviewRuntime {
     }
 
     this.sourceStops = []
+    this.runtimeValueStop?.()
+    this.runtimeValueStop = null
     this.running = false
     this.values.clear()
+    this.componentProps.reset()
+    this.compiledSemanticClaims.clear()
     this.scene = null
     this.behaviorDispatchDepth = 0
   }
