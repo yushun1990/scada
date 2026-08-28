@@ -35,6 +35,53 @@ type RuntimeTargetIds = {
   behaviorIds: readonly string[]
 }
 
+export type ScadaDslRuntimeStructuralDiagnostic = {
+  kind: 'duplicate-value-writer'
+  ownerId: string
+  message: string
+}
+
+export class ScadaDslRuntimeCompileError extends Error {
+  readonly diagnostics: readonly ScadaDslRuntimeStructuralDiagnostic[]
+
+  constructor(diagnostics: readonly ScadaDslRuntimeStructuralDiagnostic[]) {
+    super(diagnostics.map((diagnostic) => diagnostic.message).join('\n'))
+    this.name = 'ScadaDslRuntimeCompileError'
+    this.diagnostics = diagnostics
+  }
+}
+
+/**
+ * Runtime construction must never accept ambiguous declarative ownership.
+ *
+ * A Component Property has at most one Value Binding writer in one compiled
+ * program. The host may still layer authored/default values below that one
+ * derived override, but two DSL writers must not race by evaluation order.
+ */
+export function validateScadaDslRuntimePlan(
+  plan: ScadaDslSemanticPlan,
+): readonly ScadaDslRuntimeStructuralDiagnostic[] {
+  const writersByProperty = new Map<string, string[]>()
+
+  for (const binding of plan.valueBindings) {
+    const writers = writersByProperty.get(binding.targetProperty) ?? []
+    writers.push(binding.id)
+    writersByProperty.set(binding.targetProperty, writers)
+  }
+
+  const diagnostics: ScadaDslRuntimeStructuralDiagnostic[] = []
+  for (const [property, writers] of writersByProperty) {
+    if (writers.length <= 1) continue
+    diagnostics.push({
+      kind: 'duplicate-value-writer',
+      ownerId: writers[1]!,
+      message: `Component Property component.${property} 存在多个 Value Binding writer：${writers.join(', ')}`,
+    })
+  }
+
+  return diagnostics
+}
+
 export type ScadaDslCompiledRuntime = {
   plan: ScadaDslSemanticPlan
   dependencies: ScadaDslDependencyIndex
@@ -117,6 +164,11 @@ function freezeTargetMap(
 export function compileScadaDslRuntime(
   plan: ScadaDslSemanticPlan,
 ): ScadaDslCompiledRuntime {
+  const structuralDiagnostics = validateScadaDslRuntimePlan(plan)
+  if (structuralDiagnostics.length > 0) {
+    throw new ScadaDslRuntimeCompileError(structuralDiagnostics)
+  }
+
   const dependencies = extractScadaDslDependencies(plan)
   const primary = new Map<string, MutableRuntimeTargetIds>()
   const external = new Map<string, MutableRuntimeTargetIds>()
@@ -241,7 +293,11 @@ export type ScadaDslBehaviorBranchState = Readonly<Record<string, string | null>
 export type ScadaDslValueUpdate = {
   bindingId: string
   property: string
-  value: ComponentScalarValue
+  /**
+   * `undefined` is an explicit invalidation: this Value Binding currently
+   * cannot produce a value and therefore relinquishes its derived override.
+   */
+  value: ComponentScalarValue | undefined
 }
 
 export type ScadaDslComponentActionEffect = {
@@ -317,7 +373,12 @@ export function evaluateScadaDslRuntimeTargets(
     if (value === undefined) {
       diagnostics.push({
         ownerId: binding.id,
-        message: `Value Binding ${binding.id} 当前无法求值`,
+        message: `Value Binding ${binding.id} 当前无法求值，已释放 component.${binding.targetProperty} 的派生覆盖`,
+      })
+      valueUpdates.push({
+        bindingId: binding.id,
+        property: binding.targetProperty,
+        value: undefined,
       })
       continue
     }

@@ -209,6 +209,11 @@ export function createScadaDslPropagationSession(
    *
    * If the hard propagation limit is exceeded, staged state is discarded and
    * no Property or Action effect escapes to the host.
+   *
+   * A Value Binding owns only a derived override. When evaluation becomes
+   * unresolved, that override is explicitly removed so the effective value can
+   * fall back to the host-owned authored/default layer instead of retaining a
+   * stale last-known-good DSL value.
    */
   function propagate(seedTargets: ScadaDslRuntimeTargets): ScadaDslPropagationResult {
     assertActive()
@@ -266,17 +271,33 @@ export function createScadaDslPropagationSession(
       const update = evaluation.valueUpdates[0]
       if (!update) continue
 
-      const previous = readComponentProperty(
+      const hadDerivedOverride = stagedComponentValues.has(update.property)
+      const previousDerivedValue = stagedComponentValues.get(update.property)
+      const previousEffectiveValue = readComponentProperty(
         stagedComponentValues,
         update.property,
       )
-      if (Object.is(previous, update.value)) continue
 
-      stagedComponentValues.set(update.property, update.value)
-      // The host only needs the final write for one Component Property, even if
-      // multiple upstream changes caused the binding to be reevaluated inside
-      // this transaction.
+      if (update.value === undefined) {
+        if (!hadDerivedOverride) continue
+        stagedComponentValues.delete(update.property)
+      } else {
+        if (hadDerivedOverride && Object.is(previousDerivedValue, update.value)) {
+          continue
+        }
+        stagedComponentValues.set(update.property, update.value)
+      }
+
+      // Host integration needs ownership changes too. A newly established
+      // derived override whose value equals the current base still matters, as
+      // does releasing an override back to the base layer.
       finalValueUpdates.set(update.property, update)
+
+      const nextEffectiveValue = readComponentProperty(
+        stagedComponentValues,
+        update.property,
+      )
+      if (Object.is(previousEffectiveValue, nextEffectiveValue)) continue
 
       const downstream = getScadaDslComponentPropertyUpdateTargets(
         compiled,
@@ -366,9 +387,73 @@ export function createScadaDslPropagationSession(
 
     rebindPrimaryDevice(nextPrimaryDevice) {
       assertActive()
+
+      const previousPrimaryDevice = primaryDevice
+      const previousBehaviorBranches = behaviorBranches
+      const previousComponentValues = componentValues
+
+      // Rebind is a fresh derivation against the next Primary Device. Carrying
+      // the old override map into this transaction would let unresolved new
+      // source values silently inherit old-device derived state.
       primaryDevice = nextPrimaryDevice
       behaviorBranches = {}
-      return propagate(getScadaDslInitialTargets(compiled))
+      componentValues = new Map<string, ComponentScalarValue>()
+
+      let result: ScadaDslPropagationResult
+      try {
+        result = propagate(getScadaDslInitialTargets(compiled))
+      } catch (error) {
+        primaryDevice = previousPrimaryDevice
+        behaviorBranches = previousBehaviorBranches
+        componentValues = previousComponentValues
+        throw error
+      }
+
+      if (result.aborted) {
+        primaryDevice = previousPrimaryDevice
+        behaviorBranches = previousBehaviorBranches
+        componentValues = previousComponentValues
+        return result
+      }
+
+      const nextComponentValues = componentValues
+      const valueUpdates: ScadaDslValueUpdate[] = []
+
+      // Propagation above evaluated the whole fresh program. Expose only the
+      // ownership/value delta between the previously committed device state and
+      // the new committed device state, including explicit invalidations.
+      for (const binding of compiled.plan.valueBindings) {
+        const property = binding.targetProperty
+        const hadPrevious = previousComponentValues.has(property)
+        const hasNext = nextComponentValues.has(property)
+
+        if (hadPrevious && !hasNext) {
+          valueUpdates.push({
+            bindingId: binding.id,
+            property,
+            value: undefined,
+          })
+          continue
+        }
+
+        if (!hasNext) continue
+        const nextValue = nextComponentValues.get(property)!
+        if (
+          !hadPrevious ||
+          !Object.is(previousComponentValues.get(property), nextValue)
+        ) {
+          valueUpdates.push({
+            bindingId: binding.id,
+            property,
+            value: nextValue,
+          })
+        }
+      }
+
+      return {
+        ...result,
+        valueUpdates,
+      }
     },
 
     getPrimaryDevice() {
