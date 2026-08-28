@@ -25,7 +25,11 @@ type MetaRecord = {
 function requestResult<T>(request: IDBRequest<T>) {
   return new Promise<T>((resolve, reject) => {
     request.addEventListener('success', () => resolve(request.result), { once: true })
-    request.addEventListener('error', () => reject(request.error ?? new Error('IndexedDB request failed')), { once: true })
+    request.addEventListener(
+      'error',
+      () => reject(request.error ?? new Error('IndexedDB request failed')),
+      { once: true },
+    )
   })
 }
 
@@ -158,6 +162,10 @@ export class IndexedDbSceneRepository
   extends IndexedDbRecordRepository<SceneRepositoryRecord>
   implements SceneRepository
 {
+  constructor(database: Promise<IDBDatabase>) {
+    super(database, SCENES_STORE)
+  }
+
   list = () => this.listRecords()
   get = (id: string) => this.getRecord(id)
   put = (record: SceneRepositoryRecord) => this.putRecord(record)
@@ -170,6 +178,10 @@ export class IndexedDbComponentRepository
   extends IndexedDbRecordRepository<ComponentRepositoryRecord>
   implements ComponentRepository
 {
+  constructor(database: Promise<IDBDatabase>) {
+    super(database, COMPONENTS_STORE)
+  }
+
   list = () => this.listRecords()
   get = (id: string) => this.getRecord(id)
   put = (record: ComponentRepositoryRecord) => this.putRecord(record)
