@@ -6,10 +6,11 @@ import {
   type ScadaDslPropagationResult,
   type ScadaDslSourcePropertyChange,
 } from '../scene/scada-dsl-propagation-session'
-import type {
-  ScadaDslCompiledRuntime,
-  ScadaDslDeviceActionEffect,
-} from '../scene/scada-dsl-runtime'
+import type { ScadaDslCompiledRuntime } from '../scene/scada-dsl-runtime'
+import {
+  createScadaDeviceActionInvocation,
+  type ScadaDeviceActionDispatcher,
+} from './device-action-dispatcher'
 import type { PreviewRuntime } from './preview-runtime'
 import type { RuntimeValueSnapshot } from './runtime-value-store'
 
@@ -18,15 +19,11 @@ export type PreviewScadaSourceValueKey = (
   property: string,
 ) => string
 
-export type PreviewScadaDeviceActionDispatcher = (
-  effect: ScadaDslDeviceActionEffect,
-) => void
-
 export type PreviewScadaSemanticsOptions = {
   primaryDevice?: ScadaPrimaryDeviceContext | null
   sourceValueKey?: PreviewScadaSourceValueKey
   maxPropagationSteps?: number
-  dispatchDeviceAction?: PreviewScadaDeviceActionDispatcher
+  deviceActionDispatcher?: ScadaDeviceActionDispatcher
   onDiagnostics?: (
     diagnostics: readonly ScadaDslPropagationDiagnostic[],
   ) => void
@@ -121,23 +118,19 @@ function findChangedSourceProperties(
 }
 
 /**
- * Narrow M6.5.9C bridge between an already-validated compiled SCADA program and
- * one live Preview component instance.
- *
- * This adapter deliberately does not persist DSL text or semantic plans into
- * Scene v6. It only owns the runtime attachment lifecycle:
+ * Attach one already-validated compiled SCADA program to one live Preview
+ * component instance.
  *
  * RuntimeValueStore publication
  *   -> compiled dependency diff
  *   -> one transactional propagation batch
  *   -> ComponentPropertyStore derived commit
- *   -> Component Action effects against the same settled snapshot
+ *   -> typed Component Action effects against the settled snapshot
  *
  * Component Events are routed through Interaction Bindings while the node is
  * claimed, so legacy Scene v6 Event -> Component Action behavior cannot fire in
- * parallel. Device/Platform Action effects remain host-owned and are forwarded
- * to the narrow dispatcher callback without inventing the typed contract that
- * belongs to M6.5.10.
+ * parallel. Outbound Device/Platform Actions go through the explicit
+ * ScadaDeviceActionDispatcher host capability and never through RuntimeDataSource.
  */
 export function attachPreviewScadaSemantics(
   runtime: PreviewRuntime,
@@ -149,9 +142,12 @@ export function attachPreviewScadaSemantics(
     throw new Error('Preview runtime must be running before SCADA semantics attach')
   }
 
-  if (compiled.plan.interactions.length > 0 && !options.dispatchDeviceAction) {
+  if (
+    compiled.plan.interactions.length > 0 &&
+    !options.deviceActionDispatcher
+  ) {
     throw new Error(
-      'Compiled SCADA interactions require a Preview device-action dispatcher',
+      'Compiled SCADA interactions require a device-action dispatcher',
     )
   }
 
@@ -195,20 +191,7 @@ export function attachPreviewScadaSemantics(
     runtime.componentProps.commitDerivedUpdates(nodeId, result.valueUpdates)
 
     for (const effect of result.componentActions) {
-      // M6.5.10 owns the typed Action/Event input contract. Do not guess how a
-      // positional DSL argument list maps into today's single unknown input.
-      if (effect.arguments.length > 0) {
-        reportDiagnostics([
-          {
-            kind: 'runtime',
-            ownerId: effect.behaviorId,
-            message:
-              '带参数 Component Action 暂不由 Preview bridge 执行；等待 M6.5.10 typed Action contract',
-          },
-        ])
-        continue
-      }
-      runtime.invokeAction(nodeId, effect.action)
+      runtime.invokeAction(nodeId, effect.action, effect.arguments)
     }
 
     return result
@@ -237,7 +220,14 @@ export function attachPreviewScadaSemantics(
     const result = session.componentEvent(event.eventName)
     reportDiagnostics(result.diagnostics)
     for (const effect of result.deviceActions) {
-      options.dispatchDeviceAction?.(effect)
+      options.deviceActionDispatcher?.dispatch(
+        createScadaDeviceActionInvocation(
+          effect.interactionId,
+          effect.sourceId,
+          effect.action,
+          effect.arguments,
+        ),
+      )
     }
   })
 
