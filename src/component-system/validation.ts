@@ -3,6 +3,7 @@ import {
   type ComponentDefinition,
   type ComponentPropertyDefinition,
   type ComponentPropertyKind,
+  type ComponentPropertyOption,
   type VisualAnchorRole,
 } from './definition'
 
@@ -40,6 +41,63 @@ function assertOptionalText(value: unknown, label: string) {
   }
 }
 
+function assertValueKind(value: unknown, label: string): ComponentPropertyKind {
+  if (
+    typeof value !== 'string' ||
+    !PROPERTY_KINDS.has(value as ComponentPropertyKind)
+  ) {
+    throw new Error(`${label}的类型无效`)
+  }
+  return value as ComponentPropertyKind
+}
+
+function parseOptions(
+  kind: ComponentPropertyKind,
+  value: unknown,
+  label: string,
+): readonly ComponentPropertyOption[] | undefined {
+  if (value === undefined) {
+    if (kind === 'select') {
+      throw new Error(`Select ${label} 至少需要一个选项`)
+    }
+    return undefined
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} 的 options 必须是数组`)
+  }
+
+  const optionValues = new Set<string>()
+  const parsed = value.map((option, index) => {
+    if (
+      !isRecord(option) ||
+      typeof option.label !== 'string' ||
+      !option.label.trim() ||
+      (typeof option.value !== 'string' && typeof option.value !== 'number')
+    ) {
+      throw new Error(`${label} 的第 ${index + 1} 个选项无效`)
+    }
+
+    const identity = `${typeof option.value}:${String(option.value)}`
+    if (optionValues.has(identity)) {
+      throw new Error(`${label} 包含重复选项值 ${String(option.value)}`)
+    }
+    optionValues.add(identity)
+    return {
+      label: option.label,
+      value: option.value,
+    }
+  })
+
+  if (kind === 'select' && parsed.length === 0) {
+    throw new Error(`Select ${label} 至少需要一个选项`)
+  }
+  if (kind !== 'select' && parsed.length > 0) {
+    throw new Error(`只有 Select ${label} 可以定义 options`)
+  }
+  return parsed
+}
+
 function assertProperty(
   componentType: string,
   key: string,
@@ -52,65 +110,17 @@ function assertProperty(
   }
 
   assertText(value.title, `Property ${key} 标题`)
-
-  if (
-    typeof value.kind !== 'string' ||
-    !PROPERTY_KINDS.has(value.kind as ComponentPropertyKind)
-  ) {
-    throw new Error(`Property ${key} 的类型无效`)
-  }
-
+  const kind = assertValueKind(value.kind, `Property ${key} `)
   assertOptionalText(value.description, `Property ${key} 说明`)
 
   if (value.bindable !== undefined && typeof value.bindable !== 'boolean') {
     throw new Error(`Property ${key} 的 bindable 必须是布尔值`)
   }
 
-  let options: ComponentPropertyDefinition['options']
-
-  if (value.options !== undefined) {
-    if (!Array.isArray(value.options)) {
-      throw new Error(`Property ${key} 的 options 必须是数组`)
-    }
-
-    const optionValues = new Set<string>()
-    const parsed = value.options.map((option, index) => {
-      if (
-        !isRecord(option) ||
-        typeof option.label !== 'string' ||
-        !option.label.trim() ||
-        (typeof option.value !== 'string' && typeof option.value !== 'number')
-      ) {
-        throw new Error(`Property ${key} 的第 ${index + 1} 个选项无效`)
-      }
-
-      const identity = `${typeof option.value}:${String(option.value)}`
-
-      if (optionValues.has(identity)) {
-        throw new Error(`Property ${key} 包含重复选项值 ${String(option.value)}`)
-      }
-
-      optionValues.add(identity)
-      return {
-        label: option.label,
-        value: option.value,
-      }
-    })
-
-    options = parsed
-  }
-
-  if (value.kind === 'select' && (!options || options.length === 0)) {
-    throw new Error(`Select Property ${key} 至少需要一个选项`)
-  }
-
-  if (value.kind !== 'select' && options?.length) {
-    throw new Error(`只有 Select Property 可以定义 options`)
-  }
-
+  const options = parseOptions(kind, value.options, `Property ${key}`)
   const property = {
     title: value.title,
-    kind: value.kind,
+    kind,
     defaultValue: value.defaultValue,
     description: value.description,
     bindable: value.bindable,
@@ -119,6 +129,88 @@ function assertProperty(
 
   if (!isComponentPropertyValue(property, value.defaultValue)) {
     throw new Error(`Property ${key} 的默认值与类型不兼容`)
+  }
+}
+
+function assertContractValueDefinition(
+  value: Record<string, unknown>,
+  label: string,
+) {
+  assertText(value.title, `${label} 标题`)
+  const kind = assertValueKind(value.kind, `${label} `)
+  assertOptionalText(value.description, `${label} 说明`)
+
+  if (value.nullable !== undefined && typeof value.nullable !== 'boolean') {
+    throw new Error(`${label} 的 nullable 必须是布尔值`)
+  }
+
+  return parseOptions(kind, value.options, label)
+}
+
+function assertActionDefinition(key: string, definition: unknown) {
+  if (!isRecord(definition)) {
+    throw new Error(`Action ${key} 定义无效`)
+  }
+
+  assertText(definition.title, `Action ${key} 标题`)
+  assertOptionalText(definition.description, `Action ${key} 说明`)
+
+  if (definition.parameters === undefined) return
+  if (!Array.isArray(definition.parameters)) {
+    throw new Error(`Action ${key} 的 parameters 必须是数组`)
+  }
+
+  const names = new Set<string>()
+  let sawOptional = false
+  definition.parameters.forEach((parameter, index) => {
+    if (!isRecord(parameter)) {
+      throw new Error(`Action ${key} 的第 ${index + 1} 个参数定义无效`)
+    }
+
+    assertText(parameter.name, `Action ${key} 参数 ${index + 1} 名称`)
+    const name = parameter.name as string
+    if (names.has(name)) {
+      throw new Error(`Action ${key} 包含重复参数名 ${name}`)
+    }
+    names.add(name)
+
+    assertContractValueDefinition(parameter, `Action ${key} 参数 ${name}`)
+    if (parameter.optional !== undefined && typeof parameter.optional !== 'boolean') {
+      throw new Error(`Action ${key} 参数 ${name} 的 optional 必须是布尔值`)
+    }
+
+    const optional = parameter.optional === true
+    if (sawOptional && !optional) {
+      throw new Error(`Action ${key} 的必填参数不能位于可选参数之后`)
+    }
+    sawOptional = sawOptional || optional
+  })
+}
+
+function assertEventDefinition(key: string, definition: unknown) {
+  if (!isRecord(definition)) {
+    throw new Error(`Event ${key} 定义无效`)
+  }
+
+  assertText(definition.title, `Event ${key} 标题`)
+  assertOptionalText(definition.description, `Event ${key} 说明`)
+
+  if (definition.payload === undefined) return
+  if (!isRecord(definition.payload)) {
+    throw new Error(`Event ${key} 的 payload 必须是对象`)
+  }
+
+  for (const [fieldName, field] of Object.entries(definition.payload)) {
+    assertText(fieldName, `Event ${key} payload 字段名`)
+    if (!isRecord(field)) {
+      throw new Error(`Event ${key} payload 字段 ${fieldName} 定义无效`)
+    }
+    assertContractValueDefinition(field, `Event ${key} payload 字段 ${fieldName}`)
+    if (field.optional !== undefined && typeof field.optional !== 'boolean') {
+      throw new Error(
+        `Event ${key} payload 字段 ${fieldName} 的 optional 必须是布尔值`,
+      )
+    }
   }
 }
 
@@ -133,13 +225,8 @@ function assertInteractionMap(
 
   for (const [key, definition] of Object.entries(value)) {
     assertText(key, `${label} key`)
-
-    if (!isRecord(definition)) {
-      throw new Error(`${label} ${key} 定义无效`)
-    }
-
-    assertText(definition.title, `${label} ${key} 标题`)
-    assertOptionalText(definition.description, `${label} ${key} 说明`)
+    if (label === 'Action') assertActionDefinition(key, definition)
+    else assertEventDefinition(key, definition)
   }
 }
 
