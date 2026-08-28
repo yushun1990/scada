@@ -4,11 +4,7 @@ import {
   type ComponentScalarValue,
 } from '../component-system/definition'
 import type { ComponentRegistry } from '../component-system/registry'
-import {
-  isGroupNode,
-  type ComponentSceneNode,
-  type SceneDocument,
-} from '../scene/model'
+import type { ComponentSceneNode, SceneDocument } from '../scene/model'
 import { resolveEffectiveComponentProps } from './effective-component-props'
 import type { RuntimeValueSnapshot } from './runtime-value-store'
 
@@ -21,6 +17,12 @@ export type ComponentDerivedPropertyUpdate = {
 }
 
 const EMPTY_COMPONENT_PROPS: ComponentPropertySnapshot = Object.freeze({})
+
+function isComponentRuntimeNode(
+  node: SceneDocument['nodes'][number],
+): node is ComponentSceneNode {
+  return node.type !== 'core.group'
+}
 
 function snapshotsEqual(
   left: ComponentPropertySnapshot | undefined,
@@ -147,7 +149,7 @@ export class ComponentPropertyStore {
       throw new Error('Preview Component Property store has no active scene')
     }
     const node = this.scene.nodes.find((candidate) => candidate.id === nodeId)
-    if (!node || isGroupNode(node)) {
+    if (!node || !isComponentRuntimeNode(node)) {
       throw new Error(`Preview component node does not exist: ${nodeId}`)
     }
     return node
@@ -159,7 +161,7 @@ export class ComponentPropertyStore {
     const liveNodeIds = new Set<string>()
 
     for (const node of this.scene.nodes) {
-      if (isGroupNode(node)) continue
+      if (!isComponentRuntimeNode(node)) continue
       liveNodeIds.add(node.id)
       changed = this.recomputeNode(node, false) || changed
     }
