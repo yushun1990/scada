@@ -46,6 +46,7 @@ jobs:
           npx --yes tsx scripts/check-preview-component-state.ts
           npx --yes tsx scripts/check-preview-scada-integration.ts
           npx --yes tsx scripts/check-typed-action-event-contract.ts
+          npx --yes tsx scripts/check-scada-semantics-persistence.ts
 
       - name: Lint
         run: npm run lint

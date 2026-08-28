@@ -1,7 +1,9 @@
 import type { ComponentProps } from '../component-system/definition'
 import { builtInComponentRegistry } from '../component-system/builtins'
+import type { PersistedScadaSemantics } from './scada-semantics-persistence'
 
-export const SCENE_VERSION = 6 as const
+export const LEGACY_SCENE_VERSION = 6 as const
+export const SCENE_VERSION = 7 as const
 export const GROUP_NODE_TYPE = 'core.group' as const
 
 export type NodeTransform = {
@@ -50,8 +52,18 @@ type SceneNodeBase = {
 export type ComponentSceneNode = SceneNodeBase & {
   type: string
   props: ComponentProps
+  /** Scene v5 compatibility-only runtime-value bindings. */
   bindings: DataBinding[]
+  /** Scene v6 compatibility-only Event -> Component Action behaviors. */
   behaviors: ComponentBehavior[]
+  /**
+   * Scene v7 canonical SCADA Value/Behavior/Interaction semantics.
+   *
+   * Optional in the in-memory TypeScript shape so older deterministic fixtures
+   * can still construct legacy-v6 documents directly. Serialized Scene v7 JSON
+   * always normalizes this field to an explicit object or null.
+   */
+  scadaSemantics?: PersistedScadaSemantics | null
 }
 
 export type GroupSceneNode = SceneNodeBase & {
@@ -87,7 +99,11 @@ export type SceneConnection = {
 }
 
 export type SceneDocument = {
-  version: typeof SCENE_VERSION
+  /**
+   * v6 remains constructible in-memory only as a compatibility shape. Normal
+   * load/save paths migrate and serialize the current v7 schema.
+   */
+  version: typeof LEGACY_SCENE_VERSION | typeof SCENE_VERSION
   id: string
   name: string
   width: number
@@ -135,6 +151,7 @@ export function createComponentNode(
     props: registration.createDefaultProps(),
     bindings: [],
     behaviors: [],
+    scadaSemantics: null,
   }
 }
 

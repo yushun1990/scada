@@ -1,5 +1,8 @@
 import { createDefaultScene, type SceneDocument } from '../../scene/model'
-import { parseSceneDocument } from '../../scene/validation'
+import {
+  parseSceneDocument,
+  serializeSceneDocument,
+} from '../../scene/validation'
 
 const WORKS_STORAGE_KEY = 'scada-editor-lab.works.v1'
 const SCENE_STORAGE_PREFIX = 'scada-editor-lab.work.'
@@ -93,7 +96,7 @@ function ensureInitialWork() {
   const workId = 'legacy'
   window.localStorage.setItem(
     getScadaSceneStorageKey(workId),
-    JSON.stringify(scene),
+    serializeSceneDocument(scene),
   )
   const seeded = [summarizeScene(workId, scene)]
   writeWorks(seeded)
@@ -132,7 +135,7 @@ export function loadScadaScene(workId: string): SceneDocument {
 export function saveScadaScene(workId: string, scene: SceneDocument) {
   window.localStorage.setItem(
     getScadaSceneStorageKey(workId),
-    JSON.stringify(scene),
+    serializeSceneDocument(scene),
   )
 
   const works = readWorks()

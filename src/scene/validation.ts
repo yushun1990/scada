@@ -7,6 +7,7 @@ import { builtInComponentRegistry } from '../component-system/builtins'
 import { getAnchorDefinition } from '../components/anchors'
 import {
   GROUP_NODE_TYPE,
+  LEGACY_SCENE_VERSION,
   SCENE_VERSION,
   isGroupNode,
   type ComponentBehavior,
@@ -20,6 +21,11 @@ import {
   type SceneDocument,
   type SceneNode,
 } from './model'
+import {
+  parsePersistedScadaSemantics,
+  type PersistedScadaExpression,
+  type PersistedScadaSemantics,
+} from './scada-semantics-persistence'
 
 const LEGACY_DEFAULT_BACKGROUND = '#0b1119'
 const DEFAULT_EDITOR_BACKGROUND = '#edf1f5'
@@ -215,6 +221,136 @@ function parseComponentBehaviors(
   return behaviors
 }
 
+function validatePersistedExpressionComponentReferences(
+  definition: ComponentDefinition,
+  expression: PersistedScadaExpression,
+): boolean {
+  if (expression.kind === 'literal') return true
+
+  if (expression.kind === 'reference') {
+    return expression.reference.kind !== 'component-property'
+      || Boolean(definition.properties[expression.reference.property])
+  }
+
+  if (expression.kind === 'unary') {
+    return validatePersistedExpressionComponentReferences(
+      definition,
+      expression.operand,
+    )
+  }
+
+  if (expression.kind === 'binary') {
+    return (
+      validatePersistedExpressionComponentReferences(definition, expression.left)
+      && validatePersistedExpressionComponentReferences(definition, expression.right)
+    )
+  }
+
+  return (
+    validatePersistedExpressionComponentReferences(definition, expression.condition)
+    && validatePersistedExpressionComponentReferences(definition, expression.consequent)
+    && validatePersistedExpressionComponentReferences(definition, expression.alternate)
+  )
+}
+
+function isComponentActionArityValid(
+  definition: ComponentDefinition,
+  actionName: string,
+  argumentCount: number,
+) {
+  const action = definition.actions[actionName]
+  if (!action) return false
+  const parameters = action.parameters ?? []
+  const required = parameters.filter((parameter) => !parameter.optional).length
+  return argumentCount >= required && argumentCount <= parameters.length
+}
+
+function validatePersistedScadaComponentContract(
+  definition: ComponentDefinition,
+  semantics: PersistedScadaSemantics,
+) {
+  for (const binding of semantics.valueBindings) {
+    if (
+      !definition.properties[binding.targetProperty]
+      || !validatePersistedExpressionComponentReferences(
+        definition,
+        binding.expression,
+      )
+    ) {
+      return false
+    }
+  }
+
+  for (const behavior of semantics.behaviors) {
+    for (const branch of behavior.branches) {
+      if (
+        branch.condition
+        && !validatePersistedExpressionComponentReferences(
+          definition,
+          branch.condition,
+        )
+      ) {
+        return false
+      }
+
+      for (const action of branch.actions) {
+        if (
+          !isComponentActionArityValid(
+            definition,
+            action.action,
+            action.arguments.length,
+          )
+          || action.arguments.some(
+            (argument) =>
+              !validatePersistedExpressionComponentReferences(
+                definition,
+                argument,
+              ),
+          )
+        ) {
+          return false
+        }
+      }
+    }
+  }
+
+  for (const interaction of semantics.interactions) {
+    if (
+      !definition.events[interaction.event]
+      || interaction.action.arguments.some(
+        (argument) =>
+          !validatePersistedExpressionComponentReferences(
+            definition,
+            argument,
+          ),
+      )
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function parseScadaSemantics(
+  definition: ComponentDefinition,
+  value: Record<string, unknown>,
+  version: number,
+): PersistedScadaSemantics | null | undefined {
+  if (version < SCENE_VERSION) return null
+  if (!Object.hasOwn(value, 'scadaSemantics')) return undefined
+  if (value.scadaSemantics === null) return null
+
+  try {
+    const semantics = parsePersistedScadaSemantics(value.scadaSemantics)
+    return validatePersistedScadaComponentContract(definition, semantics)
+      ? semantics
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function parseSceneNode(value: unknown, version: number): SceneNode | null {
   if (!isRecord(value)) {
     return null
@@ -241,7 +377,8 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
   ) {
     if (
       (version >= 5 && value.bindings.length > 0) ||
-      (version >= 6 && value.behaviors.length > 0)
+      (version >= 6 && value.behaviors.length > 0) ||
+      (version >= SCENE_VERSION && Object.hasOwn(value, 'scadaSemantics'))
     ) {
       return null
     }
@@ -279,8 +416,13 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
     value.behaviors,
     version,
   )
+  const scadaSemantics = parseScadaSemantics(
+    registration.definition,
+    value,
+    version,
+  )
 
-  if (!props || !bindings || !behaviors) {
+  if (!props || !bindings || !behaviors || scadaSemantics === undefined) {
     return null
   }
 
@@ -290,6 +432,7 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
     props,
     bindings,
     behaviors,
+    scadaSemantics,
   } satisfies ComponentSceneNode
 }
 
@@ -474,6 +617,7 @@ export function parseSceneDocument(json: string): SceneDocument {
     sourceVersion === 3 ||
     sourceVersion === 4 ||
     sourceVersion === 5 ||
+    sourceVersion === LEGACY_SCENE_VERSION ||
     sourceVersion === SCENE_VERSION
 
   if (
@@ -523,4 +667,12 @@ export function parseSceneDocument(json: string): SceneDocument {
     nodes: parsedNodes,
     connections,
   }
+}
+
+/**
+ * Persistence always passes through the current parser/migrator so a legacy-v6
+ * in-memory scene can never be written back as legacy JSON by accident.
+ */
+export function serializeSceneDocument(scene: SceneDocument) {
+  return JSON.stringify(parseSceneDocument(JSON.stringify(scene)))
 }
