@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import type { ComponentProps } from '../src/component-system/definition'
 import type { ComponentRegistration } from '../src/component-system/registration'
 import { ComponentRegistry } from '../src/component-system/registry'
+import type { ScadaDeviceActionInvocation } from '../src/runtime/device-action-dispatcher'
 import { PreviewRuntime } from '../src/runtime/preview-runtime'
 import { attachPreviewScadaSemantics } from '../src/runtime/preview-scada-semantics'
 import {
@@ -9,7 +10,6 @@ import {
 } from '../src/scene/scada-dsl'
 import { compileScadaDslSource } from '../src/scene/scada-dsl-compiler'
 import type { ScadaDslPropagationDiagnostic } from '../src/scene/scada-dsl-propagation-session'
-import type { ScadaDslDeviceActionEffect } from '../src/scene/scada-dsl-runtime'
 import type { SceneDocument } from '../src/scene/model'
 
 const actionSnapshots: Array<{
@@ -157,7 +157,7 @@ const scene = createScene('scene-preview-scada', 'component-1')
 const releaseRuntime = runtime.acquire(scene)
 runtime.values.set('pump-01:level', 42)
 
-const deviceActions: ScadaDslDeviceActionEffect[] = []
+const deviceActions: ScadaDeviceActionInvocation[] = []
 const diagnostics: ScadaDslPropagationDiagnostic[] = []
 const attachment = attachPreviewScadaSemantics(
   runtime,
@@ -165,8 +165,10 @@ const attachment = attachPreviewScadaSemantics(
   compiledResult.compiled!,
   {
     primaryDevice: { deviceId: 'pump-01' },
-    dispatchDeviceAction(effect) {
-      deviceActions.push(effect)
+    deviceActionDispatcher: {
+      dispatch(effect) {
+        deviceActions.push(effect)
+      },
     },
     onDiagnostics(nextDiagnostics) {
       diagnostics.push(...nextDiagnostics)
