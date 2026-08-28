@@ -1,17 +1,9 @@
+import { browserPersistence, ensureBrowserPersistenceReady } from '../../storage/browser-persistence'
 import { createDefaultScene, type SceneDocument } from '../../scene/model'
 import {
   parseSceneDocument,
   serializeSceneDocument,
 } from '../../scene/validation'
-
-const WORKS_STORAGE_KEY = 'scada-editor-lab.works.v1'
-const SCENE_STORAGE_PREFIX = 'scada-editor-lab.work.'
-const LEGACY_SCENE_KEYS = [
-  'scada-editor-lab.scene.v4',
-  'scada-editor-lab.scene.v3',
-  'scada-editor-lab.scene.v2',
-  'scada-editor-lab.scene.v1',
-]
 
 export type ScadaWorkSummary = {
   id: string
@@ -23,38 +15,17 @@ export type ScadaWorkSummary = {
   updatedAt: string
 }
 
+const sceneCache = new Map<string, SceneDocument>()
+
 function createWorkId() {
   const suffix = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
   return `work-${suffix}`
 }
 
-export function getScadaSceneStorageKey(workId: string) {
-  return `${SCENE_STORAGE_PREFIX}${workId}.scene.v4`
-}
-
-function readWorks(): ScadaWorkSummary[] {
-  const raw = window.localStorage.getItem(WORKS_STORAGE_KEY)
-
-  if (!raw) {
-    return []
-  }
-
-  try {
-    const value = JSON.parse(raw)
-    return Array.isArray(value) ? value : []
-  } catch {
-    return []
-  }
-}
-
-function writeWorks(works: ScadaWorkSummary[]) {
-  window.localStorage.setItem(WORKS_STORAGE_KEY, JSON.stringify(works))
-}
-
 function summarizeScene(
   workId: string,
   scene: SceneDocument,
-  updatedAt = new Date().toISOString(),
+  updatedAt: string,
 ): ScadaWorkSummary {
   return {
     id: workId,
@@ -67,94 +38,110 @@ function summarizeScene(
   }
 }
 
-function loadLegacyScene() {
-  for (const key of LEGACY_SCENE_KEYS) {
-    const raw = window.localStorage.getItem(key)
+function cloneScene(scene: SceneDocument) {
+  return parseSceneDocument(serializeSceneDocument(scene))
+}
 
-    if (!raw) {
-      continue
-    }
+function parseRecord(workId: string, document: string, updatedAt: string) {
+  try {
+    const scene = parseSceneDocument(document)
+    sceneCache.set(workId, scene)
+    return summarizeScene(workId, scene, updatedAt)
+  } catch {
+    return null
+  }
+}
 
+async function ensureInitialWork() {
+  await ensureBrowserPersistenceReady()
+  const records = await browserPersistence.scenes.list()
+  if (records.length > 0) return records
+
+  const scene = createDefaultScene()
+  const document = serializeSceneDocument(scene)
+  const updatedAt = new Date().toISOString()
+  await browserPersistence.scenes.put({
+    id: 'legacy',
+    document,
+    updatedAt,
+  })
+  sceneCache.set('legacy', scene)
+  return [{ id: 'legacy', document, updatedAt }]
+}
+
+export async function listScadaWorks(): Promise<ScadaWorkSummary[]> {
+  const records = await ensureInitialWork()
+  return records
+    .map((record) => parseRecord(record.id, record.document, record.updatedAt))
+    .filter((work): work is ScadaWorkSummary => Boolean(work))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+}
+
+export async function prepareScadaScene(workId: string) {
+  await ensureBrowserPersistenceReady()
+  const record = await browserPersistence.scenes.get(workId)
+
+  if (record) {
     try {
-      return parseSceneDocument(raw)
+      sceneCache.set(workId, parseSceneDocument(record.document))
+      return
     } catch {
-      // Try the next historical key.
-    }
-  }
-
-  return null
-}
-
-function ensureInitialWork() {
-  const existing = readWorks()
-
-  if (existing.length > 0) {
-    return existing
-  }
-
-  const scene = loadLegacyScene() ?? createDefaultScene()
-  const workId = 'legacy'
-  window.localStorage.setItem(
-    getScadaSceneStorageKey(workId),
-    serializeSceneDocument(scene),
-  )
-  const seeded = [summarizeScene(workId, scene)]
-  writeWorks(seeded)
-  return seeded
-}
-
-export function listScadaWorks() {
-  return [...ensureInitialWork()].sort((left, right) =>
-    right.updatedAt.localeCompare(left.updatedAt),
-  )
-}
-
-export function loadScadaScene(workId: string): SceneDocument {
-  const raw = window.localStorage.getItem(getScadaSceneStorageKey(workId))
-
-  if (raw) {
-    try {
-      return parseSceneDocument(raw)
-    } catch {
-      // Fall through to a valid default scene.
-    }
-  }
-
-  if (workId === 'legacy') {
-    const legacy = loadLegacyScene()
-    if (legacy) {
-      return legacy
+      // Keep the corrupt IndexedDB row intact for diagnostics and open fallback.
     }
   }
 
   const scene = createDefaultScene()
   scene.name = '未命名 SCADA'
-  return scene
+  sceneCache.set(workId, scene)
 }
 
+/**
+ * Synchronous read used by the existing editor state initializer only after
+ * ScadaEditorLoader has awaited prepareScadaScene().
+ */
+export function loadScadaScene(workId: string): SceneDocument {
+  const cached = sceneCache.get(workId)
+  if (cached) return cloneScene(cached)
+
+  const fallback = createDefaultScene()
+  fallback.name = '未命名 SCADA'
+  return fallback
+}
+
+export async function saveScadaSceneAsync(
+  workId: string,
+  scene: SceneDocument,
+): Promise<ScadaWorkSummary> {
+  await ensureBrowserPersistenceReady()
+  const document = serializeSceneDocument(scene)
+  const normalized = parseSceneDocument(document)
+  const updatedAt = new Date().toISOString()
+
+  await browserPersistence.scenes.put({
+    id: workId,
+    document,
+    updatedAt,
+  })
+  sceneCache.set(workId, normalized)
+  return summarizeScene(workId, normalized, updatedAt)
+}
+
+/**
+ * Compatibility adapter for the current synchronous Save button. New storage
+ * integrations should call saveScadaSceneAsync directly. The next UI slice
+ * removes this adapter once the editor button awaits persistence explicitly.
+ */
 export function saveScadaScene(workId: string, scene: SceneDocument) {
-  window.localStorage.setItem(
-    getScadaSceneStorageKey(workId),
-    serializeSceneDocument(scene),
-  )
-
-  const works = readWorks()
-  const summary = summarizeScene(workId, scene)
-  const index = works.findIndex((work) => work.id === workId)
-
-  if (index >= 0) {
-    works[index] = summary
-  } else {
-    works.push(summary)
-  }
-
-  writeWorks(works)
-  return summary
+  sceneCache.set(workId, cloneScene(scene))
+  void saveScadaSceneAsync(workId, scene).catch((error: unknown) => {
+    window.dispatchEvent(new CustomEvent('scada-storage-error', { detail: error }))
+  })
 }
 
-export function createScadaWork() {
+export async function createScadaWork(): Promise<ScadaWorkSummary> {
   const workId = createWorkId()
   const scene = createDefaultScene()
-  scene.name = `SCADA 作品 ${listScadaWorks().length + 1}`
-  return saveScadaScene(workId, scene)
+  const works = await listScadaWorks()
+  scene.name = `SCADA 作品 ${works.length + 1}`
+  return saveScadaSceneAsync(workId, scene)
 }
