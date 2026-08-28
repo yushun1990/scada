@@ -1,10 +1,16 @@
 import type { ComponentRegistry } from '../component-system/registry'
-import { isGroupNode, type SceneDocument } from '../scene/model'
+import type { ComponentSceneNode, SceneDocument } from '../scene/model'
 import { ComponentPropertyStore } from './component-property-store'
 import type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
 import { RuntimeValueStore } from './runtime-value-store'
 
 const MAX_BEHAVIOR_DISPATCH_DEPTH = 32
+
+function isComponentRuntimeNode(
+  node: SceneDocument['nodes'][number],
+): node is ComponentSceneNode {
+  return node.type !== 'core.group'
+}
 
 export type ComponentRuntimeEvent = {
   sequence: number
@@ -195,7 +201,7 @@ export class PreviewRuntime {
       (candidate) => candidate.id === event.nodeId,
     )
 
-    if (!sourceNode || isGroupNode(sourceNode)) {
+    if (!sourceNode || !isComponentRuntimeNode(sourceNode)) {
       return
     }
 
@@ -228,7 +234,7 @@ export class PreviewRuntime {
 
     const node = this.scene.nodes.find((candidate) => candidate.id === nodeId)
 
-    if (!node || isGroupNode(node)) {
+    if (!node || !isComponentRuntimeNode(node)) {
       throw new Error(`Runtime component node does not exist: ${nodeId}`)
     }
 
