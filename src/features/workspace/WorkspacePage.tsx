@@ -5,7 +5,7 @@ import {
   useState,
   type ChangeEvent,
 } from 'react'
-import { Button, Pressable } from '../../ui'
+import { Button, Input, Pressable } from '../../ui'
 import {
   exportBrowserDebugSnapshot,
   getBrowserStorageDiagnostics,
@@ -176,7 +176,7 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
       <Button variant="ghost" size="small" onClick={() => void resetStorage()}>
         重置本地数据
       </Button>
-      <input
+      <Input
         ref={snapshotInputRef}
         className="hidden-input"
         type="file"
