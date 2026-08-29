@@ -205,6 +205,12 @@ Remote publication is an explicit operation that creates an immutable published 
 
 Published packages are distribution artifacts; after retrieval they must pass client-side package validation before entering the same ComponentRegistration / ComponentRegistry path used by locally authored packages.
 
+### 3.12 Remote discovery is not runtime installation
+
+Seeing a remote publication in a catalog must not automatically register it into the live Studio runtime.
+
+A remotely published revision first crosses a strict client repository/codec boundary, then an explicit install/cache boundary that preserves immutable publication provenance. This avoids false collisions between a developer's local authored package and that same component type's published revision.
+
 ---
 
 # 4. Milestone status
@@ -240,6 +246,7 @@ M6.5.11 Stable persistence semantics                           accepted · 2026-
 M6.6 Local persistence foundation                              accepted · 2026-08-28
 M6.7A Local user-component activation                          accepted · 2026-08-29
 M6.7B1 Publication contract + immutable revisions              accepted · 2026-08-29
+M6.7B2A Remote repository + install candidate boundary         accepted · 2026-08-29
 ```
 
 The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
@@ -578,25 +585,66 @@ Verification includes both pure contract fixtures and a real PostgreSQL 16 + Fas
 
 Detailed acceptance record: `docs/progress/m6.7b1-publication-contract.md`.
 
-## M6.7B2 Client publication / retrieval integration — NEXT
+## M6.7B2 Client publication / retrieval integration — active
 
-B1 settled the server/distribution contract. B2 now owns the browser-facing boundary.
+### M6.7B2A Remote repository + install candidate boundary — accepted · 2026-08-29
+
+Accepted browser read path:
+
+```text
+Remote Publication API
+        ↓ public credential-free GET
+RemoteComponentRepository
+        ↓ strict publication-contract parsing
+PublishedComponentRevision
+        ↓ explicit conversion + local codec validation
+RemoteComponentInstallCandidate
+```
+
+Accepted rules:
+
+- constructing a remote repository performs no network I/O
+- public list/latest/specific-revision reads carry no publication credential
+- malformed successful responses fail closed through the current package/publication codecs
+- 404 is a normal missing-artifact result; transport/protocol failures remain explicit
+- remote component types are URL-encoded as one path segment
+- remote discovery does not directly mutate `studioComponentRegistry`
+- an immutable revision becomes a provenance-preserving install candidate before any future local persistence/activation
+- provenance is kept beside the synthetic ComponentLibraryEntry rather than confused with local authoring identity
+- candidate conversion performs no persistence and no activation
+
+Detailed acceptance record: `docs/progress/m6.7b2a-remote-component-repository.md`.
+
+### M6.7B2B Explicit install + offline cache — NEXT
+
+Goal:
+
+> A user explicitly installs one validated immutable remote revision; the installed artifact remains available offline and activates through the same M6.7A path, while its remote origin/revision remains distinguishable from editable local authored packages.
 
 Required work:
 
-- define a browser `RemoteComponentRepository` / transport adapter around the accepted publication endpoints
-- support public list/latest/specific-revision retrieval
-- validate every retrieved package on the client before it can enter M6.7A activation
-- decide whether remote packages remain session-scoped or are cached into IndexedDB with explicit provenance
-- provide an explicit publish operation separate from local Save
-- preserve the last observed remote revision so publish requests send the correct `baseRevision`
-- surface `publication_conflict` as a user-visible conflict instead of silently retrying or overwriting
-- define a browser-safe authentication/identity boundary for publication
-- never embed `SCADA_ADMIN_TOKEN` into the public frontend bundle
-- keep remote unavailability from blocking local editing/runtime
-- only after client/auth semantics are accepted decide whether to resume production backend deployment
+- introduce durable remote-install provenance rather than storing a remote revision as an ordinary editable local authoring document
+- version the local storage schema if a dedicated installed-remote store is required
+- make debug snapshot export/import include installed remote artifacts if they affect Scene reproducibility
+- define deterministic local-authored vs installed-remote type collision behavior
+- define install/update/uninstall semantics around immutable remote revision identity
+- ensure installed artifacts are available without contacting the remote API at app/Scene startup
+- hydrate installed remote artifacts before Scene validation when a Scene references them
+- keep remote repository failure isolated from already-installed local runtime state
+- cover storage migration, install replacement and offline activation with deterministic fixtures
 
-B2 should prefer a narrow repository/transport boundary over direct `fetch()` calls scattered through Component Workbench UI.
+### M6.7B2C Explicit publish + browser-safe authentication — after B2B
+
+After offline installation is stable, connect Component Workbench publication:
+
+- explicit Publish remains separate from Save
+- preserve last observed remote revision for `baseRevision`
+- surface `publication_conflict` rather than silently overwrite/retry
+- define end-user/browser-safe authentication and identity
+- never embed `SCADA_ADMIN_TOKEN` in the public frontend bundle
+- only after auth/publish UX is accepted decide whether to resume production backend deployment
+
+B2 must continue to prefer repository/transport boundaries over direct `fetch()` calls scattered through Workbench UI.
 
 ---
 
@@ -609,18 +657,19 @@ Current state:
 - current front-end authoring paths use browser-local IndexedDB persistence
 - M6.7A proves local runtime activation without a backend
 - M6.7B1 defines and verifies an immutable publication API using ephemeral PostgreSQL in CI
+- M6.7B2A defines credential-free public retrieval but deliberately performs no automatic startup fetch
 - no production backend is required for local editing or SCADA runtime evaluation
 
-Policy during M6.7B2:
+Policy during M6.7B2B/B2C:
 
-> Client retrieval, publication UX, and browser-safe authentication must be accepted before production infrastructure is resumed.
+> Offline installation semantics and browser-safe publication authentication must be accepted before production infrastructure is resumed.
 
 Before the next intentional backend deployment, re-evaluate and record:
 
 - public API base URL/configuration
 - authentication and user identity model
 - credential storage/rotation model
-- package retrieval/cache policy
+- installed remote package/cache policy
 - publication conflict UX
 - PostgreSQL migration/backup requirements
 - CORS/TLS/deployment topology
@@ -644,13 +693,15 @@ Current execution order from `main` plus the accepted runtime/persistence/public
 6. M6.6 storage abstraction + IndexedDB + debug snapshot               accepted · 2026-08-28
 7. M6.7A local user-component activation                               accepted · 2026-08-29
 8. M6.7B1 publication contract + immutable revisions                   accepted · 2026-08-29
-9. M6.7B2 client publication / retrieval integration                   NEXT
-10. M7 packaging / production adapters / reusable component set        later
+9. M6.7B2A remote repository + install candidate boundary              accepted · 2026-08-29
+10. M6.7B2B explicit install + offline cache                            NEXT
+11. M6.7B2C explicit publish + browser-safe authentication              after B2B
+12. M7 packaging / production adapters / reusable component set         later
 ```
 
-The **next implementation step is M6.7B2 Client publication / retrieval integration**.
+The **next implementation step is M6.7B2B Explicit install + offline cache**.
 
-Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision production infrastructure before the M6.7B2 browser/auth boundary is reviewed.
+Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision production infrastructure before the M6.7B2C browser/auth boundary is reviewed.
 
 ---
 
@@ -668,6 +719,7 @@ Use the narrowest relevant verification set:
 - debug snapshots when a browser-only failure must be reproduced
 - publication contract fixtures before remote deployment
 - real PostgreSQL/API integration for publication concurrency and revision semantics
+- remote repository fixtures that verify fail-closed client parsing and credential-free public reads
 
 Runtime tests should prefer explicit inputs and deterministic snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -677,10 +729,11 @@ Runtime tests should prefer explicit inputs and deterministic snapshots over tim
 
 The following should not distract the active M6 work:
 
-- production backend provisioning before M6.7B2 client/auth acceptance
+- production backend provisioning before M6.7B2C client/auth acceptance
 - component marketplace
 - collaborative editing
 - automatic publication on local save
+- automatic remote catalog activation
 - mutable remote published revisions
 - general-purpose process orchestration
 - data-driven device command chains
