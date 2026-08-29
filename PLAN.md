@@ -230,6 +230,7 @@ M6.5.9C Narrow Preview integration                             accepted · 2026-
 M6.5.10 Typed Action/Event contract + device dispatch          accepted · 2026-08-28
 M6.5.11 Stable persistence semantics                           accepted · 2026-08-28
 M6.6 Local persistence foundation                              accepted · 2026-08-28
+M6.7A Local user-component activation                          accepted · 2026-08-29
 ```
 
 The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
@@ -488,52 +489,51 @@ Detailed acceptance record: `docs/progress/m6.6-local-persistence-foundation.md`
 
 ---
 
-# 10. M6.7 User component registration / publication — NEXT
+# 10. M6.7 User component registration / publication — active
 
 Goal:
 
 > Prove that a Workbench-authored component package can be consumed by SCADA Workbench through the same generic repository/registry path as built-ins without component-specific editor code.
 
-M6.7 must begin with **local activation**, not backend deployment.
+## M6.7A Local user-component activation — accepted · 2026-08-29
 
-## M6.7A Local user-component activation — NEXT
-
-First prove this path using the already accepted IndexedDB repository:
+Accepted runtime path:
 
 ```text
 Component Workbench
         ↓ save ready package
 IndexedDB ComponentRepository
         ↓ hydrate / validate
+user-component activation controller
+        ↓
 runtime ComponentRegistration
         ↓
-shared ComponentRegistry
+shared studioComponentRegistry
         ↓
 SCADA palette / scene validation / renderer / inspector / Preview
 ```
 
-Acceptance direction:
+Accepted work:
 
-- `ready` Workbench-authored composite packages can become runtime registrations
-- `draft` packages are not offered as normal SCADA components
-- built-ins and user components are consumed through one generic registry-facing path
-- user component type collisions with built-ins or other active packages are rejected deterministically
-- stale user registrations are removed when repository contents change
-- Scene loading validates against the hydrated registry rather than a built-in-only registry
-- public Properties and Anchors behave exactly through the generic component contract
-- custom composite visuals use the existing generic visual/rule/animation runtime rather than component-specific renderer code
+- product-wide live `studioComponentRegistry` with built-ins as the fixed baseline
+- deterministic user-registration replacement / stale-registration removal
+- `ready` Workbench-authored declarative composite packages becoming normal ComponentRegistrations
+- `draft` packages excluded from normal SCADA activation
+- built-in and duplicate ready user type collisions rejected deterministically
+- Scene loading hydrating the ComponentRepository before Scene contract validation
+- public Properties and Anchors flowing through the existing generic component contract
+- custom composite visuals reusing the existing generic visual-rule and animation runtime
+- `implementationDraft` remaining inert persisted text rather than becoming executable on activation
+- native user visuals and user Action/Event packages without an accepted executable implementation contract diagnosed and skipped rather than receiving fake implementations
+- deterministic activation lifecycle coverage in CI
 
-Important implementation boundary:
+Detailed acceptance record: `docs/progress/m6.7a-local-user-component-activation.md`.
 
-> Persisted `implementationDraft` text is not executable merely because a package is activated.
+## M6.7B Publication lifecycle — NEXT
 
-User-authored Action/Event metadata must not silently become no-op runtime implementations. The first activation slice may constrain runtime-capable user packages until an explicit trusted/controlled implementation contract exists.
+M6.7A proved that package origin is independent of runtime consumption. M6.7B now owns publication/distribution semantics.
 
-## M6.7B Publication lifecycle — after local activation
-
-Only after M6.7A proves that package origin is independent of runtime consumption should remote publication become active work.
-
-Expected local/remote split:
+Target split:
 
 ```text
 Component Workbench
@@ -541,25 +541,33 @@ Component Workbench
 IndexedDB
         ↓ explicit publish
 Remote Component Repository / API
-        ↓ retrieve package
-same validation / registration path
+        ↓ retrieve immutable published revision
+same package validation / registration path
         ↓
 SCADA Workbench / other clients
 ```
 
-The existing thin Fastify/PostgreSQL experiment may be reused or redesigned at this point.
+Before provisioning or reviving a backend deployment, M6.7B must first settle:
+
+- explicit draft/save vs publish semantics
+- immutable published revision identity
+- component type + revision/version rules
+- publish request/response contract
+- remote list/get retrieval contract
+- how a retrieved package is validated before entering the M6.7A activation path
+- optimistic/concurrent publication behavior
+- authentication boundary, even if the first implementation uses a development identity
+- what existing `server/` Fastify/PostgreSQL code can be reused without making the backend runtime authority
 
 Backend responsibilities may include:
 
 - component package persistence
 - publication state
-- revision/version metadata
+- immutable revision/version metadata
 - remote retrieval/sharing
 - later synchronization if explicitly needed
 
 Backend responsibilities must **not** expand into SCADA runtime ownership.
-
-No backend server needs to be provisioned for M6.7A.
 
 ---
 
@@ -570,23 +578,24 @@ Current state:
 - backend source code exists under `server/`
 - deployment assets exist under `deploy/`
 - current front-end authoring paths use browser-local IndexedDB persistence
-- the current runtime work does not require a live backend
-- the previous backend host is no longer considered required infrastructure
+- M6.7A no longer requires any backend
+- the previous backend host is not runtime authority
 
-Policy during M6.7A:
+Policy during M6.7B contract work:
 
-> Treat production backend deployment as deferred infrastructure.
+> Design and verify the publication contract before provisioning production infrastructure.
 
-Before M6.7B or the next intentional backend deployment, re-evaluate:
+Before the next intentional backend deployment, re-evaluate and record:
 
 - API contract
-- package lifecycle (`draft` / `published`)
+- package lifecycle (`draft` / `published revision`)
 - revision/version semantics
 - authentication model
 - component type uniqueness
-- whether SCADA Works require remote persistence at all
+- retrieval/caching semantics
+- deployment/storage migration requirements
 
-The repository should not pay an architectural or operational cost merely so local browser state is externally visible during development. Debug snapshots and deterministic fixtures are the preferred debugging bridge.
+A remote service exists to distribute validated component packages. It must not become a prerequisite for local editing or SCADA runtime evaluation.
 
 ---
 
@@ -601,14 +610,14 @@ Current execution order from `main` plus the accepted runtime/persistence gates:
 4. M6.5.10 typed Action/Event contract + action dispatcher             accepted · 2026-08-28
 5. M6.5.11 stable scene persistence semantics                          accepted · 2026-08-28
 6. M6.6 storage abstraction + IndexedDB + debug snapshot               accepted · 2026-08-28
-7. M6.7A local user-component activation                               NEXT
-8. M6.7B remote publication lifecycle / optional backend               after 7A
+7. M6.7A local user-component activation                               accepted · 2026-08-29
+8. M6.7B publication lifecycle / optional backend                      NEXT
 9. M7 packaging / production adapters / reusable component set         later
 ```
 
-The **next implementation step is M6.7A Local user-component activation**.
+The **next implementation step is M6.7B Publication lifecycle**.
 
-Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision a backend before local user-component activation proves the shared runtime package path.
+Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision production infrastructure before the M6.7B publication contract is reviewed.
 
 ---
 
@@ -624,6 +633,7 @@ Use the narrowest relevant verification set:
 - deployed Pages smoke when browser/UI behavior changes
 - storage migration fixtures when persistence formats change
 - debug snapshots when a browser-only failure must be reproduced
+- publication contract fixtures before remote deployment
 
 Runtime tests should prefer explicit inputs and deterministic snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -633,7 +643,7 @@ Runtime tests should prefer explicit inputs and deterministic snapshots over tim
 
 The following should not distract the active M6 work:
 
-- production backend provisioning before M6.7A is accepted
+- production backend provisioning before M6.7B publication contract review
 - component marketplace
 - collaborative editing
 - general-purpose process orchestration

@@ -1,4 +1,4 @@
-import { builtInComponentRegistry } from '../../component-system/builtins'
+import { builtInComponentRegistrations } from '../../component-system/builtins'
 import { createEmptyCompositeVisual, createNativeVisual } from '../../component-system/visual'
 import { browserPersistence, ensureBrowserPersistenceReady } from '../../storage/browser-persistence'
 import {
@@ -9,6 +9,10 @@ import {
   serializeComponentLibraryDocument,
   type ComponentLibraryEntry,
 } from './component-document'
+import {
+  replaceStudioUserComponentPackages,
+  type UserComponentActivationResult,
+} from './runtime-activation'
 
 export {
   COMPONENT_PACKAGE_VERSION,
@@ -19,13 +23,17 @@ export {
 const BUILT_IN_UPDATED_AT = '2026-08-09T00:00:00.000Z'
 const customCache = new Map<string, ComponentLibraryEntry>()
 let customCacheReady = false
+let activationResult: UserComponentActivationResult = {
+  activeTypes: [],
+  diagnostics: [],
+}
 
 function getBuiltInComponentId(type: string) {
   return `builtin-${type.replace(/[^a-zA-Z0-9_-]+/g, '-')}`
 }
 
 const BUILT_IN_COMPONENTS: ComponentLibraryEntry[] =
-  builtInComponentRegistry.list().map(({ definition }) => ({
+  builtInComponentRegistrations.map(({ definition }) => ({
     version: COMPONENT_PACKAGE_VERSION,
     id: getBuiltInComponentId(definition.type),
     definition: cloneComponentDefinition(definition),
@@ -51,6 +59,11 @@ function sortComponents(entries: ComponentLibraryEntry[]) {
   )
 }
 
+function refreshRuntimeActivation() {
+  activationResult = replaceStudioUserComponentPackages([...customCache.values()])
+  return activationResult
+}
+
 export async function prepareComponentLibrary() {
   await ensureBrowserPersistenceReady()
   const records = await browserPersistence.components.list()
@@ -62,6 +75,16 @@ export async function prepareComponentLibrary() {
   }
 
   customCacheReady = true
+  refreshRuntimeActivation()
+}
+
+export async function prepareComponentRuntimeRegistry() {
+  await prepareComponentLibrary()
+  return activationResult
+}
+
+export function getComponentRuntimeActivationResult() {
+  return activationResult
 }
 
 export async function prepareComponentDefinition(componentId: string) {
@@ -157,6 +180,7 @@ async function persistPreparedComponent(next: ComponentLibraryEntry) {
   })
   customCache.set(next.id, cloneComponentLibraryEntry(next))
   customCacheReady = true
+  refreshRuntimeActivation()
   return cloneComponentLibraryEntry(next)
 }
 

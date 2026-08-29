@@ -49,6 +49,7 @@ jobs:
           npx --yes tsx scripts/check-scada-semantics-persistence.ts
           npx --yes tsx scripts/check-storage-repositories.ts
           npx --yes tsx scripts/check-local-storage-migration.ts
+          npx --yes tsx scripts/check-user-component-activation.ts
 
       - name: Lint
         run: npm run lint
