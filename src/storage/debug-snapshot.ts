@@ -1,11 +1,12 @@
 import {
   assertRepositoryRecord,
   type ComponentRepositoryRecord,
+  type InstalledRemoteComponentRepositoryRecord,
   type LocalRepositoryBundle,
   type SceneRepositoryRecord,
 } from './repositories'
 
-export const DEBUG_SNAPSHOT_SCHEMA_VERSION = 1 as const
+export const DEBUG_SNAPSHOT_SCHEMA_VERSION = 2 as const
 
 export type DebugSnapshotRecord = {
   id: string
@@ -17,6 +18,7 @@ export type LocalDebugSnapshot = {
   schemaVersion: typeof DEBUG_SNAPSHOT_SCHEMA_VERSION
   scenes: readonly DebugSnapshotRecord[]
   components: readonly DebugSnapshotRecord[]
+  installedRemoteComponents: readonly DebugSnapshotRecord[]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -89,7 +91,7 @@ function parseSnapshotRecords(value: unknown, label: string): DebugSnapshotRecor
 }
 
 export function parseLocalDebugSnapshot(value: unknown): LocalDebugSnapshot {
-  if (!isRecord(value) || value.schemaVersion !== DEBUG_SNAPSHOT_SCHEMA_VERSION) {
+  if (!isRecord(value) || (value.schemaVersion !== 1 && value.schemaVersion !== 2)) {
     throw new Error('Debug snapshot schema version is unsupported')
   }
 
@@ -97,11 +99,20 @@ export function parseLocalDebugSnapshot(value: unknown): LocalDebugSnapshot {
     schemaVersion: DEBUG_SNAPSHOT_SCHEMA_VERSION,
     scenes: parseSnapshotRecords(value.scenes, 'scenes'),
     components: parseSnapshotRecords(value.components, 'components'),
+    installedRemoteComponents: value.schemaVersion === 1
+      ? []
+      : parseSnapshotRecords(
+          value.installedRemoteComponents,
+          'installedRemoteComponents',
+        ),
   }
 }
 
 function repositoryRecordToSnapshotRecord(
-  record: SceneRepositoryRecord | ComponentRepositoryRecord,
+  record:
+    | SceneRepositoryRecord
+    | ComponentRepositoryRecord
+    | InstalledRemoteComponentRepositoryRecord,
 ): DebugSnapshotRecord {
   assertRepositoryRecord(record, 'Debug snapshot export')
 
@@ -122,7 +133,7 @@ function repositoryRecordToSnapshotRecord(
 
 function snapshotRecordToRepositoryRecord(
   record: DebugSnapshotRecord,
-): SceneRepositoryRecord | ComponentRepositoryRecord {
+): SceneRepositoryRecord | ComponentRepositoryRecord | InstalledRemoteComponentRepositoryRecord {
   return {
     id: record.id,
     updatedAt: record.updatedAt,
@@ -133,9 +144,10 @@ function snapshotRecordToRepositoryRecord(
 export async function exportLocalDebugSnapshot(
   repositories: LocalRepositoryBundle,
 ): Promise<LocalDebugSnapshot> {
-  const [scenes, components] = await Promise.all([
+  const [scenes, components, installedRemoteComponents] = await Promise.all([
     repositories.scenes.list(),
     repositories.components.list(),
+    repositories.installedRemoteComponents.list(),
   ])
 
   return {
@@ -144,6 +156,9 @@ export async function exportLocalDebugSnapshot(
       .map(repositoryRecordToSnapshotRecord)
       .sort((left, right) => left.id.localeCompare(right.id)),
     components: components
+      .map(repositoryRecordToSnapshotRecord)
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    installedRemoteComponents: installedRemoteComponents
       .map(repositoryRecordToSnapshotRecord)
       .sort((left, right) => left.id.localeCompare(right.id)),
   }
@@ -156,16 +171,23 @@ export async function importLocalDebugSnapshot(
   const snapshot = parseLocalDebugSnapshot(value)
   const scenes = snapshot.scenes.map(snapshotRecordToRepositoryRecord)
   const components = snapshot.components.map(snapshotRecordToRepositoryRecord)
+  const installedRemoteComponents = snapshot.installedRemoteComponents.map(
+    snapshotRecordToRepositoryRecord,
+  )
 
-  // Validation is complete before either repository is mutated. IndexedDB will
-  // later provide one physical transaction for these logical replacements.
+  // Validation is complete before any repository is mutated. Browser storage
+  // provides one physical IndexedDB transaction for the same logical replacement.
   await repositories.scenes.replaceAll(scenes as SceneRepositoryRecord[])
   await repositories.components.replaceAll(components as ComponentRepositoryRecord[])
+  await repositories.installedRemoteComponents.replaceAll(
+    installedRemoteComponents as InstalledRemoteComponentRepositoryRecord[],
+  )
 }
 
 export async function resetLocalRepositories(repositories: LocalRepositoryBundle) {
   await Promise.all([
     repositories.scenes.clear(),
     repositories.components.clear(),
+    repositories.installedRemoteComponents.clear(),
   ])
 }
