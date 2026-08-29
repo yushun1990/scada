@@ -1,21 +1,27 @@
 import type {
   ComponentRepository,
   ComponentRepositoryRecord,
+  InstalledRemoteComponentRepository,
+  InstalledRemoteComponentRepositoryRecord,
   LocalRepositoryBundle,
   SceneRepository,
   SceneRepositoryRecord,
 } from './repositories'
 
 export const LOCAL_DATABASE_NAME = 'scada-editor-lab' as const
-export const LOCAL_DATABASE_VERSION = 1 as const
+export const LOCAL_DATABASE_VERSION = 2 as const
 
 const SCENES_STORE = 'scenes'
 const COMPONENTS_STORE = 'components'
+const INSTALLED_REMOTE_COMPONENTS_STORE = 'installedRemoteComponents'
 const META_STORE = 'meta'
 
 export const LEGACY_MIGRATION_META_KEY = 'legacy-local-storage-migration-v1' as const
 
-type StoreName = typeof SCENES_STORE | typeof COMPONENTS_STORE
+type StoreName =
+  | typeof SCENES_STORE
+  | typeof COMPONENTS_STORE
+  | typeof INSTALLED_REMOTE_COMPONENTS_STORE
 
 type MetaRecord = {
   key: string
@@ -49,6 +55,23 @@ function transactionDone(transaction: IDBTransaction) {
   })
 }
 
+export function upgradeLocalDatabaseSchema(database: IDBDatabase) {
+  const stores = [
+    SCENES_STORE,
+    COMPONENTS_STORE,
+    INSTALLED_REMOTE_COMPONENTS_STORE,
+    META_STORE,
+  ] as const
+
+  for (const storeName of stores) {
+    if (!database.objectStoreNames.contains(storeName)) {
+      database.createObjectStore(storeName, {
+        keyPath: storeName === META_STORE ? 'key' : 'id',
+      })
+    }
+  }
+}
+
 export function openLocalDatabase(
   factory: IDBFactory = globalThis.indexedDB,
 ): Promise<IDBDatabase> {
@@ -60,17 +83,7 @@ export function openLocalDatabase(
     const request = factory.open(LOCAL_DATABASE_NAME, LOCAL_DATABASE_VERSION)
 
     request.addEventListener('upgradeneeded', () => {
-      const database = request.result
-
-      if (!database.objectStoreNames.contains(SCENES_STORE)) {
-        database.createObjectStore(SCENES_STORE, { keyPath: 'id' })
-      }
-      if (!database.objectStoreNames.contains(COMPONENTS_STORE)) {
-        database.createObjectStore(COMPONENTS_STORE, { keyPath: 'id' })
-      }
-      if (!database.objectStoreNames.contains(META_STORE)) {
-        database.createObjectStore(META_STORE, { keyPath: 'key' })
-      }
+      upgradeLocalDatabaseSchema(request.result)
     })
 
     request.addEventListener('success', () => {
@@ -91,9 +104,12 @@ export function openLocalDatabase(
   })
 }
 
-class IndexedDbRecordRepository<
-  T extends SceneRepositoryRecord | ComponentRepositoryRecord,
-> {
+type RepositoryRecord =
+  | SceneRepositoryRecord
+  | ComponentRepositoryRecord
+  | InstalledRemoteComponentRepositoryRecord
+
+class IndexedDbRecordRepository<T extends RepositoryRecord> {
   constructor(
     private readonly database: Promise<IDBDatabase>,
     private readonly storeName: StoreName,
@@ -190,11 +206,29 @@ export class IndexedDbComponentRepository
   clear = () => this.clearRecords()
 }
 
+export class IndexedDbInstalledRemoteComponentRepository
+  extends IndexedDbRecordRepository<InstalledRemoteComponentRepositoryRecord>
+  implements InstalledRemoteComponentRepository
+{
+  constructor(database: Promise<IDBDatabase>) {
+    super(database, INSTALLED_REMOTE_COMPONENTS_STORE)
+  }
+
+  list = () => this.listRecords()
+  get = (id: string) => this.getRecord(id)
+  put = (record: InstalledRemoteComponentRepositoryRecord) => this.putRecord(record)
+  delete = (id: string) => this.deleteRecord(id)
+  replaceAll = (records: readonly InstalledRemoteComponentRepositoryRecord[]) =>
+    this.replaceAllRecords(records)
+  clear = () => this.clearRecords()
+}
+
 export type IndexedDbStorageDiagnostics = {
   databaseName: typeof LOCAL_DATABASE_NAME
   databaseVersion: typeof LOCAL_DATABASE_VERSION
   sceneCount: number
   componentCount: number
+  installedRemoteComponentCount: number
   legacyMigration: unknown
 }
 
@@ -202,15 +236,23 @@ export class IndexedDbLocalStorage {
   readonly database: Promise<IDBDatabase>
   readonly scenes: SceneRepository
   readonly components: ComponentRepository
+  readonly installedRemoteComponents: InstalledRemoteComponentRepository
 
   constructor(factory: IDBFactory = globalThis.indexedDB) {
     this.database = openLocalDatabase(factory)
     this.scenes = new IndexedDbSceneRepository(this.database)
     this.components = new IndexedDbComponentRepository(this.database)
+    this.installedRemoteComponents = new IndexedDbInstalledRemoteComponentRepository(
+      this.database,
+    )
   }
 
   get repositories(): LocalRepositoryBundle {
-    return { scenes: this.scenes, components: this.components }
+    return {
+      scenes: this.scenes,
+      components: this.components,
+      installedRemoteComponents: this.installedRemoteComponents,
+    }
   }
 
   async getMeta(key: string) {
@@ -231,29 +273,41 @@ export class IndexedDbLocalStorage {
   async replaceAll(
     scenes: readonly SceneRepositoryRecord[],
     components: readonly ComponentRepositoryRecord[],
+    installedRemoteComponents: readonly InstalledRemoteComponentRepositoryRecord[],
   ) {
     const database = await this.database
     const transaction = database.transaction(
-      [SCENES_STORE, COMPONENTS_STORE],
+      [SCENES_STORE, COMPONENTS_STORE, INSTALLED_REMOTE_COMPONENTS_STORE],
       'readwrite',
     )
     const sceneStore = transaction.objectStore(SCENES_STORE)
     const componentStore = transaction.objectStore(COMPONENTS_STORE)
+    const installedRemoteStore = transaction.objectStore(INSTALLED_REMOTE_COMPONENTS_STORE)
     sceneStore.clear()
     componentStore.clear()
+    installedRemoteStore.clear()
     for (const record of scenes) sceneStore.put({ ...record })
     for (const record of components) componentStore.put({ ...record })
+    for (const record of installedRemoteComponents) {
+      installedRemoteStore.put({ ...record })
+    }
     await transactionDone(transaction)
   }
 
   async reset() {
     const database = await this.database
     const transaction = database.transaction(
-      [SCENES_STORE, COMPONENTS_STORE, META_STORE],
+      [
+        SCENES_STORE,
+        COMPONENTS_STORE,
+        INSTALLED_REMOTE_COMPONENTS_STORE,
+        META_STORE,
+      ],
       'readwrite',
     )
     transaction.objectStore(SCENES_STORE).clear()
     transaction.objectStore(COMPONENTS_STORE).clear()
+    transaction.objectStore(INSTALLED_REMOTE_COMPONENTS_STORE).clear()
     transaction.objectStore(META_STORE).clear()
     await transactionDone(transaction)
   }
@@ -261,17 +315,31 @@ export class IndexedDbLocalStorage {
   async diagnostics(): Promise<IndexedDbStorageDiagnostics> {
     const database = await this.database
     const transaction = database.transaction(
-      [SCENES_STORE, COMPONENTS_STORE, META_STORE],
+      [
+        SCENES_STORE,
+        COMPONENTS_STORE,
+        INSTALLED_REMOTE_COMPONENTS_STORE,
+        META_STORE,
+      ],
       'readonly',
     )
     const scenes = requestResult(transaction.objectStore(SCENES_STORE).count())
     const components = requestResult(transaction.objectStore(COMPONENTS_STORE).count())
+    const installedRemoteComponents = requestResult(
+      transaction.objectStore(INSTALLED_REMOTE_COMPONENTS_STORE).count(),
+    )
     const migration = requestResult(
       transaction.objectStore(META_STORE).get(LEGACY_MIGRATION_META_KEY),
     )
-    const [sceneCount, componentCount, migrationRecord] = await Promise.all([
+    const [
+      sceneCount,
+      componentCount,
+      installedRemoteComponentCount,
+      migrationRecord,
+    ] = await Promise.all([
       scenes,
       components,
+      installedRemoteComponents,
       migration,
     ])
     await transactionDone(transaction)
@@ -281,6 +349,7 @@ export class IndexedDbLocalStorage {
       databaseVersion: LOCAL_DATABASE_VERSION,
       sceneCount,
       componentCount,
+      installedRemoteComponentCount,
       legacyMigration: migrationRecord
         ? (migrationRecord as MetaRecord).value
         : null,
