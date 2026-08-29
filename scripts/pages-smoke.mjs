@@ -63,88 +63,156 @@ async function assertAxis(names, axis, expected, commandName) {
 }
 
 async function seedAnimationAuthoringFixture() {
-  return page.evaluate(() => {
-    const componentId = window.location.hash
-      .replace(/^#\/components\//, '')
-      .split('/')[0]
+  return page.evaluate(async () => {
+    const componentId = decodeURIComponent(
+      window.location.hash
+        .replace(/^#\/components\//, '')
+        .split('/')[0],
+    )
 
     if (!componentId || componentId === 'new') {
       throw new Error(`Persisted component id missing from ${window.location.hash}`)
     }
 
-    const key = 'scada-editor-lab.components.v2'
-    const raw = window.localStorage.getItem(key)
-    const entries = raw ? JSON.parse(raw) : []
-    const entry = entries.find((candidate) => candidate.id === decodeURIComponent(componentId))
-
-    if (!entry) {
-      throw new Error(`Persisted component ${componentId} missing`)
-    }
-
-    entry.definition.properties = {
-      ...entry.definition.properties,
-      running: {
-        title: 'Running',
-        kind: 'boolean',
-        defaultValue: false,
-        bindable: true,
-      },
-    }
-    entry.visual.layers = entry.visual.layers.filter(
-      (layer) => layer.id !== 'animation-smoke-layer',
-    )
-    entry.visual.animations = (entry.visual.animations ?? []).filter(
-      (animation) => animation.layerId !== 'animation-smoke-layer',
-    )
-    entry.visual.layers.push({
-      id: 'animation-smoke-layer',
-      name: 'Animation Smoke Rect',
-      kind: 'vector',
-      parentId: null,
-      transform: {
-        x: 190,
-        y: 120,
-        width: 120,
-        height: 28,
-        rotation: 0,
-        scaleX: 1,
-        scaleY: 1,
-      },
-      visible: true,
-      opacity: 1,
-      primitive: 'rect',
-      style: {
-        fill: '#2563eb',
-        stroke: '#1e3a8a',
-        strokeWidth: 2,
-      },
+    const database = await new Promise((resolve, reject) => {
+      const request = window.indexedDB.open('scada-editor-lab', 2)
+      request.addEventListener('success', () => resolve(request.result), { once: true })
+      request.addEventListener(
+        'error',
+        () => reject(request.error ?? new Error('Failed to open IndexedDB fixture database')),
+        { once: true },
+      )
     })
 
-    window.localStorage.setItem(key, JSON.stringify(entries))
-    return entry.visual.layers.find(
-      (layer) => layer.id === 'animation-smoke-layer',
-    ).transform.rotation
+    try {
+      const record = await new Promise((resolve, reject) => {
+        const transaction = database.transaction('components', 'readonly')
+        const request = transaction.objectStore('components').get(componentId)
+        request.addEventListener('success', () => resolve(request.result ?? null), { once: true })
+        request.addEventListener(
+          'error',
+          () => reject(request.error ?? new Error('Failed to read component fixture record')),
+          { once: true },
+        )
+      })
+
+      if (!record || typeof record.document !== 'string') {
+        throw new Error(`Persisted component ${componentId} missing`)
+      }
+
+      const entry = JSON.parse(record.document)
+      entry.definition.properties = {
+        ...entry.definition.properties,
+        running: {
+          title: 'Running',
+          kind: 'boolean',
+          defaultValue: false,
+          bindable: true,
+        },
+      }
+      entry.visual.layers = entry.visual.layers.filter(
+        (layer) => layer.id !== 'animation-smoke-layer',
+      )
+      entry.visual.animations = (entry.visual.animations ?? []).filter(
+        (animation) => animation.layerId !== 'animation-smoke-layer',
+      )
+      entry.visual.layers.push({
+        id: 'animation-smoke-layer',
+        name: 'Animation Smoke Rect',
+        kind: 'vector',
+        parentId: null,
+        transform: {
+          x: 190,
+          y: 120,
+          width: 120,
+          height: 28,
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+        },
+        visible: true,
+        opacity: 1,
+        primitive: 'rect',
+        style: {
+          fill: '#2563eb',
+          stroke: '#1e3a8a',
+          strokeWidth: 2,
+        },
+      })
+
+      const updatedAt = new Date().toISOString()
+      entry.updatedAt = updatedAt
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction('components', 'readwrite')
+        transaction.objectStore('components').put({
+          ...record,
+          document: JSON.stringify(entry),
+          updatedAt,
+        })
+        transaction.addEventListener('complete', () => resolve(), { once: true })
+        transaction.addEventListener(
+          'abort',
+          () => reject(transaction.error ?? new Error('Failed to persist component fixture')),
+          { once: true },
+        )
+        transaction.addEventListener(
+          'error',
+          () => reject(transaction.error ?? new Error('Failed to persist component fixture')),
+          { once: true },
+        )
+      })
+
+      return entry.visual.layers.find(
+        (layer) => layer.id === 'animation-smoke-layer',
+      ).transform.rotation
+    } finally {
+      database.close()
+    }
   })
 }
 
 async function readPersistedAuthoredAnimation() {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
     const componentId = decodeURIComponent(
       window.location.hash.replace(/^#\/components\//, '').split('/')[0],
     )
-    const raw = window.localStorage.getItem('scada-editor-lab.components.v2')
-    const entries = raw ? JSON.parse(raw) : []
-    const entry = entries.find((candidate) => candidate.id === componentId)
-    const layer = entry?.visual?.layers?.find(
-      (candidate) => candidate.id === 'animation-smoke-layer',
-    )
-    const animation = entry?.visual?.animations?.find(
-      (candidate) => candidate.layerId === 'animation-smoke-layer',
-    )
+    const database = await new Promise((resolve, reject) => {
+      const request = window.indexedDB.open('scada-editor-lab', 2)
+      request.addEventListener('success', () => resolve(request.result), { once: true })
+      request.addEventListener(
+        'error',
+        () => reject(request.error ?? new Error('Failed to open IndexedDB fixture database')),
+        { once: true },
+      )
+    })
 
-    return {
-      rotation: layer?.transform?.rotation ?? null,
-      animation: animation ?? null,
+    try {
+      const record = await new Promise((resolve, reject) => {
+        const transaction = database.transaction('components', 'readonly')
+        const request = transaction.objectStore('components').get(componentId)
+        request.addEventListener('success', () => resolve(request.result ?? null), { once: true })
+        request.addEventListener(
+          'error',
+          () => reject(request.error ?? new Error('Failed to read component fixture record')),
+          { once: true },
+        )
+      })
+      const entry = record && typeof record.document === 'string'
+        ? JSON.parse(record.document)
+        : null
+      const layer = entry?.visual?.layers?.find(
+        (candidate) => candidate.id === 'animation-smoke-layer',
+      )
+      const animation = entry?.visual?.animations?.find(
+        (candidate) => candidate.layerId === 'animation-smoke-layer',
+      )
+
+      return {
+        rotation: layer?.transform?.rotation ?? null,
+        animation: animation ?? null,
+      }
+    } finally {
+      database.close()
     }
   })
 }
@@ -158,6 +226,11 @@ async function readSceneCanvasDataUrl() {
   const canvas = page.locator('.konvajs-content canvas').first()
   await canvas.waitFor()
   return canvas.evaluate((element) => element.toDataURL())
+}
+
+async function saveAndWait() {
+  await page.getByRole('button', { name: '保存' }).click()
+  await page.getByText('组件已保存', { exact: true }).waitFor()
 }
 
 const layerNames = ['Group 1', 'Group 2', 'Group 3']
@@ -273,7 +346,7 @@ try {
   assert.equal(await page.locator('.component-layer-row.active').count(), 3, 'preview keeps Layer Tree selection navigation')
 
   await page.getByRole('button', { name: '设计' }).click()
-  await page.getByRole('button', { name: '保存' }).click()
+  await saveAndWait()
   assert.equal(await seedAnimationAuthoringFixture(), 0, 'animation fixture persists zero base rotation')
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
@@ -293,7 +366,7 @@ try {
   await chooseSelectOption('animation1 激活方式', 'Property 条件')
   await page.locator('.component-animation-item .ui-checkbox').nth(1).click()
 
-  await page.getByRole('button', { name: '保存' }).click()
+  await saveAndWait()
   const authored = await readPersistedAuthoredAnimation()
   assert.equal(authored.rotation, 0, 'authored animation must not mutate base rotation')
   assert.equal(authored.animation?.kind, 'spin', 'inspector persists spin kind')
