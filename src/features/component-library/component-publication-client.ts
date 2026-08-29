@@ -24,6 +24,11 @@ export type ComponentPublicationObservation = {
   observedAt: string
 }
 
+export interface ComponentPublicationObservationStore {
+  get(componentType: string): Promise<ComponentPublicationObservation | null>
+  put(observation: ComponentPublicationObservation): Promise<void>
+}
+
 type FetchLike = (
   input: string | URL | Request,
   init?: RequestInit,
@@ -240,29 +245,41 @@ function parsePublicationObservation(value: unknown): ComponentPublicationObserv
   }
 }
 
+export const browserComponentPublicationObservationStore: ComponentPublicationObservationStore = {
+  async get(componentType) {
+    await ensureBrowserPersistenceReady()
+    return parsePublicationObservation(
+      await browserPersistence.getMeta(publicationObservationKey(componentType)),
+    )
+  },
+  async put(observation) {
+    await ensureBrowserPersistenceReady()
+    await browserPersistence.setMeta(
+      publicationObservationKey(observation.componentType),
+      { ...observation },
+    )
+  },
+}
+
 export async function loadComponentPublicationObservation(
   componentType: string,
+  store: ComponentPublicationObservationStore = browserComponentPublicationObservationStore,
 ): Promise<ComponentPublicationObservation | null> {
-  await ensureBrowserPersistenceReady()
-  return parsePublicationObservation(
-    await browserPersistence.getMeta(publicationObservationKey(componentType)),
-  )
+  return store.get(componentType)
 }
 
 async function saveComponentPublicationObservation(
   observation: ComponentPublicationObservation,
+  store: ComponentPublicationObservationStore,
 ) {
-  await ensureBrowserPersistenceReady()
-  await browserPersistence.setMeta(
-    publicationObservationKey(observation.componentType),
-    { ...observation },
-  )
+  await store.put(observation)
   return { ...observation }
 }
 
 export async function observeLatestComponentPublication(
   componentType: string,
   repository: RemoteComponentRepository,
+  store: ComponentPublicationObservationStore = browserComponentPublicationObservationStore,
 ): Promise<ComponentPublicationObservation> {
   const latest = await repository.getLatest(componentType)
   return saveComponentPublicationObservation({
@@ -270,7 +287,7 @@ export async function observeLatestComponentPublication(
     revision: latest?.revision ?? null,
     revisionId: latest?.revisionId ?? null,
     observedAt: new Date().toISOString(),
-  })
+  }, store)
 }
 
 export async function publishComponentExplicitly(
@@ -278,17 +295,23 @@ export async function publishComponentExplicitly(
   options: {
     client: HttpComponentPublicationClient
     remoteRepository: RemoteComponentRepository
+    observationStore?: ComponentPublicationObservationStore
     requestId?: string
   },
 ): Promise<{
   revision: PublishedComponentRevision
   observation: ComponentPublicationObservation
 }> {
-  let observation = await loadComponentPublicationObservation(component.definition.type)
+  const store = options.observationStore ?? browserComponentPublicationObservationStore
+  let observation = await loadComponentPublicationObservation(
+    component.definition.type,
+    store,
+  )
   if (!observation) {
     observation = await observeLatestComponentPublication(
       component.definition.type,
       options.remoteRepository,
+      store,
     )
   }
 
@@ -300,13 +323,16 @@ export async function publishComponentExplicitly(
     baseRevision: observation.revision,
   })
 
+  // A conflict is intentionally allowed to escape without mutating the stored
+  // observation. The user must explicitly observe the remote head before a
+  // later publish can use a newer baseRevision.
   const revision = await options.client.publish(request)
   const nextObservation = await saveComponentPublicationObservation({
     componentType: revision.componentType,
     revision: revision.revision,
     revisionId: revision.revisionId,
     observedAt: new Date().toISOString(),
-  })
+  }, store)
 
   return { revision, observation: nextObservation }
 }
