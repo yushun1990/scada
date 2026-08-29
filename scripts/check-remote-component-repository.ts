@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createEmptyCompositeVisual } from '../src/component-system/visual'
 import {
   HttpRemoteComponentRepository,
   RemoteComponentRepositoryError,
@@ -32,14 +33,7 @@ const publishedRevision = {
       events: {},
       anchors: [],
     },
-    visual: {
-      version: 1 as const,
-      mode: 'composite' as const,
-      designSize: { width: 100, height: 60 },
-      layers: [],
-      rules: [],
-      animations: [],
-    },
+    visual: createEmptyCompositeVisual(),
     implementationDraft: '// inert remote content',
   },
   publishedAt: '2026-08-29T04:00:00.000Z',
