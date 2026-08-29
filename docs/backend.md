@@ -150,25 +150,34 @@ The raw browser session id is not persisted in PostgreSQL.
 
 The server stores packages as JSONB rather than decomposing private visual layers or future implementation details into relational tables. Full component runtime validation remains a client/package responsibility before a retrieved artifact enters the existing activation path; the server validates the publication envelope and basic package/type consistency rather than becoming SCADA runtime authority.
 
-## Deployment state — M6.7B3 review gate
+## Deployment state — M6.7B3 decision: defer deployment
 
-M6.7B2C removes the browser-auth architecture blocker on considering a production publication service. It does **not** authorize production deployment by itself.
+M6.7B3 reviewed the current frontend/API topology, browser cookie boundary, deployment assets, publisher credentials, PostgreSQL lifecycle and browser verification requirements and explicitly chose **defer production deployment**.
 
-Until M6.7B3 records an explicit **deploy now** decision, `.github/workflows/deploy-backend.yml` is manual-only. Merging backend changes to `main` must not automatically provision or update production infrastructure.
+The reason is operational readiness rather than an architectural rejection of the publication backend:
 
-Before production deployment, review and record:
+- the GitHub Pages build does not yet set `VITE_PUBLICATION_API_URL`
+- no current production API hostname or accepted same-site frontend/API topology is recorded
+- the historical GitHub Pages -> separately hosted API topology would be cross-site and must not assume third-party-cookie availability
+- the deploy script provisions only PostgreSQL credentials and `SCADA_ADMIN_TOKEN`; it does not yet provision the B2C browser publisher credentials or intentionally configure the production session-cookie policy
+- the PostgreSQL volume is persistent, but no production backup / restore-verification / migration-preflight procedure is accepted
+- TLS termination and the production trusted-Origin/CORS values remain outside the current repository contract
+- minimum production monitoring/alerting and failure-diagnostic expectations are not yet accepted
 
-- public API URL and frontend/API domain topology
-- same-site versus cross-site cookie behavior
-- whether the current self-hosted publisher identity remains sufficient or an external identity provider is required
-- secret storage and credential rotation
-- PostgreSQL migration, backup and restore expectations
-- TLS termination, CORS and trusted Origin configuration
-- `VITE_PUBLICATION_API_URL` build/deployment configuration
-- production observability and failure diagnostics
-- end-to-end browser smoke for login → Publish → public retrieval → explicit install → offline Scene activation
+`.github/workflows/deploy-backend.yml` therefore remains `workflow_dispatch` only. Do not restore a `push` trigger while this decision remains deferred.
 
-CI continues to verify the browser publication contract with ephemeral PostgreSQL 16 and Fastify, including session creation/revocation, trusted-Origin enforcement, publisher-bound idempotency, optimistic-concurrency conflicts, immutable retrieval, and the separate administrator operations channel.
+Production deployment may be reconsidered only after the reopening conditions in `docs/progress/m6.7b3-production-deployment-decision.md` are intentionally satisfied, including an end-to-end browser flow:
+
+```text
+Login
+  -> explicit Publish
+  -> public retrieval
+  -> explicit install
+  -> local/offline cache
+  -> offline Scene activation
+```
+
+CI remains the authority for the publication API/browser-auth contract while production infrastructure is deferred. It continues to use ephemeral PostgreSQL and Fastify to verify session creation/revocation, trusted-Origin enforcement, publisher-bound idempotency, optimistic-concurrency conflicts, immutable retrieval, and the separate administrator operations channel.
 
 ## Deployment topology note
 
@@ -189,4 +198,4 @@ SCADA API (rootless Podman)
 PostgreSQL (rootless Podman)
 ```
 
-Those Quadlet/deploy assets remain useful infrastructure evidence, but this topology crosses site boundaries when the frontend remains on `github.io`. Production must not assume third-party-cookie availability. Prefer a same-site/custom-domain frontend + API topology where practical, or explicitly smoke-test the chosen cross-site cookie configuration before accepting deployment.
+Those Quadlet/deploy assets remain useful infrastructure evidence, but this topology crosses site boundaries when the frontend remains on `github.io`. Production must not assume third-party-cookie availability. Prefer a same-site/custom-domain frontend + API topology where practical, or explicitly smoke-test the chosen cross-site cookie configuration before a future **deploy now** decision.
