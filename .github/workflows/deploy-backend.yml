@@ -1,12 +1,8 @@
 name: Deploy backend
 
+# M6.7B3 is the production-deployment decision gate. Keep this workflow
+# manual-only until PLAN.md records an explicit deploy-now decision.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'server/**'
-      - 'deploy/**'
-      - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
 concurrency:

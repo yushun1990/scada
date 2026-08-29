@@ -29,7 +29,18 @@ import { ComponentContractEditor } from './ComponentContractEditor'
 import { ComponentGeometryToolbarGroup } from './ComponentGeometryToolbarGroup'
 import { ComponentPreviewValues } from './ComponentPreviewValues'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
+import { ComponentPublicationPanel } from './ComponentPublicationPanel'
+import {
+  ComponentPublicationClientError,
+  HttpComponentPublicationClient,
+  loadComponentPublicationObservation,
+  observeLatestComponentPublication,
+  publishComponentExplicitly,
+  type ComponentPublicationObservation,
+  type ComponentPublicationSession,
+} from './component-publication-client'
 import { COMPONENT_SNAP_GRID_SIZE } from './component-canvas-snap'
+import { HttpRemoteComponentRepository } from './remote-component-repository'
 import { ComponentVisualAnimationEditor } from './ComponentVisualAnimationEditor'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
 import { ComponentVisualRuleEditor } from './ComponentVisualRuleEditor'
@@ -214,12 +225,51 @@ function reconcileVisualLayerReferences(
   return { ...nextVisual, rules, animations }
 }
 
+function publicationErrorMessage(
+  error: unknown,
+  observation: ComponentPublicationObservation | null,
+) {
+  if (
+    error instanceof ComponentPublicationClientError
+    && error.code === 'publication_conflict'
+  ) {
+    const base = observation?.revision === null || observation === null
+      ? '无 revision'
+      : `revision ${observation.revision}`
+    const current = error.currentRevision === null
+      ? '无 revision'
+      : error.currentRevision === undefined
+        ? '未知'
+        : `revision ${error.currentRevision}`
+    return `发布冲突：本地仍以 ${base} 为 baseRevision，远端当前为 ${current}。不会自动覆盖或重试；请先显式刷新远端状态。`
+  }
+
+  if (error instanceof ComponentPublicationClientError && error.code === 'unauthorized') {
+    return '发布会话已失效，请重新登录发布服务'
+  }
+
+  return error instanceof Error ? error.message : '组件发布失败'
+}
+
 export function ComponentEditorPage({ componentId }: { componentId: string }) {
   const initial = useMemo(() =>
     componentId === 'new'
       ? createComponentDraft()
       : getComponentDefinition(componentId) ?? createComponentDraft(),
   [componentId])
+  const publicationBaseUrl = import.meta.env.VITE_PUBLICATION_API_URL?.trim() ?? ''
+  const publicationClient = useMemo(
+    () => publicationBaseUrl
+      ? new HttpComponentPublicationClient(publicationBaseUrl)
+      : null,
+    [publicationBaseUrl],
+  )
+  const remotePublicationRepository = useMemo(
+    () => publicationBaseUrl
+      ? new HttpRemoteComponentRepository(publicationBaseUrl)
+      : null,
+    [publicationBaseUrl],
+  )
   const [component, setComponent] = useState<ComponentLibraryEntry>(initial)
   const [mode, setMode] = useState<ComponentWorkbenchMode>('editor')
   const [selectedLayerIds, setSelectedLayerIds] = useState<readonly string[]>([])
@@ -230,6 +280,13 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   )
   const [snapEnabled, setSnapEnabled] = useState(true)
   const [message, setMessage] = useState('')
+  const [publicationSession, setPublicationSession] =
+    useState<ComponentPublicationSession | null>(null)
+  const [publicationObservation, setPublicationObservation] =
+    useState<ComponentPublicationObservation | null>(null)
+  const [publicationUsername, setPublicationUsername] = useState('')
+  const [publicationPassword, setPublicationPassword] = useState('')
+  const [publicationBusy, setPublicationBusy] = useState(false)
   const builtInReadOnly = component.builtIn
   const editingDisabled = builtInReadOnly || mode === 'preview'
   const componentCanvasEditable =
@@ -240,6 +297,14 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
       ? `松开时吸附 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
       : `自由定位 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
   const { definition } = component
+  const publicationReady = !builtInReadOnly && component.status === 'ready'
+  const canPublish = Boolean(
+    publicationClient
+    && remotePublicationRepository
+    && publicationSession?.authenticated
+    && publicationReady
+    && !publicationBusy,
+  )
   const singleSelectedLayerId =
     selectedLayerIds.length === 1 ? primaryLayerId : null
 
@@ -262,6 +327,48 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
         : nextSelectedLayerIds[nextSelectedLayerIds.length - 1] ?? null,
     )
   }, [component.visual.layers, selectedLayerIds])
+
+  useEffect(() => {
+    if (!publicationClient) {
+      setPublicationSession({ authenticated: false })
+      return
+    }
+
+    let active = true
+    void publicationClient.getSession()
+      .then((session) => {
+        if (active) setPublicationSession(session)
+      })
+      .catch((error) => {
+        if (!active) return
+        setPublicationSession({ authenticated: false })
+        setMessage(publicationErrorMessage(error, publicationObservation))
+      })
+
+    return () => {
+      active = false
+    }
+  }, [publicationClient])
+
+  useEffect(() => {
+    if (!publicationBaseUrl || builtInReadOnly) {
+      setPublicationObservation(null)
+      return
+    }
+
+    let active = true
+    void loadComponentPublicationObservation(definition.type)
+      .then((observation) => {
+        if (active) setPublicationObservation(observation)
+      })
+      .catch((error) => {
+        if (active) setMessage(publicationErrorMessage(error, publicationObservation))
+      })
+
+    return () => {
+      active = false
+    }
+  }, [publicationBaseUrl, builtInReadOnly, definition.type])
 
   function updatePackage<K extends keyof ComponentLibraryEntry>(
     key: K,
@@ -359,6 +466,83 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     }
   }
 
+  async function loginPublication() {
+    if (!publicationClient) return
+    setPublicationBusy(true)
+    try {
+      const session = await publicationClient.login(
+        publicationUsername,
+        publicationPassword,
+      )
+      setPublicationSession(session)
+      setPublicationPassword('')
+      setMessage(`已登录发布服务：${session.authenticated ? session.identity.displayName : ''}`)
+    } catch (error) {
+      setMessage(publicationErrorMessage(error, publicationObservation))
+    } finally {
+      setPublicationBusy(false)
+    }
+  }
+
+  async function logoutPublication() {
+    if (!publicationClient) return
+    setPublicationBusy(true)
+    try {
+      const session = await publicationClient.logout()
+      setPublicationSession(session)
+      setPublicationPassword('')
+      setMessage('已退出发布服务')
+    } catch (error) {
+      setMessage(publicationErrorMessage(error, publicationObservation))
+    } finally {
+      setPublicationBusy(false)
+    }
+  }
+
+  async function refreshPublicationObservation() {
+    if (!remotePublicationRepository) return
+    setPublicationBusy(true)
+    try {
+      const observation = await observeLatestComponentPublication(
+        definition.type,
+        remotePublicationRepository,
+      )
+      setPublicationObservation(observation)
+      setMessage(
+        observation.revision === null
+          ? '已刷新远端状态：当前尚无已发布 revision'
+          : `已刷新远端状态：revision ${observation.revision}`,
+      )
+    } catch (error) {
+      setMessage(publicationErrorMessage(error, publicationObservation))
+    } finally {
+      setPublicationBusy(false)
+    }
+  }
+
+  async function publishRemote() {
+    if (!publicationClient || !remotePublicationRepository || !canPublish) return
+    setPublicationBusy(true)
+    try {
+      const result = await publishComponentExplicitly(component, {
+        client: publicationClient,
+        remoteRepository: remotePublicationRepository,
+      })
+      setPublicationObservation(result.observation)
+      setMessage(`组件已发布：revision ${result.revision.revision}`)
+    } catch (error) {
+      if (
+        error instanceof ComponentPublicationClientError
+        && error.code === 'unauthorized'
+      ) {
+        setPublicationSession({ authenticated: false })
+      }
+      setMessage(publicationErrorMessage(error, publicationObservation))
+    } finally {
+      setPublicationBusy(false)
+    }
+  }
+
   return (
     <div className="editor-shell component-editor-shell">
       <header className="editor-header component-editor-header">
@@ -380,6 +564,12 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
 
         <div className="component-header-actions">
           <div className="document-toolbar" role="toolbar" aria-label="组件文档操作">
+            <Button
+              disabled={!canPublish}
+              onClick={() => void publishRemote()}
+            >
+              {publicationBusy ? '处理中…' : '发布'}
+            </Button>
             <Button
               variant="primary"
               disabled={builtInReadOnly}
@@ -526,6 +716,25 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                       definition={definition}
                       values={previewProps}
                       onChange={setPreviewProps}
+                    />
+                  </CollapsibleInspectorGroup>
+                )}
+
+                {!builtInReadOnly && (
+                  <CollapsibleInspectorGroup title="远端发布" defaultOpen={false}>
+                    <ComponentPublicationPanel
+                      configured={Boolean(publicationBaseUrl)}
+                      session={publicationSession}
+                      observation={publicationObservation}
+                      username={publicationUsername}
+                      password={publicationPassword}
+                      busy={publicationBusy}
+                      publishReady={publicationReady}
+                      onUsernameChange={setPublicationUsername}
+                      onPasswordChange={setPublicationPassword}
+                      onLogin={() => void loginPublication()}
+                      onLogout={() => void logoutPublication()}
+                      onRefreshObservation={() => void refreshPublicationObservation()}
                     />
                   </CollapsibleInspectorGroup>
                 )}

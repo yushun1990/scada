@@ -53,7 +53,9 @@ jobs:
           npx --yes tsx scripts/check-component-publication-contract.ts
           npx --yes tsx scripts/check-remote-component-repository.ts
           npx --yes tsx scripts/check-remote-component-installation.ts
+          npx --yes tsx scripts/check-component-publication-client.ts
           node scripts/check-server-publication-contract.mjs
+          node --check server/src/publication-auth.js
           node --check server/src/index.js
 
       - name: Lint
@@ -92,6 +94,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://scada:scada@127.0.0.1:5432/scada
           SCADA_ADMIN_TOKEN: ci-publication-token
+          SCADA_PUBLISH_USERNAME: ci-author
+          SCADA_PUBLISH_PASSWORD: ci-author-password
+          SCADA_SESSION_COOKIE_SECURE: 'false'
+          SCADA_SESSION_COOKIE_SAMESITE: Lax
           HOST: 127.0.0.1
           PORT: 3100
           PUBLICATION_API_URL: http://127.0.0.1:3100
