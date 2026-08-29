@@ -197,6 +197,14 @@ Persisted Value Binding / Behavior / Interaction semantics must use canonical st
 
 Scene v7 is the first Scene revision carrying this canonical `scadaSemantics` contract. Legacy v5 bindings and v6 behaviors remain compatibility-only data and are not silently promoted into new semantics.
 
+### 3.11 Local readiness and remote publication are different states
+
+A local Component Workbench package may be `draft` or `ready`. Neither state is a remote publication identity.
+
+Remote publication is an explicit operation that creates an immutable published revision. A local save must never silently overwrite a remote artifact.
+
+Published packages are distribution artifacts; after retrieval they must pass client-side package validation before entering the same ComponentRegistration / ComponentRegistry path used by locally authored packages.
+
 ---
 
 # 4. Milestone status
@@ -231,6 +239,7 @@ M6.5.10 Typed Action/Event contract + device dispatch          accepted · 2026-
 M6.5.11 Stable persistence semantics                           accepted · 2026-08-28
 M6.6 Local persistence foundation                              accepted · 2026-08-28
 M6.7A Local user-component activation                          accepted · 2026-08-29
+M6.7B1 Publication contract + immutable revisions              accepted · 2026-08-29
 ```
 
 The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
@@ -529,45 +538,65 @@ Accepted work:
 
 Detailed acceptance record: `docs/progress/m6.7a-local-user-component-activation.md`.
 
-## M6.7B Publication lifecycle — NEXT
+## M6.7B1 Publication contract + immutable revision store — accepted · 2026-08-29
 
-M6.7A proved that package origin is independent of runtime consumption. M6.7B now owns publication/distribution semantics.
-
-Target split:
+Accepted publication flow:
 
 ```text
-Component Workbench
-        ↓ local draft/save
-IndexedDB
-        ↓ explicit publish
-Remote Component Repository / API
-        ↓ retrieve immutable published revision
-same package validation / registration path
+local ready ComponentLibraryEntry
+        ↓ explicit publish conversion
+versioned distributable package
+        ↓ requestId + baseRevision
+Publication API
+        ↓ append-only PostgreSQL transaction
+immutable PublishedComponentRevision
+        ↓ public retrieval
+client package validation
         ↓
-SCADA Workbench / other clients
+existing M6.7A activation path
 ```
 
-Before provisioning or reviving a backend deployment, M6.7B must first settle:
+Accepted semantics:
 
-- explicit draft/save vs publish semantics
-- immutable published revision identity
-- component type + revision/version rules
-- publish request/response contract
-- remote list/get retrieval contract
-- how a retrieved package is validated before entering the M6.7A activation path
-- optimistic/concurrent publication behavior
-- authentication boundary, even if the first implementation uses a development identity
-- what existing `server/` Fastify/PostgreSQL code can be reused without making the backend runtime authority
+- local `draft` / `ready` remains local authoring state; publication is explicit and separate
+- distributable package drops local `id`, `status`, `updatedAt`, and `builtIn` metadata
+- publication request carries a client-generated `requestId` idempotency key
+- publication request carries `baseRevision` for optimistic concurrency
+- first publication requires `baseRevision: null`
+- later publication must name the currently observed remote revision
+- stale publishers receive `409 publication_conflict` with the server's current revision
+- an identical retry of the same requestId returns the already-created revision
+- requestId reuse with different publication input receives `409 idempotency_conflict`
+- published `(componentType, revision)` artifacts are append-only and immutable
+- latest and specific-revision reads are public and side-effect free
+- there is no PUT/DELETE path for a published revision
+- the old mutable `components` table is no longer publication authority
+- retrieved revisions convert into validated non-built-in `ready` activation candidates rather than creating a second runtime path
+- `implementationDraft` remains inert content; remote publication does not make it executable
 
-Backend responsibilities may include:
+Verification includes both pure contract fixtures and a real PostgreSQL 16 + Fastify CI job covering revision creation, retry/idempotency, stale-base conflict, latest lookup, and immutable historical revision retrieval.
 
-- component package persistence
-- publication state
-- immutable revision/version metadata
-- remote retrieval/sharing
-- later synchronization if explicitly needed
+Detailed acceptance record: `docs/progress/m6.7b1-publication-contract.md`.
 
-Backend responsibilities must **not** expand into SCADA runtime ownership.
+## M6.7B2 Client publication / retrieval integration — NEXT
+
+B1 settled the server/distribution contract. B2 now owns the browser-facing boundary.
+
+Required work:
+
+- define a browser `RemoteComponentRepository` / transport adapter around the accepted publication endpoints
+- support public list/latest/specific-revision retrieval
+- validate every retrieved package on the client before it can enter M6.7A activation
+- decide whether remote packages remain session-scoped or are cached into IndexedDB with explicit provenance
+- provide an explicit publish operation separate from local Save
+- preserve the last observed remote revision so publish requests send the correct `baseRevision`
+- surface `publication_conflict` as a user-visible conflict instead of silently retrying or overwriting
+- define a browser-safe authentication/identity boundary for publication
+- never embed `SCADA_ADMIN_TOKEN` into the public frontend bundle
+- keep remote unavailability from blocking local editing/runtime
+- only after client/auth semantics are accepted decide whether to resume production backend deployment
+
+B2 should prefer a narrow repository/transport boundary over direct `fetch()` calls scattered through Component Workbench UI.
 
 ---
 
@@ -578,22 +607,25 @@ Current state:
 - backend source code exists under `server/`
 - deployment assets exist under `deploy/`
 - current front-end authoring paths use browser-local IndexedDB persistence
-- M6.7A no longer requires any backend
-- the previous backend host is not runtime authority
+- M6.7A proves local runtime activation without a backend
+- M6.7B1 defines and verifies an immutable publication API using ephemeral PostgreSQL in CI
+- no production backend is required for local editing or SCADA runtime evaluation
 
-Policy during M6.7B contract work:
+Policy during M6.7B2:
 
-> Design and verify the publication contract before provisioning production infrastructure.
+> Client retrieval, publication UX, and browser-safe authentication must be accepted before production infrastructure is resumed.
 
 Before the next intentional backend deployment, re-evaluate and record:
 
-- API contract
-- package lifecycle (`draft` / `published revision`)
-- revision/version semantics
-- authentication model
-- component type uniqueness
-- retrieval/caching semantics
-- deployment/storage migration requirements
+- public API base URL/configuration
+- authentication and user identity model
+- credential storage/rotation model
+- package retrieval/cache policy
+- publication conflict UX
+- PostgreSQL migration/backup requirements
+- CORS/TLS/deployment topology
+
+The existing `SCADA_ADMIN_TOKEN` remains a server/development boundary and must not be exposed in a public browser bundle.
 
 A remote service exists to distribute validated component packages. It must not become a prerequisite for local editing or SCADA runtime evaluation.
 
@@ -601,7 +633,7 @@ A remote service exists to distribute validated component packages. It must not 
 
 # 12. Immediate execution sequence
 
-Current execution order from `main` plus the accepted runtime/persistence gates:
+Current execution order from `main` plus the accepted runtime/persistence/publication gates:
 
 ```text
 1. M6.5.9A runtime semantic hardening                                  accepted · 2026-08-28
@@ -611,13 +643,14 @@ Current execution order from `main` plus the accepted runtime/persistence gates:
 5. M6.5.11 stable scene persistence semantics                          accepted · 2026-08-28
 6. M6.6 storage abstraction + IndexedDB + debug snapshot               accepted · 2026-08-28
 7. M6.7A local user-component activation                               accepted · 2026-08-29
-8. M6.7B publication lifecycle / optional backend                      NEXT
-9. M7 packaging / production adapters / reusable component set         later
+8. M6.7B1 publication contract + immutable revisions                   accepted · 2026-08-29
+9. M6.7B2 client publication / retrieval integration                   NEXT
+10. M7 packaging / production adapters / reusable component set        later
 ```
 
-The **next implementation step is M6.7B Publication lifecycle**.
+The **next implementation step is M6.7B2 Client publication / retrieval integration**.
 
-Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision production infrastructure before the M6.7B publication contract is reviewed.
+Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision production infrastructure before the M6.7B2 browser/auth boundary is reviewed.
 
 ---
 
@@ -634,6 +667,7 @@ Use the narrowest relevant verification set:
 - storage migration fixtures when persistence formats change
 - debug snapshots when a browser-only failure must be reproduced
 - publication contract fixtures before remote deployment
+- real PostgreSQL/API integration for publication concurrency and revision semantics
 
 Runtime tests should prefer explicit inputs and deterministic snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -643,9 +677,11 @@ Runtime tests should prefer explicit inputs and deterministic snapshots over tim
 
 The following should not distract the active M6 work:
 
-- production backend provisioning before M6.7B publication contract review
+- production backend provisioning before M6.7B2 client/auth acceptance
 - component marketplace
 - collaborative editing
+- automatic publication on local save
+- mutable remote published revisions
 - general-purpose process orchestration
 - data-driven device command chains
 - unrestricted JavaScript execution
