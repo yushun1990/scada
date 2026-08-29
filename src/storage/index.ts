@@ -1,12 +1,15 @@
 export type {
   ComponentRepository,
   ComponentRepositoryRecord,
+  InstalledRemoteComponentRepository,
+  InstalledRemoteComponentRepositoryRecord,
   LocalRepositoryBundle,
   SceneRepository,
   SceneRepositoryRecord,
 } from './repositories'
 export {
   MemoryComponentRepository,
+  MemoryInstalledRemoteComponentRepository,
   MemorySceneRepository,
   createMemoryRepositoryBundle,
 } from './memory-repositories'
@@ -21,12 +24,14 @@ export {
 } from './debug-snapshot'
 export {
   IndexedDbComponentRepository,
+  IndexedDbInstalledRemoteComponentRepository,
   IndexedDbLocalStorage,
   IndexedDbSceneRepository,
   LEGACY_MIGRATION_META_KEY,
   LOCAL_DATABASE_NAME,
   LOCAL_DATABASE_VERSION,
   openLocalDatabase,
+  upgradeLocalDatabaseSchema,
   type IndexedDbStorageDiagnostics,
 } from './indexeddb-repositories'
 export {

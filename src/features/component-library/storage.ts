@@ -10,7 +10,17 @@ import {
   type ComponentLibraryEntry,
 } from './component-document'
 import {
+  cloneInstalledRemoteComponent,
+  loadInstalledRemoteComponents,
+  persistRemoteComponentInstallation,
+  removeRemoteComponentInstallation,
+  selectInstalledRemoteActivationEntries,
+  type InstalledRemoteComponent,
+} from './remote-component-installation'
+import type { RemoteComponentInstallCandidate } from './remote-component-repository'
+import {
   replaceStudioUserComponentPackages,
+  type UserComponentActivationDiagnostic,
   type UserComponentActivationResult,
 } from './runtime-activation'
 
@@ -19,9 +29,12 @@ export {
   type ComponentLibraryEntry,
   type ComponentStatus,
 } from './component-document'
+export type { InstalledRemoteComponent } from './remote-component-installation'
 
 const BUILT_IN_UPDATED_AT = '2026-08-09T00:00:00.000Z'
 const customCache = new Map<string, ComponentLibraryEntry>()
+const installedRemoteCache = new Map<string, InstalledRemoteComponent>()
+let invalidInstalledRemoteRecordIds: readonly string[] = []
 let customCacheReady = false
 let activationResult: UserComponentActivationResult = {
   activeTypes: [],
@@ -60,19 +73,56 @@ function sortComponents(entries: ComponentLibraryEntry[]) {
 }
 
 function refreshRuntimeActivation() {
-  activationResult = replaceStudioUserComponentPackages([...customCache.values()])
+  const localEntries = [...customCache.values()]
+  const resolution = selectInstalledRemoteActivationEntries(
+    localEntries,
+    [...installedRemoteCache.values()],
+  )
+  const result = replaceStudioUserComponentPackages([
+    ...localEntries,
+    ...resolution.entries,
+  ])
+
+  const installationDiagnostics: UserComponentActivationDiagnostic[] = [
+    ...invalidInstalledRemoteRecordIds.map((recordId) => ({
+      packageId: recordId,
+      componentType: recordId,
+      kind: 'invalid-registration' as const,
+      message: `Installed remote component cache record is invalid: ${recordId}`,
+    })),
+    ...resolution.conflicts.map((conflict) => ({
+      ...conflict,
+      kind: 'type-collision' as const,
+    })),
+  ]
+
+  activationResult = {
+    activeTypes: result.activeTypes,
+    diagnostics: [...installationDiagnostics, ...result.diagnostics],
+  }
   return activationResult
 }
 
 export async function prepareComponentLibrary() {
   await ensureBrowserPersistenceReady()
-  const records = await browserPersistence.components.list()
+  const [records, installedResult] = await Promise.all([
+    browserPersistence.components.list(),
+    loadInstalledRemoteComponents(browserPersistence.installedRemoteComponents),
+  ])
   customCache.clear()
+  installedRemoteCache.clear()
 
   for (const record of records) {
     const entry = parseComponentLibraryDocument(record.document)
     if (entry) customCache.set(entry.id, entry)
   }
+  for (const installed of installedResult.installed) {
+    installedRemoteCache.set(
+      installed.source.componentType,
+      cloneInstalledRemoteComponent(installed),
+    )
+  }
+  invalidInstalledRemoteRecordIds = installedResult.invalidRecordIds
 
   customCacheReady = true
   refreshRuntimeActivation()
@@ -100,6 +150,16 @@ export async function listComponentDefinitions() {
     ...BUILT_IN_COMPONENTS.map(cloneComponentLibraryEntry),
     ...[...customCache.values()].map(cloneComponentLibraryEntry),
   ])
+}
+
+/** Installed remote artifacts are deliberately listed separately from editable authoring documents. */
+export async function listInstalledRemoteComponents() {
+  await prepareComponentLibrary()
+  return [...installedRemoteCache.values()]
+    .sort((left, right) =>
+      left.source.componentType.localeCompare(right.source.componentType),
+    )
+    .map(cloneInstalledRemoteComponent)
 }
 
 /** Synchronous read after ComponentEditorLoader has completed hydration. */
@@ -146,6 +206,13 @@ function prepareSavedComponent(component: ComponentLibraryEntry) {
     throw new Error('内置组件当前不允许覆盖保存')
   }
 
+  const installed = installedRemoteCache.get(component.definition.type)
+  if (installed) {
+    throw new Error(
+      `组件类型已由远程安装占用：${component.definition.type} @ revision ${installed.source.revision}`,
+    )
+  }
+
   const duplicate = [
     ...BUILT_IN_COMPONENTS,
     ...customCache.values(),
@@ -190,4 +257,61 @@ export async function saveComponentDefinitionAsync(
   if (!customCacheReady) await prepareComponentLibrary()
   const next = prepareSavedComponent(component)
   return persistPreparedComponent(next)
+}
+
+export async function installRemoteComponentCandidate(
+  candidate: RemoteComponentInstallCandidate,
+) {
+  if (!customCacheReady) await prepareComponentLibrary()
+  const componentType = candidate.source.componentType
+
+  if (
+    BUILT_IN_COMPONENTS.some(
+      (component) => component.definition.type === componentType,
+    )
+  ) {
+    throw new Error(`远程组件类型与内置组件冲突：${componentType}`)
+  }
+
+  const local = [...customCache.values()].find(
+    (component) => component.definition.type === componentType,
+  )
+  if (local) {
+    throw new Error(`远程组件类型与本地可编辑组件冲突：${componentType}`)
+  }
+
+  const result = await persistRemoteComponentInstallation(
+    browserPersistence.installedRemoteComponents,
+    candidate,
+  )
+  installedRemoteCache.set(
+    componentType,
+    cloneInstalledRemoteComponent(result.installed),
+  )
+  invalidInstalledRemoteRecordIds = invalidInstalledRemoteRecordIds.filter(
+    (recordId) => recordId !== componentType,
+  )
+  customCacheReady = true
+  refreshRuntimeActivation()
+
+  return {
+    installed: cloneInstalledRemoteComponent(result.installed),
+    changed: result.changed,
+  }
+}
+
+export async function uninstallRemoteComponent(componentType: string) {
+  if (!customCacheReady) await prepareComponentLibrary()
+  const removed = await removeRemoteComponentInstallation(
+    browserPersistence.installedRemoteComponents,
+    componentType,
+  )
+  if (!removed) return false
+
+  installedRemoteCache.delete(componentType.trim())
+  invalidInstalledRemoteRecordIds = invalidInstalledRemoteRecordIds.filter(
+    (recordId) => recordId !== componentType.trim(),
+  )
+  refreshRuntimeActivation()
+  return true
 }

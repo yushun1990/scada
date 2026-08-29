@@ -1,20 +1,23 @@
 import type {
   ComponentRepository,
   ComponentRepositoryRecord,
+  InstalledRemoteComponentRepository,
+  InstalledRemoteComponentRepositoryRecord,
   LocalRepositoryBundle,
   SceneRepository,
   SceneRepositoryRecord,
 } from './repositories'
 
-function cloneRecord<T extends SceneRepositoryRecord | ComponentRepositoryRecord>(
-  record: T,
-): T {
+type RepositoryRecord =
+  | SceneRepositoryRecord
+  | ComponentRepositoryRecord
+  | InstalledRemoteComponentRepositoryRecord
+
+function cloneRecord<T extends RepositoryRecord>(record: T): T {
   return { ...record }
 }
 
-function assertUniqueRecords<T extends SceneRepositoryRecord | ComponentRepositoryRecord>(
-  records: readonly T[],
-) {
+function assertUniqueRecords<T extends RepositoryRecord>(records: readonly T[]) {
   const ids = new Set<string>()
 
   for (const record of records) {
@@ -25,9 +28,7 @@ function assertUniqueRecords<T extends SceneRepositoryRecord | ComponentReposito
   }
 }
 
-class MemoryRecordRepository<
-  T extends SceneRepositoryRecord | ComponentRepositoryRecord,
-> {
+class MemoryRecordRepository<T extends RepositoryRecord> {
   private records = new Map<string, T>()
 
   constructor(initial: readonly T[] = []) {
@@ -97,14 +98,32 @@ export class MemoryComponentRepository
   clear = () => this.clearRecords()
 }
 
+export class MemoryInstalledRemoteComponentRepository
+  extends MemoryRecordRepository<InstalledRemoteComponentRepositoryRecord>
+  implements InstalledRemoteComponentRepository
+{
+  list = () => this.listRecords()
+  get = (id: string) => this.getRecord(id)
+  put = (record: InstalledRemoteComponentRepositoryRecord) =>
+    this.putRecord(record)
+  delete = (id: string) => this.deleteRecord(id)
+  replaceAll = (records: readonly InstalledRemoteComponentRepositoryRecord[]) =>
+    this.replaceAllRecords(records)
+  clear = () => this.clearRecords()
+}
+
 export function createMemoryRepositoryBundle(
   initial: {
     scenes?: readonly SceneRepositoryRecord[]
     components?: readonly ComponentRepositoryRecord[]
+    installedRemoteComponents?: readonly InstalledRemoteComponentRepositoryRecord[]
   } = {},
 ): LocalRepositoryBundle {
   return {
     scenes: new MemorySceneRepository(initial.scenes),
     components: new MemoryComponentRepository(initial.components),
+    installedRemoteComponents: new MemoryInstalledRemoteComponentRepository(
+      initial.installedRemoteComponents,
+    ),
   }
 }

@@ -10,6 +10,12 @@ export type ComponentRepositoryRecord = {
   updatedAt: string
 }
 
+export type InstalledRemoteComponentRepositoryRecord = {
+  id: string
+  document: string
+  updatedAt: string
+}
+
 export interface SceneRepository {
   list(): Promise<readonly SceneRepositoryRecord[]>
   get(id: string): Promise<SceneRepositoryRecord | null>
@@ -28,15 +34,30 @@ export interface ComponentRepository {
   clear(): Promise<void>
 }
 
+export interface InstalledRemoteComponentRepository {
+  list(): Promise<readonly InstalledRemoteComponentRepositoryRecord[]>
+  get(id: string): Promise<InstalledRemoteComponentRepositoryRecord | null>
+  put(record: InstalledRemoteComponentRepositoryRecord): Promise<void>
+  delete(id: string): Promise<void>
+  replaceAll(
+    records: readonly InstalledRemoteComponentRepositoryRecord[],
+  ): Promise<void>
+  clear(): Promise<void>
+}
+
 export type LocalRepositoryBundle = {
   scenes: SceneRepository
   components: ComponentRepository
+  installedRemoteComponents: InstalledRemoteComponentRepository
 }
 
 export function assertRepositoryRecord(
   value: unknown,
   label: string,
-): asserts value is SceneRepositoryRecord | ComponentRepositoryRecord {
+): asserts value is
+  | SceneRepositoryRecord
+  | ComponentRepositoryRecord
+  | InstalledRemoteComponentRepositoryRecord {
   if (
     typeof value !== 'object' ||
     value === null ||

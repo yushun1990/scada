@@ -247,6 +247,7 @@ M6.6 Local persistence foundation                              accepted · 2026-
 M6.7A Local user-component activation                          accepted · 2026-08-29
 M6.7B1 Publication contract + immutable revisions              accepted · 2026-08-29
 M6.7B2A Remote repository + install candidate boundary         accepted · 2026-08-29
+M6.7B2B Explicit install + offline cache                       accepted · 2026-08-29
 ```
 
 The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
@@ -566,6 +567,7 @@ existing M6.7A activation path
 Accepted semantics:
 
 - local `draft` / `ready` remains local authoring state; publication is explicit and separate
+- only a local `ready` non-built-in package is publishable
 - distributable package drops local `id`, `status`, `updatedAt`, and `builtIn` metadata
 - publication request carries a client-generated `requestId` idempotency key
 - publication request carries `baseRevision` for optimistic concurrency
@@ -615,25 +617,43 @@ Accepted rules:
 
 Detailed acceptance record: `docs/progress/m6.7b2a-remote-component-repository.md`.
 
-### M6.7B2B Explicit install + offline cache — NEXT
+### M6.7B2B Explicit install + offline cache — accepted · 2026-08-29
 
-Goal:
+Accepted local installation path:
 
-> A user explicitly installs one validated immutable remote revision; the installed artifact remains available offline and activates through the same M6.7A path, while its remote origin/revision remains distinguishable from editable local authored packages.
+```text
+RemoteComponentInstallCandidate
+        ↓ explicit install
+InstalledRemoteComponent
+        ↓ dedicated installedRemoteComponents repository/store
+IndexedDB v2 offline cache
+        ↓ startup hydration without remote I/O
+existing M6.7A activation controller
+        ↓
+studioComponentRegistry
+        ↓
+Scene validation / editor / Preview
+```
 
-Required work:
+Accepted rules:
 
-- introduce durable remote-install provenance rather than storing a remote revision as an ordinary editable local authoring document
-- version the local storage schema if a dedicated installed-remote store is required
-- make debug snapshot export/import include installed remote artifacts if they affect Scene reproducibility
-- define deterministic local-authored vs installed-remote type collision behavior
-- define install/update/uninstall semantics around immutable remote revision identity
-- ensure installed artifacts are available without contacting the remote API at app/Scene startup
-- hydrate installed remote artifacts before Scene validation when a Scene references them
-- keep remote repository failure isolated from already-installed local runtime state
-- cover storage migration, install replacement and offline activation with deterministic fixtures
+- installed remote artifacts preserve immutable publication provenance beside the validated ready package instead of becoming ordinary editable local component documents
+- IndexedDB schema v2 adds a dedicated `installedRemoteComponents` store while preserving existing Scene/Component/meta data
+- one component type has at most one selected installed remote revision
+- reinstalling the exact immutable revision is idempotent; explicit installation of another revision replaces the selected cache entry and may intentionally roll back to an older immutable revision
+- uninstall removes only the local installed-remote cache entry and does not mutate any published revision
+- normal install/save paths reject local-authored vs installed-remote type collisions
+- historical/imported collisions resolve deterministically with local-authored winning activation and a diagnostic for the shadowed installed artifact
+- installed artifacts hydrate through the same M6.7A package activation path and require no remote API request at app/Scene startup
+- installed remote hydration completes before persisted Scene contract validation
+- malformed installed rows fail closed without poisoning valid neighboring installed artifacts
+- debug snapshot schema v2 includes installed remote artifacts; v1 snapshots remain importable with an empty installed-remote slice
+- remote repository/API unavailability cannot invalidate already-installed local runtime state
+- deterministic fixtures cover v1 -> v2 storage migration, provenance validation, idempotent install, update/rollback replacement, uninstall, collision handling, corrupt-row isolation and offline activation
 
-### M6.7B2C Explicit publish + browser-safe authentication — after B2B
+Detailed acceptance record: `docs/progress/m6.7b2b-explicit-install-offline-cache.md`.
+
+### M6.7B2C Explicit publish + browser-safe authentication — NEXT
 
 After offline installation is stable, connect Component Workbench publication:
 
@@ -658,11 +678,12 @@ Current state:
 - M6.7A proves local runtime activation without a backend
 - M6.7B1 defines and verifies an immutable publication API using ephemeral PostgreSQL in CI
 - M6.7B2A defines credential-free public retrieval but deliberately performs no automatic startup fetch
+- M6.7B2B defines explicit durable installation and offline activation without making the remote API a startup dependency
 - no production backend is required for local editing or SCADA runtime evaluation
 
-Policy during M6.7B2B/B2C:
+Policy during M6.7B2C:
 
-> Offline installation semantics and browser-safe publication authentication must be accepted before production infrastructure is resumed.
+> Browser-safe publication authentication must be accepted before production infrastructure is resumed.
 
 Before the next intentional backend deployment, re-evaluate and record:
 
@@ -694,12 +715,12 @@ Current execution order from `main` plus the accepted runtime/persistence/public
 7. M6.7A local user-component activation                               accepted · 2026-08-29
 8. M6.7B1 publication contract + immutable revisions                   accepted · 2026-08-29
 9. M6.7B2A remote repository + install candidate boundary              accepted · 2026-08-29
-10. M6.7B2B explicit install + offline cache                            NEXT
-11. M6.7B2C explicit publish + browser-safe authentication              after B2B
+10. M6.7B2B explicit install + offline cache                           accepted · 2026-08-29
+11. M6.7B2C explicit publish + browser-safe authentication             NEXT
 12. M7 packaging / production adapters / reusable component set         later
 ```
 
-The **next implementation step is M6.7B2B Explicit install + offline cache**.
+The **next implementation step is M6.7B2C Explicit publish + browser-safe authentication**.
 
 Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision production infrastructure before the M6.7B2C browser/auth boundary is reviewed.
 
@@ -720,6 +741,7 @@ Use the narrowest relevant verification set:
 - publication contract fixtures before remote deployment
 - real PostgreSQL/API integration for publication concurrency and revision semantics
 - remote repository fixtures that verify fail-closed client parsing and credential-free public reads
+- remote installation fixtures that verify provenance, replacement/rollback, collision policy and offline activation
 
 Runtime tests should prefer explicit inputs and deterministic snapshots over timing-sensitive renderer inspection whenever possible.
 
