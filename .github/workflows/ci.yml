@@ -51,6 +51,7 @@ jobs:
           npx --yes tsx scripts/check-local-storage-migration.ts
           npx --yes tsx scripts/check-user-component-activation.ts
           npx --yes tsx scripts/check-component-publication-contract.ts
+          npx --yes tsx scripts/check-remote-component-repository.ts
           node scripts/check-server-publication-contract.mjs
           node --check server/src/index.js
 
