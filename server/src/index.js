@@ -3,6 +3,16 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import pg from 'pg'
 import {
+  createPublicationSessionId,
+  hashPublicationSessionId,
+  parseCookieHeader,
+  publicationIdentity,
+  PUBLICATION_SESSION_COOKIE,
+  secureEquals,
+  serializeClearedPublicationSessionCookie,
+  serializePublicationSessionCookie,
+} from './publication-auth.js'
+import {
   normalizePublicationRequest,
   normalizeRevisionParam,
   toPublicationHead,
@@ -14,7 +24,13 @@ const { Pool } = pg
 const host = process.env.HOST ?? '0.0.0.0'
 const port = Number(process.env.PORT ?? 3000)
 const databaseUrl = process.env.DATABASE_URL
-const adminToken = process.env.SCADA_ADMIN_TOKEN
+const adminToken = process.env.SCADA_ADMIN_TOKEN?.trim() || null
+const publishUsername = process.env.SCADA_PUBLISH_USERNAME?.trim() ?? ''
+const publishPassword = process.env.SCADA_PUBLISH_PASSWORD ?? ''
+const sessionTtlSeconds = Number(process.env.SCADA_SESSION_TTL_SECONDS ?? 28800)
+const sessionCookieSecure = process.env.SCADA_SESSION_COOKIE_SECURE !== 'false'
+const sessionCookieSameSite = process.env.SCADA_SESSION_COOKIE_SAMESITE
+  ?? (sessionCookieSecure ? 'None' : 'Lax')
 const allowedOrigins = new Set(
   (process.env.CORS_ORIGINS ?? 'https://yushun1990.github.io,http://localhost:5173,http://127.0.0.1:5173')
     .split(',')
@@ -26,14 +42,20 @@ if (!databaseUrl) {
   throw new Error('DATABASE_URL is required')
 }
 
-if (!adminToken) {
-  throw new Error('SCADA_ADMIN_TOKEN is required')
+if (Boolean(publishUsername) !== Boolean(publishPassword)) {
+  throw new Error('SCADA_PUBLISH_USERNAME and SCADA_PUBLISH_PASSWORD must be configured together')
 }
 
+if (!Number.isInteger(sessionTtlSeconds) || sessionTtlSeconds <= 0) {
+  throw new Error('SCADA_SESSION_TTL_SECONDS must be a positive integer')
+}
+
+const browserPublicationAuthEnabled = Boolean(publishUsername && publishPassword)
 const app = Fastify({ logger: true })
 const pool = new Pool({ connectionString: databaseUrl })
 
 await app.register(cors, {
+  credentials: true,
   origin(origin, callback) {
     if (!origin || allowedOrigins.has(origin)) {
       callback(null, true)
@@ -43,16 +65,6 @@ await app.register(cors, {
     callback(new Error('Origin is not allowed'), false)
   },
 })
-
-function requireAdmin(request, reply, done) {
-  const authorization = request.headers.authorization
-  if (authorization !== `Bearer ${adminToken}`) {
-    reply.code(401).send({ error: 'unauthorized' })
-    return
-  }
-
-  done()
-}
 
 async function ensureSchema() {
   await pool.query(`
@@ -64,9 +76,15 @@ async function ensureSchema() {
       base_revision integer,
       title text NOT NULL,
       package jsonb NOT NULL,
+      published_by text,
       published_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE (component_type, revision)
     )
+  `)
+
+  await pool.query(`
+    ALTER TABLE component_publication_revisions
+    ADD COLUMN IF NOT EXISTS published_by text
   `)
 
   await pool.query(`
@@ -77,6 +95,21 @@ async function ensureSchema() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS component_publication_published_at_idx
       ON component_publication_revisions (published_at DESC)
+  `)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS publication_sessions (
+      session_hash text PRIMARY KEY,
+      subject text NOT NULL,
+      display_name text NOT NULL,
+      expires_at timestamptz NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `)
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS publication_sessions_expires_at_idx
+      ON publication_sessions (expires_at)
   `)
 }
 
@@ -98,9 +131,132 @@ async function connectDatabase() {
   throw lastError
 }
 
+async function readPublicationSession(request) {
+  const sessionId = parseCookieHeader(request.headers.cookie).get(
+    PUBLICATION_SESSION_COOKIE,
+  )
+  if (!sessionId) return null
+
+  const sessionHash = hashPublicationSessionId(sessionId)
+  const result = await pool.query(`
+    SELECT subject,
+           display_name AS "displayName"
+      FROM publication_sessions
+     WHERE session_hash = $1
+       AND expires_at > now()
+  `, [sessionHash])
+
+  if (result.rowCount === 0) return null
+  return {
+    id: result.rows[0].subject,
+    displayName: result.rows[0].displayName,
+  }
+}
+
+async function requirePublisher(request, reply) {
+  const authorization = request.headers.authorization
+  if (adminToken && authorization === `Bearer ${adminToken}`) {
+    request.publisherIdentity = {
+      id: 'admin:server-token',
+      displayName: 'Server admin',
+    }
+    return
+  }
+
+  const identity = await readPublicationSession(request)
+  if (!identity) {
+    return reply.code(401).send({ error: 'unauthorized' })
+  }
+
+  request.publisherIdentity = identity
+}
+
 app.get('/health', async () => {
   await pool.query('SELECT 1')
-  return { ok: true, service: 'scada-api' }
+  return {
+    ok: true,
+    service: 'scada-api',
+    browserPublicationAuthEnabled,
+  }
+})
+
+app.get('/api/auth/session', async (request, reply) => {
+  reply.header('cache-control', 'no-store')
+  const identity = await readPublicationSession(request)
+  return identity
+    ? { authenticated: true, identity }
+    : { authenticated: false }
+})
+
+app.post('/api/auth/login', async (request, reply) => {
+  reply.header('cache-control', 'no-store')
+  if (!browserPublicationAuthEnabled) {
+    return reply.code(503).send({ error: 'browser_auth_not_configured' })
+  }
+
+  const { username, password } = request.body ?? {}
+  if (typeof username !== 'string' || typeof password !== 'string') {
+    return reply.code(400).send({ error: 'invalid_login_request' })
+  }
+
+  if (
+    !secureEquals(username.trim(), publishUsername)
+    || !secureEquals(password, publishPassword)
+  ) {
+    return reply.code(401).send({ error: 'invalid_credentials' })
+  }
+
+  const identity = publicationIdentity(publishUsername)
+  if (!identity) {
+    return reply.code(503).send({ error: 'browser_auth_not_configured' })
+  }
+
+  const sessionId = createPublicationSessionId()
+  const sessionHash = hashPublicationSessionId(sessionId)
+  const expiresAt = new Date(Date.now() + sessionTtlSeconds * 1000)
+
+  await pool.query('DELETE FROM publication_sessions WHERE expires_at <= now()')
+  await pool.query(`
+    INSERT INTO publication_sessions (
+      session_hash,
+      subject,
+      display_name,
+      expires_at
+    ) VALUES ($1, $2, $3, $4)
+  `, [sessionHash, identity.id, identity.displayName, expiresAt])
+
+  reply.header(
+    'set-cookie',
+    serializePublicationSessionCookie(sessionId, {
+      maxAgeSeconds: sessionTtlSeconds,
+      secure: sessionCookieSecure,
+      sameSite: sessionCookieSameSite,
+    }),
+  )
+
+  return { authenticated: true, identity }
+})
+
+app.post('/api/auth/logout', async (request, reply) => {
+  reply.header('cache-control', 'no-store')
+  const sessionId = parseCookieHeader(request.headers.cookie).get(
+    PUBLICATION_SESSION_COOKIE,
+  )
+  if (sessionId) {
+    await pool.query(
+      'DELETE FROM publication_sessions WHERE session_hash = $1',
+      [hashPublicationSessionId(sessionId)],
+    )
+  }
+
+  reply.header(
+    'set-cookie',
+    serializeClearedPublicationSessionCookie({
+      secure: sessionCookieSecure,
+      sameSite: sessionCookieSameSite,
+    }),
+  )
+  return { authenticated: false }
 })
 
 app.get('/api/component-publications', async () => {
@@ -173,7 +329,7 @@ app.get(
 
 app.post(
   '/api/component-publications/:componentType/revisions',
-  { preHandler: requireAdmin },
+  { preHandler: requirePublisher },
   async (request, reply) => {
     const input = normalizePublicationRequest(
       request.body,
@@ -181,6 +337,11 @@ app.post(
     )
     if (!input) {
       return reply.code(400).send({ error: 'invalid_publication_request' })
+    }
+
+    const publisherIdentity = request.publisherIdentity
+    if (!publisherIdentity) {
+      return reply.code(401).send({ error: 'unauthorized' })
     }
 
     const client = await pool.connect()
@@ -211,7 +372,8 @@ app.post(
                published_at AS "publishedAt",
                component_type = $2 AS "typeMatches",
                base_revision IS NOT DISTINCT FROM $3::integer AS "baseMatches",
-               package = $4::jsonb AS "packageMatches"
+               package = $4::jsonb AS "packageMatches",
+               published_by IS NOT DISTINCT FROM $5::text AS "publisherMatches"
           FROM component_publication_revisions
          WHERE request_id = $1
       `, [
@@ -219,11 +381,17 @@ app.post(
         input.componentType,
         input.baseRevision,
         JSON.stringify(input.package),
+        publisherIdentity.id,
       ])
 
       if (existing.rowCount > 0) {
         const row = existing.rows[0]
-        if (!row.typeMatches || !row.baseMatches || !row.packageMatches) {
+        if (
+          !row.typeMatches
+          || !row.baseMatches
+          || !row.packageMatches
+          || !row.publisherMatches
+        ) {
           await client.query('ROLLBACK')
           transactionOpen = false
           return reply.code(409).send({ error: 'idempotency_conflict' })
@@ -264,9 +432,10 @@ app.post(
           revision,
           base_revision,
           title,
-          package
+          package,
+          published_by
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
         RETURNING revision_id AS "revisionId",
                   request_id AS "requestId",
                   component_type AS "componentType",
@@ -281,6 +450,7 @@ app.post(
         input.baseRevision,
         input.title,
         JSON.stringify(input.package),
+        publisherIdentity.id,
       ])
 
       await client.query('COMMIT')
