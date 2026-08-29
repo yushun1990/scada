@@ -50,6 +50,71 @@ jobs:
           npx --yes tsx scripts/check-storage-repositories.ts
           npx --yes tsx scripts/check-local-storage-migration.ts
           npx --yes tsx scripts/check-user-component-activation.ts
+          npx --yes tsx scripts/check-component-publication-contract.ts
+          node scripts/check-server-publication-contract.mjs
+          node --check server/src/index.js
 
       - name: Lint
         run: npm run lint
+
+  publication-api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: scada
+          POSTGRES_PASSWORD: scada
+          POSTGRES_DB: scada
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U scada -d scada"
+          --health-interval=2s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install API dependencies
+        run: npm install --prefix server
+
+      - name: Verify immutable publication API
+        env:
+          DATABASE_URL: postgresql://scada:scada@127.0.0.1:5432/scada
+          SCADA_ADMIN_TOKEN: ci-publication-token
+          HOST: 127.0.0.1
+          PORT: 3100
+          PUBLICATION_API_URL: http://127.0.0.1:3100
+        run: |
+          set -euo pipefail
+          node server/src/index.js > /tmp/scada-publication-api.log 2>&1 &
+          api_pid=$!
+          cleanup() {
+            kill "$api_pid" 2>/dev/null || true
+            wait "$api_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3100/health >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/scada-publication-api.log
+            exit 1
+          fi
+
+          node scripts/check-publication-api.mjs
