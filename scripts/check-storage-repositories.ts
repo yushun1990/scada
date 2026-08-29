@@ -30,6 +30,17 @@ const repositories = createMemoryRepositoryBundle({
       document: JSON.stringify({ version: 1, id: 'component-z' }),
     },
   ],
+  installedRemoteComponents: [
+    {
+      id: 'vendor.remote-valve',
+      updatedAt: '2026-08-29T01:00:00.000Z',
+      document: JSON.stringify({
+        schemaVersion: 1,
+        componentType: 'vendor.remote-valve',
+        revision: 3,
+      }),
+    },
+  ],
 })
 
 // Repository reads are deterministic and isolated from caller mutation.
@@ -64,14 +75,30 @@ assert.deepEqual(
 // Debug snapshots are portable JSON data, not nested JSON strings, and are
 // sorted deterministically independent of repository insertion order.
 const snapshot = await exportLocalDebugSnapshot(repositories)
-assert.equal(snapshot.schemaVersion, 1)
+assert.equal(snapshot.schemaVersion, 2)
 assert.deepEqual(snapshot.scenes.map((record) => record.id), ['scene-a', 'scene-b'])
 assert.deepEqual(snapshot.scenes[0]?.document, { version: 7, id: 'scene-a' })
 assert.deepEqual(snapshot.components[0]?.document, {
   version: 1,
   id: 'component-z',
 })
+assert.deepEqual(snapshot.installedRemoteComponents[0]?.document, {
+  schemaVersion: 1,
+  componentType: 'vendor.remote-valve',
+  revision: 3,
+})
 assert.deepEqual(parseLocalDebugSnapshot(structuredClone(snapshot)), snapshot)
+
+// Snapshot v1 remains importable and deterministically migrates to an empty
+// installed-remote slice rather than making old support bundles unusable.
+const legacySnapshot = {
+  schemaVersion: 1,
+  scenes: structuredClone(snapshot.scenes),
+  components: structuredClone(snapshot.components),
+}
+const migratedLegacySnapshot = parseLocalDebugSnapshot(legacySnapshot)
+assert.equal(migratedLegacySnapshot.schemaVersion, 2)
+assert.deepEqual(migratedLegacySnapshot.installedRemoteComponents, [])
 
 // Import uses the same repository interfaces as production storage will use.
 const restored = createMemoryRepositoryBundle()
@@ -93,15 +120,17 @@ assert.throws(
     schemaVersion: 99,
     scenes: [],
     components: [],
+    installedRemoteComponents: [],
   }),
   /schema version is unsupported/,
 )
 
 assert.throws(
   () => parseLocalDebugSnapshot({
-    schemaVersion: 1,
+    schemaVersion: 2,
     scenes: [{ id: 'x', updatedAt: '', document: { invalid: undefined } }],
     components: [],
+    installedRemoteComponents: [],
   }),
   /non-JSON value/,
 )
@@ -119,6 +148,7 @@ await assert.rejects(
 await resetLocalRepositories(restored)
 assert.deepEqual(await restored.scenes.list(), [])
 assert.deepEqual(await restored.components.list(), [])
+assert.deepEqual(await restored.installedRemoteComponents.list(), [])
 
 // Individual repositories can be used independently by focused unit tests.
 const standalone = new MemorySceneRepository()
@@ -128,5 +158,5 @@ await standalone.delete('one')
 assert.equal(await standalone.get('one'), null)
 
 console.log(
-  'Storage repository checks passed: async Scene/Component contracts, deterministic isolated Memory repositories, versioned portable debug snapshot export/import/reset, pre-mutation snapshot validation, and corrupt JSON rejection are stable.',
+  'Storage repository checks passed: async Scene/Component/installed-remote contracts, deterministic isolated Memory repositories, v2 portable debug snapshot export/import/reset with v1 compatibility, pre-mutation snapshot validation, and corrupt JSON rejection are stable.',
 )
