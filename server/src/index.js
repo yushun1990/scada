@@ -2,6 +2,12 @@ import crypto from 'node:crypto'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import pg from 'pg'
+import {
+  normalizePublicationRequest,
+  normalizeRevisionParam,
+  toPublicationHead,
+  toPublishedRevision,
+} from './publication-contract.js'
 
 const { Pool } = pg
 
@@ -48,42 +54,29 @@ function requireAdmin(request, reply, done) {
   done()
 }
 
-function normalizeComponentInput(body) {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    return null
-  }
-
-  const { type, title, status = 'draft', package: componentPackage } = body
-  if (typeof type !== 'string' || !type.trim()) return null
-  if (typeof title !== 'string' || !title.trim()) return null
-  if (typeof status !== 'string' || !status.trim()) return null
-  if (!componentPackage || typeof componentPackage !== 'object' || Array.isArray(componentPackage)) return null
-
-  return {
-    type: type.trim(),
-    title: title.trim(),
-    status: status.trim(),
-    package: componentPackage,
-  }
-}
-
 async function ensureSchema() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS components (
-      id uuid PRIMARY KEY,
-      type text NOT NULL,
+    CREATE TABLE IF NOT EXISTS component_publication_revisions (
+      revision_id uuid PRIMARY KEY,
+      request_id text NOT NULL UNIQUE,
+      component_type text NOT NULL,
+      revision integer NOT NULL CHECK (revision > 0),
+      base_revision integer,
       title text NOT NULL,
-      status text NOT NULL DEFAULT 'draft',
-      revision integer NOT NULL DEFAULT 1,
       package jsonb NOT NULL,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
+      published_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (component_type, revision)
     )
   `)
 
   await pool.query(`
-    CREATE INDEX IF NOT EXISTS components_updated_at_idx
-      ON components (updated_at DESC)
+    CREATE INDEX IF NOT EXISTS component_publication_type_revision_idx
+      ON component_publication_revisions (component_type, revision DESC)
+  `)
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS component_publication_published_at_idx
+      ON component_publication_revisions (published_at DESC)
   `)
 }
 
@@ -110,93 +103,214 @@ app.get('/health', async () => {
   return { ok: true, service: 'scada-api' }
 })
 
-app.get('/api/components', async () => {
+app.get('/api/component-publications', async () => {
   const result = await pool.query(`
-    SELECT id, type, title, status, revision, package,
-           created_at AS "createdAt", updated_at AS "updatedAt"
-      FROM components
-     ORDER BY updated_at DESC
+    SELECT "componentType", title, "latestRevision", "latestRevisionId", "publishedAt"
+      FROM (
+        SELECT DISTINCT ON (component_type)
+               component_type AS "componentType",
+               title,
+               revision AS "latestRevision",
+               revision_id AS "latestRevisionId",
+               published_at AS "publishedAt"
+          FROM component_publication_revisions
+         ORDER BY component_type, revision DESC
+      ) latest
+     ORDER BY "publishedAt" DESC, "componentType" ASC
   `)
 
-  return { items: result.rows }
+  return { items: result.rows.map(toPublicationHead) }
 })
 
-app.get('/api/components/:id', async (request, reply) => {
+app.get('/api/component-publications/:componentType', async (request, reply) => {
+  const componentType = request.params.componentType
   const result = await pool.query(`
-    SELECT id, type, title, status, revision, package,
-           created_at AS "createdAt", updated_at AS "updatedAt"
-      FROM components
-     WHERE id = $1
-  `, [request.params.id])
+    SELECT revision_id AS "revisionId",
+           request_id AS "requestId",
+           component_type AS "componentType",
+           revision,
+           package,
+           published_at AS "publishedAt"
+      FROM component_publication_revisions
+     WHERE component_type = $1
+     ORDER BY revision DESC
+     LIMIT 1
+  `, [componentType])
 
   if (result.rowCount === 0) {
-    return reply.code(404).send({ error: 'component_not_found' })
+    return reply.code(404).send({ error: 'component_publication_not_found' })
   }
 
-  return result.rows[0]
+  return toPublishedRevision(result.rows[0])
 })
 
-app.post('/api/components', { preHandler: requireAdmin }, async (request, reply) => {
-  const input = normalizeComponentInput(request.body)
-  if (!input) {
-    return reply.code(400).send({ error: 'invalid_component' })
-  }
+app.get(
+  '/api/component-publications/:componentType/revisions/:revision',
+  async (request, reply) => {
+    const revision = normalizeRevisionParam(request.params.revision)
+    if (revision === null) {
+      return reply.code(400).send({ error: 'invalid_revision' })
+    }
 
-  const id = crypto.randomUUID()
-  const result = await pool.query(`
-    INSERT INTO components (id, type, title, status, package)
-    VALUES ($1, $2, $3, $4, $5::jsonb)
-    RETURNING id, type, title, status, revision, package,
-              created_at AS "createdAt", updated_at AS "updatedAt"
-  `, [id, input.type, input.title, input.status, JSON.stringify(input.package)])
+    const result = await pool.query(`
+      SELECT revision_id AS "revisionId",
+             request_id AS "requestId",
+             component_type AS "componentType",
+             revision,
+             package,
+             published_at AS "publishedAt"
+        FROM component_publication_revisions
+       WHERE component_type = $1 AND revision = $2
+    `, [request.params.componentType, revision])
 
-  return reply.code(201).send(result.rows[0])
-})
+    if (result.rowCount === 0) {
+      return reply.code(404).send({ error: 'component_publication_revision_not_found' })
+    }
 
-app.put('/api/components/:id', { preHandler: requireAdmin }, async (request, reply) => {
-  const input = normalizeComponentInput(request.body)
-  if (!input) {
-    return reply.code(400).send({ error: 'invalid_component' })
-  }
+    return toPublishedRevision(result.rows[0])
+  },
+)
 
-  const result = await pool.query(`
-    UPDATE components
-       SET type = $2,
-           title = $3,
-           status = $4,
-           package = $5::jsonb,
-           revision = revision + 1,
-           updated_at = now()
-     WHERE id = $1
-    RETURNING id, type, title, status, revision, package,
-              created_at AS "createdAt", updated_at AS "updatedAt"
-  `, [request.params.id, input.type, input.title, input.status, JSON.stringify(input.package)])
+app.post(
+  '/api/component-publications/:componentType/revisions',
+  { preHandler: requireAdmin },
+  async (request, reply) => {
+    const input = normalizePublicationRequest(
+      request.body,
+      request.params.componentType,
+    )
+    if (!input) {
+      return reply.code(400).send({ error: 'invalid_publication_request' })
+    }
 
-  if (result.rowCount === 0) {
-    return reply.code(404).send({ error: 'component_not_found' })
-  }
+    const client = await pool.connect()
+    let transactionOpen = false
 
-  return result.rows[0]
-})
+    try {
+      await client.query('BEGIN')
+      transactionOpen = true
 
-app.delete('/api/components/:id', { preHandler: requireAdmin }, async (request, reply) => {
-  const result = await pool.query(
-    'DELETE FROM components WHERE id = $1 RETURNING id',
-    [request.params.id],
-  )
+      // Request-id serialization makes retries idempotent even if two identical
+      // attempts arrive concurrently. Component-type serialization then gives
+      // one deterministic optimistic-concurrency decision per published type.
+      await client.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`publication-request:${input.requestId}`],
+      )
+      await client.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`publication-component:${input.componentType}`],
+      )
 
-  if (result.rowCount === 0) {
-    return reply.code(404).send({ error: 'component_not_found' })
-  }
+      const existing = await client.query(`
+        SELECT revision_id AS "revisionId",
+               request_id AS "requestId",
+               component_type AS "componentType",
+               revision,
+               package,
+               published_at AS "publishedAt",
+               component_type = $2 AS "typeMatches",
+               base_revision IS NOT DISTINCT FROM $3::integer AS "baseMatches",
+               package = $4::jsonb AS "packageMatches"
+          FROM component_publication_revisions
+         WHERE request_id = $1
+      `, [
+        input.requestId,
+        input.componentType,
+        input.baseRevision,
+        JSON.stringify(input.package),
+      ])
 
-  return reply.code(204).send()
-})
+      if (existing.rowCount > 0) {
+        const row = existing.rows[0]
+        if (!row.typeMatches || !row.baseMatches || !row.packageMatches) {
+          await client.query('ROLLBACK')
+          transactionOpen = false
+          return reply.code(409).send({ error: 'idempotency_conflict' })
+        }
+
+        await client.query('COMMIT')
+        transactionOpen = false
+        return reply.code(200).send(toPublishedRevision(row))
+      }
+
+      const latest = await client.query(`
+        SELECT revision
+          FROM component_publication_revisions
+         WHERE component_type = $1
+         ORDER BY revision DESC
+         LIMIT 1
+      `, [input.componentType])
+      const currentRevision = latest.rowCount > 0
+        ? latest.rows[0].revision
+        : null
+
+      if (currentRevision !== input.baseRevision) {
+        await client.query('ROLLBACK')
+        transactionOpen = false
+        return reply.code(409).send({
+          error: 'publication_conflict',
+          currentRevision,
+        })
+      }
+
+      const revisionId = crypto.randomUUID()
+      const nextRevision = (currentRevision ?? 0) + 1
+      const inserted = await client.query(`
+        INSERT INTO component_publication_revisions (
+          revision_id,
+          request_id,
+          component_type,
+          revision,
+          base_revision,
+          title,
+          package
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+        RETURNING revision_id AS "revisionId",
+                  request_id AS "requestId",
+                  component_type AS "componentType",
+                  revision,
+                  package,
+                  published_at AS "publishedAt"
+      `, [
+        revisionId,
+        input.requestId,
+        input.componentType,
+        nextRevision,
+        input.baseRevision,
+        input.title,
+        JSON.stringify(input.package),
+      ])
+
+      await client.query('COMMIT')
+      transactionOpen = false
+      return reply.code(201).send(toPublishedRevision(inserted.rows[0]))
+    } catch (error) {
+      if (transactionOpen) {
+        try {
+          await client.query('ROLLBACK')
+        } catch (rollbackError) {
+          request.log.error(rollbackError, 'publication rollback failed')
+        }
+      }
+      throw error
+    } finally {
+      client.release()
+    }
+  },
+)
 
 app.setErrorHandler((error, request, reply) => {
   request.log.error(error)
 
   if (error?.code === '22P02') {
     reply.code(400).send({ error: 'invalid_identifier' })
+    return
+  }
+
+  if (error?.code === '23505') {
+    reply.code(409).send({ error: 'publication_conflict' })
     return
   }
 
