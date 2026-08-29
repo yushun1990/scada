@@ -240,11 +240,21 @@ export function parseComponentPublicationObservation(
   }
 }
 
+async function resolveObservationStore(
+  store?: ComponentPublicationObservationStore,
+): Promise<ComponentPublicationObservationStore> {
+  if (store) return store
+  const { browserComponentPublicationObservationStore } = await import(
+    './browser-component-publication-state'
+  )
+  return browserComponentPublicationObservationStore
+}
+
 export async function loadComponentPublicationObservation(
   componentType: string,
-  store: ComponentPublicationObservationStore,
+  store?: ComponentPublicationObservationStore,
 ): Promise<ComponentPublicationObservation | null> {
-  return store.get(componentType)
+  return (await resolveObservationStore(store)).get(componentType)
 }
 
 async function saveComponentPublicationObservation(
@@ -258,15 +268,16 @@ async function saveComponentPublicationObservation(
 export async function observeLatestComponentPublication(
   componentType: string,
   repository: RemoteComponentRepository,
-  store: ComponentPublicationObservationStore,
+  store?: ComponentPublicationObservationStore,
 ): Promise<ComponentPublicationObservation> {
+  const resolvedStore = await resolveObservationStore(store)
   const latest = await repository.getLatest(componentType)
   return saveComponentPublicationObservation({
     componentType,
     revision: latest?.revision ?? null,
     revisionId: latest?.revisionId ?? null,
     observedAt: new Date().toISOString(),
-  }, store)
+  }, resolvedStore)
 }
 
 export async function publishComponentExplicitly(
@@ -274,14 +285,14 @@ export async function publishComponentExplicitly(
   options: {
     client: HttpComponentPublicationClient
     remoteRepository: RemoteComponentRepository
-    observationStore: ComponentPublicationObservationStore
+    observationStore?: ComponentPublicationObservationStore
     requestId?: string
   },
 ): Promise<{
   revision: PublishedComponentRevision
   observation: ComponentPublicationObservation
 }> {
-  const store = options.observationStore
+  const store = await resolveObservationStore(options.observationStore)
   let observation = await loadComponentPublicationObservation(
     component.definition.type,
     store,
