@@ -4,12 +4,14 @@ const baseUrl = process.env.PUBLICATION_API_URL ?? 'http://127.0.0.1:3100'
 const adminToken = process.env.SCADA_ADMIN_TOKEN ?? 'ci-publication-token'
 const publishUsername = process.env.SCADA_PUBLISH_USERNAME ?? 'ci-author'
 const publishPassword = process.env.SCADA_PUBLISH_PASSWORD ?? 'ci-author-password'
+const browserOrigin = process.env.PUBLICATION_BROWSER_ORIGIN ?? 'http://localhost:5173'
 const componentType = 'custom.api.fixture'
 
 async function request(path, options = {}) {
   const headers = {
     ...(options.body ? { 'content-type': 'application/json' } : {}),
     ...(options.admin ? { authorization: `Bearer ${adminToken}` } : {}),
+    ...(options.browser ? { origin: browserOrigin } : {}),
     ...(options.cookie ? { cookie: options.cookie } : {}),
     ...options.headers,
   }
@@ -81,10 +83,19 @@ const anonymousSession = await request('/api/auth/session')
 assert.equal(anonymousSession.response.status, 200)
 assert.deepEqual(anonymousSession.body, { authenticated: false })
 
+const blockedOriginLogin = await request('/api/auth/login', {
+  method: 'POST',
+  headers: { origin: 'https://attacker.example' },
+  body: JSON.stringify({ username: publishUsername, password: publishPassword }),
+})
+assert.equal(blockedOriginLogin.response.status, 403)
+assert.deepEqual(blockedOriginLogin.body, { error: 'origin_not_allowed' })
+
 const unauthorizedPublish = await request(
   `/api/component-publications/${encodeURIComponent(componentType)}/revisions`,
   {
     method: 'POST',
+    browser: true,
     body: JSON.stringify(publicationBody('unauthorized', null, 'No auth', 0)),
   },
 )
@@ -93,6 +104,7 @@ assert.deepEqual(unauthorizedPublish.body, { error: 'unauthorized' })
 
 const invalidLogin = await request('/api/auth/login', {
   method: 'POST',
+  browser: true,
   body: JSON.stringify({ username: publishUsername, password: 'wrong-password' }),
 })
 assert.equal(invalidLogin.response.status, 401)
@@ -100,6 +112,7 @@ assert.deepEqual(invalidLogin.body, { error: 'invalid_credentials' })
 
 const login = await request('/api/auth/login', {
   method: 'POST',
+  browser: true,
   body: JSON.stringify({ username: publishUsername, password: publishPassword }),
 })
 assert.equal(login.response.status, 200)
@@ -114,7 +127,7 @@ const setCookie = login.response.headers.get('set-cookie')
 assert.ok(setCookie)
 assert.match(setCookie, /^scada_publish_session=/)
 assert.match(setCookie, /HttpOnly/)
-assert.doesNotMatch(setCookie, new RegExp(publishPassword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+assert.equal(setCookie.includes(publishPassword), false)
 const sessionCookie = setCookie.split(';', 1)[0]
 
 const authenticatedSession = await request('/api/auth/session', {
@@ -132,6 +145,7 @@ const rev1 = await request(
   `/api/component-publications/${encodeURIComponent(componentType)}/revisions`,
   {
     method: 'POST',
+    browser: true,
     cookie: sessionCookie,
     body: JSON.stringify(rev1Request),
   },
@@ -147,6 +161,7 @@ const replay = await request(
   `/api/component-publications/${encodeURIComponent(componentType)}/revisions`,
   {
     method: 'POST',
+    browser: true,
     cookie: sessionCookie,
     body: JSON.stringify(rev1Request),
   },
@@ -159,6 +174,7 @@ const reusedRequestId = await request(
   `/api/component-publications/${encodeURIComponent(componentType)}/revisions`,
   {
     method: 'POST',
+    browser: true,
     cookie: sessionCookie,
     body: JSON.stringify(
       publicationBody('request-rev-1', null, 'Different payload', 999),
@@ -172,6 +188,7 @@ const staleBase = await request(
   `/api/component-publications/${encodeURIComponent(componentType)}/revisions`,
   {
     method: 'POST',
+    browser: true,
     cookie: sessionCookie,
     body: JSON.stringify(
       publicationBody('request-stale', null, 'Stale write', 2),
@@ -189,6 +206,7 @@ const rev2 = await request(
   `/api/component-publications/${encodeURIComponent(componentType)}/revisions`,
   {
     method: 'POST',
+    browser: true,
     cookie: sessionCookie,
     body: JSON.stringify(rev2Request),
   },
@@ -231,6 +249,7 @@ const badRouteType = await request(
   '/api/component-publications/custom.wrong/revisions',
   {
     method: 'POST',
+    browser: true,
     cookie: sessionCookie,
     body: JSON.stringify(publicationBody('request-bad-route', 2, 'Bad', 3)),
   },
@@ -239,6 +258,7 @@ assert.equal(badRouteType.response.status, 400)
 
 const logout = await request('/api/auth/logout', {
   method: 'POST',
+  browser: true,
   cookie: sessionCookie,
 })
 assert.equal(logout.response.status, 200)
@@ -251,6 +271,7 @@ const afterLogout = await request(
   `/api/component-publications/${encodeURIComponent(componentType)}/revisions`,
   {
     method: 'POST',
+    browser: true,
     cookie: sessionCookie,
     body: JSON.stringify(publicationBody('request-after-logout', 2, 'After logout', 3)),
   },
@@ -273,5 +294,5 @@ assert.equal(adminPublication.body.componentType, adminComponentType)
 assert.equal(adminPublication.body.revision, 1)
 
 console.log(
-  'Publication API checks passed: public reads stay anonymous, browser login creates an opaque HttpOnly database-backed session with explicit identity, session-authenticated writes preserve immutable revision/idempotency/conflict semantics, logout revokes the session, and the admin bearer remains a separate server/CI channel.',
+  'Publication API checks passed: public reads stay anonymous, browser writes require an allowed Origin, browser login creates an opaque HttpOnly database-backed session with explicit identity, session-authenticated writes preserve immutable revision/idempotency/conflict semantics, logout revokes the session, and the admin bearer remains a separate server/CI channel.',
 )
