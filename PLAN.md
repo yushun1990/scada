@@ -248,6 +248,7 @@ M6.7A Local user-component activation                          accepted · 2026-
 M6.7B1 Publication contract + immutable revisions              accepted · 2026-08-29
 M6.7B2A Remote repository + install candidate boundary         accepted · 2026-08-29
 M6.7B2B Explicit install + offline cache                       accepted · 2026-08-29
+M6.7B2C Explicit publish + browser-safe authentication         accepted · 2026-08-29
 ```
 
 The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
@@ -587,7 +588,7 @@ Verification includes both pure contract fixtures and a real PostgreSQL 16 + Fas
 
 Detailed acceptance record: `docs/progress/m6.7b1-publication-contract.md`.
 
-## M6.7B2 Client publication / retrieval integration — active
+## M6.7B2 Client publication / retrieval integration — accepted · 2026-08-29
 
 ### M6.7B2A Remote repository + install candidate boundary — accepted · 2026-08-29
 
@@ -653,18 +654,62 @@ Accepted rules:
 
 Detailed acceptance record: `docs/progress/m6.7b2b-explicit-install-offline-cache.md`.
 
-### M6.7B2C Explicit publish + browser-safe authentication — NEXT
+### M6.7B2C Explicit publish + browser-safe authentication — accepted · 2026-08-29
 
-After offline installation is stable, connect Component Workbench publication:
+Accepted browser publication path:
 
-- explicit Publish remains separate from Save
-- preserve last observed remote revision for `baseRevision`
-- surface `publication_conflict` rather than silently overwrite/retry
-- define end-user/browser-safe authentication and identity
-- never embed `SCADA_ADMIN_TOKEN` in the public frontend bundle
-- only after auth/publish UX is accepted decide whether to resume production backend deployment
+```text
+local ready ComponentLibraryEntry
+        ↓ explicit Publish (separate from Save)
+persisted last-observed remote revision
+        ↓ baseRevision
+HttpComponentPublicationClient
+        ↓ credentials: include · no admin-token option
+opaque HttpOnly publication session
+        ↓ server-side session hash + publisher identity
+immutable publication transaction
+        ↓ successful publish only
+advance local publication observation
+```
 
-B2 must continue to prefer repository/transport boundaries over direct `fetch()` calls scattered through Workbench UI.
+Accepted rules:
+
+- Save remains local IndexedDB persistence and never silently publishes
+- Publish remains explicit and is available only for non-built-in `ready` packages
+- the browser publication client has no `SCADA_ADMIN_TOKEN` / Bearer-token option
+- `VITE_PUBLICATION_API_URL` is public routing configuration, not a secret
+- last-observed remote revision is stored separately from local component authoring state
+- first Publish with no observation explicitly observes the remote head once
+- later Publish uses the persisted observation as `baseRevision` without a hidden latest read
+- successful publication advances the observation to the returned immutable revision
+- `409 publication_conflict` leaves the observation unchanged and is surfaced without automatic retry
+- adopting a newer remote base requires an explicit **Refresh remote state** action
+- browser authentication exchanges server-configured publisher credentials for an opaque random HttpOnly session cookie
+- PostgreSQL stores only the session hash, publisher identity and expiry
+- browser session writes require an allowed Origin; CORS alone is not treated as the write authorization boundary
+- publication rows record `published_by`, and request-id replay must match the same publisher identity
+- the existing administrator Bearer remains a separate server/CI operations channel and is not exposed to the public frontend
+- browser publication transport/state-machine logic remains separable from the browser persistence adapter and is deterministic under Memory fixtures
+
+Detailed acceptance record: `docs/progress/m6.7b2c-explicit-publish-browser-auth.md`.
+
+### M6.7B3 Production deployment decision — NEXT REVIEW GATE
+
+B2C removes the architecture blocker on considering production publication infrastructure. It does not itself authorize provisioning.
+
+Before any intentional production backend deployment, record one explicit **deploy now** or **defer deployment** decision after reviewing:
+
+- public API URL and frontend/API domain topology
+- same-site versus cross-site cookie behavior; do not assume third-party-cookie availability
+- whether the current narrow self-hosted publisher identity is sufficient or production requires an external identity provider
+- production secret storage and credential rotation
+- PostgreSQL schema migration, backup and restore expectations
+- TLS termination, CORS and trusted Origin configuration
+- `VITE_PUBLICATION_API_URL` build/deployment configuration
+- production observability and failure diagnostics
+- end-to-end browser smoke for login → Publish → public retrieval → explicit install → offline Scene activation
+
+No production server should be provisioned merely because B2C passed CI.
 
 ---
 
@@ -679,23 +724,18 @@ Current state:
 - M6.7B1 defines and verifies an immutable publication API using ephemeral PostgreSQL in CI
 - M6.7B2A defines credential-free public retrieval but deliberately performs no automatic startup fetch
 - M6.7B2B defines explicit durable installation and offline activation without making the remote API a startup dependency
+- M6.7B2C defines explicit browser Publish, persisted optimistic-concurrency observation, and browser-safe session authentication
 - no production backend is required for local editing or SCADA runtime evaluation
 
-Policy during M6.7B2C:
+Policy after M6.7B2C:
 
-> Browser-safe publication authentication must be accepted before production infrastructure is resumed.
+> Production infrastructure may now be considered, but only after the M6.7B3 deployment decision records topology, identity, secrets, PostgreSQL, TLS/CORS and browser-smoke requirements.
 
-Before the next intentional backend deployment, re-evaluate and record:
+The browser authentication contract is intentionally replaceable: the current self-hosted single-publisher credential source establishes the session/identity boundary but is not automatically the final production IAM choice.
 
-- public API base URL/configuration
-- authentication and user identity model
-- credential storage/rotation model
-- installed remote package/cache policy
-- publication conflict UX
-- PostgreSQL migration/backup requirements
-- CORS/TLS/deployment topology
+Prefer same-site/custom-domain frontend + API topology where practical. A cross-site `SameSite=None` cookie setup must be explicitly smoke-tested and must not assume that every browser/environment permits third-party cookies.
 
-The existing `SCADA_ADMIN_TOKEN` remains a server/development boundary and must not be exposed in a public browser bundle.
+The existing `SCADA_ADMIN_TOKEN` remains a server/development/operations boundary and must not be exposed in a public browser bundle.
 
 A remote service exists to distribute validated component packages. It must not become a prerequisite for local editing or SCADA runtime evaluation.
 
@@ -716,13 +756,14 @@ Current execution order from `main` plus the accepted runtime/persistence/public
 8. M6.7B1 publication contract + immutable revisions                   accepted · 2026-08-29
 9. M6.7B2A remote repository + install candidate boundary              accepted · 2026-08-29
 10. M6.7B2B explicit install + offline cache                           accepted · 2026-08-29
-11. M6.7B2C explicit publish + browser-safe authentication             NEXT
-12. M7 packaging / production adapters / reusable component set         later
+11. M6.7B2C explicit publish + browser-safe authentication             accepted · 2026-08-29
+12. M6.7B3 production deployment decision                              NEXT REVIEW GATE
+13. M7 packaging / production adapters / reusable component set         later
 ```
 
-The **next implementation step is M6.7B2C Explicit publish + browser-safe authentication**.
+The **next step is M6.7B3 Production deployment decision**. This is a review/decision gate, not an instruction to provision infrastructure.
 
-Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision production infrastructure before the M6.7B2C browser/auth boundary is reviewed.
+Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision production infrastructure until M6.7B3 explicitly decides to do so.
 
 ---
 
@@ -742,6 +783,8 @@ Use the narrowest relevant verification set:
 - real PostgreSQL/API integration for publication concurrency and revision semantics
 - remote repository fixtures that verify fail-closed client parsing and credential-free public reads
 - remote installation fixtures that verify provenance, replacement/rollback, collision policy and offline activation
+- browser publication fixtures that verify persisted `baseRevision`, explicit conflict/refresh semantics and absence of frontend Bearer credentials
+- browser-auth API integration that verifies session creation/revocation, publisher identity, trusted-Origin enforcement and the separate admin operations channel
 
 Runtime tests should prefer explicit inputs and deterministic snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -751,7 +794,7 @@ Runtime tests should prefer explicit inputs and deterministic snapshots over tim
 
 The following should not distract the active M6 work:
 
-- production backend provisioning before M6.7B2C client/auth acceptance
+- production backend provisioning before the M6.7B3 deployment decision
 - component marketplace
 - collaborative editing
 - automatic publication on local save
