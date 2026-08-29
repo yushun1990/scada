@@ -1,4 +1,3 @@
-import { browserPersistence, ensureBrowserPersistenceReady } from '../../storage/browser-persistence'
 import {
   createComponentPublicationRequest,
   parsePublishedComponentRevision,
@@ -217,13 +216,9 @@ export class HttpComponentPublicationClient {
   }
 }
 
-const PUBLICATION_OBSERVATION_META_PREFIX = 'component-publication-observation-v1:'
-
-function publicationObservationKey(componentType: string) {
-  return `${PUBLICATION_OBSERVATION_META_PREFIX}${componentType}`
-}
-
-function parsePublicationObservation(value: unknown): ComponentPublicationObservation | null {
+export function parseComponentPublicationObservation(
+  value: unknown,
+): ComponentPublicationObservation | null {
   if (
     !isRecord(value)
     || typeof value.componentType !== 'string'
@@ -245,25 +240,9 @@ function parsePublicationObservation(value: unknown): ComponentPublicationObserv
   }
 }
 
-export const browserComponentPublicationObservationStore: ComponentPublicationObservationStore = {
-  async get(componentType) {
-    await ensureBrowserPersistenceReady()
-    return parsePublicationObservation(
-      await browserPersistence.getMeta(publicationObservationKey(componentType)),
-    )
-  },
-  async put(observation) {
-    await ensureBrowserPersistenceReady()
-    await browserPersistence.setMeta(
-      publicationObservationKey(observation.componentType),
-      { ...observation },
-    )
-  },
-}
-
 export async function loadComponentPublicationObservation(
   componentType: string,
-  store: ComponentPublicationObservationStore = browserComponentPublicationObservationStore,
+  store: ComponentPublicationObservationStore,
 ): Promise<ComponentPublicationObservation | null> {
   return store.get(componentType)
 }
@@ -279,7 +258,7 @@ async function saveComponentPublicationObservation(
 export async function observeLatestComponentPublication(
   componentType: string,
   repository: RemoteComponentRepository,
-  store: ComponentPublicationObservationStore = browserComponentPublicationObservationStore,
+  store: ComponentPublicationObservationStore,
 ): Promise<ComponentPublicationObservation> {
   const latest = await repository.getLatest(componentType)
   return saveComponentPublicationObservation({
@@ -295,14 +274,14 @@ export async function publishComponentExplicitly(
   options: {
     client: HttpComponentPublicationClient
     remoteRepository: RemoteComponentRepository
-    observationStore?: ComponentPublicationObservationStore
+    observationStore: ComponentPublicationObservationStore
     requestId?: string
   },
 ): Promise<{
   revision: PublishedComponentRevision
   observation: ComponentPublicationObservation
 }> {
-  const store = options.observationStore ?? browserComponentPublicationObservationStore
+  const store = options.observationStore
   let observation = await loadComponentPublicationObservation(
     component.definition.type,
     store,
