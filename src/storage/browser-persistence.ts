@@ -3,6 +3,10 @@ import {
   serializeComponentLibraryDocument,
 } from '../features/component-library/component-document'
 import {
+  parseInstalledRemoteComponentDocument,
+  serializeInstalledRemoteComponent,
+} from '../features/component-library/remote-component-installation'
+import {
   parseSceneDocument,
   serializeSceneDocument,
 } from '../scene/validation'
@@ -23,6 +27,7 @@ import {
 } from './legacy-local-storage-migration'
 import type {
   ComponentRepositoryRecord,
+  InstalledRemoteComponentRepositoryRecord,
   SceneRepositoryRecord,
 } from './repositories'
 
@@ -86,7 +91,11 @@ export function ensureBrowserPersistenceReady() {
     if (existingMigration !== undefined) return
 
     const diagnostics = await browserPersistence.diagnostics()
-    if (diagnostics.sceneCount > 0 || diagnostics.componentCount > 0) {
+    if (
+      diagnostics.sceneCount > 0 ||
+      diagnostics.componentCount > 0 ||
+      diagnostics.installedRemoteComponentCount > 0
+    ) {
       await browserPersistence.setMeta(
         LEGACY_MIGRATION_META_KEY,
         {
@@ -106,7 +115,7 @@ export function ensureBrowserPersistenceReady() {
       normalizeComponentDocument,
     })
 
-    await browserPersistence.replaceAll(plan.scenes, plan.components)
+    await browserPersistence.replaceAll(plan.scenes, plan.components, [])
     await browserPersistence.setMeta(
       LEGACY_MIGRATION_META_KEY,
       migrationStatus(
@@ -157,6 +166,23 @@ function toComponentRecord(
   return { id: record.id, updatedAt: record.updatedAt, document }
 }
 
+function toInstalledRemoteComponentRecord(
+  record: LocalDebugSnapshot['installedRemoteComponents'][number],
+): InstalledRemoteComponentRepositoryRecord {
+  const installed = parseInstalledRemoteComponentDocument(
+    JSON.stringify(record.document),
+  )
+  if (!installed || installed.source.componentType !== record.id) {
+    throw new Error(`Debug snapshot installed remote component ${record.id} is invalid`)
+  }
+
+  return {
+    id: record.id,
+    updatedAt: record.updatedAt,
+    document: serializeInstalledRemoteComponent(installed),
+  }
+}
+
 export async function importBrowserDebugSnapshot(value: unknown) {
   await ensureBrowserPersistenceReady()
   const snapshot = parseLocalDebugSnapshot(value)
@@ -166,7 +192,14 @@ export async function importBrowserDebugSnapshot(value: unknown) {
 
   const scenes = snapshot.scenes.map(toSceneRecord)
   const components = snapshot.components.map(toComponentRecord)
-  await browserPersistence.replaceAll(scenes, components)
+  const installedRemoteComponents = snapshot.installedRemoteComponents.map(
+    toInstalledRemoteComponentRecord,
+  )
+  await browserPersistence.replaceAll(
+    scenes,
+    components,
+    installedRemoteComponents,
+  )
 }
 
 export async function resetBrowserPersistence() {
