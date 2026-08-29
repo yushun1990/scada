@@ -57,14 +57,22 @@ const pool = new Pool({ connectionString: databaseUrl })
 await app.register(cors, {
   credentials: true,
   origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin)) {
-      callback(null, true)
-      return
-    }
-
-    callback(new Error('Origin is not allowed'), false)
+    callback(null, !origin || allowedOrigins.has(origin))
   },
 })
+
+function hasAllowedBrowserOrigin(request) {
+  const origin = request.headers.origin
+  return typeof origin === 'string' && allowedOrigins.has(origin)
+}
+
+function requireBrowserOrigin(request, reply, done) {
+  if (!hasAllowedBrowserOrigin(request)) {
+    reply.code(403).send({ error: 'origin_not_allowed' })
+    return
+  }
+  done()
+}
 
 async function ensureSchema() {
   await pool.query(`
@@ -163,6 +171,10 @@ async function requirePublisher(request, reply) {
     return
   }
 
+  if (!hasAllowedBrowserOrigin(request)) {
+    return reply.code(403).send({ error: 'origin_not_allowed' })
+  }
+
   const identity = await readPublicationSession(request)
   if (!identity) {
     return reply.code(401).send({ error: 'unauthorized' })
@@ -188,76 +200,84 @@ app.get('/api/auth/session', async (request, reply) => {
     : { authenticated: false }
 })
 
-app.post('/api/auth/login', async (request, reply) => {
-  reply.header('cache-control', 'no-store')
-  if (!browserPublicationAuthEnabled) {
-    return reply.code(503).send({ error: 'browser_auth_not_configured' })
-  }
+app.post(
+  '/api/auth/login',
+  { preHandler: requireBrowserOrigin },
+  async (request, reply) => {
+    reply.header('cache-control', 'no-store')
+    if (!browserPublicationAuthEnabled) {
+      return reply.code(503).send({ error: 'browser_auth_not_configured' })
+    }
 
-  const { username, password } = request.body ?? {}
-  if (typeof username !== 'string' || typeof password !== 'string') {
-    return reply.code(400).send({ error: 'invalid_login_request' })
-  }
+    const { username, password } = request.body ?? {}
+    if (typeof username !== 'string' || typeof password !== 'string') {
+      return reply.code(400).send({ error: 'invalid_login_request' })
+    }
 
-  if (
-    !secureEquals(username.trim(), publishUsername)
-    || !secureEquals(password, publishPassword)
-  ) {
-    return reply.code(401).send({ error: 'invalid_credentials' })
-  }
+    if (
+      !secureEquals(username.trim(), publishUsername)
+      || !secureEquals(password, publishPassword)
+    ) {
+      return reply.code(401).send({ error: 'invalid_credentials' })
+    }
 
-  const identity = publicationIdentity(publishUsername)
-  if (!identity) {
-    return reply.code(503).send({ error: 'browser_auth_not_configured' })
-  }
+    const identity = publicationIdentity(publishUsername)
+    if (!identity) {
+      return reply.code(503).send({ error: 'browser_auth_not_configured' })
+    }
 
-  const sessionId = createPublicationSessionId()
-  const sessionHash = hashPublicationSessionId(sessionId)
-  const expiresAt = new Date(Date.now() + sessionTtlSeconds * 1000)
+    const sessionId = createPublicationSessionId()
+    const sessionHash = hashPublicationSessionId(sessionId)
+    const expiresAt = new Date(Date.now() + sessionTtlSeconds * 1000)
 
-  await pool.query('DELETE FROM publication_sessions WHERE expires_at <= now()')
-  await pool.query(`
-    INSERT INTO publication_sessions (
-      session_hash,
-      subject,
-      display_name,
-      expires_at
-    ) VALUES ($1, $2, $3, $4)
-  `, [sessionHash, identity.id, identity.displayName, expiresAt])
+    await pool.query('DELETE FROM publication_sessions WHERE expires_at <= now()')
+    await pool.query(`
+      INSERT INTO publication_sessions (
+        session_hash,
+        subject,
+        display_name,
+        expires_at
+      ) VALUES ($1, $2, $3, $4)
+    `, [sessionHash, identity.id, identity.displayName, expiresAt])
 
-  reply.header(
-    'set-cookie',
-    serializePublicationSessionCookie(sessionId, {
-      maxAgeSeconds: sessionTtlSeconds,
-      secure: sessionCookieSecure,
-      sameSite: sessionCookieSameSite,
-    }),
-  )
-
-  return { authenticated: true, identity }
-})
-
-app.post('/api/auth/logout', async (request, reply) => {
-  reply.header('cache-control', 'no-store')
-  const sessionId = parseCookieHeader(request.headers.cookie).get(
-    PUBLICATION_SESSION_COOKIE,
-  )
-  if (sessionId) {
-    await pool.query(
-      'DELETE FROM publication_sessions WHERE session_hash = $1',
-      [hashPublicationSessionId(sessionId)],
+    reply.header(
+      'set-cookie',
+      serializePublicationSessionCookie(sessionId, {
+        maxAgeSeconds: sessionTtlSeconds,
+        secure: sessionCookieSecure,
+        sameSite: sessionCookieSameSite,
+      }),
     )
-  }
 
-  reply.header(
-    'set-cookie',
-    serializeClearedPublicationSessionCookie({
-      secure: sessionCookieSecure,
-      sameSite: sessionCookieSameSite,
-    }),
-  )
-  return { authenticated: false }
-})
+    return { authenticated: true, identity }
+  },
+)
+
+app.post(
+  '/api/auth/logout',
+  { preHandler: requireBrowserOrigin },
+  async (request, reply) => {
+    reply.header('cache-control', 'no-store')
+    const sessionId = parseCookieHeader(request.headers.cookie).get(
+      PUBLICATION_SESSION_COOKIE,
+    )
+    if (sessionId) {
+      await pool.query(
+        'DELETE FROM publication_sessions WHERE session_hash = $1',
+        [hashPublicationSessionId(sessionId)],
+      )
+    }
+
+    reply.header(
+      'set-cookie',
+      serializeClearedPublicationSessionCookie({
+        secure: sessionCookieSecure,
+        sameSite: sessionCookieSameSite,
+      }),
+    )
+    return { authenticated: false }
+  },
+)
 
 app.get('/api/component-publications', async () => {
   const result = await pool.query(`
