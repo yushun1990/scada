@@ -45,3 +45,4 @@ jobs:
           SCADA_BROWSER=chromium node scripts/pages-component-hit-smoke.mjs
           SCADA_BROWSER=firefox node scripts/pages-component-hit-smoke.mjs
           node scripts/pages-scada-geometry-smoke.mjs
+          node scripts/pages-component-package-transfer-smoke.mjs
