@@ -1,20 +1,18 @@
 # SCADA Editor Lab Development Plan
 
-## 1. Purpose of this document
+## 1. Purpose
 
-`PLAN.md` is the current execution roadmap and architecture gate for the project.
+`PLAN.md` is the **current execution roadmap and architecture gate** for this repository.
 
-It intentionally does **not** duplicate the full delivery history. Detailed acceptance records belong under `docs/progress/`.
+It intentionally does not duplicate the full delivery history. Detailed acceptance evidence belongs under `docs/progress/`.
 
-When this file and an older progress note disagree about the next step, this file is the source of truth for current sequencing.
+When this file and an older progress note disagree about what happens next, **this file is authoritative for current sequencing**.
 
 ---
 
 ## 2. Product direction
 
-This repository is a browser-first, generic SCADA authoring and runtime experiment.
-
-The product intentionally contains two different workbenches:
+This repository is a browser-first, generic SCADA authoring and runtime experiment with two deliberately different authoring surfaces:
 
 ```text
 Workspace
@@ -38,11 +36,11 @@ Workspace
             └─ preview / diagnostics
 ```
 
-The guiding product rule remains:
+Guiding product rule:
 
 > Increasing Component Workbench power must not increase normal SCADA scene-authoring complexity.
 
-SCADA is not a general rule engine. Its scene-level runtime should remain focused on presentation state and explicit user/component interactions.
+SCADA is not a general rule engine. Scene-level runtime semantics remain focused on presentation state and explicit user/component interactions.
 
 ---
 
@@ -68,15 +66,11 @@ Scripts / implementation details
 Native renderer details
 ```
 
-SCADA Workbench consumes only the public contract.
-
-A scene author must not bind directly to private Layer implementation details.
+SCADA Workbench consumes only the public contract. Scene authors do not bind directly to private Layer implementation details.
 
 ### 3.2 Renderer-independent runtime boundary
 
-User-authored behavior must not receive raw React, DOM or `Konva.Node` objects as its public programming contract.
-
-Target layering:
+User-authored behavior must not receive raw React, DOM, or `Konva.Node` objects as its programming contract.
 
 ```text
 Scene Value / Behavior / Interaction semantics
@@ -92,7 +86,7 @@ Renderer
 Konva
 ```
 
-Runtime evaluation should produce deterministic state changes/effects. The host owns side effects.
+Runtime evaluation produces deterministic state/effects; the host owns side effects.
 
 ### 3.3 Visual connection and runtime behavior remain separate
 
@@ -108,112 +102,85 @@ Visual anchors are not runtime ports.
 
 ### 3.4 One effective Component Property truth
 
-Renderer reads and Component Action handlers must observe the same effective Component Property snapshot.
+Renderer reads and Component Action handlers observe the same effective Component Property snapshot.
 
-The project must not evolve into two independent property states such as:
+Authored/default, external-binding, and derived layers may be separate internally, but final effective state has one owner and one ordering rule.
 
-```text
-Renderer props        !=        Action handler props
-```
+### 3.5 Declarative Value Bindings remain deterministic
 
-Authored/default values, external bindings and derived DSL values may be separate layers internally, but their final effective snapshot must have one owner and one ordering rule.
+One Component Property has at most one declarative Value Binding writer in one compiled scene program.
 
-### 3.5 Declarative Value Bindings must remain deterministic
-
-A Component Property may have at most one declarative Value Binding writer in one compiled scene program.
-
-The following must be rejected rather than resolved by event arrival order:
-
-```text
-component.temperature = device.a
-component.temperature = device.b
-```
-
-Missing/unresolved derived values must have explicit invalidation semantics. Implicit stale-value retention is not acceptable as the default DSL behavior.
+Missing/unresolved derived values use explicit invalidation semantics; accidental last-known-good retention is not the default.
 
 ### 3.6 Primary-device rebind is transactional
 
-Primary-device rebind must not leave mixed state such as:
-
-```text
-new primary device
-+ old derived Component Properties
-+ partially reset Behavior branch state
-```
-
-Either the rebind commits a coherent new runtime state or the previous committed state remains intact.
+A rebind either commits one coherent new runtime state or leaves the previous committed state intact. Mixed old/new derived or Behavior state is invalid.
 
 ### 3.7 Local-first persistence is the default authoring model
-
-Normal authoring must not require a backend server.
-
-Accepted persistence layering:
 
 ```text
 Workbench / Runtime-facing repositories
         ↓
 Storage abstraction
-        ├─ IndexedDB implementation       browser production/local authoring
-        └─ Memory implementation          deterministic tests / fixtures
+        ├─ IndexedDB       browser/local authoring authority
+        └─ Memory          deterministic tests / fixtures
 ```
 
-`localStorage` is now legacy migration input only. Normal authoring reads and writes through the repository boundary backed by IndexedDB.
-
-The storage layer supports deterministic export/import of a debug snapshot so browser-only failures can be reproduced outside the user's browser.
+`localStorage` is legacy migration input only. A Save succeeds only after the asynchronous repository write succeeds.
 
 ### 3.8 Backend is optional infrastructure, not runtime authority
 
-The backend must remain thin and must not own:
+The backend must not own SCADA runtime evaluation, rendering, DSL execution, or device presentation state.
 
-- SCADA runtime evaluation
-- component rendering
-- DSL execution
-- device presentation state
-
-A remote backend becomes useful when the product needs publication, sharing, synchronization or centralized package persistence.
-
-Local editing should remain possible without it.
+Remote services are useful for publication/distribution, but local editing and runtime remain possible without them.
 
 ### 3.9 Action / Event public contracts are explicit
 
-Component Actions and Events are public runtime APIs, not untyped callback names.
+Component Actions use ordered validated scalar parameters. Component Events use declared validated payload records.
 
-Action parameters are ordered scalar values validated against the public component definition. Event payloads are declared named scalar records with explicit required/optional fields.
-
-Inbound runtime values and outbound Device/Platform Actions remain different host capabilities:
+Inbound and outbound host capabilities remain separate:
 
 ```text
 RuntimeDataSource                  inbound telemetry/value state
 ScadaDeviceActionDispatcher       outbound device/platform effects
 ```
 
-Do not route outbound actions through a telemetry source abstraction merely because one already exists.
+### 3.10 Persisted SCADA semantics are canonical
 
-### 3.10 Persisted SCADA semantics are structured and canonical
+DSL source is an authoring surface, not the long-term persistence authority.
 
-DSL source text is an authoring surface, not the long-term runtime persistence authority.
-
-Persisted Value Binding / Behavior / Interaction semantics must use canonical structured references and stable semantic IDs rather than compile-session statement positions.
-
-Scene v7 is the first Scene revision carrying this canonical `scadaSemantics` contract. Legacy v5 bindings and v6 behaviors remain compatibility-only data and are not silently promoted into new semantics.
+Scene v7 persists versioned canonical `scadaSemantics` with stable semantic IDs and structured source/component references. Legacy v5/v6 forms remain compatibility-only.
 
 ### 3.11 Local readiness and remote publication are different states
 
-A local Component Workbench package may be `draft` or `ready`. Neither state is a remote publication identity.
+Local `draft` / `ready` is authoring state. Publish is an explicit operation that creates an immutable remote revision.
 
-Remote publication is an explicit operation that creates an immutable published revision. A local save must never silently overwrite a remote artifact.
-
-Published packages are distribution artifacts; after retrieval they must pass client-side package validation before entering the same ComponentRegistration / ComponentRegistry path used by locally authored packages.
+A local Save never silently publishes or overwrites a remote artifact.
 
 ### 3.12 Remote discovery is not runtime installation
 
-Seeing a remote publication in a catalog must not automatically register it into the live Studio runtime.
+Remote discovery creates a validated install candidate. Explicit installation creates an offline cache record with immutable publication provenance. Only then may startup hydration feed the normal activation path.
 
-A remotely published revision first crosses a strict client repository/codec boundary, then an explicit install/cache boundary that preserves immutable publication provenance. This avoids false collisions between a developer's local authored package and that same component type's published revision.
+### 3.13 Distribution artifact is not an editable repository record
+
+M7 must preserve a clean distinction between:
+
+```text
+ComponentLibraryEntry
+= local editable authoring document + local metadata
+
+Distributable component package
+= transport-neutral validated artifact
+
+Published revision / installed remote record
+= distribution artifact + immutable remote provenance
+```
+
+Do not make local IndexedDB identity, publication-server identity, or protocol-specific runtime configuration part of the reusable component public package contract.
 
 ---
 
-# 4. Milestone status
+## 4. Milestone status
 
 ```text
 M0 Application shell / Workspace                               complete enough
@@ -222,11 +189,11 @@ M2 Editing commands / history / hierarchy                      usable
 M3 Generic visual connections                                  usable
 M4 Generic component kernel / registry                         accepted
 M5 SCADA Runtime v0.1                                          accepted
-M6 Component Workbench + scene semantics                       active
-M7 Packaging / production adapters / reusable component set     later
+M6 Component Workbench + scene semantics                       accepted · 2026-08-30
+M7 Packaging / production adapters / reusable component set     active
 ```
 
-Important accepted M6 baseline:
+Accepted M6 baseline:
 
 ```text
 M6.1 Package-backed public component contract                  accepted
@@ -249,557 +216,252 @@ M6.7B1 Publication contract + immutable revisions              accepted · 2026-
 M6.7B2A Remote repository + install candidate boundary         accepted · 2026-08-29
 M6.7B2B Explicit install + offline cache                       accepted · 2026-08-29
 M6.7B2C Explicit publish + browser-safe authentication         accepted · 2026-08-29
+M6.7B3 Production deployment decision                          accepted · defer deployment · 2026-08-30
 ```
 
-The project has already moved beyond the old `M6.4.7 active / M6.5 pending` roadmap. Do not resume work from that obsolete gate.
-
-Detailed delivery history remains under `docs/progress/`.
+The old `M6.4 active / M6.5 pending` roadmap is obsolete and must not be resumed.
 
 ---
 
-# 5. Current runtime model
+## 5. Current runtime model
 
-Scene-level semantics are intentionally narrow:
+Scene-level semantics remain intentionally narrow:
 
 ```text
 Value Binding
-multiple runtime values
-        ↓ pure expression
+runtime values
+    ↓ pure expression
 Component Property
 
 Behavior Binding
-runtime data transition / condition
-        ↓
+runtime transition / condition
+    ↓
 Component Action
-        ↓
+    ↓
 component-private transient behavior
 
 Interaction Binding
 Component / user Event
-        ↓
+    ↓
 Device / Platform Action
 ```
 
-Important rules:
+Current rules:
 
 - Value Binding is declarative and reconstructible.
-- Behavior Binding reacts to data and may invoke Component Actions.
-- Interaction Binding is the only SCADA DSL path that may invoke a Device/Platform Action.
-- Data-driven device orchestration is outside this SCADA layer.
+- Behavior Binding reacts to runtime data and may invoke Component Actions.
+- Interaction Binding is the SCADA DSL path for Device/Platform Actions.
+- data-driven device orchestration remains outside this SCADA layer.
 - `device.*` remains relative to the component instance's primary device.
-- explicit external references remain stable and explicit.
-- propagation evaluates affected Value Bindings first, settles derived Component Properties, then evaluates affected Behaviors once against the settled state.
-- one RuntimeValueStore publication is propagated as one source transaction when multiple tracked source properties change together.
-- propagation cycles are authoring errors and are isolated rather than accepted as fixed-point programs.
-- runtime/propagation evaluation returns effects; host code executes side effects.
-- Preview owns one settled Component Property snapshot used by both Renderer and Component Action handlers.
-- Action arguments are ordered scalar arrays validated against public metadata before handler execution.
-- Event payloads are named scalar records validated against public metadata before publication.
-- Device/Platform Action effects cross an explicit outbound dispatcher boundary separate from inbound telemetry.
-- Scene persistence stores canonical semantic structures, not authoring aliases or statement-position IDs.
+- propagation settles affected Value Bindings before affected Behaviors.
+- one RuntimeValueStore publication is one source transaction.
+- cycles are authoring errors, not fixed-point programs.
+- Preview owns the settled Component Property snapshot used by Renderer and Action handlers.
+- runtime evaluation produces effects; host code executes effects.
+- persisted semantics are structured/canonical, not compile-session statement positions.
 
-QuickJS is **not** the current product center. Existing controlled-runtime experiments remain useful implementation evidence, but unrestricted or general-purpose scripting stays frozen unless a later requirement proves it necessary.
+QuickJS is not the current product center. Existing controlled-runtime experiments remain evidence only unless a later requirement proves general-purpose scripting necessary.
 
 ---
 
-# 6. M6.5.9 runtime semantic hardening and Preview integration — accepted · 2026-08-28
+## 6. M6 closeout
 
-M6.5.9 was intentionally split into three ordered slices so Preview integration did not outrun deterministic runtime semantics or state ownership.
+M6 established the accepted browser-first authoring/runtime baseline:
 
-## M6.5.9A Runtime semantic hardening — accepted · 2026-08-28
+- generic component definition/registration contracts
+- Component Workbench visual composition, rules, and animation foundation
+- narrow SCADA DSL with deterministic semantic lowering/static analysis/runtime propagation
+- typed Action/Event contracts
+- explicit outbound device/platform dispatcher boundary
+- stable Scene v7 semantic persistence
+- IndexedDB repository authority with Memory test implementations and debug snapshot support
+- local ready user-component activation through the generic registry path
+- immutable publication revisions
+- public remote retrieval -> validated candidate boundary
+- explicit install + durable offline cache
+- explicit browser Publish with HttpOnly session authentication and optimistic-concurrency observation
 
-Accepted work:
+Detailed evidence remains under `docs/progress/`.
 
-1. reject multiple Value Binding writers targeting the same Component Property
-2. define missing/unresolved derived-value invalidation semantics
-3. prevent old derived values from leaking across primary-device rebind
-4. make primary-device rebind atomic, including Behavior branch state rollback on failure
-5. provide one validated compile entry point that performs the required parse/lower/analyze/structural checks before runtime construction
-6. add regression fixtures for duplicate writers, missing values, rebind invalidation and rollback
+### M6.7B3 production deployment decision — accepted · defer deployment · 2026-08-30
 
-Accepted semantic direction:
+The accepted decision is:
 
-> A failed/unresolved derived Value Binding relinquishes its derived override so the effective property can fall back according to the host's normal authored/default layering. Last-known-good retention, if ever required, belongs to an explicit data-source/runtime policy rather than being an accidental DSL behavior.
+> **Defer production publication-backend deployment.**
 
-## M6.5.9B Preview Runtime state ownership — accepted · 2026-08-28
+After #95 merged at `main@4aabf74d2cb14c3fa1fc466fec4e3c28c1e2ffee`, GitHub Pages deployed successfully and `Pages Browser Smoke` #179 (`33287223003`, job `99192405823`) passed the complete deployed-browser suite.
 
-Accepted work:
+Therefore B3 is closed. The green smoke validates the browser baseline; it does **not** authorize production backend provisioning.
 
-- deterministic effective property layering/order
-- one immutable settled Component Property snapshot owned by Preview
-- Renderer and Component Action handlers reading the same settled snapshot
-- external RuntimeValueStore responsibilities separate from Component Property state
-- legacy Scene v6 bindings as a lower-priority compatibility layer
-- explicit compiled-semantics ownership that suppresses legacy Event -> Component Action dispatch for claimed nodes
-- an explicit `componentPropertyChanged` host sequencing contract
-- a runtime core that can be tested without loading built-in renderer assets
+Full decision/reopening conditions: `docs/progress/m6.7b3-production-deployment-decision.md`.
 
-Legacy Scene v6 behavior remains compatibility-only. Do not extend it as the new behavior model.
-
-## M6.5.9C Narrow Preview integration — accepted · 2026-08-28
-
-Accepted work:
-
-- one narrow runtime attachment from a validated compiled program to one live Preview component instance
-- external RuntimeValueStore publications routed only through relevant compiled reverse-index dependencies
-- multi-property source publications propagated as one transaction rather than source-arrival-order fragments
-- an explicit Component Property base snapshot that excludes the compiled derived layer
-- atomic derived-state commit into the host-owned Preview Component Property store
-- Component Action effects executing only after the settled property snapshot is committed
-- Renderer and Component Action handlers observing the exact same settled snapshot object
-- Component Events routed into compiled Interaction Bindings while legacy Scene v6 Event behavior is suppressed for the claimed node
-- successful Primary Device rebind committing without old-device derived leakage
-- aborted source propagation/rebind exposing no partial derived Property or Component Action host effects
-- disposal releasing compiled-derived state and restoring the legacy compatibility path
-
-Accepted flow:
-
-```text
-external source publication
-        ↓
-compiled reverse index
-        ↓
-transactional propagation session
-        ↓
-settled effective Component Properties
-        ├─ Renderer
-        └─ Component Action handler context
-
-Component Event
-        ↓
-Interaction Binding
-        ↓
-Device/Platform Action effect
-        ↓
-host dispatcher
-```
+Smoke repair/verification record: `docs/progress/m6.7b3-pages-smoke-repair.md`.
 
 ---
 
-# 7. M6.5.10 Typed Action / Event contract and device action dispatch — accepted · 2026-08-28
+## 7. Backend deployment policy after B3
 
-Accepted implementation:
+Current policy:
 
-- ordered Component Action parameter metadata
-- explicit parameter names, scalar/select kind, nullability and trailing optionality
-- named Component Event payload schemas with required/optional fields
-- definition validation for malformed Action/Event contracts
-- one ordered DSL Action argument model shared with runtime effects
-- static Action arity/type validation for Component, primary-device and external Action calls
-- validated/frozen Action argument arrays before Component Action handlers run
-- validated/frozen Event payloads before Component Events are published
-- parameterized Component Actions executing through the M6.5.9C Preview bridge
-- an explicit `ScadaDeviceActionDispatcher` / `ScadaDeviceActionInvocation` outbound host interface
-- strict separation between inbound `RuntimeDataSource` and outbound Device/Platform Action dispatch
+- publication backend source/assets remain in the repository
+- `deploy-backend.yml` remains manual-only (`workflow_dispatch`)
+- GitHub Pages does not enable remote publication by default because `VITE_PUBLICATION_API_URL` is not configured
+- local editing, local activation, installed-remote offline activation, and SCADA runtime do not require the backend
+- `SCADA_ADMIN_TOKEN` remains server/CI/operations-only and must never be exposed in a public browser bundle
 
-Accepted runtime shape:
+Production deployment may be reopened only after the B3 conditions are satisfied, including accepted frontend/API topology, cookie policy, secrets/rotation, PostgreSQL backup/restore/migration expectations, TLS/CORS/trusted Origin, diagnostics, and full browser E2E.
 
-```text
-DSL component.action(a, b)
-        ↓
-ordered compiled arguments
-        ↓
-PreviewRuntime.invokeAction
-        ↓ validate / freeze
-Component Action handler(context, [a, b])
+A new explicit **deploy now** decision is required before enabling automatic production deployment.
 
-Component implementation emits Event payload
-        ↓ validate / freeze
-Component Runtime Event
-        ↓
-Interaction Binding
-        ↓
-ScadaDeviceActionInvocation
-        ↓
-ScadaDeviceActionDispatcher
-```
-
-Important boundaries remain:
-
-- an Event without a payload schema accepts no payload
-- Event payloads reject unknown fields
-- Action optional parameters must be trailing
-- dynamic select values are validated against declared options at runtime
-- Event payload fields are not yet exposed as DSL `event.*` expression references
-- no production network/RPC adapter is required by the accepted gate
+M7 must not quietly reinterpret “production adapters” as permission to deploy the publication backend.
 
 ---
 
-# 8. M6.5.11 Stable persistence semantics — accepted · 2026-08-28
+## 8. M7 Packaging / production adapters / reusable component set — active
 
-Accepted persistence flow:
+The previous M7 title combined three different concerns. They are now ordered deliberately.
 
-```text
-DSL source
-    ↓ parse / lower / analyze
-validated semantic plan
-    ↓ canonical persistence conversion
-PersistedScadaSemantics v1
-    ↓
-Scene v7 component.scadaSemantics
-```
+Detailed decomposition: `docs/progress/m7-roadmap-decomposition.md`.
 
-Accepted work:
-
-- stable Value Binding / Behavior / Interaction IDs independent of unrelated DSL statement position
-- canonical primary-device-relative and explicit-source references after authoring symbol resolution
-- a versioned structured `PersistedScadaSemantics` representation
-- direct restore from persisted semantics into an executable semantic/compiled runtime plan without reparsing DSL text
-- duplicate persisted ID, duplicate Value writer and Component Property cycle rejection
-- current component-contract validation for persisted Component Property, Component Action and Component Event references
-- Scene schema v7 with explicit `scadaSemantics: object | null` on serialized component nodes
-- v1-v6 Scene migration to v7 with `scadaSemantics: null`
-- preservation of legacy v5 runtime-value bindings and v6 Event -> Component Action behaviors as compatibility-only data
-- save normalization through the current Scene parser/migrator rather than raw `JSON.stringify(scene)`
-- deterministic persistence regression coverage in CI
-
-Persistence rule:
-
-> DSL source text and compile-session IDs are authoring/runtime-construction artifacts. The long-term Scene format stores canonical structured semantics with stable identity.
-
-Scene v7 is justified by the new persisted SCADA semantic contract; it is not schema churn caused only by internal implementation changes.
-
-Legacy v6 behavior remains compatibility-only and is not silently translated into new semantics.
-
-Detailed acceptance record: `docs/progress/m6.5.11-stable-persistence-semantics.md`.
-
----
-
-# 9. M6.6 Local persistence foundation — accepted · 2026-08-28
-
-Accepted architecture:
-
-```text
-SCADA Works / Component Library
-        ↓
-async domain storage services
-        ↓
-SceneRepository / ComponentRepository
-        ├─ IndexedDB       browser/local authoring
-        └─ Memory          deterministic tests
-```
-
-Accepted work:
-
-- async repository contracts established before the browser driver
-- deterministic Memory repositories using the same public interfaces
-- one versioned `scada-editor-lab` IndexedDB database
-- dedicated `scenes`, `components`, and `meta` object stores
-- deterministic migration planning for supported legacy `localStorage` Scene/Work and Component data
-- domain-owned canonicalization during migration
-- legacy corruption isolated instead of poisoning valid neighboring documents
-- `localStorage` reduced to one-time migration input rather than an active write authority
-- Workspace async reads and creation through the repository-backed services
-- editor hydration gates before synchronous scene/component state construction
-- versioned portable debug snapshot export/import
-- atomic IndexedDB Scene + Component snapshot replacement
-- local reset and storage diagnostics
-- deterministic repository/snapshot/migration fixtures in CI
-- SCADA Editor Save awaiting repository persistence before reporting success
-- Component Editor Save awaiting repository persistence before reporting success
-- removal of the fire-and-forget synchronous Save compatibility adapters
-
-Persistence success rule:
-
-> A document is not “saved” merely because an in-memory cache was updated. The editor reports success only after the asynchronous repository write completes.
-
-Detailed acceptance record: `docs/progress/m6.6-local-persistence-foundation.md`.
-
----
-
-# 10. M6.7 User component registration / publication — active
+### M7A Portable component package boundary — active
 
 Goal:
 
-> Prove that a Workbench-authored component package can be consumed by SCADA Workbench through the same generic repository/registry path as built-ins without component-specific editor code.
+> A ready declarative user component can leave one browser as a versioned validated artifact and enter another browser through the same package validation/activation path without requiring the publication backend.
 
-## M6.7A Local user-component activation — accepted · 2026-08-29
+#### M7A1 Transport-neutral distributable package codec — NEXT
 
-Accepted runtime path:
+Build one canonical transport-neutral package codec.
 
-```text
-Component Workbench
-        ↓ save ready package
-IndexedDB ComponentRepository
-        ↓ hydrate / validate
-user-component activation controller
-        ↓
-runtime ComponentRegistration
-        ↓
-shared studioComponentRegistry
-        ↓
-SCADA palette / scene validation / renderer / inspector / Preview
-```
+Acceptance target:
 
-Accepted work:
+1. reuse the accepted publication distributable-package semantics rather than create a second offline schema
+2. derive only from a valid non-built-in `ready` local package
+3. exclude local authoring metadata (`id`, `status`, `updatedAt`, `builtIn`)
+4. deterministic parse / serialize / round-trip behavior
+5. fail closed through existing Component Definition / Visual Rule / Animation validation
+6. preserve `implementationDraft` as inert content; distribution does not make arbitrary JavaScript executable
+7. convert a decoded artifact into a validated package/import candidate without persistence, activation, file-system, or network side effects
+8. portable v1 supports the existing self-contained declarative user-component model only; native renderer modules and external asset trees are not silently bundled
+9. deterministic CI fixture proves valid round-trip and malformed-artifact rejection
 
-- product-wide live `studioComponentRegistry` with built-ins as the fixed baseline
-- deterministic user-registration replacement / stale-registration removal
-- `ready` Workbench-authored declarative composite packages becoming normal ComponentRegistrations
-- `draft` packages excluded from normal SCADA activation
-- built-in and duplicate ready user type collisions rejected deterministically
-- Scene loading hydrating the ComponentRepository before Scene contract validation
-- public Properties and Anchors flowing through the existing generic component contract
-- custom composite visuals reusing the existing generic visual-rule and animation runtime
-- `implementationDraft` remaining inert persisted text rather than becoming executable on activation
-- native user visuals and user Action/Event packages without an accepted executable implementation contract diagnosed and skipped rather than receiving fake implementations
-- deterministic activation lifecycle coverage in CI
-
-Detailed acceptance record: `docs/progress/m6.7a-local-user-component-activation.md`.
-
-## M6.7B1 Publication contract + immutable revision store — accepted · 2026-08-29
-
-Accepted publication flow:
+Architectural direction:
 
 ```text
 local ready ComponentLibraryEntry
-        ↓ explicit publish conversion
-versioned distributable package
-        ↓ requestId + baseRevision
-Publication API
-        ↓ append-only PostgreSQL transaction
-immutable PublishedComponentRevision
-        ↓ public retrieval
-client package validation
-        ↓
-existing M6.7A activation path
+        ↓ explicit conversion
+transport-neutral distributable package
+        ├─ file export/import       M7A2
+        └─ publication request      existing remote transport
 ```
 
-Accepted semantics:
+The publication server must consume the shared artifact contract rather than own a competing package definition.
 
-- local `draft` / `ready` remains local authoring state; publication is explicit and separate
-- only a local `ready` non-built-in package is publishable
-- distributable package drops local `id`, `status`, `updatedAt`, and `builtIn` metadata
-- publication request carries a client-generated `requestId` idempotency key
-- publication request carries `baseRevision` for optimistic concurrency
-- first publication requires `baseRevision: null`
-- later publication must name the currently observed remote revision
-- stale publishers receive `409 publication_conflict` with the server's current revision
-- an identical retry of the same requestId returns the already-created revision
-- requestId reuse with different publication input receives `409 idempotency_conflict`
-- published `(componentType, revision)` artifacts are append-only and immutable
-- latest and specific-revision reads are public and side-effect free
-- there is no PUT/DELETE path for a published revision
-- the old mutable `components` table is no longer publication authority
-- retrieved revisions convert into validated non-built-in `ready` activation candidates rather than creating a second runtime path
-- `implementationDraft` remains inert content; remote publication does not make it executable
+#### M7A2 Explicit browser export / import — after M7A1
 
-Verification includes both pure contract fixtures and a real PostgreSQL 16 + Fastify CI job covering revision creation, retry/idempotency, stale-base conflict, latest lookup, and immutable historical revision retrieval.
+Planned acceptance target:
 
-Detailed acceptance record: `docs/progress/m6.7b1-publication-contract.md`.
+- explicit file export of a ready declarative package
+- explicit import through the M7A1 codec
+- no silent activation/overwrite on file selection
+- deterministic collision policy across built-in, local-authored, and installed-remote types
+- persistence through ComponentRepository
+- activation through the existing generic activation controller
+- deployed Pages smoke for the browser workflow
 
-## M6.7B2 Client publication / retrieval integration — accepted · 2026-08-29
+### M7B Production runtime adapters — after M7A baseline
 
-### M6.7B2A Remote repository + install candidate boundary — accepted · 2026-08-29
-
-Accepted browser read path:
+Production adapters plug into existing host boundaries:
 
 ```text
-Remote Publication API
-        ↓ public credential-free GET
-RemoteComponentRepository
-        ↓ strict publication-contract parsing
-PublishedComponentRevision
-        ↓ explicit conversion + local codec validation
-RemoteComponentInstallCandidate
+external telemetry
+    ↓
+RuntimeDataSource
+    ↓
+RuntimeValueStore / compiled runtime
+
+Interaction effect
+    ↓
+ScadaDeviceActionDispatcher
+    ↓
+external platform/device command
 ```
 
-Accepted rules:
+Rules:
 
-- constructing a remote repository performs no network I/O
-- public list/latest/specific-revision reads carry no publication credential
-- malformed successful responses fail closed through the current package/publication codecs
-- 404 is a normal missing-artifact result; transport/protocol failures remain explicit
-- remote component types are URL-encoded as one path segment
-- remote discovery does not directly mutate `studioComponentRegistry`
-- an immutable revision becomes a provenance-preserving install candidate before any future local persistence/activation
-- provenance is kept beside the synthetic ComponentLibraryEntry rather than confused with local authoring identity
-- candidate conversion performs no persistence and no activation
+- protocol details live in adapters, never component public APIs
+- first prove lifecycle/error/reconnect behavior against generic host interfaces
+- choose concrete transports only after the generic adapter boundary is accepted
+- publication-backend deployment remains separately deferred by B3
 
-Detailed acceptance record: `docs/progress/m6.7b2a-remote-component-repository.md`.
+### M7C Reusable component set — after package/adapter foundations
 
-### M6.7B2B Explicit install + offline cache — accepted · 2026-08-29
+Build a small reusable declarative component set that exercises the generic contracts without adding component-specific editor code.
 
-Accepted local installation path:
-
-```text
-RemoteComponentInstallCandidate
-        ↓ explicit install
-InstalledRemoteComponent
-        ↓ dedicated installedRemoteComponents repository/store
-IndexedDB v2 offline cache
-        ↓ startup hydration without remote I/O
-existing M6.7A activation controller
-        ↓
-studioComponentRegistry
-        ↓
-Scene validation / editor / Preview
-```
-
-Accepted rules:
-
-- installed remote artifacts preserve immutable publication provenance beside the validated ready package instead of becoming ordinary editable local component documents
-- IndexedDB schema v2 adds a dedicated `installedRemoteComponents` store while preserving existing Scene/Component/meta data
-- one component type has at most one selected installed remote revision
-- reinstalling the exact immutable revision is idempotent; explicit installation of another revision replaces the selected cache entry and may intentionally roll back to an older immutable revision
-- uninstall removes only the local installed-remote cache entry and does not mutate any published revision
-- normal install/save paths reject local-authored vs installed-remote type collisions
-- historical/imported collisions resolve deterministically with local-authored winning activation and a diagnostic for the shadowed installed artifact
-- installed artifacts hydrate through the same M6.7A package activation path and require no remote API request at app/Scene startup
-- installed remote hydration completes before persisted Scene contract validation
-- malformed installed rows fail closed without poisoning valid neighboring installed artifacts
-- debug snapshot schema v2 includes installed remote artifacts; v1 snapshots remain importable with an empty installed-remote slice
-- remote repository/API unavailability cannot invalidate already-installed local runtime state
-- deterministic fixtures cover v1 -> v2 storage migration, provenance validation, idempotent install, update/rollback replacement, uninstall, collision handling, corrupt-row isolation and offline activation
-
-Detailed acceptance record: `docs/progress/m6.7b2b-explicit-install-offline-cache.md`.
-
-### M6.7B2C Explicit publish + browser-safe authentication — accepted · 2026-08-29
-
-Accepted browser publication path:
-
-```text
-local ready ComponentLibraryEntry
-        ↓ explicit Publish (separate from Save)
-persisted last-observed remote revision
-        ↓ baseRevision
-HttpComponentPublicationClient
-        ↓ credentials: include · no admin-token option
-opaque HttpOnly publication session
-        ↓ server-side session hash + publisher identity
-immutable publication transaction
-        ↓ successful publish only
-advance local publication observation
-```
-
-Accepted rules:
-
-- Save remains local IndexedDB persistence and never silently publishes
-- Publish remains explicit and is available only for non-built-in `ready` packages
-- the browser publication client has no `SCADA_ADMIN_TOKEN` / Bearer-token option
-- `VITE_PUBLICATION_API_URL` is public routing configuration, not a secret
-- last-observed remote revision is stored separately from local component authoring state
-- first Publish with no observation explicitly observes the remote head once
-- later Publish uses the persisted observation as `baseRevision` without a hidden latest read
-- successful publication advances the observation to the returned immutable revision
-- `409 publication_conflict` leaves the observation unchanged and is surfaced without automatic retry
-- adopting a newer remote base requires an explicit **Refresh remote state** action
-- browser authentication exchanges server-configured publisher credentials for an opaque random HttpOnly session cookie
-- PostgreSQL stores only the session hash, publisher identity and expiry
-- browser session writes require an allowed Origin; CORS alone is not treated as the write authorization boundary
-- publication rows record `published_by`, and request-id replay must match the same publisher identity
-- the existing administrator Bearer remains a separate server/CI operations channel and is not exposed to the public frontend
-- browser publication transport/state-machine logic remains separable from the browser persistence adapter and is deterministic under Memory fixtures
-
-Detailed acceptance record: `docs/progress/m6.7b2c-explicit-publish-browser-auth.md`.
-
-### M6.7B3 Production deployment decision — NEXT REVIEW GATE
-
-B2C removes the architecture blocker on considering production publication infrastructure. It does not itself authorize provisioning.
-
-Before any intentional production backend deployment, record one explicit **deploy now** or **defer deployment** decision after reviewing:
-
-- public API URL and frontend/API domain topology
-- same-site versus cross-site cookie behavior; do not assume third-party-cookie availability
-- whether the current narrow self-hosted publisher identity is sufficient or production requires an external identity provider
-- production secret storage and credential rotation
-- PostgreSQL schema migration, backup and restore expectations
-- TLS termination, CORS and trusted Origin configuration
-- `VITE_PUBLICATION_API_URL` build/deployment configuration
-- production observability and failure diagnostics
-- end-to-end browser smoke for login → Publish → public retrieval → explicit install → offline Scene activation
-
-No production server should be provisioned merely because B2C passed CI.
+Prefer components expressible with accepted Properties / Actions / Events / Anchors plus composite visual rules/animations.
 
 ---
 
-# 11. Backend deployment policy
-
-Current state:
-
-- backend source code exists under `server/`
-- deployment assets exist under `deploy/`
-- current front-end authoring paths use browser-local IndexedDB persistence
-- M6.7A proves local runtime activation without a backend
-- M6.7B1 defines and verifies an immutable publication API using ephemeral PostgreSQL in CI
-- M6.7B2A defines credential-free public retrieval but deliberately performs no automatic startup fetch
-- M6.7B2B defines explicit durable installation and offline activation without making the remote API a startup dependency
-- M6.7B2C defines explicit browser Publish, persisted optimistic-concurrency observation, and browser-safe session authentication
-- no production backend is required for local editing or SCADA runtime evaluation
-
-Policy after M6.7B2C:
-
-> Production infrastructure may now be considered, but only after the M6.7B3 deployment decision records topology, identity, secrets, PostgreSQL, TLS/CORS and browser-smoke requirements.
-
-The browser authentication contract is intentionally replaceable: the current self-hosted single-publisher credential source establishes the session/identity boundary but is not automatically the final production IAM choice.
-
-Prefer same-site/custom-domain frontend + API topology where practical. A cross-site `SameSite=None` cookie setup must be explicitly smoke-tested and must not assume that every browser/environment permits third-party cookies.
-
-The existing `SCADA_ADMIN_TOKEN` remains a server/development/operations boundary and must not be exposed in a public browser bundle.
-
-A remote service exists to distribute validated component packages. It must not become a prerequisite for local editing or SCADA runtime evaluation.
-
----
-
-# 12. Immediate execution sequence
-
-Current execution order from `main` plus the accepted runtime/persistence/publication gates:
+## 9. Immediate execution sequence
 
 ```text
-1. M6.5.9A runtime semantic hardening                                  accepted · 2026-08-28
-2. M6.5.9B Preview Runtime state ownership                             accepted · 2026-08-28
-3. M6.5.9C narrow Preview integration                                  accepted · 2026-08-28
-4. M6.5.10 typed Action/Event contract + action dispatcher             accepted · 2026-08-28
-5. M6.5.11 stable scene persistence semantics                          accepted · 2026-08-28
-6. M6.6 storage abstraction + IndexedDB + debug snapshot               accepted · 2026-08-28
-7. M6.7A local user-component activation                               accepted · 2026-08-29
-8. M6.7B1 publication contract + immutable revisions                   accepted · 2026-08-29
-9. M6.7B2A remote repository + install candidate boundary              accepted · 2026-08-29
-10. M6.7B2B explicit install + offline cache                           accepted · 2026-08-29
-11. M6.7B2C explicit publish + browser-safe authentication             accepted · 2026-08-29
-12. M6.7B3 production deployment decision                              NEXT REVIEW GATE
-13. M7 packaging / production adapters / reusable component set         later
+1. M6.5.9A-C runtime hardening / Preview integration                    accepted
+2. M6.5.10 typed Action/Event + dispatcher                              accepted
+3. M6.5.11 stable Scene semantics persistence                           accepted
+4. M6.6 IndexedDB persistence foundation                                accepted
+5. M6.7A local user-component activation                                accepted
+6. M6.7B1 immutable publication contract                                accepted
+7. M6.7B2A remote repository/candidate boundary                         accepted
+8. M6.7B2B explicit install + offline cache                             accepted
+9. M6.7B2C explicit Publish + browser-safe auth                         accepted
+10. M6.7B3 production deployment decision                               accepted · defer · 2026-08-30
+11. M7A1 transport-neutral distributable package codec                  NEXT
+12. M7A2 explicit browser package export/import                         later
+13. M7B production runtime-adapter foundation                           later
+14. M7C reusable component set                                          later
 ```
 
-The **next step is M6.7B3 Production deployment decision**. This is a review/decision gate, not an instruction to provision infrastructure.
+**Next implementation step: M7A1 Transport-neutral distributable package codec.**
 
-Do not restart M6.4 effect experimentation, do not revive QuickJS as the main product path, and do not provision production infrastructure until M6.7B3 explicitly decides to do so.
+Do not restart M6 effect experimentation, revive QuickJS as the main product path, or provision production publication infrastructure while B3 remains `defer deployment`.
 
 ---
 
-# 13. Verification policy
+## 10. Verification policy
 
-A milestone is not accepted merely because the TypeScript compiles.
+A milestone is not accepted merely because TypeScript compiles.
 
 Use the narrowest relevant verification set:
 
 - deterministic model/runtime scripts for semantic behavior
-- CI for build, runtime checks and lint
-- regression fixtures for every repaired runtime edge case
+- CI build + runtime checks + lint
+- regression fixtures for repaired runtime edges
 - deployed Pages smoke when browser/UI behavior changes
 - storage migration fixtures when persistence formats change
-- debug snapshots when a browser-only failure must be reproduced
+- debug snapshots for browser-only persistence failures
 - publication contract fixtures before remote deployment
-- real PostgreSQL/API integration for publication concurrency and revision semantics
-- remote repository fixtures that verify fail-closed client parsing and credential-free public reads
-- remote installation fixtures that verify provenance, replacement/rollback, collision policy and offline activation
-- browser publication fixtures that verify persisted `baseRevision`, explicit conflict/refresh semantics and absence of frontend Bearer credentials
-- browser-auth API integration that verifies session creation/revocation, publisher identity, trusted-Origin enforcement and the separate admin operations channel
+- real PostgreSQL/API integration for publication concurrency/revision semantics
+- remote repository/install fixtures for fail-closed parsing, provenance, collision policy, replacement/rollback, and offline activation
+- browser-publication fixtures for `baseRevision`, conflict/refresh semantics, and no frontend Bearer credentials
+- browser-auth API integration for session/revocation/publisher identity/trusted Origin
+- M7 package-codec fixtures for deterministic portable round-trip and malformed/unsupported artifact rejection
 
-Runtime tests should prefer explicit inputs and deterministic snapshots over timing-sensitive renderer inspection whenever possible.
+Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
 ---
 
-# 14. Near-term non-goals
+## 11. Near-term non-goals
 
-The following should not distract the active M6 work:
+The following must not distract M7A1:
 
-- production backend provisioning before the M6.7B3 deployment decision
+- production publication-backend provisioning while B3 remains `defer deployment`
 - component marketplace
 - collaborative editing
-- automatic publication on local save
+- automatic publication on local Save
 - automatic remote catalog activation
 - mutable remote published revisions
+- native-renderer/module packaging in portable package v1
+- silently bundling external asset trees into portable package v1
 - general-purpose process orchestration
 - data-driven device command chains
 - unrestricted JavaScript execution
@@ -811,4 +473,4 @@ The following should not distract the active M6 work:
 - protocol-specific component APIs
 - premature Scene schema churn
 
-These items are deferred or outside the SCADA layer, not necessarily rejected forever.
+These are deferred or outside the current SCADA layer, not necessarily rejected forever.
