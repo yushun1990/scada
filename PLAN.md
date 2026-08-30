@@ -329,21 +329,22 @@ Goal:
 
 > A ready declarative user component can leave one browser as a versioned validated artifact and enter another browser through the same package validation/activation path without requiring the publication backend.
 
-#### M7A1 Transport-neutral distributable package codec — NEXT
+#### M7A1 Transport-neutral distributable package codec — accepted · 2026-08-30
 
-Build one canonical transport-neutral package codec.
+Accepted result:
 
-Acceptance target:
+- `distributable-component-package.ts` owns the transport-neutral artifact type/codec
+- the distribution artifact has its own explicit v1 version constant
+- only valid non-built-in `ready` local packages can be converted for distribution
+- local `id`, `status`, `updatedAt`, and `builtIn` metadata are excluded
+- existing Component Definition / Visual Rule / Animation validators remain the validation authority
+- normalized JSON parse / serialize / round-trip behavior is deterministic
+- decoded artifacts convert through a pure path into a ready local package with caller-supplied local id/timestamp
+- `implementationDraft` remains inert content
+- publication now consumes this same artifact codec while retaining the accepted M6.7 wire aliases/shape
+- deterministic CI verifies valid round-trip and malformed/unsupported artifact rejection
 
-1. reuse the accepted publication distributable-package semantics rather than create a second offline schema
-2. derive only from a valid non-built-in `ready` local package
-3. exclude local authoring metadata (`id`, `status`, `updatedAt`, `builtIn`)
-4. deterministic parse / serialize / round-trip behavior
-5. fail closed through existing Component Definition / Visual Rule / Animation validation
-6. preserve `implementationDraft` as inert content; distribution does not make arbitrary JavaScript executable
-7. convert a decoded artifact into a validated package/import candidate without persistence, activation, file-system, or network side effects
-8. portable v1 supports the existing self-contained declarative user-component model only; native renderer modules and external asset trees are not silently bundled
-9. deterministic CI fixture proves valid round-trip and malformed-artifact rejection
+Acceptance record: `docs/progress/m7a1-distributable-package-codec.md`.
 
 Architectural direction:
 
@@ -355,11 +356,11 @@ transport-neutral distributable package
         └─ publication request      existing remote transport
 ```
 
-The publication server must consume the shared artifact contract rather than own a competing package definition.
+Portable package v1 does not silently bundle native renderer modules or external asset trees.
 
-#### M7A2 Explicit browser export / import — after M7A1
+#### M7A2 Explicit browser export / import — NEXT
 
-Planned acceptance target:
+Acceptance target:
 
 - explicit file export of a ready declarative package
 - explicit import through the M7A1 codec
@@ -415,13 +416,13 @@ Prefer components expressible with accepted Properties / Actions / Events / Anch
 8. M6.7B2B explicit install + offline cache                             accepted
 9. M6.7B2C explicit Publish + browser-safe auth                         accepted
 10. M6.7B3 production deployment decision                               accepted · defer · 2026-08-30
-11. M7A1 transport-neutral distributable package codec                  NEXT
-12. M7A2 explicit browser package export/import                         later
+11. M7A1 transport-neutral distributable package codec                  accepted · 2026-08-30
+12. M7A2 explicit browser package export/import                         NEXT
 13. M7B production runtime-adapter foundation                           later
 14. M7C reusable component set                                          later
 ```
 
-**Next implementation step: M7A1 Transport-neutral distributable package codec.**
+**Next implementation step: M7A2 Explicit browser package export / import.**
 
 Do not restart M6 effect experimentation, revive QuickJS as the main product path, or provision production publication infrastructure while B3 remains `defer deployment`.
 
@@ -452,7 +453,7 @@ Prefer explicit deterministic state/snapshots over timing-sensitive renderer ins
 
 ## 11. Near-term non-goals
 
-The following must not distract M7A1:
+The following must not distract M7A2:
 
 - production publication-backend provisioning while B3 remains `defer deployment`
 - component marketplace
