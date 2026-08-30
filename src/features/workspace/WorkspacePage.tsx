@@ -13,14 +13,21 @@ import {
   resetBrowserPersistence,
 } from '../../storage/browser-persistence'
 import {
+  createDistributableComponentPackage,
+  parseDistributableComponentPackageDocument,
+  serializeDistributableComponentPackage,
+} from '../component-library/distributable-component-package'
+import {
+  importDistributableComponentPackage,
+  inspectDistributableComponentImport,
+  listComponentDefinitions,
+  type ComponentLibraryEntry,
+} from '../component-library/storage'
+import {
   createScadaWork,
   listScadaWorks,
   type ScadaWorkSummary,
 } from '../scada-works/storage'
-import {
-  listComponentDefinitions,
-  type ComponentLibraryEntry,
-} from '../component-library/storage'
 import './workspace.css'
 
 type WorkspaceModule = 'works' | 'components'
@@ -48,12 +55,31 @@ function navigate(path: string) {
   window.location.hash = path
 }
 
+function portableComponentFileName(componentType: string) {
+  const safeType = componentType
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'component'
+  return `${safeType}.scada-component.json`
+}
+
+function downloadTextFile(contents: string, fileName: string) {
+  const blob = new Blob([contents], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
 export function WorkspacePage({ module }: WorkspacePageProps) {
   const [works, setWorks] = useState<ScadaWorkSummary[]>([])
   const [components, setComponents] = useState<ComponentLibraryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const snapshotInputRef = useRef<HTMLInputElement>(null)
+  const componentPackageInputRef = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -98,6 +124,55 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
 
   function createComponent() {
     navigate('#/components/new')
+  }
+
+  function exportComponentPackage(component: ComponentLibraryEntry) {
+    try {
+      const componentPackage = createDistributableComponentPackage(component)
+      downloadTextFile(
+        serializeDistributableComponentPackage(componentPackage),
+        portableComponentFileName(component.definition.type),
+      )
+      setMessage(`已导出组件 ${component.definition.title}`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '组件导出失败')
+    }
+  }
+
+  async function importComponentPackage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      const componentPackage = parseDistributableComponentPackageDocument(
+        await file.text(),
+      )
+      if (!componentPackage) {
+        throw new Error('组件包无效或版本不受支持')
+      }
+
+      const plan = await inspectDistributableComponentImport(componentPackage)
+      if (plan.kind === 'collision') {
+        setMessage(plan.message)
+        return
+      }
+
+      const confirmed = window.confirm(
+        `确认导入组件“${plan.title}”？\n\n类型：${plan.componentType}\n\n导入后会作为新的本地可编辑组件保存并进入正常运行时激活流程。`,
+      )
+      if (!confirmed) {
+        setMessage(`已取消导入 ${file.name}`)
+        return
+      }
+
+      const imported = await importDistributableComponentPackage(componentPackage)
+      await refresh()
+      setMessage(`已导入组件 ${imported.definition.title}`)
+      openComponent(imported.id)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '组件导入失败')
+    }
   }
 
   async function exportDebugSnapshot() {
@@ -285,14 +360,31 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
                 <h1>组件库开发</h1>
                 <p>组件开发工作台维护可复用组件的公开契约与私有实现，SCADA 组态只消费被明确暴露的能力。</p>
               </div>
-              <Button
-                variant="primary"
-                className="workspace-primary-button"
-                disabled={loading}
-                onClick={createComponent}
-              >
-                + 新建组件
-              </Button>
+              <div className="workspace-header-actions">
+                <Button
+                  variant="secondary"
+                  disabled={loading}
+                  onClick={() => componentPackageInputRef.current?.click()}
+                >
+                  导入组件
+                </Button>
+                <Button
+                  variant="primary"
+                  className="workspace-primary-button"
+                  disabled={loading}
+                  onClick={createComponent}
+                >
+                  + 新建组件
+                </Button>
+                <Input
+                  ref={componentPackageInputRef}
+                  className="hidden-input"
+                  type="file"
+                  accept="application/json,.json,.scada-component.json"
+                  aria-label="选择组件包文件"
+                  onChange={(event) => void importComponentPackage(event)}
+                />
+              </div>
             </header>
 
             <div className="component-table" role="table" aria-label="组件列表" aria-busy={loading}>
@@ -305,6 +397,7 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
               </div>
               {components.map((component) => {
                 const { definition } = component
+                const canExport = !component.builtIn && component.status === 'ready'
 
                 return (
                   <div className="component-table-row" role="row" key={component.id}>
@@ -322,14 +415,27 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
                         {component.builtIn ? '内置' : component.status === 'ready' ? '可用' : '草稿'}
                       </span>
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      className="component-edit-button"
-                      onClick={() => openComponent(component.id)}
-                    >
-                      {component.builtIn ? '查看' : '编辑'}
-                    </Button>
+                    <div className="component-row-actions">
+                      {canExport && (
+                        <Button
+                          variant="ghost"
+                          size="small"
+                          className="component-export-button"
+                          aria-label={`导出组件 ${definition.title}`}
+                          onClick={() => exportComponentPackage(component)}
+                        >
+                          导出
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="small"
+                        className="component-edit-button"
+                        onClick={() => openComponent(component.id)}
+                      >
+                        {component.builtIn ? '查看' : '编辑'}
+                      </Button>
+                    </div>
                   </div>
                 )
               })}
