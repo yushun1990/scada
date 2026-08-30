@@ -75,10 +75,12 @@ try {
 
   await exportPage.goto(`${baseUrl}#/components`, { waitUntil: 'networkidle' })
   await exportPage.getByText('组件库开发', { exact: true }).first().waitFor()
+  await exportPage.locator('.component-table-row', { hasText: componentTitle }).waitFor()
   const exportButton = exportPage.getByRole('button', {
     name: `导出组件 ${componentTitle}`,
     exact: true,
   })
+  await exportButton.waitFor()
   assert.equal(await exportButton.count(), 1, 'ready local component exposes explicit export')
 
   const [download] = await Promise.all([
@@ -106,9 +108,10 @@ try {
   console.log(`Importing exported package in a fresh browser: ${baseUrl}#/components`)
   await importPage.goto(`${baseUrl}#/components`, { waitUntil: 'networkidle' })
   await importPage.getByText('组件库开发', { exact: true }).first().waitFor()
+  const importInput = importPage.getByLabel('选择组件包文件', { exact: true })
+  await importInput.waitFor({ state: 'attached' })
   assert.equal(await countPersistedComponents(importPage), 0, 'fresh browser starts without local components')
 
-  const importInput = importPage.getByLabel('选择组件包文件', { exact: true })
   let confirmationSeen = false
   importPage.once('dialog', async (dialog) => {
     confirmationSeen = true
@@ -148,6 +151,7 @@ try {
 
   await importPage.goto(`${baseUrl}#/components`, { waitUntil: 'networkidle' })
   await importPage.getByText('组件库开发', { exact: true }).first().waitFor()
+  await importPage.locator('.component-table-row', { hasText: componentTitle }).waitFor()
   const countBeforeCollision = await countPersistedComponents(importPage)
   let unexpectedCollisionConfirmation = false
   const rejectUnexpectedDialog = async (dialog) => {
