@@ -10,6 +10,14 @@ import {
   type ComponentLibraryEntry,
 } from './component-document'
 import {
+  planComponentPackageImport,
+  type ComponentPackageImportPlan,
+} from './component-package-transfer'
+import {
+  distributableComponentPackageToLibraryEntry,
+  type DistributableComponentPackage,
+} from './distributable-component-package'
+import {
   cloneInstalledRemoteComponent,
   loadInstalledRemoteComponents,
   persistRemoteComponentInstallation,
@@ -30,6 +38,7 @@ export {
   type ComponentStatus,
 } from './component-document'
 export type { InstalledRemoteComponent } from './remote-component-installation'
+export type { ComponentPackageImportPlan } from './component-package-transfer'
 
 const BUILT_IN_UPDATED_AT = '2026-08-09T00:00:00.000Z'
 const customCache = new Map<string, ComponentLibraryEntry>()
@@ -256,6 +265,54 @@ export async function saveComponentDefinitionAsync(
 ) {
   if (!customCacheReady) await prepareComponentLibrary()
   const next = prepareSavedComponent(component)
+  return persistPreparedComponent(next)
+}
+
+function currentPortableImportPlan(
+  componentPackage: DistributableComponentPackage,
+): ComponentPackageImportPlan {
+  return planComponentPackageImport(componentPackage, {
+    components: [
+      ...BUILT_IN_COMPONENTS,
+      ...customCache.values(),
+    ],
+    installedRemoteComponents: [...installedRemoteCache.values()],
+  })
+}
+
+/**
+ * Preview one portable import without writing or activating anything. UI may
+ * show this result after file selection and before explicit user confirmation.
+ */
+export async function inspectDistributableComponentImport(
+  componentPackage: DistributableComponentPackage,
+) {
+  if (!customCacheReady) await prepareComponentLibrary()
+  return currentPortableImportPlan(componentPackage)
+}
+
+/**
+ * Persist a portable artifact as a new local editable ready component, then
+ * refresh the normal generic runtime activation controller.
+ *
+ * All type collisions are rechecked immediately before the write. Import never
+ * mutates installed-remote provenance and never overwrites an existing local or
+ * built-in package.
+ */
+export async function importDistributableComponentPackage(
+  componentPackage: DistributableComponentPackage,
+) {
+  if (!customCacheReady) await prepareComponentLibrary()
+  const plan = currentPortableImportPlan(componentPackage)
+  if (plan.kind === 'collision') {
+    throw new Error(plan.message)
+  }
+
+  const entry = distributableComponentPackageToLibraryEntry(componentPackage, {
+    id: createComponentId(),
+    updatedAt: new Date().toISOString(),
+  })
+  const next = prepareSavedComponent(entry)
   return persistPreparedComponent(next)
 }
 

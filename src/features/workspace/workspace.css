@@ -115,6 +115,13 @@
   margin-bottom: 28px;
 }
 
+.workspace-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .workspace-eyebrow {
   color: #2563eb;
   font-size: 10px;
@@ -279,7 +286,8 @@
 }
 
 .workspace-card-action,
-.component-edit-button {
+.component-edit-button,
+.component-export-button {
   border: 0;
   color: #2563eb;
   background: transparent;
@@ -292,6 +300,14 @@
   padding: 0;
 }
 
+.component-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 0;
+}
+
 .component-table {
   overflow: hidden;
   border: 1px solid #dde3ea;
@@ -301,7 +317,7 @@
 
 .component-table-row {
   display: grid;
-  grid-template-columns: minmax(190px, 1.3fr) minmax(190px, 1.2fr) 110px 90px 72px;
+  grid-template-columns: minmax(190px, 1.3fr) minmax(190px, 1.2fr) 110px 90px 126px;
   align-items: center;
   min-height: 66px;
   padding: 0 18px;
@@ -366,8 +382,17 @@
     width: min(100% - 32px, 1180px);
   }
 
+  .workspace-section-header {
+    align-items: flex-start;
+  }
+
+  .workspace-header-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
   .component-table-row {
-    grid-template-columns: minmax(170px, 1fr) minmax(150px, 1fr) 80px 66px;
+    grid-template-columns: minmax(170px, 1fr) minmax(150px, 1fr) 80px 112px;
   }
 
   .component-table-row > :nth-child(3) {
