@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+import {
+  readPersistedComponent,
+  saveAndWait,
+  writePersistedComponent,
+} from './pages-component-fixture-storage.mjs'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/')
   .replace(/\/?$/, '/')
@@ -27,87 +32,67 @@ async function readSceneCanvasDataUrl() {
 }
 
 async function seedMoveAnimationFixture() {
-  return page.evaluate(() => {
-    const componentId = decodeURIComponent(
-      window.location.hash.replace(/^#\/components\//, '').split('/')[0],
-    )
-    if (!componentId || componentId === 'new') {
-      throw new Error(`Persisted component id missing from ${window.location.hash}`)
-    }
+  const { document: entry } = await readPersistedComponent(page)
 
-    const key = 'scada-editor-lab.components.v2'
-    const raw = window.localStorage.getItem(key)
-    const entries = raw ? JSON.parse(raw) : []
-    const entry = entries.find((candidate) => candidate.id === componentId)
-    if (!entry) throw new Error(`Persisted component ${componentId} missing`)
+  entry.definition.properties = {
+    ...entry.definition.properties,
+    running: {
+      title: 'Running',
+      kind: 'boolean',
+      defaultValue: false,
+      bindable: true,
+    },
+  }
 
-    entry.definition.properties = {
-      ...entry.definition.properties,
-      running: {
-        title: 'Running',
-        kind: 'boolean',
-        defaultValue: false,
-        bindable: true,
-      },
-    }
-
-    entry.visual.layers = entry.visual.layers.filter(
-      (layer) => layer.id !== 'move-animation-smoke-layer',
-    )
-    entry.visual.animations = (entry.visual.animations ?? []).filter(
-      (animation) => animation.layerId !== 'move-animation-smoke-layer',
-    )
-    entry.visual.layers.push({
-      id: 'move-animation-smoke-layer',
-      name: 'Move Animation Smoke Rect',
-      kind: 'vector',
-      parentId: null,
-      transform: {
-        x: 160,
-        y: 120,
-        width: 100,
-        height: 30,
-        rotation: 0,
-        scaleX: 1,
-        scaleY: 1,
-      },
-      visible: true,
-      opacity: 1,
-      primitive: 'rect',
-      style: {
-        fill: '#0f766e',
-        stroke: '#134e4a',
-        strokeWidth: 2,
-      },
-    })
-
-    window.localStorage.setItem(key, JSON.stringify(entries))
-    return { x: 160, y: 120, rotation: 0 }
+  entry.visual.layers = entry.visual.layers.filter(
+    (layer) => layer.id !== 'move-animation-smoke-layer',
+  )
+  entry.visual.animations = (entry.visual.animations ?? []).filter(
+    (animation) => animation.layerId !== 'move-animation-smoke-layer',
+  )
+  entry.visual.layers.push({
+    id: 'move-animation-smoke-layer',
+    name: 'Move Animation Smoke Rect',
+    kind: 'vector',
+    parentId: null,
+    transform: {
+      x: 160,
+      y: 120,
+      width: 100,
+      height: 30,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+    },
+    visible: true,
+    opacity: 1,
+    primitive: 'rect',
+    style: {
+      fill: '#0f766e',
+      stroke: '#134e4a',
+      strokeWidth: 2,
+    },
   })
+
+  await writePersistedComponent(page, entry)
+  return { x: 160, y: 120, rotation: 0 }
 }
 
 async function readPersistedMoveState() {
-  return page.evaluate(() => {
-    const componentId = decodeURIComponent(
-      window.location.hash.replace(/^#\/components\//, '').split('/')[0],
-    )
-    const raw = window.localStorage.getItem('scada-editor-lab.components.v2')
-    const entries = raw ? JSON.parse(raw) : []
-    const entry = entries.find((candidate) => candidate.id === componentId)
-    const layer = entry?.visual?.layers?.find(
-      (candidate) => candidate.id === 'move-animation-smoke-layer',
-    )
-    const move = entry?.visual?.animations?.find(
-      (candidate) => candidate.layerId === 'move-animation-smoke-layer' && candidate.kind === 'move',
-    )
+  const { document: entry } = await readPersistedComponent(page)
+  const layer = entry?.visual?.layers?.find(
+    (candidate) => candidate.id === 'move-animation-smoke-layer',
+  )
+  const move = entry?.visual?.animations?.find(
+    (candidate) => candidate.layerId === 'move-animation-smoke-layer' && candidate.kind === 'move',
+  )
 
-    return {
-      x: layer?.transform?.x ?? null,
-      y: layer?.transform?.y ?? null,
-      rotation: layer?.transform?.rotation ?? null,
-      move: move ?? null,
-    }
-  })
+  return {
+    x: layer?.transform?.x ?? null,
+    y: layer?.transform?.y ?? null,
+    rotation: layer?.transform?.rotation ?? null,
+    move: move ?? null,
+  }
 }
 
 try {
@@ -150,7 +135,7 @@ try {
   await chooseSelectOption('animation1 激活方式', 'Property 条件')
   await page.locator('.component-animation-item .ui-checkbox').nth(1).click()
 
-  await page.getByRole('button', { name: '保存' }).click()
+  await saveAndWait(page)
   const authored = await readPersistedMoveState()
   assert.equal(authored.x, 160, 'move authoring must not mutate base x')
   assert.equal(authored.y, 120, 'move authoring must not mutate base y')
