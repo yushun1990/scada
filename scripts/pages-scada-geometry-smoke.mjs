@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+import {
+  readPersistedScene,
+  saveSceneAndWait,
+  writePersistedScene,
+} from './pages-scene-fixture-storage.mjs'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/')
   .replace(/\/?$/, '/')
@@ -17,103 +22,57 @@ function assertClose(actual, expected, message) {
   )
 }
 
-async function saveScene() {
-  await page.getByRole('button', { name: '保存', exact: true }).click()
-}
-
-async function readStoredScene() {
-  return page.evaluate(() => {
-    const segments = window.location.hash
-      .replace(/^#\/?/, '')
-      .split('/')
-      .filter(Boolean)
-      .map((segment) => decodeURIComponent(segment))
-    const workId = segments[0] === 'scada' ? segments[1] : null
-
-    if (!workId) {
-      throw new Error(`SCADA work id missing from ${window.location.hash}`)
-    }
-
-    const key = `scada-editor-lab.work.${workId}.scene.v4`
-    const raw = window.localStorage.getItem(key)
-
-    if (!raw) {
-      throw new Error(`Stored scene missing at ${key}`)
-    }
-
-    return JSON.parse(raw)
-  })
-}
-
 async function seedGroupedGeometry() {
-  await page.evaluate(() => {
-    const segments = window.location.hash
-      .replace(/^#\/?/, '')
-      .split('/')
-      .filter(Boolean)
-      .map((segment) => decodeURIComponent(segment))
-    const workId = segments[0] === 'scada' ? segments[1] : null
+  const { document: scene } = await readPersistedScene(page)
+  const positions = [
+    { x: 360, y: 220 },
+    { x: 560, y: 320 },
+    { x: 820, y: 400 },
+  ]
 
-    if (!workId) {
-      throw new Error(`SCADA work id missing from ${window.location.hash}`)
-    }
+  if (scene.nodes.length !== positions.length) {
+    throw new Error(`Expected ${positions.length} nodes, received ${scene.nodes.length}`)
+  }
 
-    const key = `scada-editor-lab.work.${workId}.scene.v4`
-    const raw = window.localStorage.getItem(key)
+  const groupId = 'smoke-geometry-group'
+  const children = scene.nodes.map((node, index) => ({
+    ...node,
+    parentId: groupId,
+    transform: {
+      ...node.transform,
+      ...positions[index],
+      rotation: 0,
+    },
+  }))
+  const group = {
+    id: groupId,
+    type: 'core.group',
+    name: 'Smoke geometry group',
+    parentId: null,
+    visible: true,
+    locked: false,
+    transform: {
+      x: 0,
+      y: 0,
+      width: scene.width,
+      height: scene.height,
+      rotation: 0,
+    },
+    props: {
+      designWidth: scene.width,
+      designHeight: scene.height,
+    },
+    bindings: [],
+    behaviors: [],
+  }
 
-    if (!raw) {
-      throw new Error(`Stored scene missing at ${key}`)
-    }
-
-    const scene = JSON.parse(raw)
-    const positions = [
-      { x: 360, y: 220 },
-      { x: 560, y: 320 },
-      { x: 820, y: 400 },
-    ]
-
-    if (scene.nodes.length !== positions.length) {
-      throw new Error(`Expected ${positions.length} nodes, received ${scene.nodes.length}`)
-    }
-
-    const groupId = 'smoke-geometry-group'
-    const children = scene.nodes.map((node, index) => ({
-      ...node,
-      parentId: groupId,
-      transform: {
-        ...node.transform,
-        ...positions[index],
-        rotation: 0,
-      },
-    }))
-    const group = {
-      id: groupId,
-      type: 'core.group',
-      name: 'Smoke geometry group',
-      parentId: null,
-      visible: true,
-      locked: false,
-      transform: {
-        x: 0,
-        y: 0,
-        width: scene.width,
-        height: scene.height,
-        rotation: 0,
-      },
-      props: {
-        designWidth: scene.width,
-        designHeight: scene.height,
-      },
-      bindings: [],
-      behaviors: [],
-    }
-
-    // The geometry regression needs a stable three-node selection, not a
-    // second test of viewport/marquee behavior. Load one valid group as the
-    // fixture; the editor's real Ungroup command then produces the normal
-    // multi-selection through its public UI path.
-    scene.nodes = [group, ...children]
-    window.localStorage.setItem(key, JSON.stringify(scene))
+  // The geometry regression needs a stable three-node selection, not a
+  // second test of viewport/marquee behavior. Load one valid group as the
+  // fixture; the editor's real Ungroup command then produces the normal
+  // multi-selection through its public UI path.
+  await writePersistedScene(page, {
+    ...scene,
+    nodes: [group, ...children],
   })
 }
 
@@ -129,9 +88,9 @@ try {
   assert.equal(await componentItem.count(), 1, 'SCADA component palette must contain a component')
   await componentItem.click()
   await componentItem.click()
-  await saveScene()
+  await saveSceneAndWait(page)
 
-  let storedScene = await readStoredScene()
+  let storedScene = (await readPersistedScene(page)).document
   assert.equal(storedScene.nodes.length, 3, 'SCADA smoke requires three scene nodes')
   assert.equal(
     new Set(storedScene.nodes.map((node) => node.type)).size,
@@ -167,8 +126,8 @@ try {
   )
 
   await page.getByRole('button', { name: '左对齐' }).click()
-  await saveScene()
-  storedScene = await readStoredScene()
+  await saveSceneAndWait(page)
+  storedScene = (await readPersistedScene(page)).document
   assert.equal(storedScene.nodes.length, 3)
   for (const node of storedScene.nodes) {
     assertClose(node.transform.x, 360, `left align ${node.id} x`)
@@ -179,8 +138,8 @@ try {
   // through the SCADA wrapper.
   await page.getByRole('button', { name: '撤销' }).click()
   await page.getByRole('button', { name: '水平等距分布' }).click()
-  await saveScene()
-  storedScene = await readStoredScene()
+  await saveSceneAndWait(page)
+  storedScene = (await readPersistedScene(page)).document
 
   const sorted = [...storedScene.nodes].sort(
     (left, right) => left.transform.x - right.transform.x,
@@ -190,7 +149,7 @@ try {
   assertClose(firstGap, secondGap, 'horizontal distribution produces equal x spacing')
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages SCADA geometry smoke passed: real ungroup selection, align and distribute use the shared geometry command path.')
+  console.log('Pages SCADA geometry smoke passed: real ungroup selection, align and distribute use the shared geometry command path with IndexedDB persistence.')
 } finally {
   await browser.close()
 }
