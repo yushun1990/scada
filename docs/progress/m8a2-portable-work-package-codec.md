@@ -79,6 +79,18 @@ The existing distributable component package validator remains the nested depend
 
 The fixture is wired into the normal CI runtime/model check set.
 
+## Current implementation evidence
+
+- PR #105: `feat: add dependency-complete SCADA work package codec`
+- initial verified head: `d4c89ddcabbc23f18632ebed27b21d6a5a8017d2`
+- CI #736 (`33376955435`) passed
+  - Build passed
+  - Runtime model checks passed, including `check-scada-work-package.ts`
+  - Lint passed
+  - publication-api regression passed
+
+M8A2 remains **active** until PR #105 is merged and the final `main` revision is recorded. No Pages smoke is required for this codec-only slice because it introduces no browser-visible behavior.
+
 ## Explicit non-goals
 
 M8A2 does not add:
