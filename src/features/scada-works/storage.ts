@@ -1,10 +1,33 @@
+import { builtInComponentRegistrations } from '../../component-system/builtins'
+import { ComponentRegistry } from '../../component-system/registry'
 import { browserPersistence, ensureBrowserPersistenceReady } from '../../storage/browser-persistence'
 import { createDefaultScene, type SceneDocument } from '../../scene/model'
 import {
   parseSceneDocument,
   serializeSceneDocument,
 } from '../../scene/validation'
-import { prepareComponentRuntimeRegistry } from '../component-library/storage'
+import { serializeComponentLibraryDocument } from '../component-library/component-document'
+import {
+  distributableComponentPackageToLibraryEntry,
+} from '../component-library/distributable-component-package'
+import {
+  listComponentDefinitions,
+  listInstalledRemoteComponents,
+  prepareComponentRuntimeRegistry,
+} from '../component-library/storage'
+import {
+  createScadaWorkPackage,
+  parseScadaWorkPackage,
+  parseScadaWorkPackageDocument,
+  serializeScadaWorkPackage,
+  type ScadaWorkPackage,
+} from './scada-work-package'
+import {
+  planScadaWorkPackageImport,
+  resolveScadaWorkDependencies,
+  type ScadaWorkPackageImportPlan,
+  type ScadaWorkTransferInventory,
+} from './scada-work-transfer'
 
 export type ScadaWorkSummary = {
   id: string
@@ -16,11 +39,36 @@ export type ScadaWorkSummary = {
   updatedAt: string
 }
 
+export type InspectedScadaWorkPackageImport = Readonly<{
+  workPackage: ScadaWorkPackage
+  plan: ScadaWorkPackageImportPlan
+}>
+
 const sceneCache = new Map<string, SceneDocument>()
 
-function createWorkId() {
+function createLocalId(prefix: string) {
   const suffix = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
-  return `work-${suffix}`
+  return `${prefix}-${suffix}`
+}
+
+function createWorkId() {
+  return createLocalId('work')
+}
+
+function createImportedComponentId() {
+  return createLocalId('component')
+}
+
+function createWorkPackageHostCapabilities() {
+  return new ComponentRegistry(builtInComponentRegistrations)
+}
+
+async function loadWorkTransferInventory(): Promise<ScadaWorkTransferInventory> {
+  const [components, installedRemoteComponents] = await Promise.all([
+    listComponentDefinitions(),
+    listInstalledRemoteComponents(),
+  ])
+  return { components, installedRemoteComponents }
 }
 
 function summarizeScene(
@@ -135,4 +183,102 @@ export async function createScadaWork(): Promise<ScadaWorkSummary> {
   const works = await listScadaWorks()
   scene.name = `SCADA 作品 ${works.length + 1}`
   return saveScadaSceneAsync(workId, scene)
+}
+
+/** Export the exact persisted work, never an unsaved editor-memory snapshot. */
+export async function exportScadaWorkPackageDocument(workId: string) {
+  await prepareComponentRuntimeRegistry()
+  await ensureBrowserPersistenceReady()
+  const record = await browserPersistence.scenes.get(workId)
+  if (!record) {
+    throw new Error(`SCADA 作品不存在：${workId}`)
+  }
+
+  const scene = parseSceneDocument(record.document)
+  const inventory = await loadWorkTransferInventory()
+  const dependencies = resolveScadaWorkDependencies(scene, inventory)
+  const hostCapabilities = createWorkPackageHostCapabilities()
+  const workPackage = createScadaWorkPackage(
+    scene,
+    dependencies,
+    hostCapabilities,
+  )
+
+  return {
+    workPackage,
+    document: serializeScadaWorkPackage(workPackage, hostCapabilities),
+  }
+}
+
+/** File-selection preflight. No repository write or registry mutation occurs here. */
+export async function inspectScadaWorkPackageImportDocument(
+  raw: string,
+): Promise<InspectedScadaWorkPackageImport> {
+  const hostCapabilities = createWorkPackageHostCapabilities()
+  const workPackage = parseScadaWorkPackageDocument(raw, hostCapabilities)
+  if (!workPackage) {
+    throw new Error('SCADA 作品包无效、依赖不完整或版本不受支持')
+  }
+
+  const plan = planScadaWorkPackageImport(
+    workPackage,
+    await loadWorkTransferInventory(),
+  )
+  return { workPackage, plan }
+}
+
+/**
+ * Persist one validated package as a fresh local work. The complete package is
+ * revalidated and collision-planned immediately before the write so UI
+ * inspection cannot become persistence authority.
+ */
+export async function importScadaWorkPackage(
+  candidate: ScadaWorkPackage,
+): Promise<ScadaWorkSummary> {
+  const hostCapabilities = createWorkPackageHostCapabilities()
+  const workPackage = parseScadaWorkPackage(candidate, hostCapabilities)
+  if (!workPackage) {
+    throw new Error('SCADA 作品包无效、依赖不完整或版本不受支持')
+  }
+
+  const plan = planScadaWorkPackageImport(
+    workPackage,
+    await loadWorkTransferInventory(),
+  )
+  if (plan.kind === 'collision') {
+    throw new Error(plan.message)
+  }
+
+  await ensureBrowserPersistenceReady()
+  const updatedAt = new Date().toISOString()
+  const componentRecords = plan.dependenciesToImport.map((dependency) => {
+    const entry = distributableComponentPackageToLibraryEntry(dependency, {
+      id: createImportedComponentId(),
+      updatedAt,
+    })
+    return {
+      id: entry.id,
+      document: serializeComponentLibraryDocument(entry),
+      updatedAt,
+    }
+  })
+  const workId = createWorkId()
+  const sceneRecord = {
+    id: workId,
+    // parseScadaWorkPackage() already normalized/migrated this through the
+    // M8A1 scoped codec, so it is safe to persist before live activation.
+    document: JSON.stringify(workPackage.scene),
+    updatedAt,
+  }
+
+  await browserPersistence.addWorkImportAtomically(
+    sceneRecord,
+    componentRecords,
+  )
+
+  // Activation happens only after the complete browser transaction commits.
+  await prepareComponentRuntimeRegistry()
+  const normalizedScene = parseSceneDocument(sceneRecord.document)
+  sceneCache.set(workId, normalizedScene)
+  return summarizeScene(workId, normalizedScene, updatedAt)
 }
