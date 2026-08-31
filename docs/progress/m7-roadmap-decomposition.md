@@ -1,6 +1,6 @@
 # M7 roadmap decomposition
 
-Status: active roadmap · M7B1 review gate · 2026-08-31
+Status: active roadmap · M7B2 evaluation next · 2026-08-31
 
 ## Why M7 is split
 
@@ -90,11 +90,9 @@ Rules:
 - first establish adapter lifecycle/error/reconnect fixtures against the host interfaces, then select concrete production transports
 - backend publication deployment remains independent and deferred by M6.7B3
 
-#### M7B1 Protocol-neutral runtime adapter lifecycle foundation — review gate
+#### M7B1 Protocol-neutral runtime adapter lifecycle foundation — accepted · 2026-08-31
 
-Implement the lifecycle owner around the existing inbound/outbound boundaries before choosing a transport.
-
-Required semantics:
+Accepted semantics:
 
 - explicit stopped / connecting / connected / retrying / failed state
 - injected retry policy and deterministic delay seam
@@ -106,13 +104,15 @@ Required semantics:
 - stop aborts pending work and closes the live connection
 - deterministic lifecycle regression in normal CI
 
-Implementation record: `docs/progress/m7b1-runtime-adapter-lifecycle-foundation.md`.
+Acceptance evidence: PR #100 CI run #715 (`33361745532`) passed Build, runtime/model checks, Lint, and PostgreSQL publication API integration.
 
-#### M7B2 First concrete production transport — after M7B1 acceptance
+Acceptance record: `docs/progress/m7b1-runtime-adapter-lifecycle-foundation.md`.
+
+#### M7B2 First concrete production transport — NEXT EVALUATION
 
 Do not pick a transport by roadmap inertia.
 
-After M7B1 is accepted, evaluate the actual deployment/product integration needs and choose the first concrete transport against the generic lifecycle contract. The selection must specify:
+Before implementation, evaluate the actual deployment/product integration needs and choose the first concrete transport against the accepted generic lifecycle contract. The selection must specify:
 
 - external platform/protocol target
 - authentication/configuration ownership
@@ -135,11 +135,11 @@ The set should prove generic capabilities rather than add component-specific edi
 ```text
 M7A1 transport-neutral package codec             accepted
   -> M7A2 explicit file export/import            accepted
-  -> M7B1 generic adapter lifecycle foundation   review gate
-  -> M7B2 first concrete production transport    later
+  -> M7B1 generic adapter lifecycle foundation   accepted
+  -> M7B2 first concrete production transport    NEXT EVALUATION
   -> M7C reusable component set                  later
 ```
 
-A later review may interleave M7B2 and M7C if concrete product evidence justifies it, but M7B1 is the current implementation gate.
+A later review may interleave M7B2 and M7C if concrete product evidence justifies it, but M7B2 transport selection is the current decision gate.
 
 Production publication-backend deployment remains separately deferred and must not be reopened implicitly by M7B.
