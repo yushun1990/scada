@@ -407,9 +407,9 @@ Rules:
 - choose concrete transports only after the generic adapter boundary is accepted
 - publication-backend deployment remains separately deferred by B3
 
-#### M7B1 Protocol-neutral runtime adapter lifecycle foundation — review gate
+#### M7B1 Protocol-neutral runtime adapter lifecycle foundation — accepted · 2026-08-31
 
-Current implementation provides:
+Accepted result:
 
 - protocol-neutral `ManagedRuntimeAdapter`
 - stopped / connecting / connected / retrying / failed lifecycle
@@ -422,9 +422,11 @@ Current implementation provides:
 - stop abort + live-connection close semantics
 - deterministic CI lifecycle regression
 
-Implementation/review record: `docs/progress/m7b1-runtime-adapter-lifecycle-foundation.md`.
+PR #100 CI run #715 (`33361745532`) passed Build, all runtime/model checks including the lifecycle fixture, Lint, and PostgreSQL publication API integration.
 
-#### M7B2 First concrete production transport — after M7B1 acceptance
+Acceptance record: `docs/progress/m7b1-runtime-adapter-lifecycle-foundation.md`.
+
+#### M7B2 First concrete production transport — NEXT EVALUATION
 
 Do not select MQTT, WebSocket, HTTP, or a vendor SDK by roadmap inertia. First evaluate the actual deployment/integration target against the accepted generic lifecycle contract, including authentication/configuration ownership, inbound mapping, outbound Action mapping, reconnect behavior, idempotency expectations, and browser/runtime constraints.
 
@@ -451,14 +453,14 @@ Prefer components expressible with accepted Properties / Actions / Events / Anch
 10. M6.7B3 production deployment decision                               accepted · defer · 2026-08-30
 11. M7A1 transport-neutral distributable package codec                  accepted · 2026-08-30
 12. M7A2 explicit browser package export/import                         accepted · 2026-08-30
-13. M7B1 protocol-neutral runtime adapter lifecycle                     review gate
-14. M7B2 first concrete production transport                            after M7B1
+13. M7B1 protocol-neutral runtime adapter lifecycle                     accepted · 2026-08-31
+14. M7B2 first concrete production transport                            NEXT EVALUATION
 15. M7C reusable component set                                          later
 ```
 
-**Current implementation gate: M7B1 Protocol-neutral runtime adapter lifecycle foundation.**
+**Current decision gate: M7B2 First concrete production transport evaluation.**
 
-After M7B1 acceptance, evaluate the first concrete production transport before implementation; do not let transport choice leak into Component or Scene contracts.
+Evaluate the first concrete production transport before implementation; do not let transport choice leak into Component or Scene contracts.
 
 Do not restart M6 effect experimentation, revive QuickJS as the main product path, or provision production publication infrastructure while B3 remains `defer deployment`.
 
@@ -491,10 +493,10 @@ Prefer explicit deterministic state/snapshots over timing-sensitive renderer ins
 
 ## 11. Near-term non-goals
 
-The following must not distract M7B1:
+The following must not distract M7B2 evaluation:
 
 - production publication-backend provisioning while B3 remains `defer deployment`
-- choosing a concrete transport before the generic lifecycle gate is accepted
+- implementing a concrete transport before the M7B2 selection decision is explicit
 - protocol-specific Component or Scene APIs
 - implicit outbound command queueing/replay across reconnect
 - exactly-once delivery claims without protocol-level idempotency/correlation support
