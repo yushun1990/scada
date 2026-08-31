@@ -7,7 +7,8 @@ import {
 } from '../scene/model'
 import { getWorldTransform, type TransformUpdates } from '../scene/geometry'
 import { withLiveTransformOverrides } from '../scene/live-preview'
-import { builtInComponentRegistry } from '../component-system/builtins'
+import { studioComponentRegistry } from '../component-system/builtins'
+import type { ComponentRegistryView } from '../component-system/registry-view'
 import { DEFAULT_RECT_ANCHORS } from '../component-system/default-anchors'
 import type {
   VisualAnchorDefinition,
@@ -20,19 +21,26 @@ export type {
 } from '../component-system/definition'
 export { DEFAULT_RECT_ANCHORS } from '../component-system/default-anchors'
 
-export function getNodeAnchorDefinitions(node: SceneNode) {
+export function getNodeAnchorDefinitions(
+  node: SceneNode,
+  registry: ComponentRegistryView = studioComponentRegistry,
+) {
   if (isGroupNode(node)) {
     return []
   }
 
   return (
-    builtInComponentRegistry.get(node.type)?.definition.anchors ??
+    registry.get(node.type)?.definition.anchors ??
     DEFAULT_RECT_ANCHORS
   )
 }
 
-export function getAnchorDefinition(node: SceneNode, anchorId: string) {
-  return getNodeAnchorDefinitions(node).find((item) => item.id === anchorId) ?? null
+export function getAnchorDefinition(
+  node: SceneNode,
+  anchorId: string,
+  registry: ComponentRegistryView = studioComponentRegistry,
+) {
+  return getNodeAnchorDefinitions(node, registry).find((item) => item.id === anchorId) ?? null
 }
 
 export function getAnchorWorldPosition(
