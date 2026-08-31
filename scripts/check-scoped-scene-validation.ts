@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import type { ComponentDefinition } from '../src/component-system/definition'
-import { studioComponentRegistry } from '../src/component-system/builtins'
 import type { ComponentRegistration } from '../src/component-system/registration'
 import { ComponentRegistry } from '../src/component-system/registry'
 import type { ComponentRenderer } from '../src/component-system/renderer'
 import {
-  parseSceneDocument,
   parseSceneDocumentWithRegistry,
   serializeSceneDocumentWithRegistry,
-} from '../src/scene/validation'
+} from '../src/scene/validation-core'
 
 const dummyRenderer = (() => null) as unknown as ComponentRenderer
 
@@ -155,6 +154,14 @@ function scene(
   })
 }
 
+// The package-preflight codec must remain a pure data-layer module. This source
+// boundary check prevents a future convenience import from silently pulling
+// Studio/native renderer assets back into Node/package validation.
+const coreSource = readFileSync('src/scene/validation-core.ts', 'utf8')
+assert.doesNotMatch(coreSource, /component-system\/builtins/)
+assert.doesNotMatch(coreSource, /components\/anchors/)
+assert.doesNotMatch(coreSource, /from ['"]\.\/model['"]/)
+
 const propertyType = 'm8.fixture.property'
 const propertyNumberRegistry = new ComponentRegistry([
   registration(definition(propertyType, { property: 'number' })),
@@ -175,6 +182,8 @@ assert.throws(
   /无效节点/,
   'Component Property validation must use the supplied registry definition',
 )
+assert.equal(propertyNumberRegistry.get(propertyType)?.definition.properties.value?.kind, 'number')
+assert.equal(propertyStringRegistry.get(propertyType)?.definition.properties.value?.kind, 'string')
 
 const anchorType = 'm8.fixture.anchor'
 const leftRightRegistry = new ComponentRegistry([
@@ -213,6 +222,14 @@ assert.throws(
   /不存在的视觉锚点/,
   'Connection Anchor validation must use the supplied registry',
 )
+assert.deepEqual(
+  leftRightRegistry.get(anchorType)?.definition.anchors.map((anchor) => anchor.id),
+  ['left', 'right'],
+)
+assert.deepEqual(
+  topBottomRegistry.get(anchorType)?.definition.anchors.map((anchor) => anchor.id),
+  ['top', 'bottom'],
+)
 
 const behaviorType = 'm8.fixture.behavior'
 const behaviorRegistry = new ComponentRegistry([
@@ -248,6 +265,8 @@ assert.throws(
   /不存在的 Behavior 目标 Action/,
   'legacy Event -> Action validation must use the supplied target definition',
 )
+assert.equal(Boolean(behaviorRegistry.get(behaviorType)?.definition.actions.run), true)
+assert.equal(Boolean(behaviorWithoutActionRegistry.get(behaviorType)?.definition.actions.run), false)
 
 const semanticType = 'm8.fixture.semantic'
 const semanticRegistry = new ComponentRegistry([
@@ -291,32 +310,16 @@ assert.deepEqual(
   'scoped serialization must reuse the same scoped parser/migrator',
 )
 
-for (const type of [propertyType, anchorType, behaviorType, semanticType]) {
-  assert.equal(
-    studioComponentRegistry.has(type),
-    false,
-    `scoped validation must not mutate the live Studio registry: ${type}`,
-  )
-}
-
-assert.throws(
-  () => parseSceneDocument(propertyScene),
-  /无效节点/,
-  'the existing default parser must still use only the live Studio registry',
-)
-assert.equal(
-  studioComponentRegistry.has(propertyType),
-  false,
-  'default-wrapper failure must not mutate the live registry either',
-)
-
 const emptyRegistry = new ComponentRegistry()
 assert.throws(
   () => parseSceneDocumentWithRegistry(propertyScene, emptyRegistry),
   /无效节点/,
   'unknown component types fail closed inside an isolated registry',
 )
+assert.equal(emptyRegistry.list().length, 0, 'validation must not register candidate types as a side effect')
+assert.equal(propertyNumberRegistry.has(anchorType), false)
+assert.equal(leftRightRegistry.has(propertyType), false)
 
 console.log(
-  'Scoped Scene validation checks passed: Property, Anchor, legacy Event/Action and canonical Scene v7 semantics resolve only through the supplied registry; scoped serialization reuses the same boundary; unknown types fail closed; isolated registries do not contaminate studioComponentRegistry; and the default parser remains the live-Studio compatibility wrapper.',
+  'Scoped Scene validation checks passed: the pure codec has no Studio/native imports; Property, Anchor, legacy Event/Action and canonical Scene v7 semantics resolve only through the supplied registry; scoped serialization reuses the same boundary; unknown types fail closed; and isolated registries do not cross-contaminate or gain registrations during validation.',
 )
