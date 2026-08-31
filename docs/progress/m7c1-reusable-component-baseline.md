@@ -101,13 +101,15 @@ This means the starter set can be downloaded, imported, edited locally, exported
 - conversion to ready local authoring entries with caller-owned local identity
 - local document serialization
 - persistence/hydration through `MemoryComponentRepository`
-- activation through `replaceStudioUserComponentPackages()` / the normal live registry path
-- zero activation diagnostics
+- activation through `createUserComponentActivationController()` using the real `createCompositeComponentRegistration()` factory
+- zero activation diagnostics and deterministic registry replacement/removal
 - valve open/fault Visual Rule behavior and fault Blink
 - motor running/fault rules, Spin and Blink behavior
 - signal-quality numeric threshold visibility
 - select / boolean / number Property coverage
 - Anchor coverage
+
+The deterministic Node fixture deliberately does not import the Studio built-in bundle because trusted native components include Vite-owned asset modules. The deployed browser smoke below is the authority for the complete Studio live-registry/palette path.
 
 The fixture is part of normal CI runtime/model checks.
 
@@ -123,7 +125,7 @@ After deployment it:
 4. imports each package through the explicit M7A2 file UI
 5. accepts the required confirmation for each import
 6. verifies all three persist locally
-7. creates a SCADA work and verifies all three activate through the normal palette
+7. creates a SCADA work and verifies all three activate through the normal Studio palette
 
 No special starter-package installation path is introduced.
 
