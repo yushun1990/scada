@@ -1,8 +1,6 @@
 # M7B1 — Protocol-neutral runtime adapter lifecycle foundation
 
-Status: implementation complete · review gate
-
-Date: 2026-08-31
+Status: accepted · 2026-08-31
 
 ## Goal
 
@@ -163,8 +161,17 @@ M7B1 does not add:
 - production publication-backend deployment
 - backend ownership of runtime evaluation
 
-## Review gate
+## Acceptance evidence
 
-M7B1 is accepted only after Build, the deterministic lifecycle fixture, existing runtime/model regressions, and Lint pass in PR CI.
+PR #100 CI run #715 (`33361745532`) passed on the implementation head `b5b7edf6bab9675bc900da3dc85ab08a25e6dbe2`:
 
-After acceptance, M7B2 should evaluate and select the **first concrete production transport** against this generic lifecycle contract rather than modifying component or scene semantics first.
+- Build — success
+- Runtime model checks, including `check-runtime-adapter-lifecycle.ts` — success
+- Lint — success
+- PostgreSQL publication API integration — success
+
+The lifecycle foundation is therefore accepted.
+
+## Next gate
+
+M7B2 should evaluate and select the **first concrete production transport** against this generic lifecycle contract rather than modifying component or scene semantics first.
