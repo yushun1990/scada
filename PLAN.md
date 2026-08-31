@@ -172,7 +172,11 @@ Trusted built-ins may implement Actions/Events. Do not silently turn draft text 
 
 A raw Scene v7 document references component types but does not contain user-component definitions.
 
-A future runnable work artifact must make its component dependencies explicit. Validation of a candidate artifact must not require mutating the live Studio component registry first.
+A runnable work artifact must make its portable user-component dependencies explicit. Trusted built-in/native components remain host capabilities rather than copied dependencies.
+
+Validation of a candidate artifact must not require mutating the live Studio component registry first.
+
+Exact work-package closure means every non-host Scene component type is supplied once by the artifact and every supplied portable dependency is actually referenced by that Scene.
 
 ---
 
@@ -187,12 +191,14 @@ M4 Generic component kernel / registry                         accepted
 M5 SCADA Runtime v0.1                                          accepted
 M6 Component Workbench + scene semantics                       accepted · 2026-08-30
 M7 Packaging / adapter foundation / reusable components         accepted · 2026-08-31
-M8 Portable SCADA Work + Standalone Runtime                     active · M8A1 NEXT
+M8 Portable SCADA Work + Standalone Runtime                     active · M8A2 ACTIVE
 ```
 
 M6 acceptance established the browser-first authoring/runtime baseline: Component Workbench, typed public contracts, Scene v7 canonical semantics, IndexedDB repositories, local user-component activation and optional immutable publication/install flows.
 
 M7 acceptance established: transport-neutral component packages, explicit browser component transfer, protocol-neutral production adapter lifecycle, deliberate concrete-transport deferral, and a real reusable portable starter component set.
+
+M8A1 acceptance established the registry-scoped Scene validation boundary required to preflight candidate work dependencies without mutating `studioComponentRegistry`.
 
 Detailed history: `docs/progress/`.
 
@@ -294,15 +300,14 @@ SCADA Works
   -> Save locally or export raw Scene JSON
 ```
 
-Current repository audit shows:
+Current repository audit established:
 
 - `App.tsx` has workspace/editor routes but no standalone runtime route
 - `WorkspacePage.tsx` offers `Edit` for works but no Run/Package/Publish action
 - `ScadaEditorPage.tsx` has editor-local `Design` / `Preview` only
 - Scene export is raw `SceneDocument` JSON
 - Scene v7 nodes reference component `type`; portable user-component definitions are not embedded
-- `parseSceneDocument()` resolves types against the mutable live Studio registry
-- connection Anchor validation resolves through the same live registry
+- the default Scene codec resolves types against the mutable live Studio registry
 
 Therefore raw `.scene.json` is not a dependency-complete runnable work on a fresh browser.
 
@@ -314,7 +319,7 @@ saved SCADA work
         ↓ explicit packaging
 versioned validated work artifact
         ↓
-explicit import / standalone runtime load
+explicit browser transfer / standalone runtime load
         ↓
 read-only runnable SCADA surface
 ```
@@ -323,45 +328,83 @@ Built-in/native components remain host capabilities. Portable user components ma
 
 Do not treat a debug snapshot as a distribution format.
 
-### M8A1 Registry-scoped Scene validation boundary — NEXT
+### M8A1 Registry-scoped Scene validation boundary — accepted · 2026-08-31
+
+M8A1 introduced a structural `ComponentRegistryView` and pure scoped Scene codec entry points:
+
+- `parseSceneDocumentWithRegistry()`
+- `serializeSceneDocumentWithRegistry()`
+
+The supplied registry now owns Property, legacy binding/Action/Event, canonical Scene v7 semantic-contract and visual Anchor validation. Unknown component types fail closed in that scope.
+
+The existing default Scene APIs remain wrappers over `studioComponentRegistry`; M8A1 is dependency injection for the existing component system, not a second registry system.
+
+Deterministic fixtures prove isolated registries validate independently without cross-contamination or live-registry mutation.
+
+Acceptance evidence:
+
+- PR #104
+- merged revision `main@fa588c251c0d65b7521452b1763feed620749b7e`
+- PR head CI #734 (`33365358054`) passed
+
+Record:
+
+- `docs/progress/m8a1-registry-scoped-scene-validation.md`
+
+### M8A2 Portable SCADA work package codec — ACTIVE
 
 Goal:
 
-> Validate/migrate a Scene against an explicit component registry view without mutating the product-global `studioComponentRegistry`.
+> Define a transport-neutral, versioned runnable-work artifact whose Scene and portable user-component dependencies can be preflighted as one dependency-complete unit without touching the live Studio registry.
 
-This is required before a work-package codec can safely preflight bundled component dependencies.
+Target v1 boundary:
+
+```text
+ScadaWorkPackage
+├─ packageVersion
+├─ scene                  canonical/migrated Scene v7
+└─ dependencies[]         distributable portable user components
+
+host capabilities         trusted built-in/native registrations, injected
+```
 
 Acceptance requirements:
 
-- preserve current Scene v1-v7 migration and default `parseSceneDocument()` behavior
-- provide an explicit scoped Scene parse/serialize validation path against a supplied component registry/definition resolver
-- Property validation uses the supplied component definition
-- legacy Action/Event behavior validation uses the supplied registry
-- canonical Scene v7 semantic contract validation uses the supplied definition
-- visual connection Anchor validation uses the same supplied registry
-- unknown component types fail closed within that scope
-- validation does not register/unregister anything in `studioComponentRegistry`
-- deterministic fixture proves two isolated registries can validate the same Scene differently without cross-contamination
-- existing scene/runtime regressions remain green
+- work-package version is explicit and independent from Scene/component-package schema versions
+- parse/create/serialize paths are pure and transport-neutral
+- Scene validation/migration reuses the M8A1 registry-scoped codec
+- trusted built-in/native component types are satisfied by an injected host-capability view and are not copied into the artifact
+- each non-host Scene component type must be supplied by exactly one portable dependency
+- bundled dependency types cannot shadow trusted host capabilities
+- unused bundled dependencies are rejected so the artifact is an exact dependency closure rather than an arbitrary component cache
+- portable dependencies reuse the accepted distributable component package validator
+- only currently runnable portable dependencies are accepted: declarative composite visual packages with no portable Actions/Events
+- `implementationDraft` remains inert
+- unsupported/malformed package versions fail closed
+- normalized dependency ordering makes serialization deterministic
+- preflight does not register/unregister anything in `studioComponentRegistry` or the supplied host registry
+- deterministic fixture covers closure, isolation, host collision, unsupported executable dependencies and legacy Scene migration
+- existing Scene/component-package/runtime regressions remain green
 
 Architectural constraint:
 
-> M8A1 is dependency injection for validation, not a second component system.
+> M8A2 defines the artifact contract only. It must not hide browser persistence, Studio registry mutation, publication, runtime hosting or concrete protocol configuration inside the codec.
 
-Keep the existing Studio registry as the default product dependency through a wrapper so current editor call sites do not churn unnecessarily.
+Record:
 
-### After M8A1
+- `docs/progress/m8a2-portable-work-package-codec.md`
+
+### After M8A2
 
 Do not jump directly to deployment hosting.
 
-Re-evaluate and then sequence the minimum necessary slices, expected to include:
+Expected minimum sequence:
 
-1. transport-neutral versioned SCADA work package with dependency closure
-2. explicit browser work export/import using that codec
-3. standalone/read-only runtime shell consuming the same artifact
-4. real runtime transport integration only when M7B2 reopening conditions are satisfied
+1. M8A3 explicit browser work export/import using the accepted package codec
+2. standalone/read-only runtime shell consuming the same artifact on a fresh-browser boundary
+3. real runtime transport integration only when M7B2 reopening conditions are satisfied
 
-The exact package shape must be designed after M8A1 makes isolated validation possible.
+The browser-transfer slice must preserve package preflight before persistence/activation. The standalone runtime must consume the same artifact rather than inventing a second debug/runtime format.
 
 ---
 
@@ -374,12 +417,13 @@ M7B protocol-neutral runtime adapter lifecycle                  accepted
 M7B2 concrete transport                                         deferred until real target
 M7C1 reusable portable starter packages                         accepted · 2026-08-31
 M7 closeout                                                     accepted · 2026-08-31
-M8A1 registry-scoped Scene validation                           NEXT
+M8A1 registry-scoped Scene validation                           accepted · 2026-08-31
+M8A2 dependency-complete portable work package                  ACTIVE
 ```
 
-**Current implementation gate: M8A1 Registry-scoped Scene validation boundary.**
+**Current implementation gate: M8A2 Portable SCADA work package codec.**
 
-Do not restart M6 effect experimentation, revive QuickJS as the main product path, invent a concrete transport without a target, execute `implementationDraft`, or provision production publication infrastructure while M6.7B3 remains `defer deployment`.
+Do not start M8A3 browser transfer or a standalone runtime route until M8A2 has a validated artifact boundary. Do not restart M6 effect experimentation, revive QuickJS as the main product path, invent a concrete transport without a target, execute `implementationDraft`, or provision production publication infrastructure while M6.7B3 remains `defer deployment`.
 
 ---
 
@@ -398,7 +442,8 @@ Use the narrowest relevant verification set:
 - M7 component-package fixtures for codec, transfer, persistence and activation
 - M7 runtime-adapter fixtures for lifecycle/reconnect/fencing/no-replay
 - M8 scoped-scene fixtures for isolated registry validation and legacy/current schema behavior
-- future M8 work-package fixtures must verify dependency closure and fail-closed validation before persistence/activation
+- M8 work-package fixtures must verify exact dependency closure, host-capability collision handling, deterministic normalization and fail-closed Scene/package validation before persistence/activation
+- future M8 browser-transfer fixtures must prove a dependency-complete artifact crosses a fresh-browser boundary before live activation
 
 Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -406,11 +451,13 @@ Prefer explicit deterministic state/snapshots over timing-sensitive renderer ins
 
 ## 10. Current non-goals / reopening conditions
 
-Do not distract M8A1 with:
+Do not distract M8A2 with:
 
+- Workspace package/export/import UI before the core artifact is accepted
+- standalone runtime hosting/shell before the package boundary is accepted
 - production publication-backend provisioning while M6.7B3 remains deferred
 - speculative MQTT/WebSocket/HTTP/SSE/vendor adapter implementation
-- protocol-specific Component or Scene fields
+- protocol-specific Component, Scene or work-package fields
 - outbound command replay/exactly-once claims without protocol idempotency support
 - executable `implementationDraft`
 - portable Actions/Events without an accepted executable contract
@@ -420,6 +467,5 @@ Do not distract M8A1 with:
 - arbitrary DOM / React / Konva authored access
 - full vector illustration/path tooling
 - collaborative editing
-- standalone runtime hosting infrastructure before the local artifact/runtime boundary exists
 
 These are deferred or separate concerns, not rejected forever.
