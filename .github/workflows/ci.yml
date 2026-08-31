@@ -49,6 +49,7 @@ jobs:
           npx --yes tsx scripts/check-scada-semantics-persistence.ts
           npx --yes tsx scripts/check-scoped-scene-validation.ts
           npx --yes tsx scripts/check-scada-work-package.ts
+          npx --yes tsx scripts/check-scada-work-transfer.ts
           npx --yes tsx scripts/check-storage-repositories.ts
           npx --yes tsx scripts/check-local-storage-migration.ts
           npx --yes tsx scripts/check-user-component-activation.ts
@@ -61,6 +62,7 @@ jobs:
           npx --yes tsx scripts/check-remote-component-installation.ts
           npx --yes tsx scripts/check-component-publication-client.ts
           node scripts/check-server-publication-contract.mjs
+          node --check scripts/pages-scada-work-package-transfer-smoke.mjs
           node --check server/src/publication-auth.js
           node --check server/src/index.js
 
