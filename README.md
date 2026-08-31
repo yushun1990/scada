@@ -1,82 +1,102 @@
 # SCADA Editor Lab
 
-一个用于验证 SCADA 前端编辑和运行交互的实验项目。项目只关注浏览器中的场景编辑、组件表现和模拟状态，不包含物联网接入层或后端规则引擎。
+Browser-first SCADA authoring and runtime experiment built with React, TypeScript, Vite and Konva.
 
-## 当前状态：M2.3 端点重连切片
+The project focuses on:
 
-编辑器由版本化 `SceneDocument` 驱动，目前具备：
+- SCADA scene authoring
+- reusable component authoring
+- deterministic browser runtime semantics
+- local-first persistence
+- portable component distribution
+- explicit host boundaries for telemetry and device/platform effects
 
-- 编辑模式和预览模式共用一个 `SceneRenderer`；
-- 支持添加、复制、删除和重命名水泵节点；
-- 支持单选、Shift/Ctrl 多选和空白区域框选；
-- 单击组件进入选择态，只显示缩放/旋转控制框；
-- 单击画板空白处取消当前组件或连线选择；
-- 未选中的组件在鼠标悬停时显示固定连接点，连接点不会以透明命中层覆盖缩放控制点；
-- 支持多选整体移动、六种对齐和水平/垂直等距分布；
-- 支持网格吸附以及始终开启的组件边缘/中心轴吸附；
-- 支持独立显示或隐藏格线；
-- 支持单节点和组合的等比例缩放与旋转；
-- 支持持久化 `core.group`、嵌套组合、拆分和子树复制；
-- 组合节点可以递归设置组内兼容组件的公共属性；
-- 水泵定义归一化进水口、出水口和端口向外方向；
-- 支持从悬停显示的固定连接点拖拽建立连接；
-- 默认矩形连接点位于组件周边，不再提供组件中心连接点；
-- 支持直线和正交自动路由，新建连接默认使用正交路由；
-- 正交路由包含端口短引线和水平/垂直折线，并自动移除重复折点；
-- 支持端口悬停放大、光标反馈和端口名称/方向提示；
-- 支持连线选择、删除、名称、路由、颜色、线宽和实线/虚线设置；
-- 选中连线后可以拖动起点或终点控制点重新连接；
-- 重连时只突出兼容端口，并阻止重复连接和端口角色交换；
-- 取消或无效重连会恢复原端点和原路径；
-- 移动、旋转、缩放、组合或拆分后，连线和端口实时跟随；
-- 删除组件时自动删除失效连线；
-- 复制组合时复制组合内部连线；
-- 支持保存到浏览器、恢复、导入和导出场景 JSON；
-- 场景版本为 v3，导入 v1/v2 场景时自动迁移。
+It intentionally does **not** make a protocol-specific IoT access layer, backend rule engine or production deployment service the center of the editor.
 
-吸附、对齐、分布和父子坐标转换由 `src/scene/geometry.ts` 中的纯函数计算。组合、拆分、复制子树和递归删除由 `src/scene/hierarchy.ts` 负责。组件端口定义位于 `src/components/ports.ts`，直线与正交路由位于 `src/scene/connection-routing.ts`，连接创建与重连规则位于 `src/scene/connection-commands.ts`。Konva 只承担输入适配和渲染，不拥有场景状态。
-
-## 操作方式
+## Current status
 
 ```text
-点击组件                 单选并显示四角缩放/旋转控制框
-Shift/Ctrl + 点击        增加或移除选择
-点击画板空白处           取消当前选择
-空白处拖动               框选
-拖动任一选中节点         整体移动当前选择
-组合                     将两个以上同级节点转为 core.group
-拆分                     恢复组合的直接子节点
-四角控制点               单节点或组合等比例缩放
-顶部控制点               单节点或组合旋转
-显示格线                 只控制视觉网格
-网格吸附                 控制是否额外吸附到网格
-悬停未选中组件           显示周边固定连接点
-悬停连接点               放大连接点并显示名称/方向提示
-从连接点拖到兼容连接点   建立正交连接
-点击连线                 选择并在右侧编辑样式和路由
-拖动连线起点/终点        将该端重新连接到兼容连接点
+M0–M5  editor/runtime foundations                         accepted/usable
+M6      Component Workbench + Scene v7 semantics          accepted · 2026-08-30
+M7      component packaging / adapter foundation / set    accepted · 2026-08-31
+M8      portable SCADA work + standalone runtime          active
+         └─ M8A1 registry-scoped Scene validation         NEXT
 ```
 
-连接点视觉反馈：
+The authoritative execution roadmap is [`PLAN.md`](PLAN.md).
+
+## Product structure
 
 ```text
-蓝色描边白底：可用于开始连线的固定连接点
-蓝色实心：当前悬停连接点
-绿色：连线拖动中的兼容目标
-红色：连线拖动中的不兼容目标
+SCADA Studio
+├─ SCADA Works
+│   └─ SCADA Editor
+│       ├─ fixed-size artboard
+│       ├─ reusable component palette
+│       ├─ move / resize / rotate / group
+│       ├─ visual connections
+│       ├─ Component Properties
+│       ├─ runtime-value bindings
+│       ├─ SCADA Value / Behavior / Interaction semantics
+│       ├─ Design / Preview
+│       └─ local save + raw Scene JSON import/export
+│
+└─ Component Library
+    └─ Component Editor
+        ├─ Properties / Actions / Events / Anchors contract
+        ├─ layered composite visuals
+        ├─ Visual Rules
+        ├─ animation
+        ├─ local draft / ready lifecycle
+        ├─ portable package import/export
+        └─ optional remote publish/install flows
 ```
 
-重连过程中，不兼容端口会淡化；进入吸附范围的可放置端口及预览路径会变为绿色。松开到空白区域或无效端口时，连线恢复原状。
+The two authoring surfaces deliberately have different complexity. Component development may be advanced; normal SCADA scene authoring should remain simple.
 
-粉色参考线表示组件之间的轴吸附，青色虚线表示网格吸附。格线本身只使用中性灰色，蓝色保留给组件选中框、连接端点标记和变换控制点。
+## Scene editor capabilities
 
-## 场景结构
+The current editor includes:
 
-当前场景版本为 3：
+- fixed artboard size presets and zoomable canvas
+- single and multi-selection
+- drag, resize and rotate
+- grouping / ungrouping and hierarchy-aware geometry
+- undo / redo
+- alignment and equal distribution
+- grid and object snapping
+- visible visual Anchors around components
+- straight and orthogonal visual connections
+- endpoint reconnection and connection compatibility checks
+- connection style editing
+- local IndexedDB persistence
+- Scene import/export
+- Design and Preview modes
+- Component Property editing
+- runtime-value bindings
+- canonical Scene v7 SCADA semantics
+- typed Component Actions/Events for trusted registrations
+- host-owned outbound Device/Platform Action dispatch
+
+Visual connections and runtime semantics remain separate:
+
+```text
+SceneConnection
+= visible pipe / wire / process line
+
+SCADA Value / Behavior / Interaction semantics
+= runtime behavior
+```
+
+## Scene v7
+
+`SceneDocument` currently persists version 7.
+
+The important runtime shape is conceptually:
 
 ```ts
-interface SceneDocument {
-  version: 3
+type SceneDocument = {
+  version: 7
   id: string
   name: string
   width: number
@@ -85,117 +105,143 @@ interface SceneDocument {
   nodes: SceneNode[]
   connections: SceneConnection[]
 }
-
-interface SceneConnection {
-  id: string
-  name: string
-  source: { nodeId: string; portId: string }
-  target: { nodeId: string; portId: string }
-  routing: 'straight' | 'orthogonal'
-  style: {
-    stroke: string
-    strokeWidth: number
-    dash: 'solid' | 'dashed'
-  }
-}
 ```
 
-连接端点只保存 `{ nodeId, portId }`，不保存绝对坐标。端口位置和向外方向由组件定义与当前世界变换动态计算，因此组件层级与几何变化不会破坏连接关系。
+Component nodes reference a component by `type`, persist public props and canonical `scadaSemantics`, and use visual Anchor IDs for connections.
 
-正交路由不会持久化自动生成的折点。每次渲染时根据端口位置、端口方向和固定安全距离重新计算，因此移动、旋转或组合后无需修改连接数据。
+Legacy Scene versions are migrated through the current parser. Persisted SCADA semantics use stable IDs and structured references rather than DSL statement positions.
 
-连接重连通过纯场景命令提交。命令统一检查端口方向、介质类型、端点角色和重复连接；拖动期间的 Konva 预览不会直接修改 `SceneDocument`。
+## Component model
 
-## 性能边界
-
-动态内容集中在一个 Konva Layer 中，背景和格线位于独立静态 Layer。组件拖动、连接创建和端点重连预览通过 `requestAnimationFrame` 合并，每个动画帧最多更新一次；拖动时只重算受影响组件的端口与关联连线。
-
-每个水泵只渲染当前状态的一张规范化图片，Canvas 像素比固定为 1，避免高 DPI 桌面将全画布重绘成本按设备像素比平方放大。
-
-## 可视连接与行为连接
-
-这两种关系严格分离：
+Reusable component public contract:
 
 ```text
-SceneConnection
-管道、导线、流程线等画面上的可见几何关系
-
-BehaviorLink
-Event -> Action、Event -> Property、Property -> Property 等运行时关系
+Properties + Actions + Events + Anchors
 ```
 
-当前 M2.3 只实现 `SceneConnection`。Property、Action、Event 的行为连接在 M4 实现。
+Private implementation includes layered visuals, visual rules, animation and trusted/native implementation details.
 
-## 当前 M2.3 边界
+Scene authors consume the public contract; they do not bind directly to private visual layers.
 
-当前已经完成连接创建、直线/正交路由、端口反馈和端点重连，尚未实现：
+### Portable user components
 
-- 手动折点与折点删除；
-- 自动避障路由；
-- 管道箭头、流向动画和复杂装饰；
-- 键盘连线操作。
-
-下一切片将评估手动折点是否属于首版编辑器的必需基础能力；若不是必需项，则收束 M2.3 并进入 M3 组件定义与 Property / Action / Event 抽象。
-
-详细计划见 [`PLAN.md`](PLAN.md)，编辑器核心模型见 [`docs/architecture/editor-foundation.md`](docs/architecture/editor-foundation.md)。
-
-## 组件能力模型
-
-项目借鉴 WoT 的三分法，但只作为本地前端组件契约：
-
-- `Property`：可读取、可选可写、可绑定的组件值；
-- `Action`：需要显式调用的组件操作；
-- `Event`：组件发出的瞬时事件。
-
-这里不引入 Thing Description、协议绑定或网络通信语义。
-
-## 水泵状态资源
-
-运行时加载：
+M7 established a versioned transport-neutral component artifact:
 
 ```text
-public/components/pump/
-├── pump-gray.png
-├── pump-green.png
-├── pump-blue.png
-├── pump-orange.png
-└── pump-red.png
+local ready ComponentLibraryEntry
+        ↓ explicit conversion
+.scada-component.json
+        ├─ browser file export/import
+        └─ optional immutable publication
 ```
 
-原图允许具有不同画布尺寸和透明边距。加载后会扫描透明通道，将实际水泵内容按统一高度等比例缩放，并水平居中到 `512 × 720` 的规范化画布中。原始 PNG 不会被修改。
+Portable packages exclude local repository IDs/status/timestamps and pass through shared fail-closed validation.
 
-## 技术栈
+Current portable user-component activation intentionally supports declarative composite packages only. `implementationDraft` is inert, and ready user packages that declare executable Actions/Events are not activated until a separate portable execution contract is accepted.
 
-- React 19
-- TypeScript
-- Vite
-- Konva
-- react-konva
+Trusted built-ins may still provide typed Actions/Events.
 
-## 本地开发
+## Reusable starter packages
 
-要求 Node.js 20.19+ 或 22.12+。
+The first portable proof set is deployed under `public/component-packages/`:
+
+- `starter.process-valve` — select state, process Anchors, Visual Rules, fault Blink
+- `starter.running-motor` — boolean running/fault state, power/mechanical Anchors, Spin + Blink
+- `starter.signal-quality` — numeric quality Property and threshold visibility Rules
+
+They are real distributable files rather than hard-coded editor examples. Pages Browser Smoke verifies fresh-browser import, IndexedDB persistence and normal SCADA palette activation.
+
+## Runtime boundaries
+
+Inbound values and outbound device/platform effects use separate host interfaces:
+
+```text
+external telemetry
+    ↓
+RuntimeDataSource
+    ↓
+RuntimeValueStore / compiled scene runtime
+
+SCADA Interaction effect
+    ↓
+ScadaDeviceActionDispatcher
+    ↓
+external platform / device command
+```
+
+M7 also established `ManagedRuntimeAdapter` with explicit lifecycle/reconnect/error behavior.
+
+A concrete MQTT/WebSocket/HTTP/vendor adapter is deliberately **not** selected yet. It will be implemented only when a real integration target defines authentication, mapping, reconnect and delivery/idempotency semantics.
+
+## Local-first persistence
+
+Browser authoring authority is IndexedDB behind repository interfaces.
+
+```text
+Workbench
+    ↓
+Repository contracts
+    ├─ IndexedDB   product/browser storage
+    └─ Memory      deterministic fixtures
+```
+
+`localStorage` is compatibility/migration input only.
+
+The Workspace also exposes a debug snapshot path for storage diagnostics. Debug snapshots are not a distribution format.
+
+## Optional publication backend
+
+The repository contains an optional immutable component publication API and deployment assets.
+
+Production backend deployment is currently **deferred**. GitHub Pages/local editing/runtime do not depend on it.
+
+Do not expose server/admin credentials in the browser bundle.
+
+## Why M8 exists
+
+Today a SCADA work can be edited, previewed, saved locally and exported as raw Scene JSON, but there is no standalone runtime route or dependency-complete runnable work artifact.
+
+A Scene v7 file references component types. If it uses portable user components, a fresh browser must already have those components installed/activated before the scene can validate.
+
+M8 therefore targets:
+
+> **Portable SCADA Work + Standalone Runtime**
+
+The first slice, M8A1, will remove Scene validation's dependency on the mutable product-global component registry by allowing validation against an explicit registry view. This is required before a future work package can safely preflight bundled component dependencies without mutating live Studio state.
+
+See [`docs/progress/m7-closeout.md`](docs/progress/m7-closeout.md) for the post-M7 audit.
+
+## Development
+
+Requirements: Node.js 20.19+ or 22.12+.
 
 ```bash
 npm install
 npm run dev
 ```
 
-## 常用命令
+Common commands:
 
 ```bash
-npm run dev
 npm run build
 npm run lint
 npm run preview
 ```
 
-## 当前非目标
+CI also runs deterministic runtime/model fixtures and PostgreSQL-backed publication API checks. Browser-sensitive behavior is verified after deployment through GitHub Pages smoke tests.
 
-- 任意 JavaScript 表达式；
-- 完整 Figma 式矢量编辑；
-- 通用工作流引擎；
-- 网络侧 WoT Thing Description；
-- MQTT、WebSocket 或后端持久化；
-- 多人协作；
-- 内部叶轮动画。
+## Current non-goals
+
+Unless an explicit later gate reopens them:
+
+- speculative protocol-specific MQTT/WebSocket/HTTP integration
+- production publication-backend provisioning
+- unrestricted JavaScript execution
+- execution of portable `implementationDraft`
+- general workflow/process orchestration
+- arbitrary DOM / React / Konva authored access
+- full Figma-style vector/path tooling
+- collaborative editing
+- component marketplace/catalog expansion
+
+The current priority is making the accepted authoring/runtime model portable at the **SCADA work** level.
