@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { evaluateVisualAnimations } from '../src/component-system/animations'
+import { createCompositeComponentRegistration } from '../src/component-system/composite-registration'
+import { ComponentRegistry } from '../src/component-system/registry'
 import { resolveComponentVisualRules } from '../src/component-system/visualRules'
 import {
   parseComponentLibraryDocument,
@@ -14,7 +16,7 @@ import {
   serializeDistributableComponentPackage,
   type DistributableComponentPackage,
 } from '../src/features/component-library/distributable-component-package'
-import { replaceStudioUserComponentPackages } from '../src/features/component-library/runtime-activation'
+import { createUserComponentActivationController } from '../src/features/component-library/runtime-activation-core'
 import { MemoryComponentRepository } from '../src/storage/memory-repositories'
 
 const packageFixtures = [
@@ -120,13 +122,27 @@ assert.deepEqual(
   'starter packages survive the local repository document boundary',
 )
 
-const activation = replaceStudioUserComponentPackages(hydrated)
+// Exercise the same generic activation controller and composite-registration
+// factory used by Studio without importing the trusted built-in bundle. The
+// built-in bundle owns Vite-only native assets, so pulling it into this pure
+// Node fixture would test asset-loader behavior instead of portable packages.
+const registry = new ComponentRegistry()
+const activationController = createUserComponentActivationController({
+  registry,
+  builtInRegistrations: [],
+  createRegistration: (entry) =>
+    createCompositeComponentRegistration(entry.definition, entry.visual),
+})
+const activation = activationController.replace(hydrated)
 assert.deepEqual(
   activation.activeTypes,
   packageFixtures.map(({ type }) => type).sort(),
-  'all starter packages activate through the normal generic user-component registry path',
+  'all starter packages activate through the generic user-component controller',
 )
 assert.deepEqual(activation.diagnostics, [])
+for (const { type } of packageFixtures) {
+  assert.equal(registry.has(type), true, `${type} must enter the generic registry`)
+}
 
 const valve = loaded.find(({ type }) => type === 'starter.process-valve')!.componentPackage
 const valveOpen = resolveComponentVisualRules(valve.visual, { state: 'open' })
@@ -189,8 +205,11 @@ assert.equal(signal.definition.properties.quality.kind, 'number')
 assert.equal(valve.definition.properties.state.kind, 'select')
 assert.equal(motor.definition.properties.running.kind, 'boolean')
 
-replaceStudioUserComponentPackages([])
+activationController.replace([])
+for (const { type } of packageFixtures) {
+  assert.equal(registry.has(type), false, `${type} must leave the registry on replacement`)
+}
 
 console.log(
-  'Reusable starter component checks passed: three portable packages parse and round-trip through the shared M7A codec, persist/hydrate through the repository document boundary, activate through the generic user-component registry, and exercise select/boolean/number Properties, Anchors, visual rules, spin and blink behavior without component-specific runtime code.',
+  'Reusable starter component checks passed: three portable packages parse and round-trip through the shared M7A codec, persist/hydrate through the repository document boundary, activate through the generic user-component controller/composite registration path, and exercise select/boolean/number Properties, Anchors, visual rules, spin and blink behavior without component-specific runtime code.',
 )
