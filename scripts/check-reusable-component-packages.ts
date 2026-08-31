@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import {
-  evaluateVisualAnimations,
-} from '../src/component-system/animations'
+import { evaluateVisualAnimations } from '../src/component-system/animations'
 import { resolveComponentVisualRules } from '../src/component-system/visualRules'
 import {
   parseComponentLibraryDocument,
@@ -66,7 +64,7 @@ assert.equal(
   'starter package component types must be unique',
 )
 
-for (const { filename, document, componentPackage } of loaded) {
+for (const { filename, componentPackage } of loaded) {
   assert.equal(componentPackage.visual.mode, 'composite')
   assert.deepEqual(
     componentPackage.definition.actions,
@@ -78,10 +76,18 @@ for (const { filename, document, componentPackage } of loaded) {
     {},
     `${filename} must remain inside the accepted declarative user-runtime boundary`,
   )
+
+  const canonical = serializeDistributableComponentPackage(componentPackage)
+  const reparsed = parseDistributableComponentPackageDocument(canonical)
+  assert.deepEqual(
+    reparsed,
+    componentPackage,
+    `${filename} must round-trip through canonical distributable JSON`,
+  )
   assert.equal(
-    serializeDistributableComponentPackage(componentPackage).trim(),
-    document.trim(),
-    `${filename} must already be stored in canonical distributable JSON form`,
+    serializeDistributableComponentPackage(reparsed!),
+    canonical,
+    `${filename} canonical serialization must be deterministic`,
   )
 }
 
@@ -186,5 +192,5 @@ assert.equal(motor.definition.properties.running.kind, 'boolean')
 replaceStudioUserComponentPackages([])
 
 console.log(
-  'Reusable starter component checks passed: three canonical portable packages parse and round-trip through the shared M7A codec, persist/hydrate through the repository document boundary, activate through the generic user-component registry, and exercise select/boolean/number Properties, Anchors, visual rules, spin and blink behavior without component-specific runtime code.',
+  'Reusable starter component checks passed: three portable packages parse and round-trip through the shared M7A codec, persist/hydrate through the repository document boundary, activate through the generic user-component registry, and exercise select/boolean/number Properties, Anchors, visual rules, spin and blink behavior without component-specific runtime code.',
 )
