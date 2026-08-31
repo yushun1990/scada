@@ -48,6 +48,7 @@ jobs:
           npx --yes tsx scripts/check-typed-action-event-contract.ts
           npx --yes tsx scripts/check-scada-semantics-persistence.ts
           npx --yes tsx scripts/check-scoped-scene-validation.ts
+          npx --yes tsx scripts/check-scada-work-package.ts
           npx --yes tsx scripts/check-storage-repositories.ts
           npx --yes tsx scripts/check-local-storage-migration.ts
           npx --yes tsx scripts/check-user-component-activation.ts
