@@ -1,6 +1,6 @@
 # M7 roadmap decomposition
 
-Status: active roadmap · M7C next · 2026-08-31
+Status: active roadmap · M7C1 review gate · 2026-08-31
 
 ## Why M7 is split
 
@@ -126,13 +126,54 @@ Reopening the concrete-adapter implementation requires a real integration target
 
 Decision record: `docs/progress/m7b2-production-transport-selection.md`.
 
-### M7C Reusable component set — NEXT
+### M7C Reusable component set — active
 
-Build a small reusable declarative component set now that package and runtime-host boundaries are stable enough to exercise it.
+The reusable set must prove accepted generic contracts rather than accumulate native one-off components.
 
-The set must prove generic capabilities rather than add component-specific editor code. Components should be expressible through public Properties / Actions / Events / Anchors and the accepted composite visual runtime wherever possible.
+A capability audit found an important current boundary:
 
-Initial decomposition should prefer a few components that collectively exercise different public/runtime capabilities rather than a large visual catalog. M7C must define the minimum set and acceptance matrix before implementation.
+- ready user composite packages with Actions or Events are intentionally rejected by `runtime-activation-core.ts`
+- there is no accepted executable implementation contract for portable user components
+- `implementationDraft` remains inert
+- trusted built-ins such as Pump already prove typed Actions/Events at the host boundary
+
+Therefore M7C must not claim portable Action/Event execution until that separate architecture gap is intentionally solved.
+
+#### M7C1 Reusable portable starter package baseline — REVIEW GATE
+
+Ship a minimal set as actual M7A distribution files under `public/component-packages/`:
+
+- `starter.process-valve` — select Property, process Anchors, rules, fault Blink
+- `starter.running-motor` — boolean Properties, power/mechanical Anchors, rules, Spin + Blink
+- `starter.signal-quality` — number Property and numeric threshold rules
+
+The set deliberately has empty Actions/Events so it remains inside the accepted declarative activation boundary.
+
+Required verification:
+
+- shared M7A codec parse + deterministic canonical round-trip
+- conversion to ready local entries
+- local repository document persistence/hydration
+- activation through the normal user-component registry with zero diagnostics
+- deterministic rule/animation behavior checks
+- normal Build/runtime/Lint/publication regressions
+- after merge, deployed Pages serves all three artifacts
+- fresh-browser explicit file import persists and activates all three in the normal SCADA palette
+
+Implementation/review record: `docs/progress/m7c1-reusable-component-baseline.md`.
+
+#### After M7C1
+
+Do not automatically open a scripting milestone.
+
+After the starter baseline is accepted, review the reusable-component gaps exposed by real usage:
+
+- direct Property-to-text/value projection
+- continuous numeric Property-to-visual projection
+- portable executable Actions/Events
+- starter-package discoverability/install UX
+
+Only promote one of these into an implementation milestone when the starter set demonstrates a real product need. Otherwise M7 may close with the portable declarative baseline and the existing trusted Action/Event components.
 
 ## Sequencing rule
 
@@ -141,9 +182,9 @@ M7A1 transport-neutral package codec             accepted
   -> M7A2 explicit file export/import            accepted
   -> M7B1 generic adapter lifecycle foundation   accepted
   -> M7B2 concrete transport selection           accepted decision · defer until target
-  -> M7C reusable component set                  NEXT
+  -> M7C1 reusable portable starter packages     REVIEW GATE
 ```
 
-Concrete adapter work may be reopened independently when a real integration target appears; it no longer blocks M7C.
+Concrete adapter work may be reopened independently when a real integration target appears; it does not block M7C.
 
 Production publication-backend deployment remains separately deferred and must not be reopened implicitly by M7C.
