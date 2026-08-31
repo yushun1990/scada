@@ -1,0 +1,176 @@
+.standalone-runtime-shell {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-width: 0;
+  height: 100vh;
+  overflow: hidden;
+  color: #e5e7eb;
+  background: #111827;
+}
+
+.standalone-runtime-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 68px;
+  padding: 10px 18px;
+  border-bottom: 1px solid #293548;
+  background: #172033;
+}
+
+.standalone-runtime-brand,
+.standalone-runtime-actions,
+.standalone-runtime-document {
+  display: flex;
+  align-items: center;
+}
+
+.standalone-runtime-brand {
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.standalone-runtime-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 8px;
+  color: #dbeafe;
+  background: #1d4ed8;
+}
+
+.standalone-runtime-brand > div,
+.standalone-runtime-document {
+  gap: 2px;
+}
+
+.standalone-runtime-brand > div,
+.standalone-runtime-document {
+  display: grid;
+}
+
+.standalone-runtime-brand strong,
+.standalone-runtime-document strong {
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.standalone-runtime-brand span:last-child,
+.standalone-runtime-document span {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.standalone-runtime-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.standalone-runtime-document {
+  min-width: 0;
+  margin-right: 8px;
+  text-align: right;
+}
+
+.standalone-runtime-document strong,
+.standalone-runtime-document span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.standalone-runtime-message {
+  padding: 9px 18px;
+  border-bottom: 1px solid #7f1d1d;
+  color: #fecaca;
+  background: #450a0a;
+  font-size: 11px;
+}
+
+.standalone-runtime-main,
+.standalone-runtime-canvas {
+  min-width: 0;
+  min-height: 0;
+}
+
+.standalone-runtime-main {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  background: #0b1220;
+}
+
+.standalone-runtime-canvas {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.standalone-runtime-canvas canvas {
+  display: block;
+}
+
+.standalone-runtime-empty {
+  align-self: center;
+  justify-self: center;
+  display: grid;
+  width: min(520px, calc(100% - 48px));
+  justify-items: center;
+  gap: 12px;
+  padding: 40px;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  background: #172033;
+  text-align: center;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+}
+
+.standalone-runtime-empty-mark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 1px solid #3b82f6;
+  border-radius: 13px;
+  color: #93c5fd;
+  font-size: 22px;
+}
+
+.standalone-runtime-empty h1 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 20px;
+}
+
+.standalone-runtime-empty p {
+  margin: 0 0 6px;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.standalone-runtime-empty code {
+  color: #bfdbfe;
+}
+
+@media (max-width: 760px) {
+  .standalone-runtime-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .standalone-runtime-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .standalone-runtime-document {
+    width: 100%;
+    margin-right: 0;
+    text-align: left;
+  }
+}
