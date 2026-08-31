@@ -13,6 +13,7 @@ import { getWorldTransform } from '../../scene/geometry'
 import { getOrthogonalRoutePoints } from '../../scene/connection-routing'
 import {
   isGroupNode,
+  type ComponentSceneNode,
   type ConnectionEndpoint,
   type NodeTransform,
   type SceneConnection,
@@ -103,52 +104,17 @@ function nodeEffectivelyVisible(scene: SceneDocument, node: SceneNode) {
   return true
 }
 
-function RuntimeNode({
-  scene,
+function RuntimeComponentNode({
   node,
   registry,
   runtime,
-  parentVisible = true,
+  visible,
 }: {
-  scene: SceneDocument
-  node: SceneNode
+  node: ComponentSceneNode
   registry: ComponentRegistry
   runtime: PreviewRuntime
-  parentVisible?: boolean
+  visible: boolean
 }) {
-  const effectiveVisible = parentVisible && node.visible
-
-  if (isGroupNode(node)) {
-    const children = scene.nodes.filter((candidate) => candidate.parentId === node.id)
-    const scaleX = node.transform.width / node.props.designWidth
-    const scaleY = node.transform.height / node.props.designHeight
-
-    return (
-      <Group
-        x={node.transform.x}
-        y={node.transform.y}
-        width={node.props.designWidth}
-        height={node.props.designHeight}
-        rotation={node.transform.rotation}
-        scaleX={scaleX}
-        scaleY={scaleY}
-        visible={effectiveVisible}
-        listening={false}
-      >
-        {children.map((child) => (
-          <RuntimeNode
-            key={child.id}
-            scene={scene}
-            node={child}
-            registry={registry}
-            runtime={runtime}
-            parentVisible={effectiveVisible}
-          />
-        ))}
-      </Group>
-    )
-  }
-
   const registration = registry.get(node.type)
   const ComponentRenderer = registration?.renderer
   const runtimeProps = useSyncExternalStore(
@@ -169,10 +135,66 @@ function RuntimeNode({
       height={node.transform.height}
       rotation={node.transform.rotation}
       draggable={false}
-      visible={effectiveVisible}
+      visible={visible}
       opacity={1}
       listening={false}
     />
+  )
+}
+
+function RuntimeNode({
+  scene,
+  node,
+  registry,
+  runtime,
+  parentVisible = true,
+}: {
+  scene: SceneDocument
+  node: SceneNode
+  registry: ComponentRegistry
+  runtime: PreviewRuntime
+  parentVisible?: boolean
+}) {
+  const effectiveVisible = parentVisible && node.visible
+
+  if (!isGroupNode(node)) {
+    return (
+      <RuntimeComponentNode
+        node={node}
+        registry={registry}
+        runtime={runtime}
+        visible={effectiveVisible}
+      />
+    )
+  }
+
+  const children = scene.nodes.filter((candidate) => candidate.parentId === node.id)
+  const scaleX = node.transform.width / node.props.designWidth
+  const scaleY = node.transform.height / node.props.designHeight
+
+  return (
+    <Group
+      x={node.transform.x}
+      y={node.transform.y}
+      width={node.props.designWidth}
+      height={node.props.designHeight}
+      rotation={node.transform.rotation}
+      scaleX={scaleX}
+      scaleY={scaleY}
+      visible={effectiveVisible}
+      listening={false}
+    >
+      {children.map((child) => (
+        <RuntimeNode
+          key={child.id}
+          scene={scene}
+          node={child}
+          registry={registry}
+          runtime={runtime}
+          parentVisible={effectiveVisible}
+        />
+      ))}
+    </Group>
   )
 }
 
