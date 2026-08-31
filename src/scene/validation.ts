@@ -3,7 +3,8 @@ import {
   type ComponentDefinition,
   type ComponentProps,
 } from '../component-system/definition'
-import { builtInComponentRegistry } from '../component-system/builtins'
+import { studioComponentRegistry } from '../component-system/builtins'
+import type { ComponentRegistryView } from '../component-system/registry-view'
 import { getAnchorDefinition } from '../components/anchors'
 import {
   GROUP_NODE_TYPE,
@@ -351,7 +352,11 @@ function parseScadaSemantics(
   }
 }
 
-function parseSceneNode(value: unknown, version: number): SceneNode | null {
+function parseSceneNode(
+  value: unknown,
+  version: number,
+  registry: ComponentRegistryView,
+): SceneNode | null {
   if (!isRecord(value)) {
     return null
   }
@@ -399,7 +404,7 @@ function parseSceneNode(value: unknown, version: number): SceneNode | null {
     return null
   }
 
-  const registration = builtInComponentRegistry.get(value.type)
+  const registration = registry.get(value.type)
 
   if (!registration) {
     return null
@@ -538,7 +543,10 @@ function validateHierarchy(nodes: SceneNode[]) {
   }
 }
 
-function validateBehaviors(nodes: SceneNode[]) {
+function validateBehaviors(
+  nodes: SceneNode[],
+  registry: ComponentRegistryView,
+) {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]))
   const behaviorIds = new Set<string>()
 
@@ -559,7 +567,7 @@ function validateBehaviors(nodes: SceneNode[]) {
         throw new Error('场景 JSON 包含失效 Behavior 目标组件')
       }
 
-      const targetRegistration = builtInComponentRegistry.get(targetNode.type)
+      const targetRegistration = registry.get(targetNode.type)
 
       if (!targetRegistration?.definition.actions[behavior.effect.action]) {
         throw new Error('场景 JSON 包含不存在的 Behavior 目标 Action')
@@ -571,6 +579,7 @@ function validateBehaviors(nodes: SceneNode[]) {
 function validateConnections(
   nodes: SceneNode[],
   connections: SceneConnection[],
+  registry: ComponentRegistryView,
 ) {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]))
   const connectionIds = new Set<string>()
@@ -589,8 +598,8 @@ function validateConnections(
     }
 
     if (
-      !getAnchorDefinition(sourceNode, connection.source.anchorId) ||
-      !getAnchorDefinition(targetNode, connection.target.anchorId)
+      !getAnchorDefinition(sourceNode, connection.source.anchorId, registry) ||
+      !getAnchorDefinition(targetNode, connection.target.anchorId, registry)
     ) {
       throw new Error('场景 JSON 包含不存在的视觉锚点')
     }
@@ -603,7 +612,17 @@ function normalizeBackground(background: string) {
     : background
 }
 
-export function parseSceneDocument(json: string): SceneDocument {
+/**
+ * Parse/migrate one Scene against an explicit read-only component registry.
+ *
+ * This is the package-preflight boundary: callers may validate candidate user
+ * component dependencies without registering them into the product-wide live
+ * Studio registry first.
+ */
+export function parseSceneDocumentWithRegistry(
+  json: string,
+  registry: ComponentRegistryView,
+): SceneDocument {
   const value: unknown = JSON.parse(json)
 
   if (!isRecord(value)) {
@@ -635,7 +654,9 @@ export function parseSceneDocument(json: string): SceneDocument {
     throw new Error('场景 JSON 格式无效或版本不受支持')
   }
 
-  const nodes = value.nodes.map((node) => parseSceneNode(node, sourceVersion))
+  const nodes = value.nodes.map((node) =>
+    parseSceneNode(node, sourceVersion, registry),
+  )
 
   if (nodes.some((node) => node === null)) {
     throw new Error('场景 JSON 包含无效节点')
@@ -654,8 +675,8 @@ export function parseSceneDocument(json: string): SceneDocument {
 
   const connections = parsedConnections as SceneConnection[]
   validateHierarchy(parsedNodes)
-  validateBehaviors(parsedNodes)
-  validateConnections(parsedNodes, connections)
+  validateBehaviors(parsedNodes, registry)
+  validateConnections(parsedNodes, connections, registry)
 
   return {
     version: SCENE_VERSION,
@@ -669,10 +690,29 @@ export function parseSceneDocument(json: string): SceneDocument {
   }
 }
 
+/** Existing Studio/default parser behavior remains backed by the live registry. */
+export function parseSceneDocument(json: string): SceneDocument {
+  return parseSceneDocumentWithRegistry(json, studioComponentRegistry)
+}
+
+/**
+ * Scoped persistence helper for future portable-work/package validation.
+ * It uses the same parser/migrator and therefore cannot write a legacy scene
+ * back without normalization.
+ */
+export function serializeSceneDocumentWithRegistry(
+  scene: SceneDocument,
+  registry: ComponentRegistryView,
+) {
+  return JSON.stringify(
+    parseSceneDocumentWithRegistry(JSON.stringify(scene), registry),
+  )
+}
+
 /**
  * Persistence always passes through the current parser/migrator so a legacy-v6
  * in-memory scene can never be written back as legacy JSON by accident.
  */
 export function serializeSceneDocument(scene: SceneDocument) {
-  return JSON.stringify(parseSceneDocument(JSON.stringify(scene)))
+  return serializeSceneDocumentWithRegistry(scene, studioComponentRegistry)
 }
