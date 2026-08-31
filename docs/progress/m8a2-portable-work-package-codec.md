@@ -1,6 +1,6 @@
 # M8A2 — Portable SCADA work package codec
 
-Status: **active · 2026-08-31**
+Status: **accepted · 2026-08-31**
 
 ## Goal
 
@@ -79,21 +79,24 @@ The existing distributable component package validator remains the nested depend
 
 The fixture is wired into the normal CI runtime/model check set.
 
-## Current implementation evidence
+## Acceptance evidence
 
 - PR #105: `feat: add dependency-complete SCADA work package codec`
-- initial verified head: `d4c89ddcabbc23f18632ebed27b21d6a5a8017d2`
-- CI #736 (`33376955435`) passed
+- final PR head: `af9702d493867525b1f7b6cee88522717d2fbeb3`
+- final PR CI #737 (`33377056756`) passed
   - Build passed
   - Runtime model checks passed, including `check-scada-work-package.ts`
   - Lint passed
   - publication-api regression passed
+- merged revision: `main@49d29f98ae8d3a5700738c44c8bb497514e662ce`
+- Deploy GitHub Pages #238 passed
+- Pages Browser Smoke #189 passed
 
-M8A2 remains **active** until PR #105 is merged and the final `main` revision is recorded. No Pages smoke is required for this codec-only slice because it introduces no browser-visible behavior.
+M8A2 itself did not require a new browser-visible smoke because it is a pure codec/model slice. The successful post-merge Pages deployment and existing smoke suite provide regression evidence for the accepted main revision.
 
 ## Explicit non-goals
 
-M8A2 does not add:
+M8A2 did not add:
 
 - Workspace export/import buttons
 - local work-package persistence
@@ -102,6 +105,6 @@ M8A2 does not add:
 - concrete MQTT/WebSocket/HTTP/vendor transport
 - executable portable scripts or `implementationDraft`
 
-## Next expected slice
+## Next boundary
 
-After this codec is accepted, M8A3 should expose explicit browser export/import around the same artifact without weakening dependency preflight. The standalone/read-only runtime shell follows after browser transfer proves the artifact can cross a fresh-browser boundary.
+M8A3 exposes explicit browser export/import around this same artifact without weakening dependency preflight. The standalone/read-only runtime shell follows only after browser transfer proves the artifact can cross a fresh-browser boundary with its portable dependency closure intact.
