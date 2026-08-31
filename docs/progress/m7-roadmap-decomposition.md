@@ -1,6 +1,6 @@
 # M7 roadmap decomposition
 
-Status: active roadmap · M7B2 evaluation next · 2026-08-31
+Status: active roadmap · M7C next · 2026-08-31
 
 ## Why M7 is split
 
@@ -65,7 +65,7 @@ Final deployed evidence: `Pages Browser Smoke` #183 on `main@029579a7396917b9cc9
 
 Acceptance record: `docs/progress/m7a2-explicit-browser-package-transfer.md`.
 
-### M7B Production runtime adapters — active
+### M7B Production runtime adapters — accepted foundation / concrete transport deferred
 
 Production adapters plug into the already accepted host interfaces:
 
@@ -87,7 +87,8 @@ Rules:
 
 - protocol details belong in adapters, not Component APIs
 - do not add MQTT/WebSocket/HTTP-specific fields to reusable component contracts
-- first establish adapter lifecycle/error/reconnect fixtures against the host interfaces, then select concrete production transports
+- establish generic lifecycle/error/reconnect semantics before concrete transport work
+- select a concrete transport only against a real integration target
 - backend publication deployment remains independent and deferred by M6.7B3
 
 #### M7B1 Protocol-neutral runtime adapter lifecycle foundation — accepted · 2026-08-31
@@ -104,31 +105,34 @@ Accepted semantics:
 - stop aborts pending work and closes the live connection
 - deterministic lifecycle regression in normal CI
 
-Acceptance evidence: PR #100 CI run #715 (`33361745532`) passed Build, runtime/model checks, Lint, and PostgreSQL publication API integration.
+Acceptance evidence: PR #100 CI run #715 (`33361745532`) passed Build, runtime/model checks, Lint, and PostgreSQL publication API integration. The merged `main@6157ce00965006f30657b06dd218c6b2b7e2fca0` also passed CI #719 and Deploy GitHub Pages #233.
 
 Acceptance record: `docs/progress/m7b1-runtime-adapter-lifecycle-foundation.md`.
 
-#### M7B2 First concrete production transport — NEXT EVALUATION
+#### M7B2 First concrete production transport selection — accepted decision · defer · 2026-08-31
 
-Do not pick a transport by roadmap inertia.
+Decision:
 
-Before implementation, evaluate the actual deployment/product integration needs and choose the first concrete transport against the accepted generic lifecycle contract. The selection must specify:
+> Do not implement MQTT, WebSocket, HTTP/SSE, or a vendor adapter until a real production integration target defines endpoint/topology, authentication, inbound mapping, outbound Action mapping, reconnect behavior, delivery/idempotency expectations, and browser/runtime deployment constraints.
 
-- external platform/protocol target
-- authentication/configuration ownership
-- inbound value mapping
-- outbound Action mapping
-- reconnect behavior
-- command delivery/idempotency expectations
-- browser/runtime deployment constraints
+Why:
 
-A concrete adapter must not widen Component package or Scene semantic contracts merely to expose protocol configuration.
+- there is no accepted external platform/protocol target in the repository today
+- no existing MQTT/WebSocket protocol commitment exists to preserve
+- inventing a transport now would primarily invent a private message/API contract rather than prove the SCADA runtime boundary
+- M7B1 already provides the generic lifecycle seam needed when the first real target appears
 
-### M7C Reusable component set — after package/adapter foundations
+Reopening the concrete-adapter implementation requires a real integration target and explicit answers for endpoint/topology, auth, mapping, reconnect, delivery, and deployment constraints.
 
-Build a small reusable declarative component set only after the package and runtime-host boundaries are stable enough to exercise it.
+Decision record: `docs/progress/m7b2-production-transport-selection.md`.
 
-The set should prove generic capabilities rather than add component-specific editor code. Components should be expressible through public Properties / Actions / Events / Anchors and the accepted composite visual runtime wherever possible.
+### M7C Reusable component set — NEXT
+
+Build a small reusable declarative component set now that package and runtime-host boundaries are stable enough to exercise it.
+
+The set must prove generic capabilities rather than add component-specific editor code. Components should be expressible through public Properties / Actions / Events / Anchors and the accepted composite visual runtime wherever possible.
+
+Initial decomposition should prefer a few components that collectively exercise different public/runtime capabilities rather than a large visual catalog. M7C must define the minimum set and acceptance matrix before implementation.
 
 ## Sequencing rule
 
@@ -136,10 +140,10 @@ The set should prove generic capabilities rather than add component-specific edi
 M7A1 transport-neutral package codec             accepted
   -> M7A2 explicit file export/import            accepted
   -> M7B1 generic adapter lifecycle foundation   accepted
-  -> M7B2 first concrete production transport    NEXT EVALUATION
-  -> M7C reusable component set                  later
+  -> M7B2 concrete transport selection           accepted decision · defer until target
+  -> M7C reusable component set                  NEXT
 ```
 
-A later review may interleave M7B2 and M7C if concrete product evidence justifies it, but M7B2 transport selection is the current decision gate.
+Concrete adapter work may be reopened independently when a real integration target appears; it no longer blocks M7C.
 
-Production publication-backend deployment remains separately deferred and must not be reopened implicitly by M7B.
+Production publication-backend deployment remains separately deferred and must not be reopened implicitly by M7C.
