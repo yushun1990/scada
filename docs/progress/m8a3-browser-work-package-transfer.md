@@ -1,6 +1,6 @@
 # M8A3 — Explicit browser SCADA work package transfer
 
-Status: **active · 2026-08-31**
+Status: **accepted · 2026-08-31**
 
 ## Goal
 
@@ -19,7 +19,7 @@ atomic Scene + missing-dependency persistence
 normal SCADA editor/runtime registry
 ```
 
-M8A3 is a browser transfer/persistence slice. It is not yet the standalone runtime shell.
+M8A3 is a browser transfer/persistence slice. It is not the standalone runtime shell.
 
 ## Export boundary
 
@@ -74,7 +74,7 @@ The check is wired into normal CI.
 
 `pages-scada-work-package-transfer-smoke.mjs` is wired into the deployed Pages smoke suite and uses two isolated browser contexts.
 
-The deployed smoke is designed to prove:
+The deployed smoke proves:
 
 1. a portable starter component can participate in a persisted SCADA work
 2. Workspace export downloads one dependency-complete `.scada-work.json`
@@ -83,18 +83,20 @@ The deployed smoke is designed to prove:
 5. the dependency activates through the normal Studio registry/palette
 6. a different same-type dependency is rejected before confirmation and without Scene/component persistence changes
 
-Because this is browser-visible distribution behavior, **M8A3 is not accepted until the PR is merged, Pages is deployed, and this fresh-browser smoke passes against the deployed revision.**
-
-## Current implementation evidence
+## Acceptance evidence
 
 - PR #106: `feat: add explicit browser SCADA work transfer`
-- CI #739 (`33385199707`) passed on the initial implementation head, including Build, runtime/model checks, Lint and publication-api regression
+- final PR head: `44ac595be468aae261cbe60de9ede846018dac7b`
+- final PR CI #745 (`33385557424`) passed
+- merged revision: `main@2725abf1eafa953abfbabe456a1d63e9d3526dcd`
+- Deploy GitHub Pages #239 (`33390783353`) passed
+- Pages Browser Smoke #190 (`33390834150`) passed against the merged revision, including the fresh-browser work-package transfer scenario
 
-Final PR-head CI and deployed Pages evidence must still be recorded before acceptance.
+M8A3 is therefore accepted.
 
 ## Explicit non-goals
 
-M8A3 does not add:
+M8A3 did not add:
 
 - standalone/read-only runtime route or shell
 - publication hosting for works
@@ -104,6 +106,6 @@ M8A3 does not add:
 - executable portable Actions/Events or `implementationDraft`
 - a second work/runtime artifact format
 
-## Next expected slice
+## Next boundary
 
-After M8A3 acceptance, re-evaluate the minimum standalone runtime boundary. The expected next slice is M8B1: a read-only runtime shell that consumes the exact same accepted work package rather than editor-local Scene state or a new debug snapshot format.
+M8B1 is the standalone/read-only runtime shell. It must consume the exact same accepted `.scada-work.json`, build runtime capabilities without installing the package into Studio state, and prove fresh-browser load/render behavior before any concrete runtime transport is selected.

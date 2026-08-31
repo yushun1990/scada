@@ -1,19 +1,32 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import {
-  ComponentEditorStorageGate,
-  ScadaEditorStorageGate,
-} from './features/workspace/EditorStorageGate'
-import { WorkspacePage } from './features/workspace/WorkspacePage'
+import { StandaloneRuntimePage } from './features/runtime/StandaloneRuntimePage'
 import { Button, Separator } from './ui'
 import './inspector-compact.css'
 import './component-editor-header.css'
 import './editor-toolbar-context.css'
 
+const WorkspacePage = lazy(() =>
+  import('./features/workspace/WorkspacePage').then((module) => ({
+    default: module.WorkspacePage,
+  })),
+)
+const ScadaEditorStorageGate = lazy(() =>
+  import('./features/workspace/EditorStorageGate').then((module) => ({
+    default: module.ScadaEditorStorageGate,
+  })),
+)
+const ComponentEditorStorageGate = lazy(() =>
+  import('./features/workspace/EditorStorageGate').then((module) => ({
+    default: module.ComponentEditorStorageGate,
+  })),
+)
+
 type WorkspaceModule = 'works' | 'components'
 
 type AppRoute =
   | { page: 'workspace'; module: WorkspaceModule }
+  | { page: 'runtime' }
   | { page: 'scada'; workId: string }
   | { page: 'component'; componentId: string }
 
@@ -23,6 +36,10 @@ function resolveRoute(): AppRoute {
     .split('/')
     .filter(Boolean)
     .map((segment) => decodeURIComponent(segment))
+
+  if (segments[0] === 'runtime') {
+    return { page: 'runtime' }
+  }
 
   if (segments[0] === 'scada' && segments[1]) {
     return { page: 'scada', workId: segments[1] }
@@ -98,6 +115,10 @@ function StorageWriteErrorNotice() {
   )
 }
 
+function StudioRouteFallback() {
+  return <div aria-label="正在加载 Studio" />
+}
+
 function App() {
   const [route, setRoute] = useState<AppRoute>(resolveRoute)
 
@@ -107,34 +128,38 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
+  if (route.page === 'runtime') {
+    return <StandaloneRuntimePage />
+  }
+
   if (route.page === 'scada') {
     return (
-      <>
+      <Suspense fallback={<StudioRouteFallback />}>
         <ScadaEditorStorageGate key={route.workId} workId={route.workId} />
         <StudioWorkspaceExit key={`scada-${route.workId}`} module="works" />
         <StorageWriteErrorNotice />
-      </>
+      </Suspense>
     )
   }
 
   if (route.page === 'component') {
     return (
-      <>
+      <Suspense fallback={<StudioRouteFallback />}>
         <ComponentEditorStorageGate
           key={route.componentId}
           componentId={route.componentId}
         />
         <StudioWorkspaceExit key={`component-${route.componentId}`} module="components" />
         <StorageWriteErrorNotice />
-      </>
+      </Suspense>
     )
   }
 
   return (
-    <>
+    <Suspense fallback={<StudioRouteFallback />}>
       <WorkspacePage module={route.module} />
       <StorageWriteErrorNotice />
-    </>
+    </Suspense>
   )
 }
 
