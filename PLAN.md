@@ -184,6 +184,12 @@ Protocol connection/reconnect state is infrastructure, not Component or Scene se
 
 A reconnect may resume inbound telemetry delivery, but it must not silently replay outbound Device/Platform Action effects. Stronger delivery guarantees require explicit protocol-level idempotency/correlation semantics.
 
+### 3.15 Concrete transport requires a real integration target
+
+Do not invent MQTT topics, WebSocket envelopes, HTTP/SSE APIs, credentials, or command acknowledgement semantics merely to satisfy a roadmap label.
+
+A concrete adapter is justified only when a real external integration target defines endpoint/topology, authentication, inbound mapping, outbound Action mapping, reconnect behavior, delivery/idempotency expectations, and deployment constraints.
+
 ---
 
 ## 4. Milestone status
@@ -381,7 +387,7 @@ After #99 merged, `Pages Browser Smoke` #183 (`33288164839`) passed on `main@029
 
 Acceptance record: `docs/progress/m7a2-explicit-browser-package-transfer.md`.
 
-### M7B Production runtime adapters — active
+### M7B Production runtime adapters — accepted foundation / concrete transport deferred
 
 Production adapters plug into existing host boundaries:
 
@@ -402,9 +408,9 @@ external platform/device command
 Rules:
 
 - protocol details live in adapters, never component public APIs
-- first prove lifecycle/error/reconnect behavior against generic host interfaces
+- lifecycle/error/reconnect semantics are generic and host-owned
 - outbound effects are not silently queued/replayed across reconnect
-- choose concrete transports only after the generic adapter boundary is accepted
+- concrete protocols require a real integration target
 - publication-backend deployment remains separately deferred by B3
 
 #### M7B1 Protocol-neutral runtime adapter lifecycle foundation — accepted · 2026-08-31
@@ -422,19 +428,29 @@ Accepted result:
 - stop abort + live-connection close semantics
 - deterministic CI lifecycle regression
 
-PR #100 CI run #715 (`33361745532`) passed Build, all runtime/model checks including the lifecycle fixture, Lint, and PostgreSQL publication API integration.
+PR #100 CI run #715 (`33361745532`) passed Build, all runtime/model checks including the lifecycle fixture, Lint, and PostgreSQL publication API integration. After merge, `main@6157ce00965006f30657b06dd218c6b2b7e2fca0` also passed CI #719 and Deploy GitHub Pages #233.
 
 Acceptance record: `docs/progress/m7b1-runtime-adapter-lifecycle-foundation.md`.
 
-#### M7B2 First concrete production transport — NEXT EVALUATION
+#### M7B2 First concrete production transport selection — accepted decision · defer · 2026-08-31
 
-Do not select MQTT, WebSocket, HTTP, or a vendor SDK by roadmap inertia. First evaluate the actual deployment/integration target against the accepted generic lifecycle contract, including authentication/configuration ownership, inbound mapping, outbound Action mapping, reconnect behavior, idempotency expectations, and browser/runtime constraints.
+Decision:
 
-### M7C Reusable component set — after package/adapter foundations
+> Do not implement MQTT, WebSocket, HTTP/SSE, or a vendor adapter until a real integration target exists.
+
+No accepted target currently defines the endpoint/topology, authentication, inbound value mapping, outbound Action mapping, reconnect restoration, command correlation/idempotency, or browser/runtime deployment constraints needed to make a concrete transport non-speculative.
+
+M7B1 already provides the generic adapter lifecycle seam. Concrete adapter work can be reopened independently when a real integration target supplies those missing constraints.
+
+Decision record: `docs/progress/m7b2-production-transport-selection.md`.
+
+### M7C Reusable component set — NEXT
 
 Build a small reusable declarative component set that exercises the generic contracts without adding component-specific editor code.
 
 Prefer components expressible with accepted Properties / Actions / Events / Anchors plus composite visual rules/animations.
+
+The first M7C slice must define a minimum capability matrix before implementation. Do not build a large component catalog merely to accumulate examples.
 
 ---
 
@@ -454,15 +470,15 @@ Prefer components expressible with accepted Properties / Actions / Events / Anch
 11. M7A1 transport-neutral distributable package codec                  accepted · 2026-08-30
 12. M7A2 explicit browser package export/import                         accepted · 2026-08-30
 13. M7B1 protocol-neutral runtime adapter lifecycle                     accepted · 2026-08-31
-14. M7B2 first concrete production transport                            NEXT EVALUATION
-15. M7C reusable component set                                          later
+14. M7B2 first concrete production transport selection                  accepted · defer · 2026-08-31
+15. M7C reusable component set                                          NEXT
 ```
 
-**Current decision gate: M7B2 First concrete production transport evaluation.**
+**Current implementation gate: M7C Reusable component set decomposition.**
 
-Evaluate the first concrete production transport before implementation; do not let transport choice leak into Component or Scene contracts.
+First define the minimum reusable component capability matrix and choose the smallest set that proves generic Properties / Actions / Events / Anchors, visual rules/animation, runtime values, packaging, persistence, and activation without component-specific editor code.
 
-Do not restart M6 effect experimentation, revive QuickJS as the main product path, or provision production publication infrastructure while B3 remains `defer deployment`.
+Do not restart M6 effect experimentation, revive QuickJS as the main product path, invent a concrete transport without a target, or provision production publication infrastructure while B3 remains `defer deployment`.
 
 ---
 
@@ -486,6 +502,7 @@ Use the narrowest relevant verification set:
 - M7 package-codec fixtures for deterministic portable round-trip and malformed/unsupported artifact rejection
 - M7 browser-package transfer smoke for export/import/persistence/activation/collision behavior
 - M7 runtime-adapter fixtures for lifecycle, reconnect, stale-session fencing, atomic inbound batches, outbound rejection/failure, stop, and retry exhaustion
+- M7 reusable-component fixtures for public-contract validation, generic rendering/behavior, package round-trip, persistence, and activation
 
 Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -493,13 +510,15 @@ Prefer explicit deterministic state/snapshots over timing-sensitive renderer ins
 
 ## 11. Near-term non-goals
 
-The following must not distract M7B2 evaluation:
+The following must not distract M7C:
 
 - production publication-backend provisioning while B3 remains `defer deployment`
-- implementing a concrete transport before the M7B2 selection decision is explicit
+- speculative MQTT/WebSocket/HTTP/SSE/vendor adapter implementation without a real target
 - protocol-specific Component or Scene APIs
 - implicit outbound command queueing/replay across reconnect
 - exactly-once delivery claims without protocol-level idempotency/correlation support
+- a large component catalog before the minimum capability matrix is proven
+- component-specific editor branches or inspectors
 - component marketplace
 - collaborative editing
 - automatic publication on local Save
