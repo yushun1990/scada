@@ -1,0 +1,181 @@
+{
+  "packageVersion": 1,
+  "definition": {
+    "type": "starter.process-valve",
+    "title": "流程阀门",
+    "category": "流程设备",
+    "description": "可移植的声明式流程阀门示例，支持关闭、开启、故障三态和左右流程连接点。",
+    "size": {
+      "defaultWidth": 120,
+      "defaultHeight": 80,
+      "minWidth": 60,
+      "minHeight": 40
+    },
+    "properties": {
+      "state": {
+        "title": "状态",
+        "kind": "select",
+        "defaultValue": "closed",
+        "description": "阀门当前显示状态。",
+        "bindable": true,
+        "options": [
+          { "label": "关闭", "value": "closed" },
+          { "label": "开启", "value": "open" },
+          { "label": "故障", "value": "fault" }
+        ]
+      }
+    },
+    "actions": {},
+    "events": {},
+    "anchors": [
+      {
+        "id": "inlet",
+        "title": "入口",
+        "position": { "x": 0, "y": 0.5 },
+        "outward": { "x": -1, "y": 0 },
+        "snapRadius": 12,
+        "role": "both",
+        "kinds": ["process"]
+      },
+      {
+        "id": "outlet",
+        "title": "出口",
+        "position": { "x": 1, "y": 0.5 },
+        "outward": { "x": 1, "y": 0 },
+        "snapRadius": 12,
+        "role": "both",
+        "kinds": ["process"]
+      }
+    ]
+  },
+  "visual": {
+    "version": 3,
+    "mode": "composite",
+    "designSize": { "width": 120, "height": 80 },
+    "layers": [
+      {
+        "id": "pipe",
+        "name": "流程管段",
+        "kind": "vector",
+        "parentId": null,
+        "transform": {
+          "x": 0,
+          "y": 35,
+          "width": 120,
+          "height": 10,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": true,
+        "opacity": 1,
+        "primitive": "rect",
+        "style": {
+          "fill": "#94a3b8",
+          "stroke": "#475569",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "body",
+        "name": "阀体",
+        "kind": "vector",
+        "parentId": null,
+        "transform": {
+          "x": 35,
+          "y": 15,
+          "width": 50,
+          "height": 50,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": true,
+        "opacity": 1,
+        "primitive": "circle",
+        "style": {
+          "fill": "#64748b",
+          "stroke": "#334155",
+          "strokeWidth": 3
+        }
+      },
+      {
+        "id": "handle",
+        "name": "阀杆",
+        "kind": "vector",
+        "parentId": null,
+        "transform": {
+          "x": 57,
+          "y": 2,
+          "width": 6,
+          "height": 32,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": true,
+        "opacity": 1,
+        "primitive": "rect",
+        "style": {
+          "fill": "#334155",
+          "stroke": "#1e293b",
+          "strokeWidth": 1
+        }
+      }
+    ],
+    "rules": [
+      {
+        "id": "open-body",
+        "enabled": true,
+        "propertyKey": "state",
+        "operator": "equals",
+        "compareValue": "open",
+        "layerId": "body",
+        "target": "style.fill",
+        "value": "#22c55e"
+      },
+      {
+        "id": "open-handle",
+        "enabled": true,
+        "propertyKey": "state",
+        "operator": "equals",
+        "compareValue": "open",
+        "layerId": "handle",
+        "target": "transform.rotation",
+        "value": 90
+      },
+      {
+        "id": "fault-body",
+        "enabled": true,
+        "propertyKey": "state",
+        "operator": "equals",
+        "compareValue": "fault",
+        "layerId": "body",
+        "target": "style.fill",
+        "value": "#ef4444"
+      }
+    ],
+    "animations": [
+      {
+        "id": "fault-blink",
+        "kind": "blink",
+        "enabled": true,
+        "layerId": "body",
+        "timing": {
+          "durationMs": 900,
+          "delayMs": 0,
+          "iterations": "infinite",
+          "direction": "normal",
+          "easing": "linear"
+        },
+        "activation": {
+          "kind": "property",
+          "propertyKey": "state",
+          "operator": "equals",
+          "compareValue": "fault"
+        }
+      }
+    ]
+  },
+  "implementationDraft": ""
+}
