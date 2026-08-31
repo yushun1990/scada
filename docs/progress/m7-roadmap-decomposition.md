@@ -1,73 +1,54 @@
 # M7 roadmap decomposition
 
-Status: active roadmap · M7C1 review gate · 2026-08-31
+Status: accepted / closed · 2026-08-31
 
-## Why M7 is split
+## Why M7 was split
 
-The old M7 label combined three different concerns:
+The original M7 label combined three concerns with different dependency directions:
 
 ```text
-packaging
-production adapters
-reusable component set
+portable component distribution
+production runtime adapter boundary
+reusable component proof set
 ```
 
-They do not have the same dependency direction and should not be implemented as one broad milestone.
+M7 was therefore executed as M7A -> M7B -> M7C rather than as one broad feature batch.
 
-M6 already established:
+## M7A — Portable component package boundary — accepted
 
-- a validated local `ComponentLibraryEntry` authoring document
-- immutable remote publication revisions
-- explicit remote install + offline cache
-- a generic runtime registry/activation path
-- `RuntimeDataSource` as the inbound runtime-value host boundary
-- `ScadaDeviceActionDispatcher` as the outbound device/platform-effect boundary
-
-M7A then established a transport-neutral portable distribution artifact and explicit browser file transfer without requiring the publication backend.
-
-## Ordered M7 structure
-
-### M7A Portable component package boundary — accepted
-
-Goal:
-
-> A ready declarative user component can leave one browser as a versioned validated artifact and enter another browser through the same package validation/activation path, without requiring the publication backend.
-
-#### M7A1 Transport-neutral distributable package codec — accepted · 2026-08-30
+### M7A1 Transport-neutral distributable package codec — accepted · 2026-08-30
 
 Accepted result:
 
-- canonical versioned distributable package shape and codec
-- derives only from valid non-built-in `ready` components
-- excludes local authoring identity/status/timestamp metadata
-- reuses accepted publication package semantics
+- versioned transport-neutral distributable component package
+- valid non-built-in `ready` components only
+- local repository identity/status/timestamps excluded
 - deterministic parse / serialize / round-trip
 - fail-closed validation
+- publication reuses the same package semantics
 - `implementationDraft` remains inert
-- no persistence/network/file UI inside the core codec
 
 Acceptance record: `docs/progress/m7a1-distributable-package-codec.md`.
 
-#### M7A2 Explicit browser export / import — accepted · 2026-08-30
+### M7A2 Explicit browser export / import — accepted · 2026-08-30
 
 Accepted result:
 
-- explicit export of ready local declarative components
-- explicit import through the M7A1 codec
-- file selection performs validation/preflight only
+- explicit file export/import through the M7A1 codec
+- file selection performs preflight without mutation
 - explicit confirmation before persistence/activation
-- deterministic collision rejection across built-in, local-authored, and installed-remote component types
+- deterministic collision rejection across built-in, local-authored and installed-remote types
 - persistence through ComponentRepository / IndexedDB
-- activation through the normal generic activation path
-- deployed Pages browser A -> browser B transfer smoke
+- activation through the normal generic runtime path
+- deployed browser-to-browser transfer smoke
 
-Final deployed evidence: `Pages Browser Smoke` #183 on `main@029579a7396917b9cc9214cfb01278d075d60413` passed after the #99 hydration-timing repair.
+Final M7A2 deployed evidence: Pages Browser Smoke #183 on `main@029579a7396917b9cc9214cfb01278d075d60413`.
 
 Acceptance record: `docs/progress/m7a2-explicit-browser-package-transfer.md`.
 
-### M7B Production runtime adapters — accepted foundation / concrete transport deferred
+## M7B — Production runtime adapter boundary — accepted foundation / concrete transport deferred
 
-Production adapters plug into the already accepted host interfaces:
+Production adapters plug into existing host interfaces:
 
 ```text
 external telemetry / platform
@@ -83,108 +64,101 @@ ScadaDeviceActionDispatcher
 external platform / device command
 ```
 
-Rules:
-
-- protocol details belong in adapters, not Component APIs
-- do not add MQTT/WebSocket/HTTP-specific fields to reusable component contracts
-- establish generic lifecycle/error/reconnect semantics before concrete transport work
-- select a concrete transport only against a real integration target
-- backend publication deployment remains independent and deferred by M6.7B3
-
-#### M7B1 Protocol-neutral runtime adapter lifecycle foundation — accepted · 2026-08-31
+### M7B1 Protocol-neutral runtime adapter lifecycle foundation — accepted · 2026-08-31
 
 Accepted semantics:
 
-- explicit stopped / connecting / connected / retrying / failed state
+- stopped / connecting / connected / retrying / failed lifecycle
 - injected retry policy and deterministic delay seam
 - atomic inbound value batches through `RuntimeValueStore.setMany()`
 - stale connection-attempt fencing after reconnect/stop
 - outbound dispatch only while connected
-- no silent command queue/replay across reconnect
+- no silent outbound command queue/replay across reconnect
 - observable connect/connection-loss/dispatch/close/retry failures
 - stop aborts pending work and closes the live connection
 - deterministic lifecycle regression in normal CI
 
-Acceptance evidence: PR #100 CI run #715 (`33361745532`) passed Build, runtime/model checks, Lint, and PostgreSQL publication API integration. The merged `main@6157ce00965006f30657b06dd218c6b2b7e2fca0` also passed CI #719 and Deploy GitHub Pages #233.
-
 Acceptance record: `docs/progress/m7b1-runtime-adapter-lifecycle-foundation.md`.
 
-#### M7B2 First concrete production transport selection — accepted decision · defer · 2026-08-31
+### M7B2 First concrete production transport selection — accepted decision · defer · 2026-08-31
 
 Decision:
 
-> Do not implement MQTT, WebSocket, HTTP/SSE, or a vendor adapter until a real production integration target defines endpoint/topology, authentication, inbound mapping, outbound Action mapping, reconnect behavior, delivery/idempotency expectations, and browser/runtime deployment constraints.
+> Do not implement MQTT, WebSocket, HTTP/SSE, or a vendor adapter until a real integration target defines endpoint/topology, authentication, inbound mapping, outbound Action mapping, reconnect restoration, delivery/idempotency expectations, and browser/runtime deployment constraints.
 
-Why:
-
-- there is no accepted external platform/protocol target in the repository today
-- no existing MQTT/WebSocket protocol commitment exists to preserve
-- inventing a transport now would primarily invent a private message/API contract rather than prove the SCADA runtime boundary
-- M7B1 already provides the generic lifecycle seam needed when the first real target appears
-
-Reopening the concrete-adapter implementation requires a real integration target and explicit answers for endpoint/topology, auth, mapping, reconnect, delivery, and deployment constraints.
+M7B1 already provides the generic seam needed when that target appears. Concrete transport work may reopen independently; it is not a prerequisite for later browser/product milestones.
 
 Decision record: `docs/progress/m7b2-production-transport-selection.md`.
 
-### M7C Reusable component set — active
+## M7C — Reusable component proof set — accepted
 
-The reusable set must prove accepted generic contracts rather than accumulate native one-off components.
+### M7C1 Reusable portable starter package baseline — accepted · 2026-08-31
 
-A capability audit found an important current boundary:
+Accepted as actual M7A distribution artifacts under `public/component-packages/`:
 
-- ready user composite packages with Actions or Events are intentionally rejected by `runtime-activation-core.ts`
-- there is no accepted executable implementation contract for portable user components
-- `implementationDraft` remains inert
-- trusted built-ins such as Pump already prove typed Actions/Events at the host boundary
+- `starter.process-valve`
+- `starter.running-motor`
+- `starter.signal-quality`
 
-Therefore M7C must not claim portable Action/Event execution until that separate architecture gap is intentionally solved.
+The set proves:
 
-#### M7C1 Reusable portable starter package baseline — REVIEW GATE
+- select / boolean / number Properties
+- typed visual Anchors
+- composite vector visuals
+- Visual Rules
+- property-gated Spin / Blink animation
+- distributable package round-trip
+- local persistence/hydration
+- generic user-component activation
+- deployed fresh-browser import and normal SCADA palette activation
 
-Ship a minimal set as actual M7A distribution files under `public/component-packages/`:
+Portable Actions/Events remain intentionally outside this slice because current ready user-package activation has no accepted executable implementation contract. Trusted built-ins continue to prove typed Actions/Events and host dispatch semantics.
 
-- `starter.process-valve` — select Property, process Anchors, rules, fault Blink
-- `starter.running-motor` — boolean Properties, power/mechanical Anchors, rules, Spin + Blink
-- `starter.signal-quality` — number Property and numeric threshold rules
+Acceptance record: `docs/progress/m7c1-reusable-component-baseline.md`.
 
-The set deliberately has empty Actions/Events so it remains inside the accepted declarative activation boundary.
+Final M7C1 evidence on `main@247b66feb48195c25f43c82b6e07d22975e447ff`:
 
-Required verification:
+- main CI #725 (`33363995515`) passed
+- Deploy GitHub Pages #235 (`33363995500`) passed
+- Pages Browser Smoke #186 (`33364034832`) passed, including the deployed reusable-package smoke
 
-- shared M7A codec parse + deterministic canonical round-trip
-- conversion to ready local entries
-- local repository document persistence/hydration
-- activation through the normal user-component registry with zero diagnostics
-- deterministic rule/animation behavior checks
-- normal Build/runtime/Lint/publication regressions
-- after merge, deployed Pages serves all three artifacts
-- fresh-browser explicit file import persists and activates all three in the normal SCADA palette
+## Why M7 closes here
 
-Implementation/review record: `docs/progress/m7c1-reusable-component-baseline.md`.
+The accepted starter set did not demonstrate a blocking need for:
 
-#### After M7C1
-
-Do not automatically open a scripting milestone.
-
-After the starter baseline is accepted, review the reusable-component gaps exposed by real usage:
-
-- direct Property-to-text/value projection
+- arbitrary Property-to-text projection
 - continuous numeric Property-to-visual projection
 - portable executable Actions/Events
-- starter-package discoverability/install UX
+- automatic starter-package installation/catalog UX
 
-Only promote one of these into an implementation milestone when the starter set demonstrates a real product need. Otherwise M7 may close with the portable declarative baseline and the existing trusted Action/Event components.
+Those remain legitimate future gaps, but creating an M7C2 without a concrete product use case would be roadmap inertia.
 
-## Sequencing rule
+M7 therefore closes with:
 
 ```text
-M7A1 transport-neutral package codec             accepted
-  -> M7A2 explicit file export/import            accepted
-  -> M7B1 generic adapter lifecycle foundation   accepted
-  -> M7B2 concrete transport selection           accepted decision · defer until target
-  -> M7C1 reusable portable starter packages     REVIEW GATE
+portable reusable component artifact              accepted
+explicit browser transfer                         accepted
+protocol-neutral production adapter lifecycle     accepted
+concrete transport choice                         deferred until target
+small reusable declarative proof set              accepted
 ```
 
-Concrete adapter work may be reopened independently when a real integration target appears; it does not block M7C.
+Production publication-backend deployment remains separately deferred by M6.7B3.
 
-Production publication-backend deployment remains separately deferred and must not be reopened implicitly by M7C.
+## Post-M7 product gap discovered
+
+The next material product boundary is not another component example.
+
+A SCADA work currently has only:
+
+- local IndexedDB persistence
+- editor-local Design / Preview mode
+- raw `.scene.json` export/import
+
+There is no standalone runtime route or self-contained runnable work artifact.
+
+More importantly, Scene v7 stores component nodes by component `type` and validates them against the live Studio component registry. A `.scene.json` that references a portable user component is therefore not dependency-complete on a fresh browser unless that component is installed/activated first.
+
+This finding motivates the next roadmap gate: a portable SCADA work / standalone runtime boundary, beginning with registry-scoped Scene validation rather than mutating the live registry merely to preflight a candidate work package.
+
+See `docs/progress/m7-closeout.md` and the current `PLAN.md` for the next gate.
