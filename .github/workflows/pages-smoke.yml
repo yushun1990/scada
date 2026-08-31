@@ -47,4 +47,5 @@ jobs:
           node scripts/pages-scada-geometry-smoke.mjs
           node scripts/pages-component-package-transfer-smoke.mjs
           node scripts/pages-scada-work-package-transfer-smoke.mjs
+          node scripts/pages-standalone-runtime-smoke.mjs
           node scripts/pages-reusable-component-packages-smoke.mjs
