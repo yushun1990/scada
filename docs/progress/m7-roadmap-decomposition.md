@@ -1,6 +1,6 @@
 # M7 roadmap decomposition
 
-Status: active roadmap · M7A1 next · 2026-08-30
+Status: active roadmap · M7B2 evaluation next · 2026-08-31
 
 ## Why M7 is split
 
@@ -23,48 +23,51 @@ M6 already established:
 - `RuntimeDataSource` as the inbound runtime-value host boundary
 - `ScadaDeviceActionDispatcher` as the outbound device/platform-effect boundary
 
-The missing boundary is a transport-neutral, portable component distribution artifact that is not tied to IndexedDB authoring identity or to a particular publication server.
+M7A then established a transport-neutral portable distribution artifact and explicit browser file transfer without requiring the publication backend.
 
 ## Ordered M7 structure
 
-### M7A Portable component package boundary
+### M7A Portable component package boundary — accepted
 
 Goal:
 
 > A ready declarative user component can leave one browser as a versioned validated artifact and enter another browser through the same package validation/activation path, without requiring the publication backend.
 
-#### M7A1 Transport-neutral distributable package codec — NEXT
+#### M7A1 Transport-neutral distributable package codec — accepted · 2026-08-30
 
-Implement one canonical versioned distributable component package shape and codec.
+Accepted result:
 
-Requirements:
+- canonical versioned distributable package shape and codec
+- derives only from valid non-built-in `ready` components
+- excludes local authoring identity/status/timestamp metadata
+- reuses accepted publication package semantics
+- deterministic parse / serialize / round-trip
+- fail-closed validation
+- `implementationDraft` remains inert
+- no persistence/network/file UI inside the core codec
 
-- derive only from a valid non-built-in `ready` component
-- exclude local authoring metadata such as local repository id, `status`, `updatedAt`, and `builtIn`
-- reuse the already accepted publication package semantics rather than inventing a competing offline format
-- deterministic parse / serialize / round-trip behavior
-- fail closed on malformed definition, visual rules, animation metadata, or unsupported implementation content
-- keep `implementationDraft` inert; distribution must not turn it into executable JavaScript
-- conversion back into a validated install/import candidate must reuse the existing component package validators
-- no persistence, registry mutation, network access, or file UI inside the core codec
+Acceptance record: `docs/progress/m7a1-distributable-package-codec.md`.
 
-Portable package v1 is intentionally limited to the existing self-contained declarative user-component model. Native renderer modules and external asset trees are not silently bundled into v1.
+#### M7A2 Explicit browser export / import — accepted · 2026-08-30
 
-#### M7A2 Explicit browser export / import
+Accepted result:
 
-After M7A1 is accepted:
+- explicit export of ready local declarative components
+- explicit import through the M7A1 codec
+- file selection performs validation/preflight only
+- explicit confirmation before persistence/activation
+- deterministic collision rejection across built-in, local-authored, and installed-remote component types
+- persistence through ComponentRepository / IndexedDB
+- activation through the normal generic activation path
+- deployed Pages browser A -> browser B transfer smoke
 
-- export a ready local declarative component as a portable file
-- import only through the M7A1 codec
-- make import explicit; selecting a file must not silently activate or overwrite another component
-- define collision behavior for built-in, local-authored, and installed-remote component types
-- persist through the normal ComponentRepository boundary
-- use the normal activation controller after successful persistence
-- add deployed Pages smoke because this slice changes browser/UI behavior
+Final deployed evidence: `Pages Browser Smoke` #183 on `main@029579a7396917b9cc9214cfb01278d075d60413` passed after the #99 hydration-timing repair.
 
-### M7B Production runtime adapters
+Acceptance record: `docs/progress/m7a2-explicit-browser-package-transfer.md`.
 
-Only after the portable package boundary is stable, production runtime adapters may be added against the existing generic host interfaces:
+### M7B Production runtime adapters — active
+
+Production adapters plug into the already accepted host interfaces:
 
 ```text
 external telemetry / platform
@@ -87,7 +90,41 @@ Rules:
 - first establish adapter lifecycle/error/reconnect fixtures against the host interfaces, then select concrete production transports
 - backend publication deployment remains independent and deferred by M6.7B3
 
-### M7C Reusable component set
+#### M7B1 Protocol-neutral runtime adapter lifecycle foundation — accepted · 2026-08-31
+
+Accepted semantics:
+
+- explicit stopped / connecting / connected / retrying / failed state
+- injected retry policy and deterministic delay seam
+- atomic inbound value batches through `RuntimeValueStore.setMany()`
+- stale connection-attempt fencing after reconnect/stop
+- outbound dispatch only while connected
+- no silent command queue/replay across reconnect
+- observable connect/connection-loss/dispatch/close/retry failures
+- stop aborts pending work and closes the live connection
+- deterministic lifecycle regression in normal CI
+
+Acceptance evidence: PR #100 CI run #715 (`33361745532`) passed Build, runtime/model checks, Lint, and PostgreSQL publication API integration.
+
+Acceptance record: `docs/progress/m7b1-runtime-adapter-lifecycle-foundation.md`.
+
+#### M7B2 First concrete production transport — NEXT EVALUATION
+
+Do not pick a transport by roadmap inertia.
+
+Before implementation, evaluate the actual deployment/product integration needs and choose the first concrete transport against the accepted generic lifecycle contract. The selection must specify:
+
+- external platform/protocol target
+- authentication/configuration ownership
+- inbound value mapping
+- outbound Action mapping
+- reconnect behavior
+- command delivery/idempotency expectations
+- browser/runtime deployment constraints
+
+A concrete adapter must not widen Component package or Scene semantic contracts merely to expose protocol configuration.
+
+### M7C Reusable component set — after package/adapter foundations
 
 Build a small reusable declarative component set only after the package and runtime-host boundaries are stable enough to exercise it.
 
@@ -96,10 +133,13 @@ The set should prove generic capabilities rather than add component-specific edi
 ## Sequencing rule
 
 ```text
-M7A1 transport-neutral package codec
-  -> M7A2 explicit file export/import
-  -> M7B generic production-adapter foundation
-  -> M7C reusable component set
+M7A1 transport-neutral package codec             accepted
+  -> M7A2 explicit file export/import            accepted
+  -> M7B1 generic adapter lifecycle foundation   accepted
+  -> M7B2 first concrete production transport    NEXT EVALUATION
+  -> M7C reusable component set                  later
 ```
 
-A later review may interleave M7B and M7C if concrete product evidence justifies it, but M7A1 is the immediate implementation slice.
+A later review may interleave M7B2 and M7C if concrete product evidence justifies it, but M7B2 transport selection is the current decision gate.
+
+Production publication-backend deployment remains separately deferred and must not be reopened implicitly by M7B.

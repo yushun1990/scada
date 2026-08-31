@@ -178,6 +178,12 @@ Published revision / installed remote record
 
 Do not make local IndexedDB identity, publication-server identity, or protocol-specific runtime configuration part of the reusable component public package contract.
 
+### 3.14 Production adapter lifecycle is host-owned
+
+Protocol connection/reconnect state is infrastructure, not Component or Scene semantics.
+
+A reconnect may resume inbound telemetry delivery, but it must not silently replay outbound Device/Platform Action effects. Stronger delivery guarantees require explicit protocol-level idempotency/correlation semantics.
+
 ---
 
 ## 4. Milestone status
@@ -323,7 +329,7 @@ The previous M7 title combined three different concerns. They are now ordered de
 
 Detailed decomposition: `docs/progress/m7-roadmap-decomposition.md`.
 
-### M7A Portable component package boundary — active
+### M7A Portable component package boundary — accepted
 
 Goal:
 
@@ -358,19 +364,24 @@ transport-neutral distributable package
 
 Portable package v1 does not silently bundle native renderer modules or external asset trees.
 
-#### M7A2 Explicit browser export / import — NEXT
+#### M7A2 Explicit browser export / import — accepted · 2026-08-30
 
-Acceptance target:
+Accepted result:
 
 - explicit file export of a ready declarative package
 - explicit import through the M7A1 codec
-- no silent activation/overwrite on file selection
-- deterministic collision policy across built-in, local-authored, and installed-remote types
-- persistence through ComponentRepository
-- activation through the existing generic activation controller
-- deployed Pages smoke for the browser workflow
+- file selection performs parse/validation/collision preflight without mutation
+- explicit confirmation is required before persistence/activation
+- deterministic collision rejection across built-in, local-authored, and installed-remote types
+- persistence through ComponentRepository / IndexedDB
+- activation through the existing generic activation path
+- deployed browser A -> browser B transfer smoke
 
-### M7B Production runtime adapters — after M7A baseline
+After #99 merged, `Pages Browser Smoke` #183 (`33288164839`) passed on `main@029579a7396917b9cc9214cfb01278d075d60413`, closing the final deployed-browser acceptance condition.
+
+Acceptance record: `docs/progress/m7a2-explicit-browser-package-transfer.md`.
+
+### M7B Production runtime adapters — active
 
 Production adapters plug into existing host boundaries:
 
@@ -392,8 +403,32 @@ Rules:
 
 - protocol details live in adapters, never component public APIs
 - first prove lifecycle/error/reconnect behavior against generic host interfaces
+- outbound effects are not silently queued/replayed across reconnect
 - choose concrete transports only after the generic adapter boundary is accepted
 - publication-backend deployment remains separately deferred by B3
+
+#### M7B1 Protocol-neutral runtime adapter lifecycle foundation — accepted · 2026-08-31
+
+Accepted result:
+
+- protocol-neutral `ManagedRuntimeAdapter`
+- stopped / connecting / connected / retrying / failed lifecycle
+- injected retry policy and deterministic delay seam
+- atomic inbound transport batches through `RuntimeValueStore.setMany()`
+- stale connection-attempt fencing after disconnect/retry/stop
+- outbound dispatch only while connected
+- explicit rejection instead of command queue/replay while disconnected
+- observable connect/connection-loss/dispatch/close/retry failures
+- stop abort + live-connection close semantics
+- deterministic CI lifecycle regression
+
+PR #100 CI run #715 (`33361745532`) passed Build, all runtime/model checks including the lifecycle fixture, Lint, and PostgreSQL publication API integration.
+
+Acceptance record: `docs/progress/m7b1-runtime-adapter-lifecycle-foundation.md`.
+
+#### M7B2 First concrete production transport — NEXT EVALUATION
+
+Do not select MQTT, WebSocket, HTTP, or a vendor SDK by roadmap inertia. First evaluate the actual deployment/integration target against the accepted generic lifecycle contract, including authentication/configuration ownership, inbound mapping, outbound Action mapping, reconnect behavior, idempotency expectations, and browser/runtime constraints.
 
 ### M7C Reusable component set — after package/adapter foundations
 
@@ -417,12 +452,15 @@ Prefer components expressible with accepted Properties / Actions / Events / Anch
 9. M6.7B2C explicit Publish + browser-safe auth                         accepted
 10. M6.7B3 production deployment decision                               accepted · defer · 2026-08-30
 11. M7A1 transport-neutral distributable package codec                  accepted · 2026-08-30
-12. M7A2 explicit browser package export/import                         NEXT
-13. M7B production runtime-adapter foundation                           later
-14. M7C reusable component set                                          later
+12. M7A2 explicit browser package export/import                         accepted · 2026-08-30
+13. M7B1 protocol-neutral runtime adapter lifecycle                     accepted · 2026-08-31
+14. M7B2 first concrete production transport                            NEXT EVALUATION
+15. M7C reusable component set                                          later
 ```
 
-**Next implementation step: M7A2 Explicit browser package export / import.**
+**Current decision gate: M7B2 First concrete production transport evaluation.**
+
+Evaluate the first concrete production transport before implementation; do not let transport choice leak into Component or Scene contracts.
 
 Do not restart M6 effect experimentation, revive QuickJS as the main product path, or provision production publication infrastructure while B3 remains `defer deployment`.
 
@@ -446,6 +484,8 @@ Use the narrowest relevant verification set:
 - browser-publication fixtures for `baseRevision`, conflict/refresh semantics, and no frontend Bearer credentials
 - browser-auth API integration for session/revocation/publisher identity/trusted Origin
 - M7 package-codec fixtures for deterministic portable round-trip and malformed/unsupported artifact rejection
+- M7 browser-package transfer smoke for export/import/persistence/activation/collision behavior
+- M7 runtime-adapter fixtures for lifecycle, reconnect, stale-session fencing, atomic inbound batches, outbound rejection/failure, stop, and retry exhaustion
 
 Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -453,9 +493,13 @@ Prefer explicit deterministic state/snapshots over timing-sensitive renderer ins
 
 ## 11. Near-term non-goals
 
-The following must not distract M7A2:
+The following must not distract M7B2 evaluation:
 
 - production publication-backend provisioning while B3 remains `defer deployment`
+- implementing a concrete transport before the M7B2 selection decision is explicit
+- protocol-specific Component or Scene APIs
+- implicit outbound command queueing/replay across reconnect
+- exactly-once delivery claims without protocol-level idempotency/correlation support
 - component marketplace
 - collaborative editing
 - automatic publication on local Save
@@ -471,7 +515,6 @@ The following must not distract M7A2:
 - new named animation families without a demonstrated generic-runtime gap
 - full vector illustration tooling
 - arbitrary path editing
-- protocol-specific component APIs
 - premature Scene schema churn
 
 These are deferred or outside the current SCADA layer, not necessarily rejected forever.
