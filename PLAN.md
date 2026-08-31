@@ -190,6 +190,14 @@ Do not invent MQTT topics, WebSocket envelopes, HTTP/SSE APIs, credentials, or c
 
 A concrete adapter is justified only when a real external integration target defines endpoint/topology, authentication, inbound mapping, outbound Action mapping, reconnect behavior, delivery/idempotency expectations, and deployment constraints.
 
+### 3.16 Portable declarative components do not imply executable code
+
+A distributable user component may declare only the runtime contract the accepted activation path can implement safely.
+
+Today, generic local/remote user activation accepts composite packages with declarative Properties/Anchors/visual rules/animations and rejects packages that require executable Action/Event implementations. `implementationDraft` remains inert.
+
+Do not weaken this boundary merely to make a reusable starter component appear interactive. Portable executable Actions/Events require a separate accepted implementation contract.
+
 ---
 
 ## 4. Milestone status
@@ -444,13 +452,43 @@ M7B1 already provides the generic adapter lifecycle seam. Concrete adapter work 
 
 Decision record: `docs/progress/m7b2-production-transport-selection.md`.
 
-### M7C Reusable component set — NEXT
+### M7C Reusable component set — active
 
-Build a small reusable declarative component set that exercises the generic contracts without adding component-specific editor code.
+A capability audit corrected the earlier overly broad target: current ready user composite activation intentionally rejects packages that declare Actions/Events because there is no accepted portable executable implementation contract. Trusted built-ins continue to prove typed Actions/Events; portable user packages must remain purely declarative for now.
 
-Prefer components expressible with accepted Properties / Actions / Events / Anchors plus composite visual rules/animations.
+#### M7C1 Reusable portable starter package baseline — REVIEW GATE
 
-The first M7C slice must define a minimum capability matrix before implementation. Do not build a large component catalog merely to accumulate examples.
+Ship three real M7A artifacts under `public/component-packages/` rather than three new native registrations:
+
+- `starter.process-valve` — select Property, process Anchors, Visual Rules, fault Blink
+- `starter.running-motor` — boolean Properties, power/mechanical Anchors, Visual Rules, Spin + Blink
+- `starter.signal-quality` — number Property and numeric threshold Visual Rules
+
+All three deliberately declare empty Actions/Events and an inert/empty `implementationDraft`.
+
+Verification must prove:
+
+- shared M7A codec parse + deterministic canonical round-trip
+- conversion to ready local authoring entries
+- repository document persistence/hydration
+- activation through the normal generic user registry with zero diagnostics
+- deterministic Property/rule/animation behavior
+- Build/runtime/Lint/publication regression safety
+- deployed Pages serves the actual artifacts
+- fresh-browser explicit import persists all three and exposes them in the normal SCADA palette
+
+Implementation/review record: `docs/progress/m7c1-reusable-component-baseline.md`.
+
+#### After M7C1
+
+Do not automatically open a scripting milestone. Review only gaps demonstrated by real starter-component use:
+
+- direct Property-to-text/value projection
+- continuous numeric Property-to-visual projection
+- portable executable Actions/Events
+- starter-package discoverability/install UX
+
+If none is necessary to satisfy a real use case, M7 may close with the portable declarative starter baseline plus the existing trusted Action/Event components.
 
 ---
 
@@ -471,14 +509,12 @@ The first M7C slice must define a minimum capability matrix before implementatio
 12. M7A2 explicit browser package export/import                         accepted · 2026-08-30
 13. M7B1 protocol-neutral runtime adapter lifecycle                     accepted · 2026-08-31
 14. M7B2 first concrete production transport selection                  accepted · defer · 2026-08-31
-15. M7C reusable component set                                          NEXT
+15. M7C1 reusable portable starter packages                             REVIEW GATE
 ```
 
-**Current implementation gate: M7C Reusable component set decomposition.**
+**Current implementation gate: M7C1 Reusable portable starter package baseline.**
 
-First define the minimum reusable component capability matrix and choose the smallest set that proves generic Properties / Actions / Events / Anchors, visual rules/animation, runtime values, packaging, persistence, and activation without component-specific editor code.
-
-Do not restart M6 effect experimentation, revive QuickJS as the main product path, invent a concrete transport without a target, or provision production publication infrastructure while B3 remains `defer deployment`.
+Do not restart M6 effect experimentation, revive QuickJS as the main product path, invent a concrete transport without a target, execute `implementationDraft`, or provision production publication infrastructure while B3 remains `defer deployment`.
 
 ---
 
@@ -491,7 +527,7 @@ Use the narrowest relevant verification set:
 - deterministic model/runtime scripts for semantic behavior
 - CI build + runtime checks + lint
 - regression fixtures for repaired runtime edges
-- deployed Pages smoke when browser/UI behavior changes
+- deployed Pages smoke when browser/UI/distributed public artifacts change
 - storage migration fixtures when persistence formats change
 - debug snapshots for browser-only persistence failures
 - publication contract fixtures before remote deployment
@@ -502,7 +538,8 @@ Use the narrowest relevant verification set:
 - M7 package-codec fixtures for deterministic portable round-trip and malformed/unsupported artifact rejection
 - M7 browser-package transfer smoke for export/import/persistence/activation/collision behavior
 - M7 runtime-adapter fixtures for lifecycle, reconnect, stale-session fencing, atomic inbound batches, outbound rejection/failure, stop, and retry exhaustion
-- M7 reusable-component fixtures for public-contract validation, generic rendering/behavior, package round-trip, persistence, and activation
+- M7 reusable-package fixtures for declarative contract validation, rule/animation behavior, package round-trip, repository persistence/hydration, and generic activation
+- M7 starter-package deployed smoke for public artifact availability plus fresh-browser explicit import/palette activation
 
 Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -510,7 +547,7 @@ Prefer explicit deterministic state/snapshots over timing-sensitive renderer ins
 
 ## 11. Near-term non-goals
 
-The following must not distract M7C:
+The following must not distract M7C1:
 
 - production publication-backend provisioning while B3 remains `defer deployment`
 - speculative MQTT/WebSocket/HTTP/SSE/vendor adapter implementation without a real target
@@ -519,6 +556,10 @@ The following must not distract M7C:
 - exactly-once delivery claims without protocol-level idempotency/correlation support
 - a large component catalog before the minimum capability matrix is proven
 - component-specific editor branches or inspectors
+- executing `implementationDraft` to make portable components interactive
+- pretending portable Actions/Events are implemented when activation rejects them
+- arbitrary Property-to-text/value projection without a separate accepted contract
+- continuous numeric Property-to-visual projection without a separate accepted contract
 - component marketplace
 - collaborative editing
 - automatic publication on local Save

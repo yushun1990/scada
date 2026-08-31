@@ -1,0 +1,160 @@
+{
+  "packageVersion": 1,
+  "definition": {
+    "type": "starter.signal-quality",
+    "title": "信号质量",
+    "category": "状态指示",
+    "description": "可移植的声明式信号质量指示器，根据数值阈值逐级显示四段信号柱。",
+    "size": {
+      "defaultWidth": 100,
+      "defaultHeight": 80,
+      "minWidth": 50,
+      "minHeight": 40
+    },
+    "properties": {
+      "quality": {
+        "title": "质量",
+        "kind": "number",
+        "defaultValue": 0,
+        "description": "建议使用 0..100 的质量值。",
+        "bindable": true
+      }
+    },
+    "actions": {},
+    "events": {},
+    "anchors": []
+  },
+  "visual": {
+    "version": 3,
+    "mode": "composite",
+    "designSize": { "width": 100, "height": 80 },
+    "layers": [
+      {
+        "id": "bar-1",
+        "name": "一级",
+        "kind": "vector",
+        "parentId": null,
+        "transform": {
+          "x": 10,
+          "y": 55,
+          "width": 14,
+          "height": 15,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": true,
+        "opacity": 1,
+        "primitive": "rect",
+        "style": {
+          "fill": "#22c55e",
+          "stroke": "#166534",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "bar-2",
+        "name": "二级",
+        "kind": "vector",
+        "parentId": null,
+        "transform": {
+          "x": 32,
+          "y": 43,
+          "width": 14,
+          "height": 27,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": false,
+        "opacity": 1,
+        "primitive": "rect",
+        "style": {
+          "fill": "#22c55e",
+          "stroke": "#166534",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "bar-3",
+        "name": "三级",
+        "kind": "vector",
+        "parentId": null,
+        "transform": {
+          "x": 54,
+          "y": 30,
+          "width": 14,
+          "height": 40,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": false,
+        "opacity": 1,
+        "primitive": "rect",
+        "style": {
+          "fill": "#22c55e",
+          "stroke": "#166534",
+          "strokeWidth": 2
+        }
+      },
+      {
+        "id": "bar-4",
+        "name": "四级",
+        "kind": "vector",
+        "parentId": null,
+        "transform": {
+          "x": 76,
+          "y": 15,
+          "width": 14,
+          "height": 55,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": false,
+        "opacity": 1,
+        "primitive": "rect",
+        "style": {
+          "fill": "#22c55e",
+          "stroke": "#166534",
+          "strokeWidth": 2
+        }
+      }
+    ],
+    "rules": [
+      {
+        "id": "show-bar-2",
+        "enabled": true,
+        "propertyKey": "quality",
+        "operator": "greaterOrEqual",
+        "compareValue": 25,
+        "layerId": "bar-2",
+        "target": "visible",
+        "value": true
+      },
+      {
+        "id": "show-bar-3",
+        "enabled": true,
+        "propertyKey": "quality",
+        "operator": "greaterOrEqual",
+        "compareValue": 50,
+        "layerId": "bar-3",
+        "target": "visible",
+        "value": true
+      },
+      {
+        "id": "show-bar-4",
+        "enabled": true,
+        "propertyKey": "quality",
+        "operator": "greaterOrEqual",
+        "compareValue": 75,
+        "layerId": "bar-4",
+        "target": "visible",
+        "value": true
+      }
+    ],
+    "animations": []
+  },
+  "implementationDraft": ""
+}

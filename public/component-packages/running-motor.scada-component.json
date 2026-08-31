@@ -1,0 +1,193 @@
+{
+  "packageVersion": 1,
+  "definition": {
+    "type": "starter.running-motor",
+    "title": "运行电机",
+    "category": "流程设备",
+    "description": "可移植的声明式电机示例，运行时转子旋转，故障时机壳报警闪烁。",
+    "size": {
+      "defaultWidth": 140,
+      "defaultHeight": 90,
+      "minWidth": 70,
+      "minHeight": 45
+    },
+    "properties": {
+      "running": {
+        "title": "运行",
+        "kind": "boolean",
+        "defaultValue": false,
+        "description": "控制转子运行动画。",
+        "bindable": true
+      },
+      "fault": {
+        "title": "故障",
+        "kind": "boolean",
+        "defaultValue": false,
+        "description": "控制故障样式与报警闪烁。",
+        "bindable": true
+      }
+    },
+    "actions": {},
+    "events": {},
+    "anchors": [
+      {
+        "id": "power",
+        "title": "电源侧",
+        "position": { "x": 0, "y": 0.5 },
+        "outward": { "x": -1, "y": 0 },
+        "snapRadius": 12,
+        "role": "both",
+        "kinds": ["power"]
+      },
+      {
+        "id": "shaft",
+        "title": "轴端",
+        "position": { "x": 1, "y": 0.5 },
+        "outward": { "x": 1, "y": 0 },
+        "snapRadius": 12,
+        "role": "both",
+        "kinds": ["mechanical"]
+      }
+    ]
+  },
+  "visual": {
+    "version": 3,
+    "mode": "composite",
+    "designSize": { "width": 140, "height": 90 },
+    "layers": [
+      {
+        "id": "housing",
+        "name": "机壳",
+        "kind": "vector",
+        "parentId": null,
+        "transform": {
+          "x": 15,
+          "y": 15,
+          "width": 95,
+          "height": 60,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": true,
+        "opacity": 1,
+        "primitive": "rect",
+        "style": {
+          "fill": "#64748b",
+          "stroke": "#334155",
+          "strokeWidth": 3
+        }
+      },
+      {
+        "id": "rotor",
+        "name": "转子",
+        "kind": "vector",
+        "parentId": null,
+        "transform": {
+          "x": 42,
+          "y": 25,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": true,
+        "opacity": 1,
+        "primitive": "rect",
+        "style": {
+          "fill": "#38bdf8",
+          "stroke": "#075985",
+          "strokeWidth": 3
+        }
+      },
+      {
+        "id": "shaft",
+        "name": "输出轴",
+        "kind": "vector",
+        "parentId": null,
+        "transform": {
+          "x": 105,
+          "y": 40,
+          "width": 35,
+          "height": 10,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": true,
+        "opacity": 1,
+        "primitive": "rect",
+        "style": {
+          "fill": "#94a3b8",
+          "stroke": "#475569",
+          "strokeWidth": 2
+        }
+      }
+    ],
+    "rules": [
+      {
+        "id": "running-housing",
+        "enabled": true,
+        "propertyKey": "running",
+        "operator": "equals",
+        "compareValue": true,
+        "layerId": "housing",
+        "target": "style.fill",
+        "value": "#16a34a"
+      },
+      {
+        "id": "fault-housing",
+        "enabled": true,
+        "propertyKey": "fault",
+        "operator": "equals",
+        "compareValue": true,
+        "layerId": "housing",
+        "target": "style.fill",
+        "value": "#dc2626"
+      }
+    ],
+    "animations": [
+      {
+        "id": "running-spin",
+        "kind": "spin",
+        "enabled": true,
+        "layerId": "rotor",
+        "degreesPerIteration": 360,
+        "timing": {
+          "durationMs": 1000,
+          "delayMs": 0,
+          "iterations": "infinite",
+          "direction": "normal",
+          "easing": "linear"
+        },
+        "activation": {
+          "kind": "property",
+          "propertyKey": "running",
+          "operator": "equals",
+          "compareValue": true
+        }
+      },
+      {
+        "id": "fault-blink",
+        "kind": "blink",
+        "enabled": true,
+        "layerId": "housing",
+        "timing": {
+          "durationMs": 700,
+          "delayMs": 0,
+          "iterations": "infinite",
+          "direction": "normal",
+          "easing": "linear"
+        },
+        "activation": {
+          "kind": "property",
+          "propertyKey": "fault",
+          "operator": "equals",
+          "compareValue": true
+        }
+      }
+    ]
+  },
+  "implementationDraft": ""
+}
