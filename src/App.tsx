@@ -1,15 +1,26 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { StandaloneRuntimePage } from './features/runtime/StandaloneRuntimePage'
-import {
-  ComponentEditorStorageGate,
-  ScadaEditorStorageGate,
-} from './features/workspace/EditorStorageGate'
-import { WorkspacePage } from './features/workspace/WorkspacePage'
 import { Button, Separator } from './ui'
 import './inspector-compact.css'
 import './component-editor-header.css'
 import './editor-toolbar-context.css'
+
+const WorkspacePage = lazy(() =>
+  import('./features/workspace/WorkspacePage').then((module) => ({
+    default: module.WorkspacePage,
+  })),
+)
+const ScadaEditorStorageGate = lazy(() =>
+  import('./features/workspace/EditorStorageGate').then((module) => ({
+    default: module.ScadaEditorStorageGate,
+  })),
+)
+const ComponentEditorStorageGate = lazy(() =>
+  import('./features/workspace/EditorStorageGate').then((module) => ({
+    default: module.ComponentEditorStorageGate,
+  })),
+)
 
 type WorkspaceModule = 'works' | 'components'
 
@@ -104,6 +115,10 @@ function StorageWriteErrorNotice() {
   )
 }
 
+function StudioRouteFallback() {
+  return <div aria-label="正在加载 Studio" />
+}
+
 function App() {
   const [route, setRoute] = useState<AppRoute>(resolveRoute)
 
@@ -119,32 +134,32 @@ function App() {
 
   if (route.page === 'scada') {
     return (
-      <>
+      <Suspense fallback={<StudioRouteFallback />}>
         <ScadaEditorStorageGate key={route.workId} workId={route.workId} />
         <StudioWorkspaceExit key={`scada-${route.workId}`} module="works" />
         <StorageWriteErrorNotice />
-      </>
+      </Suspense>
     )
   }
 
   if (route.page === 'component') {
     return (
-      <>
+      <Suspense fallback={<StudioRouteFallback />}>
         <ComponentEditorStorageGate
           key={route.componentId}
           componentId={route.componentId}
         />
         <StudioWorkspaceExit key={`component-${route.componentId}`} module="components" />
         <StorageWriteErrorNotice />
-      </>
+      </Suspense>
     )
   }
 
   return (
-    <>
+    <Suspense fallback={<StudioRouteFallback />}>
       <WorkspacePage module={route.module} />
       <StorageWriteErrorNotice />
-    </>
+    </Suspense>
   )
 }
 
