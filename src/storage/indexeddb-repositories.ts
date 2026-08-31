@@ -294,6 +294,34 @@ export class IndexedDbLocalStorage {
     await transactionDone(transaction)
   }
 
+  /**
+   * Add one imported work and its missing portable dependencies in one browser
+   * transaction. `add()` is intentional: a generated local id collision aborts
+   * the whole import instead of overwriting an existing authoring record.
+   */
+  async addWorkImportAtomically(
+    scene: SceneRepositoryRecord,
+    components: readonly ComponentRepositoryRecord[],
+  ) {
+    const componentIds = new Set<string>()
+    for (const component of components) {
+      if (componentIds.has(component.id)) {
+        throw new Error(`Duplicate imported component record id: ${component.id}`)
+      }
+      componentIds.add(component.id)
+    }
+
+    const database = await this.database
+    const transaction = database.transaction(
+      [SCENES_STORE, COMPONENTS_STORE],
+      'readwrite',
+    )
+    transaction.objectStore(SCENES_STORE).add({ ...scene })
+    const componentStore = transaction.objectStore(COMPONENTS_STORE)
+    for (const component of components) componentStore.add({ ...component })
+    await transactionDone(transaction)
+  }
+
   async reset() {
     const database = await this.database
     const transaction = database.transaction(
