@@ -64,6 +64,7 @@ jobs:
           npx --yes tsx scripts/check-component-publication-client.ts
           node scripts/check-server-publication-contract.mjs
           node --check scripts/pages-scada-work-package-transfer-smoke.mjs
+          node --check scripts/pages-standalone-runtime-smoke.mjs
           node --check server/src/publication-auth.js
           node --check server/src/index.js
 
