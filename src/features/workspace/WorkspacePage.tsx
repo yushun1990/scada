@@ -25,6 +25,9 @@ import {
 } from '../component-library/storage'
 import {
   createScadaWork,
+  exportScadaWorkPackageDocument,
+  importScadaWorkPackage,
+  inspectScadaWorkPackageImportDocument,
   listScadaWorks,
   type ScadaWorkSummary,
 } from '../scada-works/storage'
@@ -63,6 +66,14 @@ function portableComponentFileName(componentType: string) {
   return `${safeType}.scada-component.json`
 }
 
+function portableWorkFileName(name: string) {
+  const safeName = name
+    .trim()
+    .replace(/[^a-zA-Z0-9._\u4e00-\u9fff-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'scada-work'
+  return `${safeName}.scada-work.json`
+}
+
 function downloadTextFile(contents: string, fileName: string) {
   const blob = new Blob([contents], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -80,6 +91,7 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
   const [message, setMessage] = useState('')
   const snapshotInputRef = useRef<HTMLInputElement>(null)
   const componentPackageInputRef = useRef<HTMLInputElement>(null)
+  const workPackageInputRef = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -115,6 +127,50 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
       openWork(work.id)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '创建作品失败')
+    }
+  }
+
+  async function exportWorkPackage(work: ScadaWorkSummary) {
+    try {
+      const exported = await exportScadaWorkPackageDocument(work.id)
+      downloadTextFile(
+        exported.document,
+        portableWorkFileName(exported.workPackage.scene.name),
+      )
+      setMessage(`已导出作品 ${exported.workPackage.scene.name}`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '作品导出失败')
+    }
+  }
+
+  async function importWorkPackage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      const inspected = await inspectScadaWorkPackageImportDocument(await file.text())
+      if (inspected.plan.kind === 'collision') {
+        setMessage(inspected.plan.message)
+        return
+      }
+
+      const importedCount = inspected.plan.dependenciesToImport.length
+      const reusedCount = inspected.plan.reusedDependencies.length
+      const confirmed = window.confirm(
+        `确认导入作品“${inspected.plan.sceneName}”？\n\n组件依赖：${inspected.workPackage.dependencies.length} 个\n新增本地依赖：${importedCount} 个\n复用已有依赖：${reusedCount} 个\n\n确认后会一次性保存作品与缺失依赖。`,
+      )
+      if (!confirmed) {
+        setMessage(`已取消导入 ${file.name}`)
+        return
+      }
+
+      const imported = await importScadaWorkPackage(inspected.workPackage)
+      await refresh()
+      setMessage(`已导入作品 ${imported.name}`)
+      openWork(imported.id)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '作品导入失败')
     }
   }
 
@@ -306,16 +362,33 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
               <div>
                 <span className="workspace-eyebrow">SCADA WORKS</span>
                 <h1>SCADA 作品</h1>
-                <p>每个作品拥有独立场景存储，默认在当前页面进入编辑器；需要并行编辑时可由浏览器另开标签页。</p>
+                <p>每个作品拥有独立场景存储；作品包会显式携带运行所需的可移植组件依赖。</p>
               </div>
-              <Button
-                variant="primary"
-                className="workspace-primary-button"
-                disabled={loading}
-                onClick={() => void createWork()}
-              >
-                + 新建作品
-              </Button>
+              <div className="workspace-header-actions">
+                <Button
+                  variant="secondary"
+                  disabled={loading}
+                  onClick={() => workPackageInputRef.current?.click()}
+                >
+                  导入作品
+                </Button>
+                <Button
+                  variant="primary"
+                  className="workspace-primary-button"
+                  disabled={loading}
+                  onClick={() => void createWork()}
+                >
+                  + 新建作品
+                </Button>
+                <Input
+                  ref={workPackageInputRef}
+                  className="hidden-input"
+                  type="file"
+                  accept="application/json,.json,.scada-work.json"
+                  aria-label="选择 SCADA 作品包文件"
+                  onChange={(event) => void importWorkPackage(event)}
+                />
+              </div>
             </header>
 
             <div className="workspace-card-grid" aria-busy={loading}>
@@ -339,14 +412,25 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
                       <span>{work.connectionCount} 条连线</span>
                       <span>更新 {formatUpdatedAt(work.updatedAt)}</span>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      className="workspace-card-action"
-                      onClick={() => openWork(work.id)}
-                    >
-                      编辑
-                    </Button>
+                    <div className="work-card-actions">
+                      <Button
+                        variant="ghost"
+                        size="small"
+                        className="workspace-card-action"
+                        aria-label={`导出作品 ${work.name}`}
+                        onClick={() => void exportWorkPackage(work)}
+                      >
+                        导出
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="small"
+                        className="workspace-card-action"
+                        onClick={() => openWork(work.id)}
+                      >
+                        编辑
+                      </Button>
+                    </div>
                   </div>
                 </article>
               ))}
