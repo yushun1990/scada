@@ -42,7 +42,7 @@ Guiding product rule:
 
 SCADA is not a general rule engine. Scene-level runtime semantics remain focused on presentation state and explicit user/component interactions.
 
-The next product boundary is now **getting a finished work out of the editor as a dependency-complete, validated, runnable artifact and proving that artifact crosses a fresh-browser boundary intact**.
+M8 now has a dependency-complete portable work artifact and an explicit fresh-browser transfer path. The current product boundary is **running that exact artifact in a standalone, read-only surface without first importing it into Studio authoring state**.
 
 ---
 
@@ -120,11 +120,13 @@ Authored/default, external-binding and derived layers may be separate internally
 Workbench / Runtime-facing repositories
         ↓
 Storage abstraction
-        ├─ IndexedDB       browser/local authority
+        ├─ IndexedDB       browser/local authoring authority
         └─ Memory          deterministic fixtures
 ```
 
 `localStorage` is migration input only. Save succeeds only after the asynchronous repository write succeeds.
+
+A standalone runtime that directly consumes a distribution artifact is **not** an authoring repository client and must not persist merely to become runnable.
 
 ### 3.7 Backend is optional infrastructure
 
@@ -178,7 +180,26 @@ Validation of a candidate artifact must not require mutating the live Studio com
 
 Exact work-package closure means every non-host Scene component type is supplied once by the artifact and every supplied portable dependency is actually referenced by that Scene.
 
-Browser import must preserve that contract: inspection is side-effect free, conflicting same-type definitions fail closed, and a confirmed import must not persist only part of the work dependency closure.
+Browser import preserves that contract: inspection is side-effect free, conflicting same-type definitions fail closed, and a confirmed import cannot persist only part of the work dependency closure.
+
+Standalone runtime loading preserves the same artifact authority: bundled dependencies are runtime-scoped capabilities, not an excuse to silently install packages into Studio state.
+
+### 3.12 Standalone runtime state is package-scoped
+
+A standalone runtime instance owns the runtime registry and runtime session for the loaded work package.
+
+```text
+trusted host registrations
++ bundled portable dependencies
+        ↓
+package-scoped ComponentRegistry
+        ↓
+package-scoped runtime session
+```
+
+The standalone path must not require `studioComponentRegistry`, local component installation, authoring persistence or editor mock telemetry before it can render the package.
+
+Real runtime data/action adapters remain explicit host capabilities and are not inferred from the work artifact.
 
 ---
 
@@ -193,16 +214,14 @@ M4 Generic component kernel / registry                         accepted
 M5 SCADA Runtime v0.1                                          accepted
 M6 Component Workbench + scene semantics                       accepted · 2026-08-30
 M7 Packaging / adapter foundation / reusable components         accepted · 2026-08-31
-M8 Portable SCADA Work + Standalone Runtime                     active · M8A3 ACTIVE
+M8 Portable SCADA Work + Standalone Runtime                     active · M8B1 ACTIVE
 ```
 
 M6 acceptance established the browser-first authoring/runtime baseline: Component Workbench, typed public contracts, Scene v7 canonical semantics, IndexedDB repositories, local user-component activation and optional immutable publication/install flows.
 
-M7 acceptance established: transport-neutral component packages, explicit browser component transfer, protocol-neutral production adapter lifecycle, deliberate concrete-transport deferral, and a real reusable portable starter component set.
+M7 acceptance established transport-neutral component packages, explicit browser component transfer, protocol-neutral production adapter lifecycle, deliberate concrete-transport deferral, and a real reusable portable starter component set.
 
-M8A1 acceptance established the registry-scoped Scene validation boundary required to preflight candidate work dependencies without mutating `studioComponentRegistry`.
-
-M8A2 acceptance established the transport-neutral, versioned, dependency-complete SCADA work package codec.
+M8A1 established registry-scoped Scene validation. M8A2 established the dependency-complete work-package artifact. M8A3 proved explicit browser transfer across a fresh-browser boundary with atomic persistence and dependency activation.
 
 Detailed history: `docs/progress/`.
 
@@ -251,27 +270,18 @@ QuickJS is not the current product center. Existing controlled-runtime experimen
 
 M7 is closed. Do not create an M7C2 merely to continue numbering.
 
-### M7A Portable component package boundary — accepted
+Accepted M7 boundaries:
 
-- M7A1 transport-neutral distributable package codec — accepted
-- M7A2 explicit browser export/import — accepted
+- M7A1 transport-neutral distributable component package codec
+- M7A2 explicit browser component export/import
+- M7B1 protocol-neutral `ManagedRuntimeAdapter` lifecycle
+- M7B2 concrete transport selection decision: **defer until a real target exists**
+- M7C1 reusable portable starter packages:
+  - `starter.process-valve`
+  - `starter.running-motor`
+  - `starter.signal-quality`
 
-### M7B Production runtime adapter foundation — accepted / concrete transport deferred
-
-- M7B1 protocol-neutral `ManagedRuntimeAdapter` lifecycle — accepted
-- M7B2 concrete transport selection — accepted decision: defer until a real target exists
-
-### M7C Reusable component proof set — accepted
-
-M7C1 ships three real public distributable artifacts:
-
-- `starter.process-valve`
-- `starter.running-motor`
-- `starter.signal-quality`
-
-They prove Properties, Anchors, composite visuals, Visual Rules, Spin/Blink animation, package round-trip, repository persistence/hydration and generic activation without component-specific runtime code.
-
-Final acceptance revision:
+Final M7 acceptance revision:
 
 `main@247b66feb48195c25f43c82b6e07d22975e447ff`
 
@@ -279,7 +289,7 @@ Evidence:
 
 - main CI #725 (`33363995515`) passed
 - Deploy GitHub Pages #235 (`33363995500`) passed
-- Pages Browser Smoke #186 (`33364034832`) passed, including deployed starter-package import/persistence/palette activation
+- Pages Browser Smoke #186 (`33364034832`) passed
 
 Records:
 
@@ -287,33 +297,13 @@ Records:
 - `docs/progress/m7c1-reusable-component-baseline.md`
 - `docs/progress/m7-closeout.md`
 
-The starter set did not demonstrate a blocking need for portable executable Actions/Events, arbitrary Property-to-text projection, continuous numeric visual projection, or automatic starter installation. Those remain separate future requirements if real use cases demand them.
-
 ---
 
 ## 7. M8 Portable SCADA Work + Standalone Runtime — active
 
-### 7.1 Why M8 exists
+### 7.1 M8 direction
 
-The historical product path stopped inside the editor:
-
-```text
-SCADA Works
-  -> Edit
-  -> Design / Preview
-  -> Save locally or export raw Scene JSON
-```
-
-Repository audit established:
-
-- `App.tsx` has workspace/editor routes but no standalone runtime route
-- `ScadaEditorPage.tsx` has editor-local `Design` / `Preview` only
-- raw Scene v7 nodes reference component `type`; portable user-component definitions are not embedded
-- the default Scene codec resolves types against the mutable live Studio registry
-
-Therefore raw `.scene.json` is not a dependency-complete runnable work on a fresh browser.
-
-### 7.2 Desired M8 direction
+The historical product path stopped inside the editor and exported only raw Scene JSON. M8 establishes this path instead:
 
 ```text
 saved SCADA work
@@ -326,36 +316,31 @@ explicit browser transfer / standalone runtime load
 read-only runnable SCADA surface
 ```
 
-Built-in/native components remain host capabilities. Portable user components may be carried as explicit work dependencies.
+Built-in/native components remain host capabilities. Portable user components are explicit dependencies when the work requires them.
 
 Do not treat a debug snapshot or raw editor Scene export as a distribution format.
 
-### M8A1 Registry-scoped Scene validation boundary — accepted · 2026-08-31
+### M8A1 Registry-scoped Scene validation — accepted · 2026-08-31
 
-M8A1 introduced a structural `ComponentRegistryView` and pure scoped Scene codec entry points:
+Accepted boundary:
 
+- `ComponentRegistryView`
 - `parseSceneDocumentWithRegistry()`
 - `serializeSceneDocumentWithRegistry()`
+- Property, Anchor, legacy Action/Event and canonical Scene v7 semantic validation resolve through the supplied registry
+- isolated validation does not mutate `studioComponentRegistry`
 
-The supplied registry now owns Property, legacy binding/Action/Event, canonical Scene v7 semantic-contract and visual Anchor validation. Unknown component types fail closed in that scope.
-
-The existing default Scene APIs remain wrappers over `studioComponentRegistry`; M8A1 is dependency injection for the existing component system, not a second registry system.
-
-Deterministic fixtures prove isolated registries validate independently without cross-contamination or live-registry mutation.
-
-Acceptance evidence:
+Evidence:
 
 - PR #104
 - merged revision `main@fa588c251c0d65b7521452b1763feed620749b7e`
-- PR head CI #734 (`33365358054`) passed
+- PR-head CI #734 (`33365358054`) passed
 
-Record:
-
-- `docs/progress/m8a1-registry-scoped-scene-validation.md`
+Record: `docs/progress/m8a1-registry-scoped-scene-validation.md`.
 
 ### M8A2 Portable SCADA work package codec — accepted · 2026-08-31
 
-M8A2 defines the first runnable-work artifact:
+Accepted artifact:
 
 ```text
 ScadaWorkPackage
@@ -366,22 +351,9 @@ ScadaWorkPackage
 host capabilities         trusted built-in/native registrations, injected
 ```
 
-Accepted rules:
+Accepted rules include exact dependency closure, no host shadowing, deterministic dependency normalization, no global-registry mutation, current declarative-only portable execution, and Scene migration/validation through M8A1.
 
-- work-package version is explicit and independent from Scene/component-package schema versions
-- parse/create/serialize paths are pure and transport-neutral
-- Scene validation/migration reuses the M8A1 registry-scoped codec
-- trusted built-in/native component types are injected host capabilities and are not copied into the artifact
-- every non-host Scene component type is supplied by exactly one portable dependency
-- bundled dependencies cannot shadow trusted host capabilities
-- unused bundled dependencies are rejected
-- portable dependencies reuse the accepted distributable component package validator
-- only currently runnable declarative composite dependencies are accepted
-- portable Actions/Events remain unsupported and `implementationDraft` remains inert
-- normalized dependency ordering makes serialization deterministic
-- preflight does not mutate `studioComponentRegistry` or the supplied host registry
-
-Acceptance evidence:
+Evidence:
 
 - PR #105
 - final PR head `af9702d493867525b1f7b6cee88522717d2fbeb3`
@@ -390,66 +362,107 @@ Acceptance evidence:
 - Deploy GitHub Pages #238 passed
 - Pages Browser Smoke #189 passed
 
-Record:
+Record: `docs/progress/m8a2-portable-work-package-codec.md`.
 
-- `docs/progress/m8a2-portable-work-package-codec.md`
+### M8A3 Explicit browser SCADA work package transfer — accepted · 2026-08-31
 
-### M8A3 Explicit browser SCADA work package transfer — ACTIVE
-
-Goal:
-
-> Prove that an accepted M8A2 work artifact can be explicitly exported from one browser and imported into a fresh browser with its portable dependency closure intact, without partial persistence or silent dependency replacement.
-
-Target browser flow:
+Accepted browser flow:
 
 ```text
 persisted SCADA work
-    ↓ resolve exact portable dependencies
+    ↓ exact dependency resolution
 .scada-work.json
-    ↓ file selection
-side-effect-free package/inventory preflight
+    ↓ fresh browser / file selection
+side-effect-free package + inventory preflight
     ↓ explicit confirmation
 atomic Scene + missing-dependency persistence
     ↓
 normal component activation + SCADA editor/runtime
 ```
 
+Accepted properties:
+
+- export uses the exact persisted Scene, not unsaved editor memory
+- built-ins remain host capabilities
+- portable dependencies form an exact distributable closure
+- same-type local/installed dependencies are reused only when normalized packages are identical
+- conflicts fail before confirmation and without mutation
+- imported work/dependencies receive fresh local identities
+- Scene + missing dependencies commit in one IndexedDB transaction
+- activation happens only after commit
+- deployed smoke proves the complete flow in isolated browser contexts
+
+Acceptance evidence:
+
+- PR #106
+- final PR head `44ac595be468aae261cbe60de9ede846018dac7b`
+- final PR CI #745 (`33385557424`) passed
+- merged revision `main@2725abf1eafa953abfbabe456a1d63e9d3526dcd`
+- Deploy GitHub Pages #239 (`33390783353`) passed
+- Pages Browser Smoke #190 (`33390834150`) passed, including the fresh-browser work-package transfer scenario
+
+Record: `docs/progress/m8a3-browser-work-package-transfer.md`.
+
+### M8B1 Standalone/read-only runtime shell — ACTIVE
+
+Goal:
+
+> Load the exact accepted `.scada-work.json` directly into a standalone runtime surface without first importing the work or its bundled dependencies into Studio authoring state.
+
+Target flow:
+
+```text
+.scada-work.json
+    ↓ direct parse/preflight
+trusted host registrations + bundled portable dependencies
+    ↓ package-scoped ComponentRegistry
+package-scoped runtime session
+    ↓
+read-only Scene render surface
+```
+
 Acceptance requirements:
 
-- Workspace exposes explicit work-package export/import actions distinct from raw editor Scene JSON/debug snapshots
-- export packages the exact persisted Scene rather than unsaved editor-memory state
-- every referenced non-host type resolves to exactly one distributable local-ready or installed-remote dependency; missing/ambiguous/non-distributable dependencies fail closed
-- imported work packages are validated against an isolated trusted built-in host-capability registry before persistence
-- file selection/inspection does not persist packages or mutate the live Studio registry
-- same-type existing local/installed dependencies are reused only when their normalized distributable package exactly matches the bundled dependency
-- different same-type dependencies fail closed before user confirmation
-- missing dependencies receive fresh local authoring identities; the imported work receives a fresh local work identity
-- the complete package/inventory is revalidated immediately before persistence
-- imported Scene plus all missing dependency records are added in one IndexedDB transaction
-- generated-id collisions abort rather than overwrite existing records
-- runtime activation occurs only after that transaction commits
-- deterministic fixture covers export resolution, fresh import planning, exact reuse and conflict handling
-- deployed Pages smoke uses isolated browser contexts to prove export → fresh import → persistence → activation and conflict rejection without mutation
+- expose an explicit standalone runtime route independent from the Workspace/editor storage gates
+- consume the existing M8 work artifact; do not invent a second runtime/debug format
+- validate the package against trusted host capabilities before runtime construction
+- build a runtime-owned registry from trusted host registrations plus bundled portable dependencies
+- revalidate the Scene against the actual runtime registrations that will render it
+- do not register bundled dependencies into `studioComponentRegistry`
+- do not persist the Scene or materialize bundled dependencies into IndexedDB merely to run them
+- keep Studio authoring modules lazy so directly opening the runtime route does not initialize authoring persistence as an import side effect
+- own a dedicated runtime instance for the loaded package
+- do not start editor mock telemetry in standalone mode
+- render Scene background, groups, visual connections, trusted native components and portable declarative composite components
+- preserve existing declarative Visual Rules/animations through the portable component renderer
+- expose no selection/drag/resize/rotate/undo/save/inspector/component-palette authoring surface
+- unsupported/malformed/dependency-incomplete packages fail closed
+- deterministic fixture proves package-scoped registry/runtime ownership and absence of Studio/global activation dependencies
+- deployed fresh-browser Pages smoke proves direct package load/render and verifies the Studio IndexedDB database is not initialized by standalone load
 
 Architectural constraint:
 
-> M8A3 transfers the M8A2 artifact. It must not invent another work format, turn browser inventory into package authority, silently fetch remote dependencies, or weaken the accepted portable execution gate.
+> M8B1 is a runtime host for the accepted artifact, not another installation path. Package dependencies are runtime-scoped capabilities. Real telemetry/action transport remains a separate explicit host concern.
 
 Record:
 
-- `docs/progress/m8a3-browser-work-package-transfer.md`
+- `docs/progress/m8b1-standalone-runtime-shell.md`
 
-### After M8A3
+### After M8B1
 
-Do not jump directly to production deployment or concrete runtime transport.
+Do not automatically invent M8B2.
 
-Expected minimum next sequence:
+After M8B1 acceptance, perform an M8 closeout review against the original goal:
 
-1. M8B1 standalone/read-only runtime shell consuming the same accepted work artifact
-2. prove runtime load/render behavior without editor authoring chrome or mutable authoring state
-3. real runtime transport integration only when M7B2 reopening conditions are satisfied
+```text
+dependency-complete artifact
++ explicit browser transfer
++ fresh-browser standalone runtime
+```
 
-The standalone runtime must consume the same artifact rather than inventing a second debug/runtime format.
+If those goals are satisfied, close M8. Add another M8 implementation slice only for a demonstrated missing portability/runtime requirement.
+
+Concrete runtime transport remains deferred until M7B2 reopening conditions are met by a real integration target.
 
 ---
 
@@ -464,12 +477,13 @@ M7C1 reusable portable starter packages                         accepted · 2026
 M7 closeout                                                     accepted · 2026-08-31
 M8A1 registry-scoped Scene validation                           accepted · 2026-08-31
 M8A2 dependency-complete portable work package                  accepted · 2026-08-31
-M8A3 explicit browser work package transfer                     ACTIVE
+M8A3 explicit browser work package transfer                     accepted · 2026-08-31
+M8B1 standalone/read-only runtime shell                         ACTIVE
 ```
 
-**Current implementation gate: M8A3 Explicit browser SCADA work package transfer.**
+**Current implementation gate: M8B1 Standalone/read-only runtime shell.**
 
-Do not start the standalone runtime shell until M8A3 has passed its deployed fresh-browser transfer smoke. Do not restart M6 effect experimentation, revive QuickJS as the main product path, invent a concrete transport without a target, execute `implementationDraft`, or provision production publication infrastructure while M6.7B3 remains `defer deployment`.
+Do not select or implement a concrete runtime transport, add hidden package installation, execute `implementationDraft`, or provision production publication infrastructure while the current gates remain closed/deferred.
 
 ---
 
@@ -490,7 +504,9 @@ Use the narrowest relevant verification set:
 - M8 scoped-scene fixtures for isolated registry validation and legacy/current schema behavior
 - M8 work-package fixtures for exact dependency closure, host-capability collision handling, deterministic normalization and fail-closed Scene/package validation
 - M8 browser-transfer fixtures for dependency resolution/reuse/collision planning
-- M8 deployed browser-transfer smoke must prove a dependency-complete work crosses a fresh-browser boundary, persists atomically and activates only after confirmation
+- M8 deployed browser-transfer smoke for fresh-browser atomic import/activation
+- M8 standalone-runtime fixture for isolated registry/session construction with no mock or Studio activation dependency
+- M8 deployed standalone-runtime smoke for fresh-browser direct package load/render with no authoring IndexedDB side effect
 
 Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -498,17 +514,18 @@ Prefer explicit deterministic state/snapshots over timing-sensitive renderer ins
 
 ## 10. Current non-goals / reopening conditions
 
-Do not distract M8A3 with:
+Do not distract M8B1 with:
 
-- standalone runtime route/shell before fresh-browser work transfer is accepted
 - production publication-backend provisioning while M6.7B3 remains deferred
 - speculative MQTT/WebSocket/HTTP/SSE/vendor adapter implementation
 - protocol-specific Component, Scene or work-package fields
 - outbound command replay/exactly-once claims without protocol idempotency support
 - executable `implementationDraft`
 - portable Actions/Events without an accepted executable contract
-- automatic remote dependency fetching during work import
-- overwrite/update semantics for conflicting local component definitions
+- automatic remote dependency fetching during runtime load
+- hidden local installation of bundled runtime dependencies
+- runtime editing/persistence
+- editor mock telemetry in standalone mode
 - component marketplace/catalog expansion
 - large starter component catalogs
 - unrestricted JavaScript
