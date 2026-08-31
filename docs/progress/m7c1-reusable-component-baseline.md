@@ -1,12 +1,12 @@
 # M7C1 — Reusable portable component baseline
 
-Status: implementation complete · review gate · 2026-08-31
+Status: accepted · 2026-08-31
 
 ## Goal
 
 Ship the first small reusable component set as real M7A distributable artifacts, not as new component-specific React/runtime code.
 
-The slice must prove that the accepted public/declarative model is useful end to end:
+The accepted path is:
 
 ```text
 portable .scada-component.json
@@ -18,11 +18,11 @@ normal user-component activation
 SCADA palette/runtime
 ```
 
-## Capability audit before implementation
+## Capability boundary
 
-M7C initially described reusable components as exercising `Properties / Actions / Events / Anchors` wherever possible. The current accepted runtime boundary requires one correction.
+M7C initially described reusable components as exercising `Properties / Actions / Events / Anchors` wherever possible. The implementation audit corrected that target.
 
-`runtime-activation-core.ts` deliberately activates a user package only when:
+`runtime-activation-core.ts` intentionally activates a user package only when:
 
 ```text
 visual.mode === composite
@@ -32,23 +32,21 @@ Events is empty
 
 A ready user package that declares Actions or Events is rejected with a `runtime-contract` diagnostic because no accepted portable executable implementation contract exists. `implementationDraft` remains inert by design.
 
-Therefore M7C1 must **not** fake Action/Event support by executing draft code or adding per-component native handlers.
+Therefore M7C1 does not fake Action/Event support by executing draft code or adding per-component native handlers.
 
-Current evidence is split intentionally:
+Evidence is split intentionally:
 
 - portable declarative packages prove Properties, Anchors, composite visuals, rules, animations, packaging, persistence and activation
-- trusted built-ins such as the existing Pump continue to prove typed Actions/Events and host dispatch semantics
-- portable executable Actions/Events remain a separate future architecture decision if a real reusable-component requirement demands them
+- trusted built-ins such as Pump continue to prove typed Actions/Events and host dispatch semantics
+- portable executable Actions/Events remain a future architecture decision only if a real reusable-component requirement demands them
 
-A second declarative limitation is also explicit: visual rules currently write constant visual fields; text layer content and continuous numeric geometry are not direct Property projections. M7C1 chooses components that are honestly expressible by the accepted model instead of adding a hidden binding system.
+Visual rules also currently write constant visual fields; arbitrary Property-to-text projection and continuous Property-to-geometry projection are not hidden into this milestone.
 
-## Starter package set
+## Accepted starter package set
 
-The artifacts live under `public/component-packages/`, so the exact distribution documents are also deployed by GitHub Pages.
+The artifacts live under `public/component-packages/`, so the exact distribution documents are deployed by GitHub Pages.
 
 ### `starter.process-valve` — 流程阀门
-
-Exercises:
 
 - `select` Property: closed / open / fault
 - two typed visual Anchors (`process`)
@@ -57,8 +55,6 @@ Exercises:
 - fault-gated Blink animation
 
 ### `starter.running-motor` — 运行电机
-
-Exercises:
 
 - two bindable `boolean` Properties: running / fault
 - power and mechanical Anchors
@@ -69,8 +65,6 @@ Exercises:
 
 ### `starter.signal-quality` — 信号质量
 
-Exercises:
-
 - bindable `number` Property
 - numeric comparison Visual Rules
 - progressive visibility of four signal bars
@@ -78,9 +72,9 @@ Exercises:
 
 ## Why these are distribution artifacts instead of built-ins
 
-Adding three native built-in registrations would prove the wrong boundary. Built-ins are trusted host code and the Component Library exposes them as read-only native entries.
+Adding three native registrations would prove the wrong boundary. Built-ins are trusted host code and are read-only from Component Library authoring.
 
-M7C1 instead ships exactly the artifact a user can export/import:
+M7C1 instead ships the same artifact a user can export/import:
 
 ```text
 packageVersion
@@ -89,11 +83,11 @@ ComponentVisualDefinition
 implementationDraft (empty/inert)
 ```
 
-This means the starter set can be downloaded, imported, edited locally, exported again, or published through the already accepted generic paths.
+The starter set can therefore be downloaded, imported, edited locally, exported again, or published through the accepted generic paths.
 
 ## Deterministic verification
 
-`scripts/check-reusable-component-packages.ts` verifies all starter packages through production contracts:
+`scripts/check-reusable-component-packages.ts` verifies:
 
 - parse with the shared M7A distributable package codec
 - deterministic canonical serialize/parse round-trip
@@ -101,7 +95,7 @@ This means the starter set can be downloaded, imported, edited locally, exported
 - conversion to ready local authoring entries with caller-owned local identity
 - local document serialization
 - persistence/hydration through `MemoryComponentRepository`
-- activation through `createUserComponentActivationController()` using the real `createCompositeComponentRegistration()` factory
+- activation through `createUserComponentActivationController()` with the real `createCompositeComponentRegistration()` factory
 - zero activation diagnostics and deterministic registry replacement/removal
 - valve open/fault Visual Rule behavior and fault Blink
 - motor running/fault rules, Spin and Blink behavior
@@ -109,27 +103,28 @@ This means the starter set can be downloaded, imported, edited locally, exported
 - select / boolean / number Property coverage
 - Anchor coverage
 
-The deterministic Node fixture deliberately does not import the Studio built-in bundle because trusted native components include Vite-owned asset modules. The deployed browser smoke below is the authority for the complete Studio live-registry/palette path.
-
-The fixture is part of normal CI runtime/model checks.
+The deterministic Node fixture deliberately avoids importing the trusted native built-in asset bundle. The deployed browser smoke is the authority for the complete Studio live-registry/palette path.
 
 ## Deployed browser verification
 
-`scripts/pages-reusable-component-packages-smoke.mjs` is part of Pages Browser Smoke.
+`scripts/pages-reusable-component-packages-smoke.mjs` is part of Pages Browser Smoke. It fetches the three deployed artifacts, imports them through the explicit M7A2 file UI into a fresh browser, verifies IndexedDB persistence, creates a SCADA work, and verifies normal Studio palette activation.
 
-After deployment it:
+No starter-specific installation path exists.
 
-1. fetches all three actual `public/component-packages/*.json` artifacts from GitHub Pages
-2. verifies the deployed package identity/version
-3. starts with a fresh browser/IndexedDB
-4. imports each package through the explicit M7A2 file UI
-5. accepts the required confirmation for each import
-6. verifies all three persist locally
-7. creates a SCADA work and verifies all three activate through the normal Studio palette
+## Acceptance evidence
 
-No special starter-package installation path is introduced.
+PR #102 merged as `main@247b66feb48195c25f43c82b6e07d22975e447ff`.
 
-## Non-goals / discovered gaps
+Accepted evidence on that revision:
+
+- PR CI #724 (`33363931532`): Build, runtime/model checks including the M7C1 fixture, Lint, and PostgreSQL publication API all passed
+- main CI #725 (`33363995515`): `verify` and `publication-api` both passed after merge
+- Deploy GitHub Pages #235 (`33363995500`): build and deploy passed
+- Pages Browser Smoke #186 (`33364034832`): complete deployed-browser suite passed, including `pages-reusable-component-packages-smoke.mjs`
+
+This closes the M7C1 review gate.
+
+## Deliberately deferred gaps
 
 M7C1 does not add:
 
@@ -143,17 +138,4 @@ M7C1 does not add:
 - automatic starter package installation
 - concrete MQTT/WebSocket/HTTP adapters
 
-These gaps should be evaluated separately only when a product requirement makes one necessary.
-
-## Review gate
-
-M7C1 is accepted only when:
-
-- Build succeeds
-- normal runtime/model checks including `check-reusable-component-packages.ts` succeed
-- Lint succeeds
-- publication API regression remains green
-- after merge, Deploy GitHub Pages succeeds
-- deployed Pages Browser Smoke including the starter-package import check succeeds
-
-Until those checks pass, this document remains `review gate` rather than `accepted`.
+None of these was demonstrated as a blocker by the accepted starter set, so they do not justify an automatic M7C2.
