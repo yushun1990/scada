@@ -36,6 +36,7 @@ export function StandaloneRuntimePage() {
   }
 
   const scene = loaded?.workPackage.scene ?? null
+  const dependencyCount = loaded?.workPackage.dependencies.length ?? 0
 
   return (
     <div className="standalone-runtime-shell">
@@ -53,7 +54,7 @@ export function StandaloneRuntimePage() {
             <div className="standalone-runtime-document" aria-label="当前运行作品">
               <strong>{scene.name}</strong>
               <span>
-                {scene.width} × {scene.height} · {scene.nodes.length} 节点 · {loaded.workPackage.dependencies.length} 可移植依赖
+                {scene.width} × {scene.height} · {scene.nodes.length} 节点 · {dependencyCount} 可移植依赖
               </span>
             </div>
           )}
