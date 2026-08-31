@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { StandaloneRuntimePage } from './features/runtime/StandaloneRuntimePage'
 import {
   ComponentEditorStorageGate,
   ScadaEditorStorageGate,
@@ -14,6 +15,7 @@ type WorkspaceModule = 'works' | 'components'
 
 type AppRoute =
   | { page: 'workspace'; module: WorkspaceModule }
+  | { page: 'runtime' }
   | { page: 'scada'; workId: string }
   | { page: 'component'; componentId: string }
 
@@ -23,6 +25,10 @@ function resolveRoute(): AppRoute {
     .split('/')
     .filter(Boolean)
     .map((segment) => decodeURIComponent(segment))
+
+  if (segments[0] === 'runtime') {
+    return { page: 'runtime' }
+  }
 
   if (segments[0] === 'scada' && segments[1]) {
     return { page: 'scada', workId: segments[1] }
@@ -106,6 +112,10 @@ function App() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  if (route.page === 'runtime') {
+    return <StandaloneRuntimePage />
+  }
 
   if (route.page === 'scada') {
     return (
