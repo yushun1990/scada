@@ -14,6 +14,9 @@ import {
   parseComponentPublishedPackage,
 } from '../src/features/component-library/publication-contract'
 
+const SELF_CONTAINED_SVG_DATA_URL =
+  'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%3E%3Crect%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%2300ff00%22%2F%3E%3C%2Fsvg%3E'
+
 function readyEntry(): ComponentLibraryEntry {
   return {
     version: 1,
@@ -46,6 +49,38 @@ function readyEntry(): ComponentLibraryEntry {
     implementationDraft: '// inert implementation draft',
     updatedAt: '2026-08-30T00:00:00.000Z',
     builtIn: false,
+  }
+}
+
+function readyEntryWithImage(assetRef: string): ComponentLibraryEntry {
+  const entry = readyEntry()
+
+  return {
+    ...entry,
+    visual: {
+      ...entry.visual,
+      layers: [
+        {
+          id: 'portable-image',
+          name: 'Portable image',
+          kind: 'image',
+          parentId: null,
+          transform: {
+            x: 0,
+            y: 0,
+            width: 32,
+            height: 32,
+            rotation: 0,
+            scaleX: 1,
+            scaleY: 1,
+          },
+          visible: true,
+          opacity: 1,
+          assetRef,
+          style: { fit: 'contain' },
+        },
+      ],
+    },
   }
 }
 
@@ -82,6 +117,62 @@ assert.equal(
   serialized,
   'normalized serialization is deterministic',
 )
+
+const selfContainedImageArtifact = createDistributableComponentPackage(
+  readyEntryWithImage(SELF_CONTAINED_SVG_DATA_URL),
+)
+assert.equal(
+  selfContainedImageArtifact.visual.layers[0]?.kind,
+  'image',
+  'portable packages may carry image-bearing visuals',
+)
+assert.equal(
+  selfContainedImageArtifact.visual.layers[0]?.kind === 'image'
+    ? selfContainedImageArtifact.visual.layers[0].assetRef
+    : null,
+  SELF_CONTAINED_SVG_DATA_URL,
+  'self-contained data:image resources survive package creation',
+)
+assert.deepEqual(
+  parseDistributableComponentPackageDocument(
+    serializeDistributableComponentPackage(selfContainedImageArtifact),
+  ),
+  selfContainedImageArtifact,
+  'self-contained visual resources round-trip through the transport artifact',
+)
+
+const rejectedPortableAssetRefs = [
+  '',
+  'assets/vendor-logo.png',
+  '/assets/vendor-logo.png',
+  'https://example.com/vendor-logo.png',
+  'http://example.com/vendor-logo.png',
+  'blob:https://example.com/runtime-only-resource',
+  'data:text/plain,not-an-image',
+  ' data:image/png;base64,AA==',
+]
+
+for (const assetRef of rejectedPortableAssetRefs) {
+  assert.throws(
+    () => createDistributableComponentPackage(readyEntryWithImage(assetRef)),
+    /self-contained data:image/,
+    `distribution must reject non-self-contained assetRef ${JSON.stringify(assetRef)}`,
+  )
+
+  assert.equal(
+    parseDistributableComponentPackage({
+      ...selfContainedImageArtifact,
+      visual: {
+        ...selfContainedImageArtifact.visual,
+        layers: selfContainedImageArtifact.visual.layers.map((layer) =>
+          layer.kind === 'image' ? { ...layer, assetRef } : layer,
+        ),
+      },
+    }),
+    null,
+    `portable parsing must fail closed for assetRef ${JSON.stringify(assetRef)}`,
+  )
+}
 
 const parsedValue = parseDistributableComponentPackage({
   ...artifact,
@@ -171,5 +262,5 @@ assert.deepEqual(
 )
 
 console.log(
-  'Distributable component package checks passed: ready local authoring metadata is stripped at the transport boundary, normalized package JSON round-trips deterministically, malformed/unsupported artifacts fail closed, pure import conversion injects new local identity explicitly, and publication reuses the same artifact codec.',
+  'Distributable component package checks passed: ready local authoring metadata is stripped at the transport boundary, self-contained data:image visual resources round-trip deterministically, host-relative/remote/blob visual references fail closed, malformed/unsupported artifacts are rejected, pure import conversion injects new local identity explicitly, and publication reuses the same artifact codec.',
 )
