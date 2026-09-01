@@ -21,8 +21,8 @@ Workspace
 │       └─ simple business-oriented scene authoring
 │           ├─ place reusable components
 │           ├─ move / resize / rotate / connect
-│           ├─ configure public properties
-│           ├─ bind runtime data
+│           ├─ configure public attributes
+│           ├─ bind runtime properties
 │           ├─ define narrow presentation / interaction behavior
 │           └─ preview
 │
@@ -42,6 +42,8 @@ Guiding product rule:
 
 SCADA is not a general rule engine. Scene-level runtime semantics remain focused on presentation state and explicit user/component interactions.
 
+A component's authored visual/configuration values and its runtime semantic values are deliberately different concepts. The target component contract separates static **Attributes** from dynamic/bindable **Properties** so reusable component types do not multiply merely to represent running/alarm/fault/color variants.
+
 M8 now has a dependency-complete portable work artifact and an explicit fresh-browser transfer path. The current product boundary is **running that exact artifact in a standalone, read-only surface without first importing it into Studio authoring state**.
 
 ---
@@ -53,8 +55,27 @@ M8 now has a dependency-complete portable work artifact and an explicit fresh-br
 Reusable component public contract:
 
 ```text
-Properties + Actions + Events + Anchors
+Attributes + Properties + Actions + Events + Anchors
 ```
+
+Semantics:
+
+```text
+Attribute = authored static presentation/configuration
+Property  = runtime semantic value/state and binding target
+Action    = callable component capability
+Event     = discrete occurrence
+Anchor    = visual connection geometry
+```
+
+Examples:
+
+```text
+Attributes: runningColor, stoppedColor, alarmColor, faultColor, precision, animationSpeed
+Properties: running, alarm, fault, speed, pressure, temperature, level
+```
+
+Value/runtime bindings target Properties, never Attributes. Runtime telemetry must not overwrite authored Attributes.
 
 Private implementation by default:
 
@@ -69,6 +90,8 @@ Native renderer details
 ```
 
 SCADA Workbench consumes only the public contract.
+
+The accepted detailed direction is recorded in `docs/architecture/component-attributes-properties.md`. It refines older component-system terminology that used one Property namespace for both authored configuration and runtime values.
 
 ### 3.2 Renderer-independent runtime boundary
 
@@ -100,21 +123,47 @@ Value / Behavior / Interaction Binding
 
 Visual Anchors are not runtime ports.
 
-### 3.4 One effective Component Property truth
+### 3.4 Attribute / Property authority split
+
+A component implementation may combine static Attributes and dynamic Properties to derive visual output:
+
+```text
+Property.running
++ Attribute.runningColor
++ Attribute.stoppedColor
+        ↓
+component-private rule
+        ↓
+visual state
+```
+
+Architectural rules:
+
+- Attributes are authored/persisted component configuration and are not normal runtime binding targets.
+- Properties are runtime-capable semantic values and are the only Value Binding targets.
+- Attribute changes occur through authoring/configuration flows, not telemetry propagation.
+- Property runtime updates must not rewrite authored Attribute state or editor history.
+- internal transient/visual state remains private and is neither a public Attribute nor Property unless deliberately exposed.
+- component type identity should represent a genuinely different component, not a running/alarm/fault/color combination.
+
+### 3.5 One effective Component Property truth
 
 Renderer and Component Action handlers observe the same effective Component Property snapshot.
 
-Authored/default, external-binding and derived layers may be separate internally, but final effective state has one owner and deterministic ordering.
+Authored/default fallback, external-binding and derived layers may be separate internally, but final effective Property state has one owner and deterministic ordering.
 
-### 3.5 Declarative semantics fail closed
+This rule applies to runtime Properties. Attributes have their own authored default/override resolution and are not folded into the runtime Property writer model.
+
+### 3.6 Declarative semantics fail closed
 
 - one Component Property has at most one declarative Value Binding writer in one compiled scene program
+- Attributes cannot be declarative Value Binding targets
 - missing/unresolved derived values use explicit invalidation
 - cycles are authoring errors, not fixed-point programs
 - primary-device rebind is transactional
 - persisted Scene v7 semantics are structured/canonical; DSL text is not persistence authority
 
-### 3.6 Local-first persistence remains the authoring authority
+### 3.7 Local-first persistence remains the authoring authority
 
 ```text
 Workbench / Runtime-facing repositories
@@ -128,13 +177,13 @@ Storage abstraction
 
 A standalone runtime that directly consumes a distribution artifact is **not** an authoring repository client and must not persist merely to become runnable.
 
-### 3.7 Backend is optional infrastructure
+### 3.8 Backend is optional infrastructure
 
 The publication backend must not own SCADA runtime evaluation, rendering, DSL execution or device presentation state.
 
 Production publication deployment remains deferred by the accepted M6.7B3 decision until an explicit new deploy-now gate is opened.
 
-### 3.8 Component distribution is not local authoring identity
+### 3.9 Component distribution is not local authoring identity
 
 ```text
 ComponentLibraryEntry
@@ -149,7 +198,7 @@ Published / installed remote record
 
 Local IndexedDB identity, publication identity and protocol-specific configuration do not belong in reusable component packages.
 
-### 3.9 Production adapter lifecycle is host-owned
+### 3.10 Production adapter lifecycle is host-owned
 
 ```text
 RuntimeDataSource                  inbound telemetry/value state
@@ -162,7 +211,7 @@ Reconnect may resume inbound telemetry but must not silently replay outbound com
 
 Do not invent MQTT/WebSocket/HTTP/vendor contracts without a real integration target.
 
-### 3.10 Portable user execution remains explicit
+### 3.11 Portable user execution remains explicit
 
 Current ready user composite activation supports declarative visuals/rules/animations and intentionally rejects packages that declare Actions/Events because no accepted portable executable implementation contract exists.
 
@@ -170,7 +219,7 @@ Current ready user composite activation supports declarative visuals/rules/anima
 
 Trusted built-ins may implement Actions/Events. Do not silently turn draft text into executable portable behavior.
 
-### 3.11 Work portability must be dependency-complete
+### 3.12 Work portability must be dependency-complete
 
 A raw Scene v7 document references component types but does not contain user-component definitions.
 
@@ -184,7 +233,7 @@ Browser import preserves that contract: inspection is side-effect free, conflict
 
 Standalone runtime loading preserves the same artifact authority: bundled dependencies are runtime-scoped capabilities, not an excuse to silently install packages into Studio state.
 
-### 3.12 Standalone runtime state is package-scoped
+### 3.13 Standalone runtime state is package-scoped
 
 A standalone runtime instance owns the runtime registry and runtime session for the loaded work package.
 
@@ -253,6 +302,8 @@ Device / Platform Action
 Current rules:
 
 - Value Binding is declarative and reconstructible.
+- Value Binding targets Component Properties only; Attributes remain authored configuration.
+- Component visual behavior may read both effective Properties and Attributes.
 - Behavior Binding reacts to runtime data and may invoke Component Actions.
 - Interaction Binding is the SCADA DSL path for Device/Platform Actions.
 - data-driven device orchestration remains outside this SCADA layer.
@@ -464,6 +515,37 @@ If those goals are satisfied, close M8. Add another M8 implementation slice only
 
 Concrete runtime transport remains deferred until M7B2 reopening conditions are met by a real integration target.
 
+After M8 portability is closed, the **next architecture/migration gate** is the Component Attribute/Property split defined in `docs/architecture/component-attributes-properties.md`. Do not expand the component catalog substantially before this migration is complete.
+
+Required migration slices:
+
+```text
+Component Attribute / Property split
+├─ schema / SDK
+│   ├─ first-class attributes
+│   ├─ runtime-capable properties
+│   └─ explicit legacy classification / migration
+├─ Component Workbench + SCADA Inspector
+│   ├─ separate Attribute and Property authoring sections
+│   ├─ generated Attribute configuration controls
+│   └─ Property binding controls only
+├─ runtime
+│   ├─ Value Binding -> Property only
+│   ├─ deterministic effective Property snapshot
+│   └─ renderer/behavior receives Attributes + Properties without authority mixing
+├─ package / Scene compatibility
+│   ├─ version/migrate persisted component contracts as required
+│   ├─ preserve browser transfer semantics
+│   └─ preserve standalone runtime semantics
+└─ acceptance
+    ├─ one generic component covers running/alarm/fault visual variants
+    ├─ Attribute binding is rejected
+    ├─ legacy starter/user components migrate deterministically
+    └─ export/import/standalone fixtures preserve the split
+```
+
+Do not assign this work an M9 number until the M8 closeout review confirms the next milestone boundary.
+
 ---
 
 ## 8. Immediate execution sequence
@@ -479,11 +561,13 @@ M8A1 registry-scoped Scene validation                           accepted · 2026
 M8A2 dependency-complete portable work package                  accepted · 2026-08-31
 M8A3 explicit browser work package transfer                     accepted · 2026-08-31
 M8B1 standalone/read-only runtime shell                         ACTIVE
+M8 closeout                                                     next after M8B1 acceptance
+Component Attribute / Property split                            next architecture gate after M8 closeout
 ```
 
 **Current implementation gate: M8B1 Standalone/read-only runtime shell.**
 
-Do not select or implement a concrete runtime transport, add hidden package installation, execute `implementationDraft`, or provision production publication infrastructure while the current gates remain closed/deferred.
+Do not select or implement a concrete runtime transport, add hidden package installation, execute `implementationDraft`, provision production publication infrastructure, or begin the Attribute/Property schema migration while the current M8B1 gate remains active unless M8B1 proves the current schema blocks correct standalone execution.
 
 ---
 
@@ -507,6 +591,9 @@ Use the narrowest relevant verification set:
 - M8 deployed browser-transfer smoke for fresh-browser atomic import/activation
 - M8 standalone-runtime fixture for isolated registry/session construction with no mock or Studio activation dependency
 - M8 deployed standalone-runtime smoke for fresh-browser direct package load/render with no authoring IndexedDB side effect
+- Attribute/Property migration fixtures proving Value Binding can target Properties but not Attributes
+- Attribute/Property migration fixtures proving authored visual configuration survives runtime Property changes
+- package/browser-transfer/standalone fixtures proving the migrated component contract remains portable
 
 Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
