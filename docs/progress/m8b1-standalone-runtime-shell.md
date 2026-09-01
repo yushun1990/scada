@@ -1,6 +1,6 @@
 # M8B1 — Standalone/read-only runtime shell
 
-Status: **active · 2026-08-31**
+Status: **accepted · 2026-08-31**
 
 ## Goal
 
@@ -49,7 +49,7 @@ M8B1 intentionally supplies **no editor mock data sources**. The standalone surf
 - no undo/redo
 - no save/import-to-Studio action
 
-The standalone renderer currently covers:
+The standalone renderer covers:
 
 - Scene background and fit-to-viewport presentation
 - group transforms/visibility
@@ -63,7 +63,7 @@ The route accepts the same `.scada-work.json` artifact used by M8A3. No second r
 
 Studio authoring routes are lazy-loaded from `App.tsx` so visiting `#/runtime` does not eagerly import the browser persistence module.
 
-Direct runtime file load is in-memory only. It must not create the Studio IndexedDB database, persist a Scene, or materialize bundled dependencies as local component-library entries.
+Direct runtime file load is in-memory only. It does not create the Studio IndexedDB database, persist a Scene, or materialize bundled dependencies as local component-library entries.
 
 ## Verification
 
@@ -77,7 +77,7 @@ Direct runtime file load is in-memory only. It must not create the Studio Indexe
 - malformed package rejection
 - source boundaries excluding Studio persistence/global activation/mock data from the generic core
 
-`pages-standalone-runtime-smoke.mjs` is wired into the deployed Pages suite and is designed to prove in a fresh Chromium context:
+`pages-standalone-runtime-smoke.mjs` proves in a fresh Chromium context:
 
 1. `#/runtime` opens without Studio/editor authoring chrome
 2. opening the route does not initialize `scada-editor-lab` IndexedDB
@@ -86,11 +86,32 @@ Direct runtime file load is in-memory only. It must not create the Studio Indexe
 5. direct package load still does not create Studio IndexedDB
 6. no browser page errors occur
 
-Because M8B1 changes browser-visible runtime behavior, it remains **active** until the PR is merged, Pages deploys the merged revision, and this standalone fresh-browser smoke passes against that deployed revision.
+## Acceptance evidence
+
+- PR #107: `feat: add package-scoped standalone SCADA runtime`
+- final PR head `ab82cb3b8692393bd36f403d6c2b1cefe0cc6323`
+- final PR CI #758 (`33392152411`) passed Build, complete runtime/model checks, Lint and publication-api regression
+- merged revision `main@9a1a0f9ac2da157bc6b496e0c05c905196a3f548`
+- main CI #759 (`33392597346`) passed
+- Deploy GitHub Pages #240 (`33392597356`) passed
+- Pages Browser Smoke #191 (`33392662848`) passed, including `pages-standalone-runtime-smoke.mjs`
+
+M8B1 is therefore accepted. Its stated gate was the storage-independent, package-scoped, read-only runtime shell and that gate is closed.
+
+## Closeout-review note
+
+M8B1 acceptance does **not** by itself prove the whole M8 milestone can close.
+
+The subsequent M8 closeout review found two broader portability/runtime requirements outside the explicit M8B1 acceptance fixture:
+
+- external SVG/image `assetRef` resources are not part of the distributable package closure
+- standalone runtime construction currently does not restore/compile/attach non-null Scene v7 `scadaSemantics`
+
+Those are recorded in `docs/progress/m8-closeout-review.md` and keep M8 open until resolved or deliberately re-scoped.
 
 ## Explicit non-goals
 
-M8B1 does not add:
+M8B1 did not add:
 
 - concrete MQTT/WebSocket/HTTP/SSE/vendor transport
 - automatic work publication/hosting
@@ -101,6 +122,4 @@ M8B1 does not add:
 - a second Scene/work artifact format
 - arbitrary remote dependency fetching
 
-## Next gate
-
-After M8B1 acceptance, re-evaluate M8 as a whole before adding another implementation slice. If the accepted artifact + browser transfer + standalone shell already satisfy the M8 portability/runtime goal, prefer M8 closeout over inventing M8B2 work. Concrete runtime transport remains deferred unless M7B2 reopening conditions are met.
+Concrete transport remains separately deferred by M7B2 and is not a reason to reopen M8B1.
