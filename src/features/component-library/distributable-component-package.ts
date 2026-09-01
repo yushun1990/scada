@@ -35,12 +35,48 @@ export type DistributableComponentImportMetadata = Readonly<{
   updatedAt: string
 }>
 
+const PORTABLE_IMAGE_MEDIA_TYPES = new Set([
+  'image/svg+xml',
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+])
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
+}
+
+function isSelfContainedPortableImageRef(assetRef: string) {
+  if (!assetRef || assetRef !== assetRef.trim()) {
+    return false
+  }
+
+  const match = /^data:([^;,]+)(?:;[^,]*)?,/i.exec(assetRef)
+  if (!match || !PORTABLE_IMAGE_MEDIA_TYPES.has(match[1].toLowerCase())) {
+    return false
+  }
+
+  return assetRef.indexOf(',') < assetRef.length - 1
+}
+
+function assertPortableVisualResources(visual: ComponentVisualDefinition) {
+  for (const layer of visual.layers) {
+    if (layer.kind !== 'svg' && layer.kind !== 'image') {
+      continue
+    }
+
+    if (!isSelfContainedPortableImageRef(layer.assetRef)) {
+      throw new Error(
+        `Portable visual layer ${layer.id} must use a self-contained data:image assetRef`,
+      )
+    }
+  }
 }
 
 function cloneDistributableComponentPackage(
@@ -58,8 +94,10 @@ function cloneDistributableComponentPackage(
  * Parse one transport-neutral package value without persistence, activation,
  * filesystem or network side effects.
  *
- * The validation intentionally reuses the same public definition, visual-rule
- * and animation validators used by local Component Workbench documents.
+ * Local editable visuals may still carry host-relative asset references while
+ * authoring. The distribution boundary is stricter: every SVG/Image layer must
+ * already be self-contained so a package cannot validate successfully while
+ * depending on a browser host path, remote URL or process-local blob URL.
  */
 export function parseDistributableComponentPackage(
   value: unknown,
@@ -79,6 +117,7 @@ export function parseDistributableComponentPackage(
     const visual = cloneComponentVisual(value.visual)
     assertComponentVisualRules(definition, visual)
     assertComponentVisualAnimations(definition, visual)
+    assertPortableVisualResources(visual)
 
     return {
       packageVersion: DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
@@ -109,6 +148,7 @@ export function createDistributableComponentPackage(
   // Reuse the accepted local package codec as the preflight gate before local
   // metadata is removed from the transport-neutral artifact.
   serializeComponentLibraryDocument(entry)
+  assertPortableVisualResources(entry.visual)
 
   return {
     packageVersion: DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
