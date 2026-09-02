@@ -53,6 +53,15 @@ export function cloneComponentDefinition(
   return {
     ...definition,
     size: { ...definition.size },
+    attributes: Object.fromEntries(
+      Object.entries(definition.attributes).map(([key, attribute]) => [
+        key,
+        {
+          ...attribute,
+          options: attribute.options?.map((option) => ({ ...option })),
+        },
+      ]),
+    ),
     properties: Object.fromEntries(
       Object.entries(definition.properties).map(([key, property]) => [
         key,
@@ -211,6 +220,7 @@ function migrateLegacyComponent(
       minWidth: Math.max(1, legacy.defaultWidth / 2),
       minHeight: Math.max(1, legacy.defaultHeight / 2),
     },
+    attributes: {},
     properties: {},
     actions: {},
     events: {},
