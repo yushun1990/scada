@@ -1,5 +1,5 @@
 {
-  "packageVersion": 1,
+  "packageVersion": 2,
   "definition": {
     "type": "starter.process-valve",
     "title": "流程阀门",
@@ -11,6 +11,7 @@
       "minWidth": 60,
       "minHeight": 40
     },
+    "attributes": {},
     "properties": {
       "state": {
         "title": "状态",
