@@ -19,6 +19,7 @@ const component: ComponentDefinition = {
     minWidth: 10,
     minHeight: 10,
   },
+  attributes: {},
   properties: {
     a: { title: 'A', kind: 'number', defaultValue: 0, bindable: true },
     b: { title: 'B', kind: 'number', defaultValue: 0, bindable: true },
@@ -29,8 +30,8 @@ const component: ComponentDefinition = {
 }
 
 const parsed = parseScadaDsl(`
-component.a = 1
-component.b = 2
+$self.a = 1
+$self.b = 2
 `)
 assert.deepEqual(parsed.diagnostics, [])
 assert.ok(parsed.program)
@@ -80,5 +81,5 @@ limited.dispose()
 sufficient.dispose()
 
 console.log(
-  'SCADA DSL propagation rollback checks passed: propagation-step exhaustion rolls back staged Property state and exposes no partial host effects, while the same compiled program commits atomically when sufficient budget is available.',
+  'SCADA DSL v1 propagation rollback checks passed: $self Value Bindings still commit atomically, propagation-step exhaustion rolls back staged Property state and exposes no partial host effects, and sufficient budget commits the same program completely.',
 )

@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
-import type { ComponentDefinition, ComponentScalarValue } from '../src/component-system/definition'
+import type {
+  ComponentDefinition,
+  ComponentScalarValue,
+} from '../src/component-system/definition'
 import {
   createScadaDslCapabilityCatalog,
   parseScadaDsl,
@@ -22,6 +25,13 @@ const component: ComponentDefinition = {
     defaultHeight: 100,
     minWidth: 10,
     minHeight: 10,
+  },
+  attributes: {
+    runningColor: {
+      title: 'Running color',
+      kind: 'color',
+      defaultValue: '#00c853',
+    },
   },
   properties: {
     state: {
@@ -50,68 +60,49 @@ const component: ComponentDefinition = {
   },
   events: {
     startRequested: { title: 'Start requested' },
-    stopRequested: { title: 'Stop requested' },
   },
   anchors: [],
 }
 
 const catalog = createScadaDslCapabilityCatalog(component, [
   {
-    sourceId: 'pump-01',
-    title: 'Pump 01',
-    symbol: 'device',
+    sourceId: 'authoring-device',
+    title: 'Primary device',
     properties: {
       running: { title: 'Running', kind: 'boolean', defaultValue: false },
       fault: { title: 'Fault', kind: 'boolean', defaultValue: false },
       pressure: { title: 'Pressure', kind: 'number', defaultValue: 0 },
+      state: { title: 'State', kind: 'number', defaultValue: 0 },
+      mode: { title: 'Mode', kind: 'string', defaultValue: 'manual' },
     },
     actions: {
       start: { title: 'Start' },
       stop: { title: 'Stop' },
     },
   },
-  {
-    sourceId: 'outlet-pressure',
-    title: 'Outlet pressure',
-    symbol: 'outlet',
-    properties: {
-      pressure: { title: 'Pressure', kind: 'number', defaultValue: 0 },
-    },
-    actions: {},
-  },
-  {
-    sourceId: 'valve-09',
-    title: 'Outlet valve',
-    symbol: 'valve',
-    properties: {
-      opening: { title: 'Opening', kind: 'number', defaultValue: 0 },
-    },
-    actions: {
-      close: { title: 'Close' },
-    },
-  },
 ])
 
 const parsed = parseScadaDsl(`
-component.state = if device.fault then "fault" else if device.running then "running" else "stopped"
-component.level = outlet.pressure * 100
-
-if device.fault and outlet.pressure > 1.2 {
-  component.showFault()
-}
-else if device.running {
-  component.showRunning()
-}
-else {
-  component.showStopped()
+if $device.fault {
+  $self.state = "fault"
+} else if $device.running {
+  $self.state = "running"
+} else {
+  $self.state = "stopped"
 }
 
-on component.startRequested {
-  device.start()
+$self.level = $device.pressure * 100
+
+if $device.fault and $device.pressure > 1.2 {
+  $self.showFault()
+} else if $device.running {
+  $self.showRunning()
+} else {
+  $self.showStopped()
 }
 
-on component.stopRequested {
-  valve.close()
+on $self.startRequested {
+  $device.start()
 }
 `)
 assert.deepEqual(parsed.diagnostics, [])
@@ -122,9 +113,10 @@ assert.deepEqual(lowered.diagnostics, [])
 assert.ok(lowered.plan)
 assert.equal(lowered.plan!.valueBindings.length, 2)
 assert.equal(lowered.plan!.behaviors.length, 1)
-assert.equal(lowered.plan!.interactions.length, 2)
+assert.equal(lowered.plan!.interactions.length, 1)
 
 const stateBinding = lowered.plan!.valueBindings[0]!
+assert.equal(stateBinding.id, 'value:0:state')
 assert.equal(stateBinding.targetProperty, 'state')
 assert.equal(stateBinding.expression.kind, 'conditional')
 if (stateBinding.expression.kind === 'conditional') {
@@ -138,9 +130,11 @@ if (stateBinding.expression.kind === 'conditional') {
       },
     })
   }
+  assert.equal(stateBinding.expression.alternate.kind, 'conditional')
 }
 
 const levelBinding = lowered.plan!.valueBindings[1]!
+assert.equal(levelBinding.id, 'value:1')
 assert.equal(levelBinding.targetProperty, 'level')
 assert.equal(levelBinding.expression.kind, 'binary')
 if (levelBinding.expression.kind === 'binary') {
@@ -149,8 +143,7 @@ if (levelBinding.expression.kind === 'binary') {
     assert.deepEqual(levelBinding.expression.left.reference, {
       kind: 'source-property',
       reference: {
-        scope: 'external',
-        sourceId: 'outlet-pressure',
+        scope: 'primary-device',
         property: 'pressure',
       },
     })
@@ -164,25 +157,16 @@ assert.deepEqual(startInteraction.action.target, {
   action: 'start',
 })
 
-const stopInteraction = lowered.plan!.interactions[1]!
-assert.equal(stopInteraction.event, 'stopRequested')
-assert.deepEqual(stopInteraction.action.target, {
-  scope: 'external',
-  sourceId: 'valve-09',
-  action: 'close',
-})
-
-// The primary-device editor symbol must not capture the concrete device that
-// happened to be selected while authoring; copy/rebind only swaps the context.
-assert.doesNotMatch(JSON.stringify(lowered.plan), /pump-01/)
-assert.match(JSON.stringify(lowered.plan), /outlet-pressure/)
-assert.match(JSON.stringify(lowered.plan), /valve-09/)
+// `$device` is a relative binding. The concrete device selected while authoring
+// must never leak into the structured semantic plan.
+assert.doesNotMatch(JSON.stringify(lowered.plan), /authoring-device/)
 
 const values = new Map<string, ComponentScalarValue>([
   ['pump-02:fault', true],
   ['pump-02:running', true],
-  ['pump-02:pressure', 0.7],
-  ['outlet-pressure:pressure', 1.3],
+  ['pump-02:pressure', 1.3],
+  ['pump-02:mode', 'auto'],
+  ['pump-02:state', 1],
 ])
 const componentValues = new Map<string, ComponentScalarValue>([
   ['state', 'stopped'],
@@ -223,9 +207,8 @@ assert.equal(
   false,
 )
 
-// Repeated telemetry may change values while the same ordered branch remains
-// active; this must not replay a one-shot Component Action.
-values.set('outlet-pressure:pressure', 1.6)
+// Repeated telemetry inside one active branch must not replay one-shot actions.
+values.set('pump-02:pressure', 1.6)
 let next = selectScadaDslBehaviorBranch(behavior, context)
 assert.equal(next?.id, active?.id)
 assert.equal(
@@ -242,14 +225,6 @@ assert.equal(
 )
 active = next
 
-values.set('outlet-pressure:pressure', 0.2)
-next = selectScadaDslBehaviorBranch(behavior, context)
-assert.equal(next?.id, active?.id)
-assert.equal(
-  shouldFireScadaDslBehaviorBranch(active?.id ?? null, next?.id ?? null),
-  false,
-)
-
 values.set('pump-02:running', false)
 next = selectScadaDslBehaviorBranch(behavior, context)
 assert.equal(next?.id, 'behavior:2:branch:2')
@@ -258,9 +233,81 @@ assert.equal(
   true,
 )
 
+const declarativeCase = parseScadaDsl(`
+case $device.mode {
+  "auto": {
+    $self.state = "running"
+    $self.level = 100
+  }
+  _: {
+    $self.state = "stopped"
+    $self.level = 0
+  }
+}
+`)
+assert.deepEqual(declarativeCase.diagnostics, [])
+assert.ok(declarativeCase.program)
+const declarativeCaseResult = lowerScadaDslProgram(declarativeCase.program!, catalog)
+assert.deepEqual(declarativeCaseResult.diagnostics, [])
+assert.ok(declarativeCaseResult.plan)
+assert.equal(declarativeCaseResult.plan!.valueBindings.length, 2)
+assert.equal(declarativeCaseResult.plan!.behaviors.length, 0)
+const caseState = declarativeCaseResult.plan!.valueBindings.find(
+  (binding) => binding.targetProperty === 'state',
+)!
+const caseLevel = declarativeCaseResult.plan!.valueBindings.find(
+  (binding) => binding.targetProperty === 'level',
+)!
+assert.equal(
+  evaluateScadaDslSemanticExpression(caseState.expression, context),
+  'running',
+)
+assert.equal(
+  evaluateScadaDslSemanticExpression(caseLevel.expression, context),
+  100,
+)
+values.set('pump-02:mode', 'manual')
+assert.equal(
+  evaluateScadaDslSemanticExpression(caseState.expression, context),
+  'stopped',
+)
+assert.equal(
+  evaluateScadaDslSemanticExpression(caseLevel.expression, context),
+  0,
+)
+
+const behaviorCase = parseScadaDsl(`
+case $device.state {
+  0: $self.showStopped()
+  1: $self.showRunning()
+  _: $self.showFault()
+}
+`)
+assert.deepEqual(behaviorCase.diagnostics, [])
+assert.ok(behaviorCase.program)
+const behaviorCaseResult = lowerScadaDslProgram(behaviorCase.program!, catalog)
+assert.deepEqual(behaviorCaseResult.diagnostics, [])
+assert.ok(behaviorCaseResult.plan)
+assert.equal(behaviorCaseResult.plan!.behaviors.length, 1)
+const caseBehavior = behaviorCaseResult.plan!.behaviors[0]!
+assert.deepEqual(
+  caseBehavior.branches.map((branch) => branch.actions[0]?.action),
+  ['showStopped', 'showRunning', 'showFault'],
+)
+values.set('pump-02:state', 1)
+assert.equal(
+  selectScadaDslBehaviorBranch(caseBehavior, context)?.actions[0]?.action,
+  'showRunning',
+)
+values.set('pump-02:state', 99)
+assert.equal(
+  selectScadaDslBehaviorBranch(caseBehavior, context)?.actions[0]?.action,
+  'showFault',
+)
+
 const noElse = parseScadaDsl(`
-if device.fault {
-  component.pulse()
+if $device.fault {
+  $self.pulse()
 }
 `)
 assert.ok(noElse.program)
@@ -278,7 +325,58 @@ assert.equal(
   false,
 )
 
-const directDeviceAction = parseScadaDsl('device.start()')
+const nonExhaustiveAssignment = parseScadaDsl(`
+if $device.fault {
+  $self.state = "fault"
+}
+`)
+assert.ok(nonExhaustiveAssignment.program)
+const nonExhaustiveAssignmentResult = lowerScadaDslProgram(
+  nonExhaustiveAssignment.program!,
+  catalog,
+)
+assert.equal(nonExhaustiveAssignmentResult.plan, null)
+assert.match(
+  nonExhaustiveAssignmentResult.diagnostics[0]?.message ?? '',
+  /必须有 else/,
+)
+
+const incompleteCaseAssignment = parseScadaDsl(`
+case $device.mode {
+  "auto": {
+    $self.state = "running"
+    $self.level = 100
+  }
+  _: $self.state = "stopped"
+}
+`)
+assert.ok(incompleteCaseAssignment.program)
+const incompleteCaseAssignmentResult = lowerScadaDslProgram(
+  incompleteCaseAssignment.program!,
+  catalog,
+)
+assert.equal(incompleteCaseAssignmentResult.plan, null)
+assert.match(
+  incompleteCaseAssignmentResult.diagnostics[0]?.message ?? '',
+  /同一组 \$self Properties/,
+)
+
+const mixedControl = parseScadaDsl(`
+if $device.fault {
+  $self.state = "fault"
+} else {
+  $self.showStopped()
+}
+`)
+assert.ok(mixedControl.program)
+const mixedControlResult = lowerScadaDslProgram(mixedControl.program!, catalog)
+assert.equal(mixedControlResult.plan, null)
+assert.match(
+  mixedControlResult.diagnostics[0]?.message ?? '',
+  /不能混合声明式 Property 赋值与命令式 Component Action/,
+)
+
+const directDeviceAction = parseScadaDsl('$device.start()')
 assert.ok(directDeviceAction.program)
 const directDeviceActionResult = lowerScadaDslProgram(
   directDeviceAction.program!,
@@ -291,8 +389,8 @@ assert.match(
 )
 
 const deviceAutomation = parseScadaDsl(`
-if device.fault {
-  device.stop()
+if $device.fault {
+  $device.stop()
 }
 `)
 assert.ok(deviceAutomation.program)
@@ -303,26 +401,10 @@ const deviceAutomationResult = lowerScadaDslProgram(
 assert.equal(deviceAutomationResult.plan, null)
 assert.match(
   deviceAutomationResult.diagnostics[0]?.message ?? '',
-  /设备 Action 必须由显式 UI\/Event Interaction 触发/,
+  /\$device Action 必须由 on/,
 )
 
-const imperativeProperty = parseScadaDsl(`
-if device.fault {
-  component.state = "fault"
-}
-`)
-assert.ok(imperativeProperty.program)
-const imperativePropertyResult = lowerScadaDslProgram(
-  imperativeProperty.program!,
-  catalog,
-)
-assert.equal(imperativePropertyResult.plan, null)
-assert.match(
-  imperativePropertyResult.diagnostics[0]?.message ?? '',
-  /声明式 Value Binding/,
-)
-
-const invalidTarget = parseScadaDsl('device.pressure = component.level')
+const invalidTarget = parseScadaDsl('$device.pressure = $self.level')
 assert.ok(invalidTarget.program)
 const invalidTargetResult = lowerScadaDslProgram(
   invalidTarget.program!,
@@ -331,12 +413,21 @@ const invalidTargetResult = lowerScadaDslProgram(
 assert.equal(invalidTargetResult.plan, null)
 assert.match(
   invalidTargetResult.diagnostics[0]?.message ?? '',
-  /左侧必须是当前组件公开的 Component Property/,
+  /左侧必须是 \$self 的公开 Property/,
+)
+
+const attributeTarget = parseScadaDsl('$self.runningColor = $device.mode')
+assert.ok(attributeTarget.program)
+const attributeTargetResult = lowerScadaDslProgram(attributeTarget.program!, catalog)
+assert.equal(attributeTargetResult.plan, null)
+assert.match(
+  attributeTargetResult.diagnostics[0]?.message ?? '',
+  /找不到能力 \$self\.runningColor/,
 )
 
 const invalidInteractionSource = parseScadaDsl(`
-on device.fault {
-  device.stop()
+on $device.fault {
+  $device.stop()
 }
 `)
 assert.ok(invalidInteractionSource.program)
@@ -347,29 +438,29 @@ const invalidInteractionSourceResult = lowerScadaDslProgram(
 assert.equal(invalidInteractionSourceResult.plan, null)
 assert.match(
   invalidInteractionSourceResult.diagnostics[0]?.message ?? '',
-  /必须是当前组件公开的 Component Event/,
+  /必须是 \$self 的公开 Component Event/,
 )
 
-const componentActionAsExternal = parseScadaDsl(`
-on component.startRequested {
-  component.showRunning()
+const componentActionAsDevice = parseScadaDsl(`
+on $self.startRequested {
+  $self.showRunning()
 }
 `)
-assert.ok(componentActionAsExternal.program)
-const componentActionAsExternalResult = lowerScadaDslProgram(
-  componentActionAsExternal.program!,
+assert.ok(componentActionAsDevice.program)
+const componentActionAsDeviceResult = lowerScadaDslProgram(
+  componentActionAsDevice.program!,
   catalog,
 )
-assert.equal(componentActionAsExternalResult.plan, null)
+assert.equal(componentActionAsDeviceResult.plan, null)
 assert.match(
-  componentActionAsExternalResult.diagnostics[0]?.message ?? '',
-  /目标必须是主设备或显式外部设备公开的 Action/,
+  componentActionAsDeviceResult.diagnostics[0]?.message ?? '',
+  /目标必须是 \$device 的公开 Action/,
 )
 
 const multiActionInteraction = parseScadaDsl(`
-on component.startRequested {
-  device.start()
-  device.stop()
+on $self.startRequested {
+  $device.start()
+  $device.stop()
 }
 `)
 assert.ok(multiActionInteraction.program)
@@ -380,9 +471,9 @@ const multiActionInteractionResult = lowerScadaDslProgram(
 assert.equal(multiActionInteractionResult.plan, null)
 assert.match(
   multiActionInteractionResult.diagnostics[0]?.message ?? '',
-  /只绑定一个设备 Action/,
+  /只绑定一个 \$device Action/,
 )
 
 console.log(
-  'SCADA DSL semantic checks passed: DSL lowers into structured Value/Behavior/Interaction plans, primary-device references remain copy/rebind-safe, ordered if/else fires Component Actions only on branch entry, repeated telemetry does not replay actions, explicit Component Events may invoke one primary/external device Action, and data-driven device automation is rejected.',
+  'SCADA DSL v1 semantic checks passed: $self/$device lower to stable component/primary-device references, braced if and case can produce exhaustive declarative Value Bindings, action-only if/case preserve branch-entry Behavior semantics, Component Events invoke only the bound $device Action, Attributes and device-side assignments fail closed, and no concrete authoring device id leaks into persisted semantics.',
 )

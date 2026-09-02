@@ -75,7 +75,6 @@ const catalog = createScadaDslCapabilityCatalog(registration.definition, [
   {
     sourceId: 'authoring-device',
     title: 'Primary device',
-    symbol: 'device',
     properties: {
       level: { title: 'Level', kind: 'number', defaultValue: 0 },
       alert: { title: 'Alert', kind: 'boolean', defaultValue: false },
@@ -138,17 +137,21 @@ function createScene(
 }
 
 const source = `
-component.level = device.level
-component.label = if component.level > 10 then "high" else "low"
-
-if component.label == "high" {
-  component.showHigh()
+$self.level = $device.level
+if $self.level > 10 {
+  $self.label = "high"
 } else {
-  component.showLow()
+  $self.label = "low"
 }
 
-on component.commandRequested {
-  device.start()
+if $self.label == "high" {
+  $self.showHigh()
+} else {
+  $self.showLow()
+}
+
+on $self.commandRequested {
+  $device.start()
 }
 `
 const compiledResult = compileScadaDslSource(source, catalog)
@@ -248,8 +251,12 @@ releaseRuntime()
 // would require a third propagation step, so maxPropagationSteps=2 aborts. No
 // derived Property or Component Action effect may escape to Preview.
 const abortSource = `
-component.label = if device.alert or component.level > 10 then "high" else "low"
-component.level = device.level
+if $device.alert or $self.level > 10 {
+  $self.label = "high"
+} else {
+  $self.label = "low"
+}
+$self.level = $device.level
 `
 const abortCompiled = compileScadaDslSource(abortSource, catalog)
 assert.deepEqual(abortCompiled.diagnostics, [])
@@ -313,5 +320,5 @@ abortAttachment.dispose()
 releaseAbortRuntime()
 
 console.log(
-  'Preview SCADA integration checks passed: Scene v8 Property fallbacks stay authored and immutable under runtime propagation, source publications flow through the compiled transactional session into the single Preview Component Property snapshot, Behaviors run only after derived settling, Component Actions share the Renderer snapshot, Interactions emit one host-owned device action, rebind never leaks old-device values, and aborted source/rebind propagation exposes no partial Preview effects.',
+  'Preview SCADA integration checks passed: DSL v1 $self/$device source compiles through Scene v8 Preview, Property fallbacks stay authored and immutable under runtime propagation, Behaviors run only after derived settling, Component Actions share the Renderer snapshot, Interactions emit one host-owned device action, rebind never leaks old-device values, and aborted source/rebind propagation exposes no partial Preview effects.',
 )
