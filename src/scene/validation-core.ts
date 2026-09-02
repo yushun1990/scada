@@ -1,12 +1,15 @@
 import {
+  isComponentAttributeValue,
   isComponentPropertyValue,
+  type ComponentAttributeValues,
   type ComponentDefinition,
-  type ComponentProps,
+  type ComponentPropertyFallbackValues,
 } from '../component-system/definition'
 import type { ComponentRegistryView } from '../component-system/registry-view'
 import {
   GROUP_NODE_TYPE,
   LEGACY_SCENE_VERSION,
+  PREVIOUS_SCENE_VERSION,
   SCENE_VERSION,
   isGroupNode,
   type ComponentBehavior,
@@ -96,19 +99,85 @@ function parseBaseNode(value: Record<string, unknown>, version: number) {
   }
 }
 
-function parseComponentProps(
+function parseAttributeValues(
   definition: ComponentDefinition,
   value: Record<string, unknown>,
-): ComponentProps | null {
-  const props: ComponentProps = {}
+): ComponentAttributeValues | null {
+  const attributes: ComponentAttributeValues = {}
+
+  for (const [key, attribute] of Object.entries(definition.attributes)) {
+    const candidate = key in value ? value[key] : attribute.defaultValue
+    if (!isComponentAttributeValue(attribute, candidate)) return null
+    attributes[key] = candidate
+  }
+
+  return attributes
+}
+
+function parsePropertyFallbackValues(
+  definition: ComponentDefinition,
+  value: Record<string, unknown>,
+): ComponentPropertyFallbackValues | null {
+  const propertyFallbacks: ComponentPropertyFallbackValues = {}
 
   for (const [key, property] of Object.entries(definition.properties)) {
     const candidate = key in value ? value[key] : property.defaultValue
     if (!isComponentPropertyValue(property, candidate)) return null
-    props[key] = candidate
+    propertyFallbacks[key] = candidate
   }
 
-  return props
+  return propertyFallbacks
+}
+
+function hasOnlyDeclaredKeys(
+  value: Record<string, unknown>,
+  definitions: Readonly<Record<string, unknown>>,
+) {
+  return Object.keys(value).every((key) => Object.hasOwn(definitions, key))
+}
+
+function parseComponentAuthoredState(
+  definition: ComponentDefinition,
+  value: Record<string, unknown>,
+  version: number,
+): {
+  attributes: ComponentAttributeValues
+  propertyFallbacks: ComponentPropertyFallbackValues
+} | null {
+  if (version >= SCENE_VERSION) {
+    if (
+      !isRecord(value.attributes) ||
+      !isRecord(value.propertyFallbacks) ||
+      Object.hasOwn(value, 'props') ||
+      !hasOnlyDeclaredKeys(value.attributes, definition.attributes) ||
+      !hasOnlyDeclaredKeys(value.propertyFallbacks, definition.properties)
+    ) {
+      return null
+    }
+
+    const attributes = parseAttributeValues(definition, value.attributes)
+    const propertyFallbacks = parsePropertyFallbackValues(
+      definition,
+      value.propertyFallbacks,
+    )
+    return attributes && propertyFallbacks
+      ? { attributes, propertyFallbacks }
+      : null
+  }
+
+  if (!isRecord(value.props)) return null
+
+  // Pre-v8 Scene nodes persisted one mixed `props` bag. Migrate each legacy key
+  // through the current public component contract: a field declared as an
+  // Attribute becomes authored configuration; a field declared as a Property
+  // becomes a Property fallback. Missing values use their respective defaults.
+  // Extra legacy fields are ignored for historical compatibility, matching the
+  // pre-v8 parser's behavior for fields no longer present in the definition.
+  const attributes = parseAttributeValues(definition, value.props)
+  const propertyFallbacks = parsePropertyFallbackValues(definition, value.props)
+  return attributes && propertyFallbacks
+    ? { attributes, propertyFallbacks }
+    : null
 }
 
 function parseDataBindings(
@@ -320,7 +389,7 @@ function parseScadaSemantics(
   value: Record<string, unknown>,
   version: number,
 ): PersistedScadaSemantics | null | undefined {
-  if (version < SCENE_VERSION) return null
+  if (version < PREVIOUS_SCENE_VERSION) return null
   if (!Object.hasOwn(value, 'scadaSemantics')) return undefined
   if (value.scadaSemantics === null) return null
 
@@ -344,25 +413,22 @@ function parseSceneNode(
   const base = parseBaseNode(value, version)
   if (
     !base ||
-    !isRecord(value.props) ||
     !Array.isArray(value.bindings) ||
     !Array.isArray(value.behaviors)
   ) {
     return null
   }
 
-  if (
-    version >= 2 &&
-    value.type === GROUP_NODE_TYPE &&
-    isFiniteNumber(value.props.designWidth) &&
-    isFiniteNumber(value.props.designHeight) &&
-    value.props.designWidth > 0 &&
-    value.props.designHeight > 0
-  ) {
+  if (version >= 2 && value.type === GROUP_NODE_TYPE) {
     if (
+      !isRecord(value.props) ||
+      !isFiniteNumber(value.props.designWidth) ||
+      !isFiniteNumber(value.props.designHeight) ||
+      value.props.designWidth <= 0 ||
+      value.props.designHeight <= 0 ||
       (version >= 5 && value.bindings.length > 0) ||
       (version >= 6 && value.behaviors.length > 0) ||
-      (version >= SCENE_VERSION && Object.hasOwn(value, 'scadaSemantics'))
+      (version >= PREVIOUS_SCENE_VERSION && Object.hasOwn(value, 'scadaSemantics'))
     ) {
       return null
     }
@@ -384,7 +450,11 @@ function parseSceneNode(
   const registration = registry.get(value.type)
   if (!registration) return null
 
-  const props = parseComponentProps(registration.definition, value.props)
+  const authoredState = parseComponentAuthoredState(
+    registration.definition,
+    value,
+    version,
+  )
   const bindings = parseDataBindings(
     registration.definition,
     value.bindings,
@@ -401,14 +471,15 @@ function parseSceneNode(
     version,
   )
 
-  if (!props || !bindings || !behaviors || scadaSemantics === undefined) {
+  if (!authoredState || !bindings || !behaviors || scadaSemantics === undefined) {
     return null
   }
 
   return {
     ...base,
     type: registration.definition.type,
-    props,
+    attributes: authoredState.attributes,
+    propertyFallbacks: authoredState.propertyFallbacks,
     bindings,
     behaviors,
     scadaSemantics,
@@ -600,6 +671,7 @@ export function parseSceneDocumentWithRegistry(
     sourceVersion === 4 ||
     sourceVersion === 5 ||
     sourceVersion === LEGACY_SCENE_VERSION ||
+    sourceVersion === PREVIOUS_SCENE_VERSION ||
     sourceVersion === SCENE_VERSION
 
   if (
