@@ -1,5 +1,9 @@
 import { studioComponentRegistry } from '../component-system/builtins'
 import {
+  createDefaultAttributeValuesFromDefinition,
+  createDefaultPropertyFallbackValuesFromDefinition,
+} from '../component-system/definition'
+import {
   SCENE_VERSION,
   createSceneId,
   type ComponentSceneNode,
@@ -34,7 +38,8 @@ export function createComponentNode(
       height: definition.size.defaultHeight,
       rotation: 0,
     },
-    props: registration.createDefaultProps(),
+    attributes: createDefaultAttributeValuesFromDefinition(definition),
+    propertyFallbacks: createDefaultPropertyFallbackValuesFromDefinition(definition),
     bindings: [],
     behaviors: [],
     scadaSemantics: null,
