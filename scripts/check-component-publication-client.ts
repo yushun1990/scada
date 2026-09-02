@@ -33,6 +33,7 @@ const component: ComponentLibraryEntry = {
       minWidth: 20,
       minHeight: 16,
     },
+    attributes: {},
     properties: {},
     actions: {},
     events: {},

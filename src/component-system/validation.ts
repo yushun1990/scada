@@ -1,13 +1,15 @@
 import {
+  isComponentAttributeValue,
   isComponentPropertyValue,
+  type ComponentAttributeDefinition,
   type ComponentDefinition,
   type ComponentPropertyDefinition,
-  type ComponentPropertyKind,
-  type ComponentPropertyOption,
+  type ComponentValueKind,
+  type ComponentValueOption,
   type VisualAnchorRole,
 } from './definition'
 
-const PROPERTY_KINDS = new Set<ComponentPropertyKind>([
+const VALUE_KINDS = new Set<ComponentValueKind>([
   'string',
   'number',
   'boolean',
@@ -41,21 +43,21 @@ function assertOptionalText(value: unknown, label: string) {
   }
 }
 
-function assertValueKind(value: unknown, label: string): ComponentPropertyKind {
+function assertValueKind(value: unknown, label: string): ComponentValueKind {
   if (
     typeof value !== 'string' ||
-    !PROPERTY_KINDS.has(value as ComponentPropertyKind)
+    !VALUE_KINDS.has(value as ComponentValueKind)
   ) {
     throw new Error(`${label}的类型无效`)
   }
-  return value as ComponentPropertyKind
+  return value as ComponentValueKind
 }
 
 function parseOptions(
-  kind: ComponentPropertyKind,
+  kind: ComponentValueKind,
   value: unknown,
   label: string,
-): readonly ComponentPropertyOption[] | undefined {
+): readonly ComponentValueOption[] | undefined {
   if (value === undefined) {
     if (kind === 'select') {
       throw new Error(`Select ${label} 至少需要一个选项`)
@@ -96,6 +98,39 @@ function parseOptions(
     throw new Error(`只有 Select ${label} 可以定义 options`)
   }
   return parsed
+}
+
+function assertAttribute(
+  componentType: string,
+  key: string,
+  value: unknown,
+) {
+  assertText(key, `组件 ${componentType} 的 Attribute key`)
+
+  if (!isRecord(value)) {
+    throw new Error(`组件 ${componentType} 的 Attribute ${key} 定义无效`)
+  }
+
+  assertText(value.title, `Attribute ${key} 标题`)
+  const kind = assertValueKind(value.kind, `Attribute ${key} `)
+  assertOptionalText(value.description, `Attribute ${key} 说明`)
+
+  if (value.bindable !== undefined) {
+    throw new Error(`Attribute ${key} 不能定义 bindable`)
+  }
+
+  const options = parseOptions(kind, value.options, `Attribute ${key}`)
+  const attribute = {
+    title: value.title,
+    kind,
+    defaultValue: value.defaultValue,
+    description: value.description,
+    options,
+  } as ComponentAttributeDefinition
+
+  if (!isComponentAttributeValue(attribute, value.defaultValue)) {
+    throw new Error(`Attribute ${key} 的默认值与类型不兼容`)
+  }
 }
 
 function assertProperty(
@@ -336,6 +371,14 @@ export function assertComponentDefinition(
     (size.minHeight as number) > (size.defaultHeight as number)
   ) {
     throw new Error(`组件 ${value.type} 的最小尺寸不能大于默认尺寸`)
+  }
+
+  if (!isRecord(value.attributes)) {
+    throw new Error(`组件 ${value.type} 的 attributes 必须是对象`)
+  }
+
+  for (const [key, attribute] of Object.entries(value.attributes)) {
+    assertAttribute(value.type as string, key, attribute)
   }
 
   if (!isRecord(value.properties)) {

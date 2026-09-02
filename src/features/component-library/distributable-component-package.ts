@@ -2,6 +2,10 @@ import { assertComponentVisualAnimations } from '../../component-system/animatio
 import type { ComponentDefinition } from '../../component-system/definition'
 import { assertComponentDefinition } from '../../component-system/validation'
 import {
+  migrateLegacyComponentDefinition,
+  parseLegacyComponentDefinition,
+} from '../../component-system/versioned-component-definition'
+import {
   assertComponentVisualDefinition,
   cloneComponentVisual,
   type ComponentVisualDefinition,
@@ -17,11 +21,11 @@ import {
 /**
  * Version of the transport-neutral distributable artifact.
  *
- * Keep this separate from the editable ComponentLibraryEntry schema even while
- * both are currently version 1. A future local authoring migration must not
- * silently change the wire/file distribution contract.
+ * This authority is intentionally independent from the editable local component
+ * document schema and the SCADA work-package envelope version.
  */
-export const DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION = 1 as const
+export const LEGACY_DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION = 1 as const
+export const DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION = 2 as const
 
 export type DistributableComponentPackage = {
   packageVersion: typeof DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION
@@ -90,20 +94,35 @@ function cloneDistributableComponentPackage(
   }
 }
 
-/**
- * Parse one transport-neutral package value without persistence, activation,
- * filesystem or network side effects.
- *
- * Local editable visuals may still carry host-relative asset references while
- * authoring. The distribution boundary is stricter: every SVG/Image layer must
- * already be self-contained so a package cannot validate successfully while
- * depending on a browser host path, remote URL or process-local blob URL.
- */
-export function parseDistributableComponentPackage(
-  value: unknown,
+function validatePortablePackageContent(
+  definition: ComponentDefinition,
+  visualValue: unknown,
+  implementationDraft: string,
+): DistributableComponentPackage | null {
+  try {
+    assertComponentDefinition(definition)
+    assertComponentVisualDefinition(visualValue)
+    const normalizedDefinition = cloneComponentDefinition(definition)
+    const visual = cloneComponentVisual(visualValue)
+    assertComponentVisualRules(normalizedDefinition, visual)
+    assertComponentVisualAnimations(normalizedDefinition, visual)
+    assertPortableVisualResources(visual)
+
+    return {
+      packageVersion: DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
+      definition: normalizedDefinition,
+      visual,
+      implementationDraft,
+    }
+  } catch {
+    return null
+  }
+}
+
+function parseCurrentDistributableComponentPackage(
+  value: Record<string, unknown>,
 ): DistributableComponentPackage | null {
   if (
-    !isRecord(value) ||
     value.packageVersion !== DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION ||
     typeof value.implementationDraft !== 'string'
   ) {
@@ -112,22 +131,61 @@ export function parseDistributableComponentPackage(
 
   try {
     assertComponentDefinition(value.definition)
-    assertComponentVisualDefinition(value.visual)
-    const definition = cloneComponentDefinition(value.definition)
-    const visual = cloneComponentVisual(value.visual)
-    assertComponentVisualRules(definition, visual)
-    assertComponentVisualAnimations(definition, visual)
-    assertPortableVisualResources(visual)
-
-    return {
-      packageVersion: DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
-      definition,
-      visual,
-      implementationDraft: value.implementationDraft,
-    }
   } catch {
     return null
   }
+
+  return validatePortablePackageContent(
+    value.definition,
+    value.visual,
+    value.implementationDraft,
+  )
+}
+
+function parseLegacyDistributableComponentPackage(
+  value: Record<string, unknown>,
+): DistributableComponentPackage | null {
+  if (
+    value.packageVersion !== LEGACY_DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION ||
+    typeof value.implementationDraft !== 'string'
+  ) {
+    return null
+  }
+
+  const legacyDefinition = parseLegacyComponentDefinition(value.definition)
+  if (!legacyDefinition) return null
+
+  const migrated = migrateLegacyComponentDefinition(legacyDefinition)
+  if (!migrated.ok) return null
+
+  const {
+    schemaVersion: _schemaVersion,
+    ...definition
+  } = migrated.definition
+
+  return validatePortablePackageContent(
+    definition,
+    value.visual,
+    value.implementationDraft,
+  )
+}
+
+/**
+ * Parse one transport-neutral package value without persistence, activation,
+ * filesystem or network side effects.
+ *
+ * V2 is the current Attribute/Property-aware contract. V1 is migration input
+ * only: it is accepted automatically only when every legacy field authority is
+ * provable by the shared migration authority (for example bindable Properties).
+ * Ambiguous V1 fields fail closed rather than being silently reclassified.
+ */
+export function parseDistributableComponentPackage(
+  value: unknown,
+): DistributableComponentPackage | null {
+  if (!isRecord(value)) return null
+
+  return parseCurrentDistributableComponentPackage(value)
+    ?? parseLegacyDistributableComponentPackage(value)
 }
 
 /**
@@ -145,7 +203,7 @@ export function createDistributableComponentPackage(
     throw new Error('Only ready local component packages can be distributed')
   }
 
-  // Reuse the accepted local package codec as the preflight gate before local
+  // Reuse the accepted local document codec as the preflight gate before local
   // metadata is removed from the transport-neutral artifact.
   serializeComponentLibraryDocument(entry)
   assertPortableVisualResources(entry.visual)
@@ -159,9 +217,8 @@ export function createDistributableComponentPackage(
 }
 
 /**
- * Deterministic JSON document used by future file export/import. The output is
- * produced from a normalized cloned package so callers cannot smuggle local
- * repository metadata into the serialized artifact.
+ * Deterministic JSON document used by file export/import. V1 input is normalized
+ * to the current V2 authority before serialization.
  */
 export function serializeDistributableComponentPackage(
   componentPackage: DistributableComponentPackage,

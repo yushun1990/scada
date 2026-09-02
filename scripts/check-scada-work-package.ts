@@ -5,7 +5,10 @@ import type { ComponentRegistration } from '../src/component-system/registration
 import { ComponentRegistry } from '../src/component-system/registry'
 import type { ComponentRenderer } from '../src/component-system/renderer'
 import { createEmptyCompositeVisual } from '../src/component-system/visual'
-import type { DistributableComponentPackage } from '../src/features/component-library/distributable-component-package'
+import {
+  DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
+  type DistributableComponentPackage,
+} from '../src/features/component-library/distributable-component-package'
 import {
   SCADA_WORK_PACKAGE_VERSION,
   createScadaWorkPackage,
@@ -38,6 +41,7 @@ function definition(
       minWidth: 20,
       minHeight: 16,
     },
+    attributes: {},
     properties: {
       value: property === 'number'
         ? {
@@ -77,7 +81,7 @@ function portableDependency(
   component: ComponentDefinition,
 ): DistributableComponentPackage {
   return {
-    packageVersion: 1,
+    packageVersion: DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
     definition: component,
     visual: createEmptyCompositeVisual(),
     implementationDraft: '// inert draft',
@@ -295,5 +299,5 @@ assert.equal(
 )
 
 console.log(
-  'Portable SCADA work package checks passed: versioned artifacts normalize deterministically, exact portable dependency closure is required, host capabilities cannot be shadowed, unsupported executable dependencies fail closed, Scene migration/validation stays registry-scoped, and preflight does not mutate host registrations.',
+  'Portable SCADA work package checks passed: the work envelope remains independently versioned while nested component packages use their current schema; exact portable dependency closure is required, host capabilities cannot be shadowed, unsupported executable dependencies fail closed, Scene migration/validation stays registry-scoped, and preflight does not mutate host registrations.',
 )

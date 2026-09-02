@@ -1,13 +1,20 @@
 import assert from 'node:assert/strict'
-import type { ComponentDefinition } from '../src/component-system/definition'
+import type { LegacyComponentDefinition } from '../src/component-system/definition'
+import { createEmptyCompositeVisual } from '../src/component-system/visual'
 import {
   COMPONENT_DEFINITION_SCHEMA_VERSION,
   createDefaultAttributeValues,
   createDefaultPropertyFallbackValues,
   migrateLegacyComponentDefinition,
 } from '../src/component-system/versioned-component-definition'
+import {
+  COMPONENT_PACKAGE_VERSION,
+  LEGACY_COMPONENT_PACKAGE_VERSION,
+  parseComponentLibraryDocument,
+  serializeComponentLibraryDocument,
+} from '../src/features/component-library/component-document'
 
-const legacyDefinition: ComponentDefinition = {
+const legacyDefinition: LegacyComponentDefinition = {
   type: 'test.authority-split',
   title: 'Authority split fixture',
   category: 'test',
@@ -118,6 +125,54 @@ if (!typoManifest.ok) {
   )
 }
 
+// Local editable document v1 is migration input only. A bindable-only legacy
+// definition has provable Property authority and hydrates as a current v2 entry.
+const safeLegacyDocument = JSON.stringify({
+  version: LEGACY_COMPONENT_PACKAGE_VERSION,
+  id: 'legacy-local-safe',
+  definition: {
+    ...legacyDefinition,
+    properties: {
+      pressure: legacyDefinition.properties.pressure,
+    },
+  },
+  visual: createEmptyCompositeVisual(),
+  status: 'ready',
+  implementationDraft: '',
+  updatedAt: '2026-09-02T00:00:00.000Z',
+  builtIn: false,
+})
+const migratedLocal = parseComponentLibraryDocument(safeLegacyDocument)
+assert.ok(migratedLocal)
+assert.equal(migratedLocal.version, COMPONENT_PACKAGE_VERSION)
+assert.deepEqual(migratedLocal.definition.attributes, {})
+assert.deepEqual(Object.keys(migratedLocal.definition.properties), ['pressure'])
+assert.equal(migratedLocal.definition.properties.pressure?.bindable, true)
+
+const canonicalLocal = serializeComponentLibraryDocument(migratedLocal)
+assert.equal(JSON.parse(canonicalLocal).version, COMPONENT_PACKAGE_VERSION)
+assert.deepEqual(parseComponentLibraryDocument(canonicalLocal), migratedLocal)
+
+// A v1 local document with a non-bindable field cannot encode whether the field
+// is authored configuration or runtime state, so hydration fails closed instead
+// of silently changing its authority.
+const ambiguousLegacyDocument = JSON.stringify({
+  version: LEGACY_COMPONENT_PACKAGE_VERSION,
+  id: 'legacy-local-ambiguous',
+  definition: {
+    ...legacyDefinition,
+    properties: {
+      runningColor: legacyDefinition.properties.runningColor,
+    },
+  },
+  visual: createEmptyCompositeVisual(),
+  status: 'ready',
+  implementationDraft: '',
+  updatedAt: '2026-09-02T00:00:00.000Z',
+  builtIn: false,
+})
+assert.equal(parseComponentLibraryDocument(ambiguousLegacyDocument), null)
+
 console.log(
-  'Component authority migration checks passed: bindable runtime fields remain Properties, ambiguous legacy fields fail closed, explicit manifests resolve ambiguity, Attributes drop runtime bindability, and authored Attribute defaults remain separate from Property fallback defaults.',
+  'Component authority migration checks passed: bindable runtime fields remain Properties, ambiguous legacy fields fail closed, explicit manifests resolve ambiguity, Attributes drop runtime bindability, authored Attribute defaults remain separate from Property fallback defaults, and local component documents normalize safe v1 data into v2 without guessing ambiguous authority.',
 )

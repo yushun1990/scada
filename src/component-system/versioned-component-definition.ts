@@ -1,28 +1,19 @@
-import type {
-  ComponentDefinition,
-  ComponentPropertyDefinition,
-  ComponentPropertyKind,
-  ComponentPropertyOption,
-  ComponentScalarValue,
+import {
+  createDefaultAttributeValuesFromDefinition,
+  createDefaultPropertyFallbackValuesFromDefinition,
+  type ComponentAttributeDefinition,
+  type ComponentAttributeValues,
+  type ComponentDefinition,
+  type ComponentPropertyDefinition,
+  type ComponentPropertyFallbackValues,
+  type LegacyComponentDefinition,
 } from './definition'
+import { assertComponentDefinition } from './validation'
 
 export const COMPONENT_DEFINITION_SCHEMA_VERSION = 2 as const
 
-export type ComponentAttributeDefinition = {
-  title: string
-  kind: ComponentPropertyKind
-  defaultValue: ComponentScalarValue
-  description?: string
-  options?: readonly ComponentPropertyOption[]
-}
-
-export type ComponentAttributeValues = Record<string, ComponentScalarValue>
-export type ComponentPropertyFallbackValues = Record<string, ComponentScalarValue>
-
-export type VersionedComponentDefinition = Omit<ComponentDefinition, 'properties'> & {
+export type VersionedComponentDefinition = ComponentDefinition & {
   schemaVersion: typeof COMPONENT_DEFINITION_SCHEMA_VERSION
-  attributes: Readonly<Record<string, ComponentAttributeDefinition>>
-  properties: Readonly<Record<string, ComponentPropertyDefinition>>
 }
 
 export type LegacyComponentFieldAuthority = 'attribute' | 'property'
@@ -63,6 +54,45 @@ export type LegacyComponentDefinitionMigrationResult =
       classifications: readonly LegacyComponentFieldClassification[]
       issues: readonly string[]
     }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Parse the pre-M9 public component-definition shape without assigning
+ * Attribute/Property authority. Validation is reused only for scalar/action/
+ * event/anchor structure by temporarily supplying an empty Attribute map; the
+ * returned value remains explicitly typed as legacy migration input.
+ */
+export function parseLegacyComponentDefinition(
+  value: unknown,
+): LegacyComponentDefinition | null {
+  if (!isRecord(value) || 'attributes' in value) return null
+
+  const candidate = {
+    ...value,
+    attributes: {},
+  }
+
+  try {
+    assertComponentDefinition(candidate)
+  } catch {
+    return null
+  }
+
+  return {
+    type: candidate.type,
+    title: candidate.title,
+    category: candidate.category,
+    description: candidate.description,
+    size: candidate.size,
+    properties: candidate.properties,
+    actions: candidate.actions,
+    events: candidate.events,
+    anchors: candidate.anchors,
+  }
+}
 
 function toAttributeDefinition(
   property: ComponentPropertyDefinition,
@@ -119,7 +149,7 @@ export function classifyLegacyComponentField(
 }
 
 export function migrateLegacyComponentDefinition(
-  legacy: ComponentDefinition,
+  legacy: LegacyComponentDefinition,
   manifest: LegacyComponentAuthorityManifest = {},
 ): LegacyComponentDefinitionMigrationResult {
   const attributes: Record<string, ComponentAttributeDefinition> = {}
@@ -186,23 +216,11 @@ export function migrateLegacyComponentDefinition(
 export function createDefaultAttributeValues(
   definition: VersionedComponentDefinition,
 ): ComponentAttributeValues {
-  const attributes: ComponentAttributeValues = {}
-
-  for (const [field, attribute] of Object.entries(definition.attributes)) {
-    attributes[field] = attribute.defaultValue
-  }
-
-  return attributes
+  return createDefaultAttributeValuesFromDefinition(definition)
 }
 
 export function createDefaultPropertyFallbackValues(
   definition: VersionedComponentDefinition,
 ): ComponentPropertyFallbackValues {
-  const properties: ComponentPropertyFallbackValues = {}
-
-  for (const [field, property] of Object.entries(definition.properties)) {
-    properties[field] = property.defaultValue
-  }
-
-  return properties
+  return createDefaultPropertyFallbackValuesFromDefinition(definition)
 }

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { createEmptyCompositeVisual } from '../src/component-system/visual'
-import type { ComponentLibraryEntry } from '../src/features/component-library/component-document'
+import {
+  COMPONENT_PACKAGE_VERSION,
+  type ComponentLibraryEntry,
+} from '../src/features/component-library/component-document'
 import { planComponentPackageImport } from '../src/features/component-library/component-package-transfer'
 import { createDistributableComponentPackage } from '../src/features/component-library/distributable-component-package'
 import type { InstalledRemoteComponent } from '../src/features/component-library/remote-component-installation'
@@ -11,7 +14,7 @@ function readyEntry(
   options: { builtIn?: boolean } = {},
 ): ComponentLibraryEntry {
   return {
-    version: 1,
+    version: COMPONENT_PACKAGE_VERSION,
     id,
     definition: {
       type: componentType,
@@ -24,6 +27,7 @@ function readyEntry(
         minWidth: 32,
         minHeight: 24,
       },
+      attributes: {},
       properties: {},
       actions: {},
       events: {},

@@ -13,7 +13,7 @@ import {
 
 function readyEntry(): ComponentLibraryEntry {
   return {
-    version: 1,
+    version: 2,
     id: 'local-component-123',
     definition: {
       type: 'custom.publication.fixture',
@@ -26,6 +26,7 @@ function readyEntry(): ComponentLibraryEntry {
         minWidth: 40,
         minHeight: 24,
       },
+      attributes: {},
       properties: {
         value: {
           title: 'Value',
