@@ -9,6 +9,7 @@ import {
 import type {
   ScadaDslBinaryOperator,
   ScadaDslCapabilityCatalog,
+  ScadaDslCaseStatement,
   ScadaDslExpression,
   ScadaDslIfStatement,
   ScadaDslOnStatement,
@@ -92,6 +93,10 @@ export type ScadaDslSemanticResult = {
   diagnostics: readonly ScadaDslSemanticDiagnostic[]
 }
 
+/**
+ * Kept as a source-compatible shell during M9. DSL v1 has fixed `$self` and
+ * `$device` roots; options cannot rename them.
+ */
 export type ScadaDslLoweringOptions = {
   primaryDeviceSymbol?: string
 }
@@ -109,13 +114,6 @@ function findCapability(
   reference: ScadaDslReferenceExpression,
   catalog: ScadaDslCapabilityCatalog,
 ) {
-  if (reference.path.length !== 2) {
-    throw new SemanticFailure(
-      '第一版 DSL 引用只支持“对象.能力”，例如 device.pressure',
-      reference.span,
-    )
-  }
-
   const [symbol, member] = reference.path
   const matches = catalog.items.filter(
     (item) => item.symbol === symbol && item.member === member,
@@ -127,7 +125,7 @@ function findCapability(
 
   if (matches.length > 1) {
     throw new SemanticFailure(
-      `能力 ${symbol}.${member} 存在歧义，请重新选择来源`,
+      `能力 ${symbol}.${member} 存在歧义`,
       reference.span,
     )
   }
@@ -138,7 +136,6 @@ function findCapability(
 function lowerPropertyReference(
   reference: ScadaDslReferenceExpression,
   catalog: ScadaDslCapabilityCatalog,
-  primaryDeviceSymbol: string,
 ): ScadaDslSemanticReference {
   const capability = findCapability(reference, catalog)
 
@@ -149,31 +146,26 @@ function lowerPropertyReference(
     )
   }
 
-  if (capability.symbol === 'component') {
+  if (capability.symbol === '$self') {
     return { kind: 'component-property', property: capability.member }
   }
 
-  if (capability.symbol === primaryDeviceSymbol) {
+  if (capability.symbol === '$device') {
     return {
       kind: 'source-property',
       reference: { scope: 'primary-device', property: capability.member },
     }
   }
 
-  return {
-    kind: 'source-property',
-    reference: {
-      scope: 'external',
-      sourceId: capability.sourceId,
-      property: capability.member,
-    },
-  }
+  throw new SemanticFailure(
+    'SCADA DSL v1 只允许 $self 与 $device 两个运行时根',
+    reference.span,
+  )
 }
 
 function lowerExpression(
   expression: ScadaDslExpression,
   catalog: ScadaDslCapabilityCatalog,
-  primaryDeviceSymbol: string,
 ): ScadaDslSemanticExpression {
   switch (expression.kind) {
     case 'literal':
@@ -181,47 +173,20 @@ function lowerExpression(
     case 'reference':
       return {
         kind: 'reference',
-        reference: lowerPropertyReference(
-          expression,
-          catalog,
-          primaryDeviceSymbol,
-        ),
+        reference: lowerPropertyReference(expression, catalog),
       }
     case 'unary':
       return {
         kind: 'unary',
         operator: expression.operator,
-        operand: lowerExpression(
-          expression.operand,
-          catalog,
-          primaryDeviceSymbol,
-        ),
+        operand: lowerExpression(expression.operand, catalog),
       }
     case 'binary':
       return {
         kind: 'binary',
         operator: expression.operator,
-        left: lowerExpression(expression.left, catalog, primaryDeviceSymbol),
-        right: lowerExpression(expression.right, catalog, primaryDeviceSymbol),
-      }
-    case 'conditional':
-      return {
-        kind: 'conditional',
-        condition: lowerExpression(
-          expression.condition,
-          catalog,
-          primaryDeviceSymbol,
-        ),
-        consequent: lowerExpression(
-          expression.consequent,
-          catalog,
-          primaryDeviceSymbol,
-        ),
-        alternate: lowerExpression(
-          expression.alternate,
-          catalog,
-          primaryDeviceSymbol,
-        ),
+        left: lowerExpression(expression.left, catalog),
+        right: lowerExpression(expression.right, catalog),
       }
   }
 }
@@ -229,16 +194,15 @@ function lowerExpression(
 function lowerComponentAction(
   statement: Extract<ScadaDslStatement, { kind: 'call-statement' }>,
   catalog: ScadaDslCapabilityCatalog,
-  primaryDeviceSymbol: string,
 ): ScadaDslComponentActionInvocation {
   const capability = findCapability(statement.call.callee, catalog)
 
   if (
-    capability.symbol !== 'component' ||
+    capability.symbol !== '$self' ||
     capability.capabilityKind !== 'action'
   ) {
     throw new SemanticFailure(
-      '数据驱动 Behavior 只能调用当前组件公开的 Component Action；设备 Action 必须由显式 UI/Event Interaction 触发',
+      '数据驱动 Behavior 只能调用 $self 的 Component Action；$device Action 必须由 on $self.<Event> Interaction 触发',
       statement.span,
     )
   }
@@ -246,56 +210,21 @@ function lowerComponentAction(
   return {
     action: capability.member,
     arguments: statement.call.arguments.map((argument) =>
-      lowerExpression(argument, catalog, primaryDeviceSymbol),
+      lowerExpression(argument, catalog),
     ),
   }
-}
-
-function lowerActionBlock(
-  statements: readonly ScadaDslStatement[],
-  catalog: ScadaDslCapabilityCatalog,
-  primaryDeviceSymbol: string,
-) {
-  return statements.map((statement) => {
-    if (statement.kind === 'assignment') {
-      throw new SemanticFailure(
-        '条件块内不要命令式修改 Property；请使用 `component.property = if ... then ... else ...` 表达声明式 Value Binding',
-        statement.span,
-      )
-    }
-
-    if (statement.kind === 'if') {
-      throw new SemanticFailure(
-        'Behavior 第一版只允许 else-if 分支，不允许在分支内部继续嵌套 if',
-        statement.span,
-      )
-    }
-
-    if (statement.kind === 'on') {
-      throw new SemanticFailure(
-        'on Event Interaction 只能出现在顶层，不能嵌套进数据驱动 Behavior',
-        statement.span,
-      )
-    }
-
-    return lowerComponentAction(statement, catalog, primaryDeviceSymbol)
-  })
 }
 
 function lowerValueBinding(
   statement: Extract<ScadaDslStatement, { kind: 'assignment' }>,
   statementIndex: number,
   catalog: ScadaDslCapabilityCatalog,
-  primaryDeviceSymbol: string,
 ): ScadaDslValueBindingPlan {
   const target = findCapability(statement.target, catalog)
 
-  if (
-    target.symbol !== 'component' ||
-    target.capabilityKind !== 'property'
-  ) {
+  if (target.symbol !== '$self' || target.capabilityKind !== 'property') {
     throw new SemanticFailure(
-      'Value Binding 左侧必须是当前组件公开的 Component Property',
+      'Value Binding 左侧必须是 $self 的公开 Property',
       statement.target.span,
     )
   }
@@ -303,35 +232,26 @@ function lowerValueBinding(
   return {
     id: `value:${statementIndex}`,
     targetProperty: target.member,
-    expression: lowerExpression(statement.value, catalog, primaryDeviceSymbol),
+    expression: lowerExpression(statement.value, catalog),
   }
 }
 
-function lowerBehavior(
-  statement: ScadaDslIfStatement,
-  statementIndex: number,
-  catalog: ScadaDslCapabilityCatalog,
-  primaryDeviceSymbol: string,
-): ScadaDslBehaviorPlan {
-  const branches: ScadaDslBehaviorBranchPlan[] = []
-  let current: ScadaDslIfStatement | null = statement
-  let branchIndex = 0
+type ControlBranch = {
+  condition: ScadaDslExpression | null
+  body: readonly ScadaDslStatement[]
+  span: ScadaDslSpan
+}
 
-  while (current !== null) {
+function flattenIfBranches(statement: ScadaDslIfStatement): ControlBranch[] {
+  const branches: ControlBranch[] = []
+  let current: ScadaDslIfStatement | null = statement
+
+  while (current) {
     branches.push({
-      id: `behavior:${statementIndex}:branch:${branchIndex}`,
-      condition: lowerExpression(
-        current.condition,
-        catalog,
-        primaryDeviceSymbol,
-      ),
-      actions: lowerActionBlock(
-        current.consequent,
-        catalog,
-        primaryDeviceSymbol,
-      ),
+      condition: current.condition,
+      body: current.consequent,
+      span: current.span,
     })
-    branchIndex += 1
 
     const alternate: readonly ScadaDslStatement[] | null = current.alternate
     if (alternate === null) {
@@ -340,55 +260,226 @@ function lowerBehavior(
       current = alternate[0]
     } else {
       branches.push({
-        id: `behavior:${statementIndex}:branch:${branchIndex}`,
         condition: null,
-        actions: lowerActionBlock(alternate, catalog, primaryDeviceSymbol),
+        body: alternate,
+        span: current.span,
       })
       current = null
     }
   }
 
-  return { id: `behavior:${statementIndex}`, branches }
+  return branches
+}
+
+function caseCondition(
+  statement: ScadaDslCaseStatement,
+  value: ComponentScalarValue,
+  span: ScadaDslSpan,
+): ScadaDslExpression {
+  return {
+    kind: 'binary',
+    operator: '==',
+    left: statement.expression,
+    right: { kind: 'literal', value, span },
+    span: { start: statement.expression.span.start, end: span.end },
+  }
+}
+
+function flattenCaseBranches(statement: ScadaDslCaseStatement): ControlBranch[] {
+  return statement.arms.map((arm) => ({
+    condition: arm.pattern.kind === 'wildcard'
+      ? null
+      : caseCondition(statement, arm.pattern.value, arm.pattern.span),
+    body: arm.body,
+    span: arm.span,
+  }))
+}
+
+function classifyControlBranches(branches: readonly ControlBranch[]) {
+  let sawAssignment = false
+  let sawAction = false
+
+  for (const branch of branches) {
+    for (const statement of branch.body) {
+      if (statement.kind === 'assignment') sawAssignment = true
+      else if (statement.kind === 'call-statement') sawAction = true
+      else {
+        throw new SemanticFailure(
+          'if/case 分支第一版只允许 Property 赋值或 Component Action 调用；不要嵌套 if/case/on',
+          statement.span,
+        )
+      }
+    }
+  }
+
+  if (sawAssignment && sawAction) {
+    throw new SemanticFailure(
+      '同一个 if/case 不能混合声明式 Property 赋值与命令式 Component Action',
+      branches[0]?.span ?? { start: 0, end: 1 },
+    )
+  }
+
+  return sawAssignment ? 'assignment' as const : 'behavior' as const
+}
+
+function branchAssignments(
+  branch: ControlBranch,
+  catalog: ScadaDslCapabilityCatalog,
+) {
+  const assignments = new Map<string, Extract<ScadaDslStatement, { kind: 'assignment' }>>()
+
+  for (const statement of branch.body) {
+    if (statement.kind !== 'assignment') {
+      throw new SemanticFailure('声明式控制分支只能包含 Property 赋值', statement.span)
+    }
+    const target = findCapability(statement.target, catalog)
+    if (target.symbol !== '$self' || target.capabilityKind !== 'property') {
+      throw new SemanticFailure(
+        'if/case 声明式赋值只能写入 $self 的公开 Property',
+        statement.target.span,
+      )
+    }
+    if (assignments.has(target.member)) {
+      throw new SemanticFailure(
+        `同一个分支不能重复写入 $self.${target.member}`,
+        statement.target.span,
+      )
+    }
+    assignments.set(target.member, statement)
+  }
+
+  return assignments
+}
+
+function sameKeys(left: Map<string, unknown>, right: Map<string, unknown>) {
+  if (left.size !== right.size) return false
+  for (const key of left.keys()) if (!right.has(key)) return false
+  return true
+}
+
+function lowerDeclarativeControl(
+  branches: readonly ControlBranch[],
+  statementIndex: number,
+  catalog: ScadaDslCapabilityCatalog,
+): ScadaDslValueBindingPlan[] {
+  if (branches.length === 0 || branches.at(-1)?.condition !== null) {
+    throw new SemanticFailure(
+      '包含 Property 赋值的 if 必须有 else；case 必须有最终 _ fallback，避免产生未定义的半赋值状态',
+      branches[0]?.span ?? { start: 0, end: 1 },
+    )
+  }
+
+  const assignmentMaps = branches.map((branch) => branchAssignments(branch, catalog))
+  const expected = assignmentMaps[0]!
+  if (expected.size === 0) {
+    throw new SemanticFailure(
+      '声明式 if/case 至少需要一个 $self Property 赋值',
+      branches[0]!.span,
+    )
+  }
+
+  for (let index = 1; index < assignmentMaps.length; index += 1) {
+    if (!sameKeys(expected, assignmentMaps[index]!)) {
+      throw new SemanticFailure(
+        '声明式 if/case 的每个分支必须完整写入同一组 $self Properties',
+        branches[index]!.span,
+      )
+    }
+  }
+
+  return [...expected.keys()].map((property) => {
+    const fallbackStatement = assignmentMaps.at(-1)!.get(property)!
+    let expression = lowerExpression(fallbackStatement.value, catalog)
+
+    for (let index = branches.length - 2; index >= 0; index -= 1) {
+      const condition = branches[index]!.condition
+      if (!condition) {
+        throw new SemanticFailure('fallback 分支只能出现在控制结构末尾', branches[index]!.span)
+      }
+      const assignment = assignmentMaps[index]!.get(property)!
+      expression = {
+        kind: 'conditional',
+        condition: lowerExpression(condition, catalog),
+        consequent: lowerExpression(assignment.value, catalog),
+        alternate: expression,
+      }
+    }
+
+    return {
+      id: `value:${statementIndex}:${property}`,
+      targetProperty: property,
+      expression,
+    }
+  })
+}
+
+function lowerBehaviorControl(
+  branches: readonly ControlBranch[],
+  statementIndex: number,
+  catalog: ScadaDslCapabilityCatalog,
+): ScadaDslBehaviorPlan {
+  return {
+    id: `behavior:${statementIndex}`,
+    branches: branches.map((branch, branchIndex) => ({
+      id: `behavior:${statementIndex}:branch:${branchIndex}`,
+      condition: branch.condition ? lowerExpression(branch.condition, catalog) : null,
+      actions: branch.body.map((statement) => {
+        if (statement.kind !== 'call-statement') {
+          throw new SemanticFailure(
+            'Behavior 分支只能调用 $self Component Action',
+            statement.span,
+          )
+        }
+        return lowerComponentAction(statement, catalog)
+      }),
+    })),
+  }
+}
+
+function lowerControl(
+  branches: readonly ControlBranch[],
+  statementIndex: number,
+  catalog: ScadaDslCapabilityCatalog,
+) {
+  const mode = classifyControlBranches(branches)
+  return mode === 'assignment'
+    ? { valueBindings: lowerDeclarativeControl(branches, statementIndex, catalog), behavior: null }
+    : { valueBindings: [] as ScadaDslValueBindingPlan[], behavior: lowerBehaviorControl(branches, statementIndex, catalog) }
 }
 
 function lowerInteraction(
   statement: ScadaDslOnStatement,
   statementIndex: number,
   catalog: ScadaDslCapabilityCatalog,
-  primaryDeviceSymbol: string,
 ): ScadaDslInteractionPlan {
   const event = findCapability(statement.event, catalog)
-  if (event.symbol !== 'component' || event.capabilityKind !== 'event') {
+  if (event.symbol !== '$self' || event.capabilityKind !== 'event') {
     throw new SemanticFailure(
-      'on 的触发源必须是当前组件公开的 Component Event',
+      'on 的触发源必须是 $self 的公开 Component Event',
       statement.event.span,
     )
   }
 
   if (statement.body.length !== 1 || statement.body[0]?.kind !== 'call-statement') {
     throw new SemanticFailure(
-      'Interaction 第一版每个 on Event 只绑定一个设备 Action；需要多个独立动作时请写多个 on 块',
+      'Interaction 第一版每个 on Event 只绑定一个 $device Action；需要多个独立动作时请写多个 on 块',
       statement.span,
     )
   }
 
   const call = statement.body[0]
   const action = findCapability(call.call.callee, catalog)
-  if (action.capabilityKind !== 'action' || action.symbol === 'component') {
+  if (action.capabilityKind !== 'action' || action.symbol !== '$device') {
     throw new SemanticFailure(
-      'on Event 的目标必须是主设备或显式外部设备公开的 Action',
+      'on $self.<Event> 的目标必须是 $device 的公开 Action',
       call.span,
     )
   }
 
-  const target: ScadaDeviceActionReference =
-    action.symbol === primaryDeviceSymbol
-      ? { scope: 'primary-device', action: action.member }
-      : {
-          scope: 'external',
-          sourceId: action.sourceId,
-          action: action.member,
-        }
+  const target: ScadaDeviceActionReference = {
+    scope: 'primary-device',
+    action: action.member,
+  }
 
   return {
     id: `interaction:${statementIndex}`,
@@ -396,7 +487,7 @@ function lowerInteraction(
     action: {
       target,
       arguments: call.call.arguments.map((argument) =>
-        lowerExpression(argument, catalog, primaryDeviceSymbol),
+        lowerExpression(argument, catalog),
       ),
     },
   }
@@ -405,9 +496,8 @@ function lowerInteraction(
 export function lowerScadaDslProgram(
   program: ScadaDslProgram,
   catalog: ScadaDslCapabilityCatalog,
-  options: ScadaDslLoweringOptions = {},
+  _options: ScadaDslLoweringOptions = {},
 ): ScadaDslSemanticResult {
-  const primaryDeviceSymbol = options.primaryDeviceSymbol ?? 'device'
   const valueBindings: ScadaDslValueBindingPlan[] = []
   const behaviors: ScadaDslBehaviorPlan[] = []
   const interactions: ScadaDslInteractionPlan[] = []
@@ -416,44 +506,34 @@ export function lowerScadaDslProgram(
   for (const [statementIndex, statement] of program.statements.entries()) {
     try {
       if (statement.kind === 'assignment') {
-        valueBindings.push(
-          lowerValueBinding(
-            statement,
-            statementIndex,
-            catalog,
-            primaryDeviceSymbol,
-          ),
-        )
+        valueBindings.push(lowerValueBinding(statement, statementIndex, catalog))
       } else if (statement.kind === 'if') {
-        behaviors.push(
-          lowerBehavior(
-            statement,
-            statementIndex,
-            catalog,
-            primaryDeviceSymbol,
-          ),
+        const lowered = lowerControl(
+          flattenIfBranches(statement),
+          statementIndex,
+          catalog,
         )
+        valueBindings.push(...lowered.valueBindings)
+        if (lowered.behavior) behaviors.push(lowered.behavior)
+      } else if (statement.kind === 'case') {
+        const lowered = lowerControl(
+          flattenCaseBranches(statement),
+          statementIndex,
+          catalog,
+        )
+        valueBindings.push(...lowered.valueBindings)
+        if (lowered.behavior) behaviors.push(lowered.behavior)
       } else if (statement.kind === 'on') {
-        interactions.push(
-          lowerInteraction(
-            statement,
-            statementIndex,
-            catalog,
-            primaryDeviceSymbol,
-          ),
-        )
+        interactions.push(lowerInteraction(statement, statementIndex, catalog))
       } else {
         throw new SemanticFailure(
-          '顶层 Action 没有明确触发时机；Component Action 请放入 if/else Behavior，设备 Action 请放入 on Component Event Interaction',
+          '顶层 Action 没有明确触发时机；$self Action 请放入 if/case，$device Action 请放入 on $self.<Event>',
           statement.span,
         )
       }
     } catch (error) {
-      if (error instanceof SemanticFailure) {
-        diagnostics.push(error.diagnostic)
-      } else {
-        throw error
-      }
+      if (error instanceof SemanticFailure) diagnostics.push(error.diagnostic)
+      else throw error
     }
   }
 
@@ -567,10 +647,9 @@ export function selectScadaDslBehaviorBranch(
 }
 
 /**
- * Action-oriented if/else uses branch-entry semantics: the active branch fires
+ * Action-oriented if/case uses branch-entry semantics: the active branch fires
  * once on initial activation, repeated telemetry in the same branch does not
- * replay it, and moving to another branch fires that branch once. Persistent
- * visual truth should still use declarative Value Binding.
+ * replay it, and moving to another branch fires that branch once.
  */
 export function shouldFireScadaDslBehaviorBranch(
   previousBranchId: string | null,
