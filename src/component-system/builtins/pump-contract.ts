@@ -1,4 +1,7 @@
-import type { ComponentDefinition } from '../definition'
+import type {
+  ComponentAttributeValues,
+  ComponentDefinition,
+} from '../definition'
 import type {
   ComponentPersistedAuthoredState,
   ComponentPersistedAuthoredStateMigrationResult,
@@ -23,6 +26,14 @@ const LEGACY_PUMP_STATE_TO_SEMANTIC: Readonly<Record<string, PumpSemanticState>>
   blue: 'manual',
   orange: 'warning',
   red: 'alarm',
+}
+
+const PUMP_COLOR_ATTRIBUTE_BY_STATE: Readonly<Record<PumpSemanticState, string>> = {
+  stopped: 'stoppedColor',
+  running: 'runningColor',
+  manual: 'manualColor',
+  warning: 'warningColor',
+  alarm: 'alarmColor',
 }
 
 export const pumpComponentDefinition: ComponentDefinition = {
@@ -105,6 +116,25 @@ export const pumpComponentDefinition: ComponentDefinition = {
     },
   },
   anchors: DEFAULT_RECT_ANCHORS,
+}
+
+function resolvePumpSemanticState(value: unknown): PumpSemanticState {
+  return typeof value === 'string' && value in PUMP_COLOR_ATTRIBUTE_BY_STATE
+    ? value as PumpSemanticState
+    : 'running'
+}
+
+export function resolvePumpPresentationColor(
+  stateValue: unknown,
+  attributes: Readonly<ComponentAttributeValues>,
+) {
+  const state = resolvePumpSemanticState(stateValue)
+  const attributeKey = PUMP_COLOR_ATTRIBUTE_BY_STATE[state]
+  const authored = attributes[attributeKey]
+  if (typeof authored === 'string') return authored
+
+  const fallback = pumpComponentDefinition.attributes[attributeKey]?.defaultValue
+  return typeof fallback === 'string' ? fallback : '#788581'
 }
 
 export function migratePumpPersistedAuthoredState(
