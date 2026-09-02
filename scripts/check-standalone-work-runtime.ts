@@ -11,7 +11,7 @@ import {
   serializeScadaWorkPackage,
 } from '../src/features/scada-works/scada-work-package'
 import type { ScadaDeviceActionInvocation } from '../src/runtime/device-action-dispatcher'
-import type { SceneDocument } from '../src/scene/schema'
+import { isGroupNode, type SceneDocument } from '../src/scene/schema'
 
 const coreSource = readFileSync(
   'src/features/runtime/standalone-work-runtime-core.ts',
@@ -78,6 +78,9 @@ function portableScene(
     ? NonNullable<Extract<SceneDocument['nodes'][number], { type: string }>['scadaSemantics']>
     : never,
 ): SceneDocument {
+  // Deliberately construct a raw Scene v7 artifact. The scoped work-package
+  // codec is the migration authority that normalizes this mixed `props` state
+  // into canonical Scene v8 `propertyFallbacks` before runtime construction.
   return {
     version: 7,
     id,
@@ -107,7 +110,7 @@ function portableScene(
       },
     ],
     connections: [],
-  }
+  } as unknown as SceneDocument
 }
 
 const canonicalScene = portableScene('standalone-runtime-scene', {
@@ -129,8 +132,28 @@ const workPackage = createScadaWorkPackage(
   hostCapabilities,
 )
 
+const normalizedPortableNode = workPackage.scene.nodes.find(
+  (candidate) => candidate.id === 'portable-node',
+)
+assert.ok(normalizedPortableNode && !isGroupNode(normalizedPortableNode))
+assert.equal(
+  workPackage.scene.version,
+  8,
+  'Standalone consumes the canonical Scene v8 normalized by the Work Package codec',
+)
+assert.deepEqual(normalizedPortableNode.attributes, {})
+assert.deepEqual(normalizedPortableNode.propertyFallbacks, {
+  state: 'closed',
+  level: 0,
+})
+assert.equal(
+  Object.hasOwn(normalizedPortableNode, 'props'),
+  false,
+  'canonical standalone input must not retain the legacy component props authority',
+)
+
 const standalone = createStandaloneWorkRuntimeWithHost(workPackage, [])
-assert.equal(standalone.workPackage.scene.version, 7)
+assert.equal(standalone.workPackage.scene.version, 8)
 assert.ok(standalone.registry.get(componentType))
 assert.equal(standalone.semanticProgramCount, 1)
 assert.equal(
@@ -154,13 +177,17 @@ assert.deepEqual(
 assert.deepEqual(
   standalone.runtime.componentProps.getNodeSnapshot('portable-node'),
   { state: 'open', level: 0 },
-  'persisted Scene v7 semantics are restored, compiled and attached before the runtime snapshot is consumed',
+  'persisted Scene v7 SCADA semantics survive Scene v8 normalization and attach before the runtime snapshot is consumed',
 )
 assert.deepEqual(
-  canonicalScene.nodes[0]?.props,
+  (canonicalScene.nodes[0] as unknown as { props: unknown })?.props,
   { state: 'closed', level: 0 },
-  'canonical semantics derive runtime state without mutating authored Scene props',
+  'normalization and runtime derivation do not mutate the caller-owned raw Scene v7 artifact',
 )
+assert.deepEqual(normalizedPortableNode.propertyFallbacks, {
+  state: 'closed',
+  level: 0,
+})
 release()
 assert.equal(standalone.runtime.isRunning, false)
 
@@ -187,6 +214,7 @@ const primaryPackage = createScadaWorkPackage(
   [dependency],
   hostCapabilities,
 )
+assert.equal(primaryPackage.scene.version, 8)
 assert.throws(
   () => createStandaloneWorkRuntimeWithHost(primaryPackage, []),
   /primary-device host capability/,
@@ -247,7 +275,7 @@ const trustedRegistration: ComponentRegistration = {
   renderer: (() => null) as unknown as ComponentRegistration['renderer'],
   createDefaultProps: () => ({}),
 }
-const interactionScene: SceneDocument = {
+const interactionScene = {
   version: 7,
   id: 'standalone-interaction-scene',
   name: 'Standalone interaction scene',
@@ -294,13 +322,14 @@ const interactionScene: SceneDocument = {
     },
   ],
   connections: [],
-}
+} as unknown as SceneDocument
 const trustedCapabilities = new ComponentRegistry([trustedRegistration])
 const interactionPackage = createScadaWorkPackage(
   interactionScene,
   [],
   trustedCapabilities,
 )
+assert.equal(interactionPackage.scene.version, 8)
 assert.throws(
   () => createStandaloneWorkRuntimeWithHost(
     interactionPackage,
@@ -337,6 +366,7 @@ releaseInteraction()
 const serialized = serializeScadaWorkPackage(workPackage, hostCapabilities)
 const parsedPackage = parseScadaWorkPackageDocument(serialized, hostCapabilities)
 assert.ok(parsedPackage)
+assert.equal(parsedPackage.scene.version, 8)
 const parsedRuntime = createStandaloneWorkRuntimeWithHost(parsedPackage, [])
 assert.ok(parsedRuntime.registry.get(componentType))
 assert.equal(parsedRuntime.semanticProgramCount, 1)
@@ -347,5 +377,5 @@ assert.equal(
 )
 
 console.log(
-  'Standalone work runtime checks passed: the accepted work artifact builds an isolated host+portable registry, safely normalizes the retained bindable-only component-package v1 dependency, restores/compiles/attaches canonical Scene v7 semantics through one package-owned runtime session, injects RuntimeDataSource/primary-device/device-action capabilities explicitly, fails closed when required host capabilities are absent, owns deterministic disposal, and keeps Studio/mock/browser state outside the generic construction core.',
+  'Standalone work runtime checks passed: Work Package v1 safely normalizes retained Scene v7 plus bindable-only component-package v1 inputs into canonical Scene v8 Attribute/Property authority; persisted SCADA semantics survive normalization, runtime derivation never mutates authored Property fallbacks, the isolated host+portable registry and explicit data/device-action capabilities remain intact, missing capabilities fail closed, disposal is deterministic, and Studio/mock/browser state stays outside the generic construction core.',
 )
