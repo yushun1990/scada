@@ -11,9 +11,11 @@ export type ScadaDslSpan = {
   end: number
 }
 
+export type ScadaDslRoot = '$self' | '$device'
+
 export type ScadaDslReferenceExpression = {
   kind: 'reference'
-  path: readonly string[]
+  path: readonly [ScadaDslRoot, string]
   span: ScadaDslSpan
 }
 
@@ -53,20 +55,11 @@ export type ScadaDslBinaryExpression = {
   span: ScadaDslSpan
 }
 
-export type ScadaDslConditionalExpression = {
-  kind: 'conditional'
-  condition: ScadaDslExpression
-  consequent: ScadaDslExpression
-  alternate: ScadaDslExpression
-  span: ScadaDslSpan
-}
-
 export type ScadaDslExpression =
   | ScadaDslReferenceExpression
   | ScadaDslLiteralExpression
   | ScadaDslUnaryExpression
   | ScadaDslBinaryExpression
-  | ScadaDslConditionalExpression
 
 export type ScadaDslCallExpression = {
   kind: 'call'
@@ -96,6 +89,23 @@ export type ScadaDslIfStatement = {
   span: ScadaDslSpan
 }
 
+export type ScadaDslCasePattern =
+  | { kind: 'literal'; value: ComponentScalarValue; span: ScadaDslSpan }
+  | { kind: 'wildcard'; span: ScadaDslSpan }
+
+export type ScadaDslCaseArm = {
+  pattern: ScadaDslCasePattern
+  body: readonly ScadaDslStatement[]
+  span: ScadaDslSpan
+}
+
+export type ScadaDslCaseStatement = {
+  kind: 'case'
+  expression: ScadaDslExpression
+  arms: readonly ScadaDslCaseArm[]
+  span: ScadaDslSpan
+}
+
 export type ScadaDslOnStatement = {
   kind: 'on'
   event: ScadaDslReferenceExpression
@@ -107,6 +117,7 @@ export type ScadaDslStatement =
   | ScadaDslAssignmentStatement
   | ScadaDslCallStatement
   | ScadaDslIfStatement
+  | ScadaDslCaseStatement
   | ScadaDslOnStatement
 
 export type ScadaDslProgram = {
@@ -145,7 +156,7 @@ type Token = {
 const KEYWORDS = new Set([
   'if',
   'else',
-  'then',
+  'case',
   'on',
   'true',
   'false',
@@ -154,6 +165,8 @@ const KEYWORDS = new Set([
   'or',
   'not',
 ])
+
+const SCADA_DSL_ROOTS = new Set<ScadaDslRoot>(['$self', '$device'])
 
 function isIdentifierStart(char: string) {
   return /[A-Za-z_\u4E00-\u9FFF]/u.test(char)
@@ -183,9 +196,7 @@ function tokenizeScadaDsl(source: string): Token[] {
 
     if (char === '#' || (char === '/' && source[index + 1] === '/')) {
       index += char === '#' ? 1 : 2
-      while (index < source.length && source[index] !== '\n') {
-        index += 1
-      }
+      while (index < source.length && source[index] !== '\n') index += 1
       continue
     }
 
@@ -214,13 +225,11 @@ function tokenizeScadaDsl(source: string): Token[] {
         index += 1
       }
 
+      tokens.push({ kind: 'string', value, start, end: index })
       if (!closed) {
-        tokens.push({ kind: 'string', value, start, end: index })
         tokens.push({ kind: 'eof', value: '', start: index, end: index })
         return tokens
       }
-
-      tokens.push({ kind: 'string', value, start, end: index })
       continue
     }
 
@@ -247,12 +256,28 @@ function tokenizeScadaDsl(source: string): Token[] {
       continue
     }
 
+    if (char === '$') {
+      const start = index
+      index += 1
+      if (!isIdentifierStart(source[index] ?? '')) {
+        tokens.push({ kind: 'punctuation', value: '$', start, end: index })
+        continue
+      }
+      index += 1
+      while (index < source.length && isIdentifierPart(source[index]!)) index += 1
+      tokens.push({
+        kind: 'identifier',
+        value: source.slice(start, index),
+        start,
+        end: index,
+      })
+      continue
+    }
+
     if (isIdentifierStart(char)) {
       const start = index
       index += 1
-      while (index < source.length && isIdentifierPart(source[index]!)) {
-        index += 1
-      }
+      while (index < source.length && isIdentifierPart(source[index]!)) index += 1
       const value = source.slice(start, index)
       tokens.push({
         kind: KEYWORDS.has(value) ? 'keyword' : 'identifier',
@@ -276,7 +301,7 @@ function tokenizeScadaDsl(source: string): Token[] {
       continue
     }
 
-    if ('.(){};,'.includes(char)) {
+    if ('.(){};,:'.includes(char)) {
       tokens.push({ kind: 'punctuation', value: char, start: index, end: index + 1 })
       index += 1
       continue
@@ -326,6 +351,7 @@ class ScadaDslParser {
 
   private parseStatement(): ScadaDslStatement {
     if (this.isKeyword('if')) return this.parseIfStatement()
+    if (this.isKeyword('case')) return this.parseCaseStatement()
     if (this.isKeyword('on')) return this.parseOnStatement()
 
     const target = this.parseReference()
@@ -345,7 +371,7 @@ class ScadaDslParser {
     }
 
     throw new ParseFailure(
-      '语句必须是 Property 赋值、Action 调用、if/else 或 on Event',
+      '语句必须是 Property 赋值、Action 调用、if、case 或 on Event',
       this.current(),
     )
   }
@@ -381,6 +407,121 @@ class ScadaDslParser {
     }
   }
 
+  private parseCaseStatement(): ScadaDslCaseStatement {
+    const caseToken = this.expectKeyword('case')
+    const expression = this.parseExpression()
+    this.expectPunctuation('{')
+    const arms: ScadaDslCaseArm[] = []
+    let wildcardSeen = false
+    this.skipSeparators()
+
+    while (!this.isPunctuation('}')) {
+      if (this.is('eof')) throw new ParseFailure('case 块缺少 }', this.current())
+      const pattern = this.parseCasePattern()
+      if (pattern.kind === 'wildcard') {
+        if (wildcardSeen) throw new ParseFailure('case 的 _ fallback 只能出现一次', this.previous())
+        wildcardSeen = true
+      } else if (wildcardSeen) {
+        throw new ParseFailure('case 的 _ fallback 必须是最后一个 arm', this.previous())
+      }
+
+      this.expectPunctuation(':')
+      const bodyStart = this.current().start
+      let body: readonly ScadaDslStatement[]
+      let armEnd: number
+
+      if (this.matchPunctuation('{')) {
+        body = this.parseBlock()
+        armEnd = this.previous().end
+      } else {
+        const statement = this.parseStatement()
+        body = [statement]
+        armEnd = statement.span.end
+        if (
+          !this.is('newline') &&
+          !this.isPunctuation(';') &&
+          !this.isPunctuation('}')
+        ) {
+          throw new ParseFailure('case 单行 arm 后需要换行、; 或 }', this.current())
+        }
+      }
+
+      if (body.length === 0) {
+        throw new ParseFailure('case arm 不能为空', {
+          kind: 'punctuation',
+          value: ':',
+          start: bodyStart,
+          end: Math.max(bodyStart + 1, armEnd),
+        })
+      }
+
+      arms.push({
+        pattern,
+        body,
+        span: { start: pattern.span.start, end: armEnd },
+      })
+      this.skipSeparators()
+
+      if (pattern.kind === 'wildcard' && !this.isPunctuation('}')) {
+        throw new ParseFailure('case 的 _ fallback 必须是最后一个 arm', this.current())
+      }
+    }
+
+    const close = this.expectPunctuation('}')
+    return {
+      kind: 'case',
+      expression,
+      arms,
+      span: { start: caseToken.start, end: close.end },
+    }
+  }
+
+  private parseCasePattern(): ScadaDslCasePattern {
+    const token = this.current()
+    if (token.kind === 'identifier' && token.value === '_') {
+      this.advance()
+      return { kind: 'wildcard', span: { start: token.start, end: token.end } }
+    }
+    if (token.kind === 'number') {
+      this.advance()
+      return {
+        kind: 'literal',
+        value: Number(token.value),
+        span: { start: token.start, end: token.end },
+      }
+    }
+    if (this.matchOperator('-')) {
+      const minus = this.previous()
+      const number = this.expect('number', 'case 的 - 后需要数字字面量')
+      return {
+        kind: 'literal',
+        value: -Number(number.value),
+        span: { start: minus.start, end: number.end },
+      }
+    }
+    if (token.kind === 'string') {
+      this.advance()
+      return {
+        kind: 'literal',
+        value: token.value,
+        span: { start: token.start, end: token.end },
+      }
+    }
+    if (this.matchKeyword('true')) return this.caseLiteralFromPrevious(true)
+    if (this.matchKeyword('false')) return this.caseLiteralFromPrevious(false)
+    if (this.matchKeyword('null')) return this.caseLiteralFromPrevious(null)
+    throw new ParseFailure('case arm 只支持标量字面量或 _ fallback', token)
+  }
+
+  private caseLiteralFromPrevious(value: ComponentScalarValue): ScadaDslCasePattern {
+    const token = this.previous()
+    return {
+      kind: 'literal',
+      value,
+      span: { start: token.start, end: token.end },
+    }
+  }
+
   private parseOnStatement(): ScadaDslOnStatement {
     const onToken = this.expectKeyword('on')
     const event = this.parseReference()
@@ -398,9 +539,7 @@ class ScadaDslParser {
     const statements: ScadaDslStatement[] = []
     this.skipSeparators()
     while (!this.isPunctuation('}')) {
-      if (this.is('eof')) {
-        throw new ParseFailure('块缺少 }', this.current())
-      }
+      if (this.is('eof')) throw new ParseFailure('块缺少 }', this.current())
       statements.push(this.parseStatement())
       this.skipSeparators()
     }
@@ -409,25 +548,7 @@ class ScadaDslParser {
   }
 
   private parseExpression(): ScadaDslExpression {
-    return this.isKeyword('if')
-      ? this.parseConditionalExpression()
-      : this.parseOrExpression()
-  }
-
-  private parseConditionalExpression(): ScadaDslConditionalExpression {
-    const start = this.expectKeyword('if').start
-    const condition = this.parseOrExpression()
-    this.expectKeyword('then')
-    const consequent = this.parseExpression()
-    this.expectKeyword('else')
-    const alternate = this.parseExpression()
-    return {
-      kind: 'conditional',
-      condition,
-      consequent,
-      alternate,
-      span: { start, end: alternate.span.end },
-    }
+    return this.parseOrExpression()
   }
 
   private parseOrExpression(): ScadaDslExpression {
@@ -546,21 +667,24 @@ class ScadaDslParser {
   }
 
   private parseReference(): ScadaDslReferenceExpression {
-    const first = this.expect('identifier', '这里需要 Property、Action 或 Event 引用')
-    const path = [first.value]
-    let end = first.end
-    while (this.matchPunctuation('.')) {
-      const member = this.expect('identifier', '点号后需要能力名称')
-      path.push(member.value)
-      end = member.end
-    }
-    if (path.length < 2) {
+    const first = this.expect('identifier', '这里需要 $self 或 $device 能力引用')
+    if (!SCADA_DSL_ROOTS.has(first.value as ScadaDslRoot)) {
       throw new ParseFailure(
-        '引用至少需要“对象.能力”两段，例如 device.pressure',
+        'SCADA DSL v1 只允许 $self 与 $device 两个根',
         first,
       )
     }
-    return { kind: 'reference', path, span: { start: first.start, end } }
+    const root = first.value as ScadaDslRoot
+    this.expectPunctuation('.')
+    const member = this.expect('identifier', '点号后需要能力名称')
+    if (this.isPunctuation('.')) {
+      throw new ParseFailure('SCADA DSL v1 引用只允许“根.能力”两段', this.current())
+    }
+    return {
+      kind: 'reference',
+      path: [root, member.value],
+      span: { start: first.start, end: member.end },
+    }
   }
 
   private parseCallAfterCallee(
@@ -670,17 +794,13 @@ class ScadaDslParser {
 
   private expectKeyword(value: string) {
     const token = this.current()
-    if (!this.isKeyword(value)) {
-      throw new ParseFailure(`这里需要 ${value}`, token)
-    }
+    if (!this.isKeyword(value)) throw new ParseFailure(`这里需要 ${value}`, token)
     return this.advance()
   }
 
   private expectPunctuation(value: string) {
     const token = this.current()
-    if (!this.isPunctuation(value)) {
-      throw new ParseFailure(`这里需要 ${value}`, token)
-    }
+    if (!this.isPunctuation(value)) throw new ParseFailure(`这里需要 ${value}`, token)
     return this.advance()
   }
 }
@@ -704,7 +824,7 @@ export type ScadaDslCapabilityKind = 'property' | 'action' | 'event'
 export type ScadaDslCapabilityItem = {
   sourceId: string
   sourceTitle: string
-  symbol: string
+  symbol: ScadaDslRoot
   member: string
   title: string
   capabilityKind: ScadaDslCapabilityKind
@@ -716,7 +836,8 @@ export type ScadaDslCapabilityItem = {
 export type ScadaDslSourceDefinition = {
   sourceId: string
   title: string
-  symbol: string
+  /** Legacy authoring hint. DSL v1 ignores it and always exposes the source as $device. */
+  symbol?: string
   properties: Readonly<Record<string, ComponentPropertyDefinition>>
   actions: Readonly<Record<string, ComponentActionDefinition>>
   events?: Readonly<Record<string, ComponentEventDefinition>>
@@ -728,7 +849,7 @@ export type ScadaDslCapabilityCatalog = {
 
 function appendCapabilities(
   items: ScadaDslCapabilityItem[],
-  source: ScadaDslSourceDefinition,
+  source: Omit<ScadaDslSourceDefinition, 'symbol'> & { symbol: ScadaDslRoot },
 ) {
   for (const [member, property] of Object.entries(source.properties)) {
     items.push({
@@ -769,16 +890,34 @@ export function createScadaDslCapabilityCatalog(
   component: ComponentDefinition,
   sources: readonly ScadaDslSourceDefinition[],
 ): ScadaDslCapabilityCatalog {
+  if (sources.length > 1) {
+    throw new Error(
+      'SCADA DSL v1 每个组件只允许一个绑定设备，Capability Catalog 不能包含多个 device source',
+    )
+  }
+
   const items: ScadaDslCapabilityItem[] = []
   appendCapabilities(items, {
     sourceId: 'component',
     title: component.title,
-    symbol: 'component',
+    symbol: '$self',
     properties: component.properties,
     actions: component.actions,
     events: component.events,
   })
-  for (const source of sources) appendCapabilities(items, source)
+
+  const device = sources[0]
+  if (device) {
+    appendCapabilities(items, {
+      sourceId: device.sourceId,
+      title: device.title,
+      symbol: '$device',
+      properties: device.properties,
+      actions: device.actions,
+      events: device.events,
+    })
+  }
+
   return { items }
 }
 
@@ -800,11 +939,11 @@ export function getScadaDslCompletionItems(
   const safeCursor = Math.max(0, Math.min(cursor, source.length))
   const before = source.slice(0, safeCursor)
   const match = before.match(
-    /([A-Za-z_\u4E00-\u9FFF][A-Za-z0-9_\u4E00-\u9FFF]*)\.([A-Za-z0-9_\u4E00-\u9FFF]*)$/u,
+    /(\$(?:self|device))\.([A-Za-z0-9_\u4E00-\u9FFF]*)$/u,
   )
 
   if (match) {
-    const symbol = match[1]!
+    const symbol = match[1] as ScadaDslRoot
     const memberPrefix = match[2]!
     return {
       replacement: {
@@ -817,11 +956,9 @@ export function getScadaDslCompletionItems(
     }
   }
 
-  const rootMatch = before.match(
-    /([A-Za-z_\u4E00-\u9FFF][A-Za-z0-9_\u4E00-\u9FFF]*)$/u,
-  )
+  const rootMatch = before.match(/(\$[A-Za-z0-9_]*)$/u)
   const rootPrefix = rootMatch?.[1] ?? ''
-  const symbols = new Set<string>()
+  const symbols = new Set<ScadaDslRoot>()
   const rootItems: ScadaDslCapabilityItem[] = []
 
   for (const item of catalog.items) {
