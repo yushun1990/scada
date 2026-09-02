@@ -466,6 +466,37 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     }))
   }
 
+  function updatePrimaryComponentAttribute(
+    key: string,
+    value: string | number | boolean | null,
+    commitImmediately: boolean,
+  ) {
+    if (!primaryNode || isGroupNode(primaryNode)) {
+      return
+    }
+
+    const updateScene = (current: SceneDocument): SceneDocument => ({
+      ...current,
+      nodes: current.nodes.map((node) =>
+        node.id === primaryNode.id && !isGroupNode(node)
+          ? {
+              ...node,
+              attributes: {
+                ...node.attributes,
+                [key]: value,
+              },
+            }
+          : node,
+      ),
+    })
+
+    if (commitImmediately) {
+      commit(updateScene)
+    } else {
+      setScene(updateScene)
+    }
+  }
+
   function updatePrimaryComponentProperty(
     key: string,
     value: string | number | boolean | null,
@@ -1215,12 +1246,13 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 {primaryComponentRegistration && !isGroupNode(primaryNode) && (
                   <ComponentPropertiesInspector
                     definition={primaryComponentRegistration.definition}
-                    values={primaryNode.propertyFallbacks}
+                    attributes={primaryNode.attributes}
+                    propertyFallbacks={primaryNode.propertyFallbacks}
                     bindings={primaryNode.bindings}
                     runtimeSources={DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES}
-                    onChange={updatePrimaryComponentProperty}
+                    onAttributeChange={updatePrimaryComponentAttribute}
+                    onPropertyChange={updatePrimaryComponentProperty}
                     onBindingChange={updatePrimaryComponentBinding}
-                    onCommit={commitScene}
                   />
                 )}
 
