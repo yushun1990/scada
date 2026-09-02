@@ -19,6 +19,7 @@ export const statusIndicatorComponentDefinition: ComponentDefinition = {
     minWidth: 48,
     minHeight: 48,
   },
+  attributes: {},
   properties: {
     state: {
       title: '状态',
