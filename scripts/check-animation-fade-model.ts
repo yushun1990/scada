@@ -110,7 +110,10 @@ const ruleVisual = {
     },
   ],
 } as const
-const ruleResolved = resolveComponentVisualRules(ruleVisual, { running: true })
+const ruleResolved = resolveComponentVisualRules(ruleVisual, {
+  attributes: {},
+  properties: { running: true },
+})
 assert.equal(ruleResolved.layers[0]?.opacity, 0.5)
 const ruleOverlay = evaluateVisualAnimations(ruleResolved, { running: true }, 500)
 const ruleAnimated = applyVisualAnimationOverlay(ruleResolved, ruleOverlay)
