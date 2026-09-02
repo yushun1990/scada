@@ -4,7 +4,10 @@ import type {
   LegacyComponentDefinition,
 } from '../../component-system/definition'
 import { assertComponentDefinition } from '../../component-system/validation'
-import { migrateLegacyComponentDefinition } from '../../component-system/versioned-component-definition'
+import {
+  migrateLegacyComponentDefinition,
+  parseLegacyComponentDefinition,
+} from '../../component-system/versioned-component-definition'
 import {
   assertComponentVisualDefinition,
   cloneComponentVisual,
@@ -197,33 +200,6 @@ function parseCurrentComponent(value: unknown): ComponentLibraryEntry | null {
   }
 }
 
-function parseVersionOneDefinition(value: unknown): LegacyComponentDefinition | null {
-  if (!isRecord(value) || 'attributes' in value) return null
-
-  const candidate = {
-    ...value,
-    attributes: {},
-  }
-
-  try {
-    assertComponentDefinition(candidate)
-  } catch {
-    return null
-  }
-
-  return {
-    type: candidate.type,
-    title: candidate.title,
-    category: candidate.category,
-    description: candidate.description,
-    size: candidate.size,
-    properties: candidate.properties,
-    actions: candidate.actions,
-    events: candidate.events,
-    anchors: candidate.anchors,
-  }
-}
-
 function parseVersionOneComponent(
   value: unknown,
 ): LegacyVersionOneComponentLibraryEntry | null {
@@ -240,7 +216,7 @@ function parseVersionOneComponent(
     return null
   }
 
-  const definition = parseVersionOneDefinition(value.definition)
+  const definition = parseLegacyComponentDefinition(value.definition)
   if (!definition) return null
 
   return {
