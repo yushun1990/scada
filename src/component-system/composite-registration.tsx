@@ -36,7 +36,7 @@ export function createCompositeComponentRegistration(
   const renderer = forwardRef<Konva.Group, ComponentRendererProps>(
     function RegisteredCompositeComponentRenderer(
       {
-        attributes: _attributes,
+        attributes,
         properties,
         x,
         y,
@@ -53,8 +53,8 @@ export function createCompositeComponentRegistration(
     ) {
       const [animationTimeMs, setAnimationTimeMs] = useState(0)
       const ruleResolvedVisual = useMemo(
-        () => resolveComponentVisualRules(visual, properties),
-        [properties],
+        () => resolveComponentVisualRules(visual, { attributes, properties }),
+        [attributes, properties],
       )
       const renderedVisual = useMemo(
         () => applyVisualAnimationOverlay(
