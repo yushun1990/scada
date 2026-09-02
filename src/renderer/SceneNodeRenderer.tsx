@@ -300,11 +300,11 @@ export const SceneNodeRenderer = forwardRef<
       ? previewOwnedProps
       : resolveEffectiveComponentProps(
           registration.definition,
-          node.props,
+          node.propertyFallbacks,
           node.bindings,
           runtimeValues ?? EMPTY_RUNTIME_VALUES,
         )
-    : node.props
+    : node.propertyFallbacks
   const commonRendererProps = {
     nodeId: selectable ? node.id : undefined,
     props: effectiveProps,
