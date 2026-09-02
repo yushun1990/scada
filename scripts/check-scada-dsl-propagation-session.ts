@@ -22,6 +22,7 @@ const component: ComponentDefinition = {
     minWidth: 10,
     minHeight: 10,
   },
+  attributes: {},
   properties: {
     state: {
       title: 'State',
@@ -79,22 +80,13 @@ const catalog = createScadaDslCapabilityCatalog(component, [
   {
     sourceId: 'authoring-device',
     title: 'Pump',
-    symbol: 'device',
     properties: {
       running: { title: 'Running', kind: 'boolean', defaultValue: false },
+      pressure: { title: 'Pressure', kind: 'number', defaultValue: 0 },
     },
     actions: {
       start: { title: 'Start' },
     },
-  },
-  {
-    sourceId: 'outlet-01',
-    title: 'Outlet',
-    symbol: 'outlet',
-    properties: {
-      pressure: { title: 'Pressure', kind: 'number', defaultValue: 0 },
-    },
-    actions: {},
   },
 ])
 
@@ -109,31 +101,40 @@ function compile(source: string) {
 }
 
 const compiled = compile(`
-component.state = if device.running then "running" else "stopped"
-component.level = outlet.pressure * 100
-component.label = if component.level > 100 then "high" else "low"
-
-if component.label == "high" {
-  component.showHigh()
+if $device.running {
+  $self.state = "running"
 } else {
-  component.showLow()
+  $self.state = "stopped"
+}
+$self.level = $device.pressure * 100
+if $self.level > 100 {
+  $self.label = "high"
+} else {
+  $self.label = "low"
 }
 
-if component.manual {
-  component.showManual()
+if $self.label == "high" {
+  $self.showHigh()
 } else {
-  component.showLow()
+  $self.showLow()
 }
 
-on component.startRequested {
-  device.start(component.level)
+if $self.manual {
+  $self.showManual()
+} else {
+  $self.showLow()
+}
+
+on $self.startRequested {
+  $device.start($self.level)
 }
 `)
 
 const sourceValues = new Map<string, ComponentScalarValue>([
   ['pump-02:running', true],
+  ['pump-02:pressure', 1.25],
   ['pump-03:running', false],
-  ['outlet-01:pressure', 1.25],
+  ['pump-03:pressure', 0.5],
 ])
 const baseComponentValues = new Map<string, ComponentScalarValue>([
   ['state', 'stopped'],
@@ -172,10 +173,10 @@ assert.deepEqual(
 assert.equal(session.getComponentProperty('level'), 125)
 assert.equal(session.getComponentProperty('label'), 'high')
 
-// One external source change propagates level -> label before Behavior runs.
+// One `$device` source change propagates level -> label before Behavior runs.
 // Only final Property values are exposed to the host.
-sourceValues.set('outlet-01:pressure', 0.5)
-result = session.sourcePropertyChanged('outlet-01', 'pressure')
+sourceValues.set('pump-02:pressure', 0.5)
+result = session.sourcePropertyChanged('pump-02', 'pressure')
 assert.deepEqual(
   result.valueUpdates.map((entry) => [entry.property, entry.value]),
   [
@@ -191,7 +192,7 @@ assert.equal(session.getComponentProperty('label'), 'low')
 
 // Repeating the same value reaches a no-change fixed point: no downstream
 // propagation and no one-shot Behavior replay.
-result = session.sourcePropertyChanged('outlet-01', 'pressure')
+result = session.sourcePropertyChanged('pump-02', 'pressure')
 assert.deepEqual(result.valueUpdates, [])
 assert.deepEqual(result.componentActions, [])
 
@@ -232,11 +233,12 @@ assert.equal(interaction.deviceActions[0]?.sourceId, 'pump-03')
 // Cycles are structural errors, not a runtime race. Cyclic bindings are
 // isolated before propagation while unrelated bindings remain evaluable.
 const cyclicCompiled = compile(`
-component.a = component.b
-component.b = not component.a
-component.level = outlet.pressure * 100
+$self.a = $self.b
+$self.b = not $self.a
+$self.level = $device.pressure * 100
 `)
 const cyclicSession = createScadaDslPropagationSession(cyclicCompiled, {
+  primaryDevice: { deviceId: 'pump-02' },
   readSourceValue(sourceId, property) {
     return sourceValues.get(`${sourceId}:${property}`)
   },
@@ -260,5 +262,5 @@ assert.throws(() => cyclicSession.initialize(), /已释放/)
 session.dispose()
 
 console.log(
-  'SCADA DSL propagation session checks passed: host-owned sessions propagate Value Bindings to a stable fixed point before Behavior evaluation, suppress no-change replay, route Component Property/Event updates through compiled indexes, rebind Primary Device without recompilation, and isolate cyclic Property dependencies before runtime.',
+  'SCADA DSL v1 propagation session checks passed: host-owned sessions settle braced-if-derived Value Bindings before Behavior evaluation, suppress no-change replay, route $self Property/Event updates through compiled indexes, rebind the one $device without recompilation, and isolate cyclic Property dependencies before runtime.',
 )
