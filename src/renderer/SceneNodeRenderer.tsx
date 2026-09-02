@@ -139,6 +139,8 @@ export const SceneNodeRenderer = forwardRef<
         [node.id]: proposedTransform,
       })
 
+      // A node that is already larger than the artboard cannot be made valid by
+      // translating it. Keep its current origin rather than introducing jitter.
       if (bounds.width > scene.width || bounds.height > scene.height) {
         return parentTransform.point({ x: transform.x, y: transform.y })
       }
@@ -201,6 +203,9 @@ export const SceneNodeRenderer = forwardRef<
         return
       }
 
+      // Live dragging deliberately bypasses snapping. Once Konva emits
+      // dragend, resolve the final local position again so grid/object snapping
+      // happens exactly once before the stage commits the transform.
       const resolvedPosition = resolveDragPosition(node.id, {
         x: instance.x(),
         y: instance.y(),
@@ -236,6 +241,11 @@ export const SceneNodeRenderer = forwardRef<
       next?: Point,
     ) => Point | Konva.Group
 
+    // Konva owns the primary node position while native dragging is active.
+    // Dependent visuals may request the same preview position, but writing it
+    // back through position() competes with Konva's drag bookkeeping and causes
+    // the node to lag behind the pointer or flicker. Snapping is resolved in
+    // dragBoundFunc before Konva applies the position instead.
     instance.position = ((next?: Point) => {
       if (next && instance.isDragging()) {
         return instance
@@ -331,6 +341,8 @@ export const SceneNodeRenderer = forwardRef<
     return <ComponentRenderer ref={bindRootRef} {...commonRendererProps} />
   }
 
+  // Keep an unavailable component selectable so a missing registration never
+  // makes scene content impossible to inspect or delete.
   return (
     <Group
       ref={bindRootRef}
