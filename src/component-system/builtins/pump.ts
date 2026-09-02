@@ -19,6 +19,7 @@ export const pumpComponentDefinition: ComponentDefinition = {
     minWidth: 40,
     minHeight: 56.25,
   },
+  attributes: {},
   properties: {
     state: {
       title: '状态',
