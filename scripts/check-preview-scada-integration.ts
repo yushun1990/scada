@@ -30,6 +30,7 @@ const registration: ComponentRegistration = {
       minWidth: 10,
       minHeight: 10,
     },
+    attributes: {},
     properties: {
       level: {
         title: 'Level',
