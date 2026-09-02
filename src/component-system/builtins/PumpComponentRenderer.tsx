@@ -1,32 +1,49 @@
 import { forwardRef } from 'react'
 import type Konva from 'konva'
-import type { PumpState } from '../../assets/pump'
 import { PumpNode } from '../../components/PumpNode'
+import type { ComponentAttributeValues } from '../definition'
 import type { ComponentRendererProps } from '../renderer'
-import type { PumpSemanticState } from './pump-contract'
+import {
+  pumpComponentDefinition,
+  type PumpSemanticState,
+} from './pump-contract'
 
-const PUMP_PALETTE_BY_SEMANTIC_STATE: Readonly<Record<PumpSemanticState, PumpState>> = {
-  stopped: 'gray',
-  running: 'green',
-  manual: 'blue',
-  warning: 'orange',
-  alarm: 'red',
+const PUMP_COLOR_ATTRIBUTE_BY_STATE: Readonly<Record<PumpSemanticState, string>> = {
+  stopped: 'stoppedColor',
+  running: 'runningColor',
+  manual: 'manualColor',
+  warning: 'warningColor',
+  alarm: 'alarmColor',
 }
 
-function resolvePumpPalette(value: unknown): PumpState {
-  return typeof value === 'string' && value in PUMP_PALETTE_BY_SEMANTIC_STATE
-    ? PUMP_PALETTE_BY_SEMANTIC_STATE[value as PumpSemanticState]
-    : 'green'
+function resolvePumpSemanticState(value: unknown): PumpSemanticState {
+  return typeof value === 'string' && value in PUMP_COLOR_ATTRIBUTE_BY_STATE
+    ? value as PumpSemanticState
+    : 'running'
+}
+
+export function resolvePumpPresentationColor(
+  stateValue: unknown,
+  attributes: Readonly<ComponentAttributeValues>,
+) {
+  const state = resolvePumpSemanticState(stateValue)
+  const attributeKey = PUMP_COLOR_ATTRIBUTE_BY_STATE[state]
+  const authored = attributes[attributeKey]
+  if (typeof authored === 'string') return authored
+
+  const fallback = pumpComponentDefinition.attributes[attributeKey]?.defaultValue
+  return typeof fallback === 'string' ? fallback : '#788581'
 }
 
 export const PumpComponentRenderer = forwardRef<
   Konva.Group,
   ComponentRendererProps
->(function PumpComponentRendererImpl({ properties, attributes: _attributes, ...rendererProps }, ref) {
+>(function PumpComponentRendererImpl({ properties, attributes, ...rendererProps }, ref) {
   return (
     <PumpNode
       ref={ref}
-      state={resolvePumpPalette(properties.state)}
+      state="gray"
+      tintColor={resolvePumpPresentationColor(properties.state, attributes)}
       {...rendererProps}
     />
   )
