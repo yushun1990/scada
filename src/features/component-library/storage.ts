@@ -197,6 +197,7 @@ export function createComponentDraft(): ComponentLibraryEntry {
         minWidth: 32,
         minHeight: 24,
       },
+      attributes: {},
       properties: {},
       actions: {},
       events: {},
