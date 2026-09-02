@@ -389,6 +389,15 @@ export function assertComponentDefinition(
     assertProperty(value.type as string, key, property)
   }
 
+  const overlappingKeys = Object.keys(value.attributes).filter((key) =>
+    Object.hasOwn(value.properties, key),
+  )
+  if (overlappingKeys.length > 0) {
+    throw new Error(
+      `组件 ${value.type} 的 Attribute / Property 名称不能重叠: ${overlappingKeys.join(', ')}`,
+    )
+  }
+
   assertInteractionMap(value.type as string, 'Action', value.actions)
   assertInteractionMap(value.type as string, 'Event', value.events)
   assertAnchors(value.type as string, value.anchors)
