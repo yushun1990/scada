@@ -5,7 +5,10 @@ import type { ComponentRegistration } from '../src/component-system/registration
 import { ComponentRegistry } from '../src/component-system/registry'
 import type { ComponentRenderer } from '../src/component-system/renderer'
 import { createEmptyCompositeVisual, createNativeVisual } from '../src/component-system/visual'
-import type { ComponentLibraryEntry } from '../src/features/component-library/component-document'
+import {
+  COMPONENT_PACKAGE_VERSION,
+  type ComponentLibraryEntry,
+} from '../src/features/component-library/component-document'
 import {
   createDistributableComponentPackage,
   type DistributableComponentPackage,
@@ -34,6 +37,7 @@ function definition(type: string, title = type): ComponentDefinition {
       minWidth: 20,
       minHeight: 16,
     },
+    attributes: {},
     properties: {
       value: {
         title: 'Value',
@@ -66,7 +70,7 @@ function localEntry(
 ): ComponentLibraryEntry {
   const builtIn = options.builtIn ?? false
   return {
-    version: 1,
+    version: COMPONENT_PACKAGE_VERSION,
     id: `${builtIn ? 'builtin' : 'local'}-${type}`,
     definition: definition(type, options.title ?? type),
     visual: builtIn ? createNativeVisual() : createEmptyCompositeVisual(),
