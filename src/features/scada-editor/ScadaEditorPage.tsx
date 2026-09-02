@@ -481,8 +481,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
         node.id === primaryNode.id && !isGroupNode(node)
           ? {
               ...node,
-              props: {
-                ...node.props,
+              propertyFallbacks: {
+                ...node.propertyFallbacks,
                 [key]: value,
               },
             }
@@ -1215,7 +1215,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 {primaryComponentRegistration && !isGroupNode(primaryNode) && (
                   <ComponentPropertiesInspector
                     definition={primaryComponentRegistration.definition}
-                    values={primaryNode.props}
+                    values={primaryNode.propertyFallbacks}
                     bindings={primaryNode.bindings}
                     runtimeSources={DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES}
                     onChange={updatePrimaryComponentProperty}
