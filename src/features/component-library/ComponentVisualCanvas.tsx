@@ -132,18 +132,6 @@ function isTextEditingTarget(target: EventTarget | null) {
   )
 }
 
-function cloneVisual(visual: ComponentVisualDefinition): ComponentVisualDefinition {
-  return structuredClone(visual)
-}
-
-function cloneLayerTransform(
-  visual: ComponentVisualDefinition,
-  layerId: string,
-) {
-  const layer = visual.layers.find((candidate) => candidate.id === layerId)
-  return layer ? { ...layer.transform } : null
-}
-
 export function ComponentVisualCanvas({
   visual,
   attributeValues,
@@ -218,27 +206,44 @@ export function ComponentVisualCanvas({
   const showDesignGrid = isComposite && mode === 'editor' && gridVisible
   const canTransformSelection = selectedLayerIds.length === 1
 
-  useEffect(() => {
-    visualRef.current = visual
-  }, [visual])
+  function syncHistoryAvailability() {
+    setCanUndo(undoStackRef.current.length > 0)
+    setCanRedo(redoStackRef.current.length > 0)
+  }
 
   useLayoutEffect(() => {
-    const host = canvasHostRef.current
-    if (!host) return
+    const element = canvasHostRef.current
 
-    const measure = () => setCanvasViewport(measureCanvasViewport(host))
-    measure()
+    if (!element) {
+      return
+    }
 
-    const observer = new ResizeObserver(measure)
-    observer.observe(host)
+    const canvasArea = element.closest('.component-canvas-area')
+    const toolbar = canvasArea?.querySelector<HTMLElement>('.component-canvas-toolbar')
+    const hierarchyGroup = toolbar?.querySelector<HTMLElement>('.component-hierarchy-tool-group')
+    const snapButton = toolbar?.querySelector<HTMLElement>('.component-snap-toggle')
+
+    setEditToolbarHost(hierarchyGroup ?? null)
+    setViewToolbarHost(snapButton?.closest<HTMLElement>('.canvas-tool-group') ?? null)
+
+    const updateViewport = () => {
+      const next = measureCanvasViewport(element)
+
+      setCanvasViewport((current) =>
+        current &&
+        Math.abs(current.width - next.width) < 0.5 &&
+        Math.abs(current.height - next.height) < 0.5
+          ? current
+          : next,
+      )
+    }
+
+    updateViewport()
+
+    const observer = new ResizeObserver(updateViewport)
+    observer.observe(element)
+
     return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    const editHost = document.querySelector<HTMLElement>('.component-canvas-toolbar .component-tool-edit')
-    const viewHost = document.querySelector<HTMLElement>('.component-canvas-toolbar .component-tool-view')
-    setEditToolbarHost(editHost)
-    setViewToolbarHost(viewHost)
   }, [])
 
   useEffect(() => {
@@ -249,130 +254,208 @@ export function ComponentVisualCanvas({
 
     let frameId = 0
     let epochMs: number | null = null
+
     const tick = (nowMs: number) => {
       epochMs ??= nowMs
       setAnimationTimeMs(nowMs - epochMs)
       frameId = window.requestAnimationFrame(tick)
     }
+
     frameId = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(frameId)
   }, [mode, visual.animations.length])
 
   useEffect(() => {
-    const stage = stageRef.current
-    const transformer = transformerRef.current
-    if (!stage || !transformer || !isEditable) {
-      transformer?.nodes([])
-      transformer?.getLayer()?.batchDraw()
+    const previous = visualRef.current
+
+    if (previous === visual) {
       return
     }
 
-    const nodes = selectedVisibleLayerIds
-      .map((layerId) => findLayerNode(stage, layerId))
-      .filter((node): node is Konva.Group => Boolean(node))
-    transformer.nodes(nodes)
-    transformer.getLayer()?.batchDraw()
-  }, [isEditable, renderedVisual, selectedVisibleLayerIds])
-
-  function commitVisual(nextVisual: ComponentVisualDefinition) {
     if (applyingHistoryRef.current) {
-      visualRef.current = nextVisual
-      onChange(nextVisual)
+      applyingHistoryRef.current = false
+      visualRef.current = visual
+      syncHistoryAvailability()
       return
     }
 
-    const current = visualRef.current
-    undoStackRef.current = [...undoStackRef.current, cloneVisual(current)].slice(
-      -COMPONENT_VISUAL_HISTORY_LIMIT,
-    )
+    undoStackRef.current = [
+      ...undoStackRef.current.slice(-(COMPONENT_VISUAL_HISTORY_LIMIT - 1)),
+      previous,
+    ]
     redoStackRef.current = []
-    setCanUndo(true)
-    setCanRedo(false)
-    visualRef.current = nextVisual
-    onChange(nextVisual)
-  }
+    visualRef.current = visual
+    syncHistoryAvailability()
+  }, [visual])
 
-  function undo() {
-    const previous = undoStackRef.current.pop()
-    if (!previous) return
-    redoStackRef.current.push(cloneVisual(visualRef.current))
+  useEffect(() => {
+    const transformer = transformerRef.current
+    const stage = stageRef.current
+
+    if (!transformer || !stage) {
+      return
+    }
+
+    const selectedNodes = isEditable
+      ? selectedVisibleLayerIds.flatMap((layerId) => {
+          const node = findLayerNode(stage, layerId)
+          return node ? [node] : []
+        })
+      : []
+
+    transformer.nodes(selectedNodes)
+    transformer.getLayer()?.batchDraw()
+  }, [artboardScale, isEditable, selectedVisibleLayerIds, visual.layers])
+
+  useEffect(() => {
+    if (!isEditable || !snapEnabled) {
+      clearSnapGuides()
+    }
+  }, [isEditable, snapEnabled])
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (isTextEditingTarget(event.target)) {
+        return
+      }
+
+      const modifier = event.ctrlKey || event.metaKey
+      const key = event.key.toLowerCase()
+      const isUndo = modifier && !event.shiftKey && key === 'z'
+      const isRedo = modifier && (key === 'y' || (event.shiftKey && key === 'z'))
+
+      if (isUndo && undoStackRef.current.length > 0 && !readOnly) {
+        event.preventDefault()
+        undoVisual()
+      } else if (isRedo && redoStackRef.current.length > 0 && !readOnly) {
+        event.preventDefault()
+        redoVisual()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  })
+
+  function undoVisual() {
+    const previous = undoStackRef.current[undoStackRef.current.length - 1]
+
+    if (!previous || readOnly) {
+      return
+    }
+
+    undoStackRef.current = undoStackRef.current.slice(0, -1)
+    redoStackRef.current = [
+      ...redoStackRef.current.slice(-(COMPONENT_VISUAL_HISTORY_LIMIT - 1)),
+      visualRef.current,
+    ]
     applyingHistoryRef.current = true
-    visualRef.current = previous
     onChange(previous)
-    applyingHistoryRef.current = false
-    setCanUndo(undoStackRef.current.length > 0)
-    setCanRedo(true)
+    syncHistoryAvailability()
   }
 
-  function redo() {
-    const next = redoStackRef.current.pop()
-    if (!next) return
-    undoStackRef.current.push(cloneVisual(visualRef.current))
+  function redoVisual() {
+    const next = redoStackRef.current[redoStackRef.current.length - 1]
+
+    if (!next || readOnly) {
+      return
+    }
+
+    redoStackRef.current = redoStackRef.current.slice(0, -1)
+    undoStackRef.current = [
+      ...undoStackRef.current.slice(-(COMPONENT_VISUAL_HISTORY_LIMIT - 1)),
+      visualRef.current,
+    ]
     applyingHistoryRef.current = true
-    visualRef.current = next
     onChange(next)
-    applyingHistoryRef.current = false
-    setCanUndo(true)
-    setCanRedo(redoStackRef.current.length > 0)
+    syncHistoryAvailability()
   }
 
-  function updateLayerTransform(
-    layerId: string,
-    transform: ComponentVisualDefinition['layers'][number]['transform'],
-  ) {
-    commitVisual({
-      ...visualRef.current,
-      layers: visualRef.current.layers.map((layer) =>
-        layer.id === layerId ? { ...layer, transform } : layer,
+  function duplicateSelection() {
+    if (!isEditable || selectedLayerIds.length === 0) {
+      return
+    }
+
+    const result = cloneComponentLayerSubtrees(visual, selectedLayerIds)
+
+    if (result.rootIds.length === 0) {
+      return
+    }
+
+    onChange(result.visual)
+    onSelectionChange(result.rootIds[result.rootIds.length - 1] ?? null)
+  }
+
+  function deleteSelection() {
+    if (!isEditable || selectedLayerIds.length === 0) {
+      return
+    }
+
+    const result = deleteComponentLayers(visual, selectedLayerIds)
+
+    if (result.deletedIds.length === 0) {
+      return
+    }
+
+    onChange(result.visual)
+    onSelectionChange(null)
+  }
+
+  function commitLayerTransform(node: Konva.Node) {
+    if (!isEditable) {
+      return
+    }
+
+    const layerId = getCompositeVisualLayerId(node)
+    const layer = layerId
+      ? visual.layers.find((candidate) => candidate.id === layerId)
+      : null
+
+    if (!layerId || !layer) {
+      return
+    }
+
+    const scaleX = node.scaleX()
+    const scaleY = node.scaleY()
+
+    if (
+      !Number.isFinite(node.x()) ||
+      !Number.isFinite(node.y()) ||
+      !Number.isFinite(node.rotation()) ||
+      !Number.isFinite(scaleX) ||
+      !Number.isFinite(scaleY) ||
+      Math.abs(scaleX) < 0.001 ||
+      Math.abs(scaleY) < 0.001
+    ) {
+      return
+    }
+
+    onChange({
+      ...visual,
+      layers: visual.layers.map((candidate) =>
+        candidate.id === layerId
+          ? {
+              ...candidate,
+              transform: {
+                ...candidate.transform,
+                x: node.x(),
+                y: node.y(),
+                rotation: node.rotation(),
+                scaleX,
+                scaleY,
+              },
+            }
+          : candidate,
       ),
     })
   }
 
-  function duplicateSelection() {
-    if (!isEditable || selectedLayerIds.length === 0) return
-    const result = cloneComponentLayerSubtrees(visualRef.current, selectedLayerIds)
-    commitVisual(result.visual)
-    onSelectionChange(result.clonedRootIds[result.clonedRootIds.length - 1] ?? null)
+  function resolveLayerNode(target: Konva.Node) {
+    const stage = stageRef.current
+    const layerId = getCompositeVisualLayerId(target)
+
+    return stage && layerId ? findLayerNode(stage, layerId) : undefined
   }
-
-  function deleteSelection() {
-    if (!isEditable || selectedLayerIds.length === 0) return
-    commitVisual(deleteComponentLayers(visualRef.current, selectedLayerIds))
-    onSelectionChange(null)
-  }
-
-  useEffect(() => {
-    if (!isEditable) return
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (isTextEditingTarget(event.target)) return
-      const modifier = event.metaKey || event.ctrlKey
-
-      if (modifier && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        if (event.shiftKey) redo()
-        else undo()
-        return
-      }
-      if (modifier && event.key.toLowerCase() === 'y') {
-        event.preventDefault()
-        redo()
-        return
-      }
-      if (modifier && event.key.toLowerCase() === 'd') {
-        event.preventDefault()
-        duplicateSelection()
-        return
-      }
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        event.preventDefault()
-        deleteSelection()
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isEditable, selectedLayerIds])
 
   function clearSnapGuides() {
     verticalGuideRef.current?.visible(false)
@@ -380,215 +463,324 @@ export function ComponentVisualCanvas({
     verticalGuideRef.current?.getLayer()?.batchDraw()
   }
 
-  function showSnapGuides(result: ComponentSnapResult) {
-    const vertical = result.guides.find((guide) => guide.axis === 'x')
-    const horizontal = result.guides.find((guide) => guide.axis === 'y')
+  function renderSnapGuides(result: ComponentSnapResult) {
+    const vertical = result.guides.find((guide) => guide.orientation === 'vertical')
+    const horizontal = result.guides.find((guide) => guide.orientation === 'horizontal')
+    const verticalGuide = verticalGuideRef.current
+    const horizontalGuide = horizontalGuideRef.current
 
-    if (vertical) {
-      verticalGuideRef.current?.points([vertical.position, 0, vertical.position, visualDesignHeight])
-      verticalGuideRef.current?.visible(true)
-    } else {
-      verticalGuideRef.current?.visible(false)
+    if (verticalGuide) {
+      if (vertical) {
+        verticalGuide.points([
+          vertical.position,
+          0,
+          vertical.position,
+          artboardHeight,
+        ])
+        verticalGuide.visible(true)
+      } else {
+        verticalGuide.visible(false)
+      }
     }
 
-    if (horizontal) {
-      horizontalGuideRef.current?.points([0, horizontal.position, visualDesignWidth, horizontal.position])
-      horizontalGuideRef.current?.visible(true)
-    } else {
-      horizontalGuideRef.current?.visible(false)
+    if (horizontalGuide) {
+      if (horizontal) {
+        horizontalGuide.points([
+          0,
+          horizontal.position,
+          artboardWidth,
+          horizontal.position,
+        ])
+        horizontalGuide.visible(true)
+      } else {
+        horizontalGuide.visible(false)
+      }
     }
-    verticalGuideRef.current?.getLayer()?.batchDraw()
+
+    verticalGuide?.getLayer()?.batchDraw()
   }
 
-  const editToolbar = editToolbarHost && createPortal(
-    <>
-      <ToolbarButton
-        iconOnly
-        title="撤销"
-        aria-label="撤销"
-        disabled={!isEditable || !canUndo}
-        onClick={undo}
-      >
-        <UndoIcon />
-      </ToolbarButton>
-      <ToolbarButton
-        iconOnly
-        title="重做"
-        aria-label="重做"
-        disabled={!isEditable || !canRedo}
-        onClick={redo}
-      >
-        <RedoIcon />
-      </ToolbarButton>
-      <ToolbarButton
-        iconOnly
-        title="复制"
-        aria-label="复制"
-        disabled={!isEditable || selectedLayerIds.length === 0}
-        onClick={duplicateSelection}
-      >
-        <CopyIcon />
-      </ToolbarButton>
-      <ToolbarButton
-        iconOnly
-        title="删除"
-        aria-label="删除"
-        disabled={!isEditable || selectedLayerIds.length === 0}
-        onClick={deleteSelection}
-      >
-        <TrashIcon />
-      </ToolbarButton>
-    </>,
-    editToolbarHost,
-  )
+  function previewLayerSnap(target: Konva.Node) {
+    if (!isEditable || !snapEnabled) {
+      clearSnapGuides()
+      return
+    }
 
-  const viewToolbar = viewToolbarHost && createPortal(
-    <>
-      <ToolbarButton
-        iconOnly
-        className={`icon-button toggle-button${gridVisible ? ' active' : ''}`}
-        title={gridVisible ? '隐藏网格' : '显示网格'}
-        aria-label="网格"
-        aria-pressed={gridVisible}
-        disabled={!isComposite || mode !== 'editor'}
-        onClick={() => setGridVisible((current) => !current)}
-      >
-        <GridIcon />
-      </ToolbarButton>
-      <label className="canvas-toolbar-field" title="网格大小">
-        <span>Grid</span>
-        <NumberInput
-          aria-label="网格大小"
-          min="2"
-          max="100"
-          step="1"
-          value={gridSize}
-          disabled={!isComposite || mode !== 'editor'}
-          onChange={(event) => {
-            const next = Math.max(2, Math.min(100, Number(event.target.value) || 2))
-            setGridSize(next)
-          }}
-        />
-      </label>
-    </>,
-    viewToolbarHost,
-  )
+    const stage = stageRef.current
+    const node = resolveLayerNode(target)
+
+    if (!stage || !node) {
+      clearSnapGuides()
+      return
+    }
+
+    renderSnapGuides(
+      computeComponentLayerSnap(stage, node, visual, artboardScale, gridSize),
+    )
+  }
+
+  function finishLayerDrag(target: Konva.Node) {
+    const stage = stageRef.current
+    const node = resolveLayerNode(target)
+
+    if (!node) {
+      clearSnapGuides()
+      return
+    }
+
+    if (stage && isEditable && snapEnabled) {
+      applyComponentLayerSnap(
+        node,
+        computeComponentLayerSnap(stage, node, visual, artboardScale, gridSize),
+      )
+    }
+
+    clearSnapGuides()
+    commitLayerTransform(node)
+  }
+
+  function handlePointerTarget(target: Konva.Node, toggle = false) {
+    if (!isEditable || isInsideTransformer(target, transformerRef.current)) {
+      return
+    }
+
+    onSelectionChange(getCompositeVisualLayerId(target), toggle)
+  }
+
+  function commitSelectedTransform() {
+    if (!canTransformSelection) {
+      return
+    }
+
+    const transformer = transformerRef.current
+    const node = transformer?.nodes()[0]
+
+    if (node) {
+      commitLayerTransform(node)
+    }
+  }
 
   return (
-    <div className="component-canvas-shell">
-      {editToolbar}
-      {viewToolbar}
-      <div className="component-canvas-host" ref={canvasHostRef}>
-        <Stage
-          ref={stageRef}
-          width={canvasViewport?.width ?? 1}
-          height={canvasViewport?.height ?? 1}
-          onPointerDown={(event) => {
-            if (!isEditable) return
-            const target = event.target
-            if (target === stageRef.current) {
-              onSelectionChange(null)
-              return
-            }
-            if (isInsideTransformer(target, transformerRef.current)) return
-            const layerId = getCompositeVisualLayerId(target)
-            if (layerId) onSelectionChange(layerId, event.evt.metaKey || event.evt.ctrlKey)
+    <>
+      {editToolbarHost && createPortal(
+        <>
+          <ToolbarButton
+            iconOnly
+            className="icon-button component-copy-command"
+            title="复制选中图层"
+            aria-label="复制选中图层"
+            disabled={!isEditable || selectedLayerIds.length === 0}
+            onClick={duplicateSelection}
+          >
+            <CopyIcon />
+          </ToolbarButton>
+          <ToolbarButton
+            iconOnly
+            className="icon-button component-delete-command"
+            title="删除选中图层"
+            aria-label="删除选中图层"
+            disabled={!isEditable || selectedLayerIds.length === 0}
+            onClick={deleteSelection}
+          >
+            <TrashIcon />
+          </ToolbarButton>
+          <ToolbarButton
+            iconOnly
+            className="icon-button component-undo-command"
+            title="撤销 (Ctrl+Z)"
+            aria-label="撤销"
+            disabled={readOnly || !canUndo}
+            onClick={undoVisual}
+          >
+            <UndoIcon />
+          </ToolbarButton>
+          <ToolbarButton
+            iconOnly
+            className="icon-button component-redo-command"
+            title="重做 (Ctrl+Shift+Z)"
+            aria-label="重做"
+            disabled={readOnly || !canRedo}
+            onClick={redoVisual}
+          >
+            <RedoIcon />
+          </ToolbarButton>
+        </>,
+        editToolbarHost,
+      )}
+
+      {viewToolbarHost && createPortal(
+        <div className="grid-control" title="网格显示与间距">
+          <ToolbarButton
+            iconOnly
+            className={`icon-button toggle-button component-grid-toggle${gridVisible ? ' active' : ''}`}
+            title={gridVisible ? '隐藏格线' : '显示格线'}
+            aria-label="显示格线"
+            aria-pressed={gridVisible}
+            disabled={!isComposite || mode !== 'editor'}
+            onClick={() => setGridVisible((current) => !current)}
+          >
+            <GridIcon />
+          </ToolbarButton>
+          {gridVisible && (
+            <NumberInput
+              className="grid-size-input"
+              min="4"
+              max="128"
+              title="网格间距"
+              aria-label="网格间距"
+              value={gridSize}
+              disabled={!isComposite || mode !== 'editor'}
+              onChange={(event) => {
+                const nextGridSize = Number(event.target.value)
+
+                if (Number.isFinite(nextGridSize) && nextGridSize >= 4 && nextGridSize <= 128) {
+                  setGridSize(nextGridSize)
+                }
+              }}
+            />
+          )}
+        </div>,
+        viewToolbarHost,
+      )}
+
+      <div ref={canvasHostRef} className={`component-canvas-stage ${mode}`}>
+        <div
+          className={`component-artboard${showDesignGrid ? ' component-artboard-grid' : ''}`}
+          style={{
+            width: `${artboardWidth}px`,
+            height: `${artboardHeight}px`,
+            backgroundSize: showDesignGrid
+              ? `${gridSize * artboardScale}px ${gridSize * artboardScale}px`
+              : undefined,
           }}
         >
-          <Layer>
-            <CompositeComponentVisualRenderer
-              visual={renderedVisual}
-              x={(canvasViewport?.width ?? artboardWidth) / 2 - artboardWidth / 2}
-              y={(canvasViewport?.height ?? artboardHeight) / 2 - artboardHeight / 2}
+          {isComposite ? (
+            <Stage
+              ref={stageRef}
               width={artboardWidth}
               height={artboardHeight}
-              rotation={0}
-              visible
-              opacity={1}
               listening={isEditable}
-            />
-            {showDesignGrid && (
+              onMouseDown={(event) => handlePointerTarget(
+                event.target,
+                event.evt.shiftKey || event.evt.ctrlKey || event.evt.metaKey,
+              )}
+              onTouchStart={(event) => handlePointerTarget(event.target)}
+              onDragStart={clearSnapGuides}
+              onDragMove={(event) => previewLayerSnap(event.target)}
+              onDragEnd={(event) => finishLayerDrag(event.target)}
+            >
+              <Layer listening={isEditable}>
+                <CompositeComponentVisualRenderer
+                  visual={renderedVisual}
+                  x={0}
+                  y={0}
+                  width={artboardWidth}
+                  height={artboardHeight}
+                  rotation={0}
+                  visible
+                  opacity={1}
+                  listening={isEditable}
+                  draggableLayerId={isEditable ? primaryLayerId : null}
+                  frontLayerId={isEditable ? primaryLayerId : null}
+                />
+                <Transformer
+                  ref={transformerRef}
+                  visible={isEditable && selectedVisibleLayerIds.length > 0}
+                  enabledAnchors={canTransformSelection ? TRANSFORMER_ANCHORS : []}
+                  resizeEnabled={canTransformSelection}
+                  rotateEnabled={canTransformSelection}
+                  flipEnabled={false}
+                  keepRatio={false}
+                  anchorSize={7}
+                  rotateAnchorOffset={22}
+                  borderStroke="#2563eb"
+                  anchorStroke="#2563eb"
+                  anchorFill="#ffffff"
+                  borderStrokeWidth={1}
+                  anchorStrokeWidth={1}
+                  boundBoxFunc={(oldBox, newBox) =>
+                    Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4
+                      ? oldBox
+                      : newBox
+                  }
+                  onTransformEnd={commitSelectedTransform}
+                />
+              </Layer>
+              <Layer listening={false}>
+                <Line
+                  ref={verticalGuideRef}
+                  visible={false}
+                  points={[]}
+                  stroke="#2563eb"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                  listening={false}
+                  perfectDrawEnabled={false}
+                />
+                <Line
+                  ref={horizontalGuideRef}
+                  visible={false}
+                  points={[]}
+                  stroke="#2563eb"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                  listening={false}
+                  perfectDrawEnabled={false}
+                />
+              </Layer>
+            </Stage>
+          ) : (
+            <div className="component-artboard-placeholder">
+              <strong>{componentTitle}</strong>
+              <span>Native Renderer</span>
+              <small>内置组件继续使用可信 Native Renderer，不反向解析其内部图层。</small>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="canvas-status component-canvas-status">
+        <span className="canvas-status-group">
+          <span className="status-mode">{mode === 'preview' ? '预览' : '设计'}</span>
+          <span className="status-selection">
+            {selectedLayerIds.length > 1 ? (
               <>
-                {Array.from({ length: Math.floor(visualDesignWidth / gridSize) + 1 }, (_, index) => (
-                  <Line
-                    key={`grid-x-${index}`}
-                    points={[
-                      (canvasViewport?.width ?? artboardWidth) / 2 - artboardWidth / 2 + index * gridSize * artboardScale,
-                      (canvasViewport?.height ?? artboardHeight) / 2 - artboardHeight / 2,
-                      (canvasViewport?.width ?? artboardWidth) / 2 - artboardWidth / 2 + index * gridSize * artboardScale,
-                      (canvasViewport?.height ?? artboardHeight) / 2 + artboardHeight / 2,
-                    ]}
-                    stroke="rgba(148, 163, 184, 0.22)"
-                    strokeWidth={1}
-                    listening={false}
-                  />
-                ))}
-                {Array.from({ length: Math.floor(visualDesignHeight / gridSize) + 1 }, (_, index) => (
-                  <Line
-                    key={`grid-y-${index}`}
-                    points={[
-                      (canvasViewport?.width ?? artboardWidth) / 2 - artboardWidth / 2,
-                      (canvasViewport?.height ?? artboardHeight) / 2 - artboardHeight / 2 + index * gridSize * artboardScale,
-                      (canvasViewport?.width ?? artboardWidth) / 2 + artboardWidth / 2,
-                      (canvasViewport?.height ?? artboardHeight) / 2 - artboardHeight / 2 + index * gridSize * artboardScale,
-                    ]}
-                    stroke="rgba(148, 163, 184, 0.22)"
-                    strokeWidth={1}
-                    listening={false}
-                  />
-                ))}
+                <strong>{selectedLayerIds.length} 个图层</strong>
+                <code>多选</code>
+                {selectedLayer && (
+                  <span className="status-hint">主选：{selectedLayer.name}</span>
+                )}
+              </>
+            ) : selectedLayer ? (
+              <>
+                <strong>{selectedLayer.name}</strong>
+                <code>{layerKindLabel(selectedLayer.kind)}</code>
+                <span>
+                  {Math.round(selectedLayer.transform.width)} ×{' '}
+                  {Math.round(selectedLayer.transform.height)}
+                </span>
+                <span className="status-hint">
+                  @ {Math.round(selectedLayer.transform.x)}, {Math.round(selectedLayer.transform.y)}
+                </span>
+              </>
+            ) : (
+              <>
+                <strong>组件根</strong>
+                <code>{visual.mode === 'native' ? 'Native Visual' : 'Composite Visual'}</code>
+                <span className="status-hint">未选择内部图层</span>
               </>
             )}
-          </Layer>
-          <Layer>
-            <Line
-              ref={verticalGuideRef}
-              stroke="#3b82f6"
-              strokeWidth={1}
-              dash={[4, 4]}
-              listening={false}
-              visible={false}
-            />
-            <Line
-              ref={horizontalGuideRef}
-              stroke="#3b82f6"
-              strokeWidth={1}
-              dash={[4, 4]}
-              listening={false}
-              visible={false}
-            />
-            <Transformer
-              ref={transformerRef}
-              enabledAnchors={TRANSFORMER_ANCHORS}
-              rotateEnabled
-              flipEnabled={false}
-              boundBoxFunc={(oldBox, nextBox) => {
-                if (nextBox.width < 4 || nextBox.height < 4) return oldBox
-                return nextBox
-              }}
-              onTransformEnd={() => {
-                if (!primaryLayerId) return
-                const node = findLayerNode(stageRef.current!, primaryLayerId)
-                if (!node) return
-                const previous = cloneLayerTransform(visualRef.current, primaryLayerId)
-                if (!previous) return
-                const next = {
-                  ...previous,
-                  x: node.x(),
-                  y: node.y(),
-                  width: Math.max(1, node.width() * node.scaleX()),
-                  height: Math.max(1, node.height() * node.scaleY()),
-                  rotation: node.rotation(),
-                  scaleX: 1,
-                  scaleY: 1,
-                }
-                node.scale({ x: 1, y: 1 })
-                updateLayerTransform(primaryLayerId, next)
-              }}
-            />
-          </Layer>
-        </Stage>
+          </span>
+        </span>
+        <span className="canvas-status-group scene-status-summary">
+          <strong>{componentTitle}</strong>
+          <span>设计空间 {visualDesignWidth} × {visualDesignHeight}</span>
+          <span>实例默认 {designWidth} × {designHeight}</span>
+          <span>{visual.layers.length} 个图层</span>
+          {(visual.rules?.length ?? 0) > 0 && <span>{visual.rules?.length} 条规则</span>}
+          {visual.animations.length > 0 && <span>{visual.animations.length} 个动画</span>}
+        </span>
       </div>
-    </div>
+    </>
   )
 }
