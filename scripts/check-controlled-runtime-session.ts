@@ -131,7 +131,10 @@ baseProperties = { running: false, speed: 30 }
 session.runtime.properties.set('running', true)
 const ruleResolved = resolveComponentVisualRules(
   visual,
-  session.getEffectiveProperties(),
+  {
+    attributes: {},
+    properties: session.getEffectiveProperties(),
+  },
 )
 assert.equal(ruleResolved.layers[0]?.transform.rotation, 30)
 assert.equal(visual.layers[0]?.transform.rotation, 5, 'rules/session must not mutate authored visual state')
