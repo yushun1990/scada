@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import type {
   ComponentDefinition,
-  ComponentProps,
+  ComponentPropertyFallbackValues,
 } from '../src/component-system/definition'
 import type { ComponentRegistration } from '../src/component-system/registration'
 import { ComponentRegistry } from '../src/component-system/registry'
@@ -107,7 +107,7 @@ assert.throws(
 )
 
 const actionCalls: Array<{
-  props: Readonly<ComponentProps>
+  properties: Readonly<ComponentPropertyFallbackValues>
   argumentsValue: readonly unknown[]
 }> = []
 
@@ -116,8 +116,8 @@ const registration: ComponentRegistration = {
   renderer: (() => null) as unknown as ComponentRegistration['renderer'],
   createDefaultProps: () => ({ level: 0 }),
   actions: {
-    record: ({ props }, argumentsValue) => {
-      actionCalls.push({ props, argumentsValue })
+    record: ({ properties }, argumentsValue) => {
+      actionCalls.push({ properties, argumentsValue })
     },
   },
 }
@@ -159,7 +159,7 @@ runtime.invokeAction('component-1', 'record', [7, 'auto'])
 assert.deepEqual(actionCalls.at(-1)?.argumentsValue, [7, 'auto'])
 assert.equal(Object.isFrozen(actionCalls.at(-1)?.argumentsValue), true)
 assert.strictEqual(
-  actionCalls.at(-1)?.props,
+  actionCalls.at(-1)?.properties,
   runtime.componentProps.getNodeSnapshot('component-1'),
 )
 assert.doesNotThrow(() => runtime.invokeAction('component-1', 'record', [7]))
@@ -291,7 +291,7 @@ const attachment = attachPreviewScadaSemantics(
 
 assert.deepEqual(actionCalls.at(-1)?.argumentsValue, [42, 'auto'])
 assert.strictEqual(
-  actionCalls.at(-1)?.props,
+  actionCalls.at(-1)?.properties,
   preview.componentProps.getNodeSnapshot('component-1'),
 )
 preview.emitEvent('component-1', 'commandRequested', {
