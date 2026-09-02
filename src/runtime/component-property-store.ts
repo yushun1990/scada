@@ -45,14 +45,15 @@ function freezeProps(props: ComponentProps): ComponentPropertySnapshot {
  * Layer order is deterministic:
  *
  *   component defaults
- *     < authored Scene props
+ *     < authored Scene propertyFallbacks
  *     < legacy Scene v6 runtime-value bindings
  *     < compiled-DSL derived overrides
  *
  * RuntimeValueStore remains external-source state. This store owns only the
  * Component Property layers consumed by renderers and Component Action
- * handlers. The base snapshot deliberately excludes compiled-derived overrides
- * so a propagation session can evaluate its own derived graph without reading
+ * handlers. Authored Attributes are intentionally outside this Property store.
+ * The base snapshot deliberately excludes compiled-derived overrides so a
+ * propagation session can evaluate its own derived graph without reading
  * yesterday's derived state back as host input.
  */
 export class ComponentPropertyStore {
@@ -72,7 +73,7 @@ export class ComponentPropertyStore {
     }
   }
 
-  /** default + authored + legacy Scene v6 binding; no compiled DSL override. */
+  /** default + authored fallback + legacy Scene v6 binding; no DSL override. */
   getNodeBaseSnapshot = (nodeId: string): ComponentPropertySnapshot =>
     this.baseSnapshots.get(nodeId) ?? EMPTY_COMPONENT_PROPS
 
@@ -196,11 +197,11 @@ export class ComponentPropertyStore {
       registration
         ? resolveEffectiveComponentProps(
             registration.definition,
-            node.props,
+            node.propertyFallbacks,
             node.bindings,
             this.runtimeValues,
           )
-        : node.props,
+        : node.propertyFallbacks,
     )
     const effective = freezeProps({
       ...base,
