@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import type { ComponentDefinition } from '../src/component-system/definition'
+import type { LegacyComponentDefinition } from '../src/component-system/definition'
 import {
   COMPONENT_DEFINITION_SCHEMA_VERSION,
   createDefaultAttributeValues,
@@ -7,7 +7,7 @@ import {
   migrateLegacyComponentDefinition,
 } from '../src/component-system/versioned-component-definition'
 
-const legacyDefinition: ComponentDefinition = {
+const legacyDefinition: LegacyComponentDefinition = {
   type: 'test.authority-split',
   title: 'Authority split fixture',
   category: 'test',
