@@ -25,6 +25,7 @@ import {
   type SegmentedControlItem,
   type StudioTabItem,
 } from '../../ui'
+import { ComponentAttributeContractEditor } from './ComponentAttributeContractEditor'
 import { ComponentContractEditor } from './ComponentContractEditor'
 import { ComponentGeometryToolbarGroup } from './ComponentGeometryToolbarGroup'
 import { ComponentPreviewValues } from './ComponentPreviewValues'
@@ -811,9 +812,20 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   </div>
                 </CollapsibleInspectorGroup>
 
-                <CollapsibleInspectorGroup title="公开属性" className="component-root-public-properties">
+                <CollapsibleInspectorGroup title="公开配置 · Attributes" className="component-root-public-attributes">
                   <p className="component-inspector-help">
-                    这些 Property 是 SCADA Workbench 可配置或可绑定的公开数据入口；内部 Layer 状态不会直接暴露到这里。
+                    Attribute 是组态实例的 authored static 配置，例如运行色、报警色、精度或显示参数；它不参与运行时数据绑定。
+                  </p>
+                  <ComponentAttributeContractEditor
+                    definition={definition}
+                    readOnly={editingDisabled}
+                    onChange={updateDefinition}
+                  />
+                </CollapsibleInspectorGroup>
+
+                <CollapsibleInspectorGroup title="运行属性 · Properties" className="component-root-public-properties">
+                  <p className="component-inspector-help">
+                    Property 是运行时语义值与数据绑定目标；未绑定时由 Scene 保存 authored fallback，内部 Layer 状态不会直接暴露到这里。
                   </p>
                   <ComponentPropertyContractEditor
                     definition={definition}
@@ -840,7 +852,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                   <div className="component-implementation-note">
                     <strong>{component.visual.mode === 'native' ? 'Native Renderer' : 'Composite Visual'}</strong>
                     <span>
-                      内部 Layer、Style、Visual Rules、Animation / Script 都属于私有实现；SCADA Workbench 只消费公开 Properties / Actions / Events / Anchors。
+                      内部 Layer、Style、Visual Rules、Animation / Script 都属于私有实现；SCADA Workbench 只消费公开 Attributes / Properties / Actions / Events / Anchors。
                     </span>
                   </div>
                 </CollapsibleInspectorGroup>
