@@ -1,5 +1,5 @@
 {
-  "packageVersion": 1,
+  "packageVersion": 2,
   "definition": {
     "type": "starter.signal-quality",
     "title": "信号质量",
@@ -11,6 +11,7 @@
       "minWidth": 50,
       "minHeight": 40
     },
+    "attributes": {},
     "properties": {
       "quality": {
         "title": "质量",
