@@ -34,6 +34,9 @@ assert.doesNotMatch(
 )
 
 const componentType = 'portable.standalone.runtime-fixture'
+// Intentionally retain a distributable-package v1 input here. Its public fields
+// are all bindable Properties, so the shared migration authority can prove the
+// legacy contract and normalize it inside the work-package/standalone path.
 const dependency: DistributableComponentPackage = {
   packageVersion: 1,
   definition: {
@@ -233,6 +236,7 @@ const trustedRegistration: ComponentRegistration = {
       minWidth: 20,
       minHeight: 20,
     },
+    attributes: {},
     properties: {},
     actions: {},
     events: {
@@ -343,5 +347,5 @@ assert.equal(
 )
 
 console.log(
-  'Standalone work runtime checks passed: the accepted work artifact builds an isolated host+portable registry, restores/compiles/attaches canonical Scene v7 semantics through one package-owned runtime session, injects RuntimeDataSource/primary-device/device-action capabilities explicitly, fails closed when required host capabilities are absent, owns deterministic disposal, and keeps Studio/mock/browser state outside the generic construction core.',
+  'Standalone work runtime checks passed: the accepted work artifact builds an isolated host+portable registry, safely normalizes the retained bindable-only component-package v1 dependency, restores/compiles/attaches canonical Scene v7 semantics through one package-owned runtime session, injects RuntimeDataSource/primary-device/device-action capabilities explicitly, fails closed when required host capabilities are absent, owns deterministic disposal, and keeps Studio/mock/browser state outside the generic construction core.',
 )
