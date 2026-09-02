@@ -21,6 +21,7 @@ const component: ComponentDefinition = {
     minWidth: 10,
     minHeight: 10,
   },
+  attributes: {},
   properties: {
     state: {
       title: 'State',
@@ -53,7 +54,6 @@ const catalog = createScadaDslCapabilityCatalog(component, [
   {
     sourceId: 'authoring-primary',
     title: 'Primary device',
-    symbol: 'device',
     properties: {
       running: { title: 'Running', kind: 'boolean', defaultValue: false },
       level: { title: 'Level', kind: 'number', defaultValue: 0 },
@@ -62,47 +62,44 @@ const catalog = createScadaDslCapabilityCatalog(component, [
       start: { title: 'Start' },
     },
   },
-  {
-    sourceId: 'outlet-17',
-    title: 'Outlet 17',
-    symbol: 'outlet',
-    properties: {
-      level: { title: 'Level', kind: 'number', defaultValue: 0 },
-    },
-    actions: {
-      reset: { title: 'Reset' },
-    },
-  },
 ])
 
 const sourceA = `
-component.state = if device.running then "on" else "off"
-component.level = outlet.level
-
-if component.state == "on" {
-  component.showOn()
+if $device.running {
+  $self.state = "on"
 } else {
-  component.showOff()
+  $self.state = "off"
+}
+$self.level = $device.level
+
+if $self.state == "on" {
+  $self.showOn()
+} else {
+  $self.showOff()
 }
 
-on component.startRequested {
-  outlet.reset()
+on $self.startRequested {
+  $device.start()
 }
 `
 
 const sourceB = `
-on component.startRequested {
-  outlet.reset()
+on $self.startRequested {
+  $device.start()
 }
 
-if component.state == "on" {
-  component.showOn()
+if $self.state == "on" {
+  $self.showOn()
 } else {
-  component.showOff()
+  $self.showOff()
 }
 
-component.level = outlet.level
-component.state = if device.running then "on" else "off"
+$self.level = $device.level
+if $device.running {
+  $self.state = "on"
+} else {
+  $self.state = "off"
+}
 `
 
 const compiledA = compileScadaDslSource(sourceA, catalog)
@@ -158,12 +155,11 @@ assert.deepEqual(
   interactionIdsByEvent(persistedB),
 )
 
-// Authoring symbols are not persistence references. The external symbol
-// `outlet` is resolved to its canonical source id before the plan is stored.
+// Readable DSL roots are not persistence references. `$device` resolves to the
+// canonical primary-device scope; the authoring-time source id is not stored.
 const serialized = JSON.stringify(persistedA)
-assert.match(serialized, /outlet-17/)
-assert.doesNotMatch(serialized, /"symbol":"outlet"/)
 assert.doesNotMatch(serialized, /authoring-primary/)
+assert.doesNotMatch(serialized, /\$self|\$device/)
 assert.match(serialized, /"scope":"primary-device"/)
 
 // Persisted semantics round-trip as data and restore directly into an
@@ -231,5 +227,5 @@ assert.throws(
 )
 
 console.log(
-  'SCADA semantic persistence checks passed: persisted IDs are independent of DSL statement position, references are canonical, JSON round-trips without DSL reparsing, restored plans compile directly, and corrupt duplicate-writer/cycle/ID data is rejected.',
+  'SCADA semantic persistence checks passed: DSL v1 $self/$device authoring lowers to canonical structured references, persisted IDs are independent of statement position, JSON round-trips without DSL reparsing, restored plans compile directly, and corrupt duplicate-writer/cycle/ID data is rejected.',
 )
