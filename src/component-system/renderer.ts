@@ -1,6 +1,9 @@
 import type { ForwardRefExoticComponent, RefAttributes } from 'react'
 import type Konva from 'konva'
-import type { ComponentProps } from './definition'
+import type {
+  ComponentAttributeValues,
+  ComponentPropertyFallbackValues,
+} from './definition'
 
 export type ComponentPoint = {
   x: number
@@ -9,7 +12,8 @@ export type ComponentPoint = {
 
 export type ComponentRendererProps = {
   nodeId?: string
-  props: ComponentProps
+  attributes: Readonly<ComponentAttributeValues>
+  properties: Readonly<ComponentPropertyFallbackValues>
   x: number
   y: number
   width: number
