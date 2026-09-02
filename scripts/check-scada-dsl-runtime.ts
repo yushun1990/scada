@@ -7,7 +7,10 @@ import {
   createScadaDslCapabilityCatalog,
   parseScadaDsl,
 } from '../src/scene/scada-dsl'
-import { lowerScadaDslProgram } from '../src/scene/scada-dsl-semantics'
+import {
+  lowerScadaDslProgram,
+  type ScadaDslSemanticPlan,
+} from '../src/scene/scada-dsl-semantics'
 import {
   compileScadaDslRuntime,
   evaluateScadaDslComponentEvent,
@@ -28,6 +31,7 @@ const component: ComponentDefinition = {
     minWidth: 10,
     minHeight: 10,
   },
+  attributes: {},
   properties: {
     state: {
       title: 'State',
@@ -69,49 +73,48 @@ const catalog = createScadaDslCapabilityCatalog(component, [
   {
     sourceId: 'pump-authoring-placeholder',
     title: 'Pump',
-    symbol: 'device',
     properties: {
       running: { title: 'Running', kind: 'boolean', defaultValue: false },
       fault: { title: 'Fault', kind: 'boolean', defaultValue: false },
       pressure: { title: 'Pressure', kind: 'number', defaultValue: 0 },
+      sample: { title: 'Sample', kind: 'number', defaultValue: 0 },
     },
     actions: {
       start: { title: 'Start' },
       stop: { title: 'Stop' },
     },
   },
-  {
-    sourceId: 'outlet-01',
-    title: 'Outlet',
-    symbol: 'outlet',
-    properties: {
-      pressure: { title: 'Pressure', kind: 'number', defaultValue: 0 },
-    },
-    actions: {
-      stop: { title: 'Stop outlet' },
-    },
-  },
 ])
 
 const parsed = parseScadaDsl(`
-component.state = if device.fault then "fault" else if device.running then "running" else "stopped"
-component.level = outlet.pressure * 100
-component.label = if component.level > 100 then "high" else "low"
-
-if device.fault {
-  component.showFault(device.pressure)
-} else if device.running {
-  component.showRunning()
+if $device.fault {
+  $self.state = "fault"
+} else if $device.running {
+  $self.state = "running"
 } else {
-  component.showStopped()
+  $self.state = "stopped"
+}
+$self.level = $device.pressure * 100
+if $self.level > 100 {
+  $self.label = "high"
+} else {
+  $self.label = "low"
 }
 
-on component.startRequested {
-  device.start(outlet.pressure)
+if $device.fault {
+  $self.showFault($device.sample)
+} else if $device.running {
+  $self.showRunning()
+} else {
+  $self.showStopped()
 }
 
-on component.stopRequested {
-  outlet.stop(device.pressure)
+on $self.startRequested {
+  $device.start($device.sample)
+}
+
+on $self.stopRequested {
+  $device.stop()
 }
 `)
 assert.deepEqual(parsed.diagnostics, [])
@@ -128,7 +131,7 @@ assert.equal(compiled.plan.interactions.length, 2)
 
 const primaryDevice = { deviceId: 'pump-02' }
 
-// A concrete primary-device update routes through relative `device.*`
+// A concrete primary-device update routes through relative `$device.*`
 // dependencies. The authoring-time placeholder is never captured.
 let targets = getScadaDslSourceUpdateTargets(
   compiled,
@@ -148,22 +151,21 @@ const wrongPrimaryTargets = getScadaDslSourceUpdateTargets(
 assert.equal(wrongPrimaryTargets.valueBindings.length, 0)
 assert.equal(wrongPrimaryTargets.behaviors.length, 0)
 
-// Behavior Action arguments are read-only dependencies. Pressure changes do
-// not replay the fault Action just because showFault(device.pressure) reads it.
+// Action arguments are read-only dependencies. `sample` is not used by a Value
+// Binding or Behavior condition, so changing it must not trigger either path.
 targets = getScadaDslSourceUpdateTargets(
   compiled,
   'pump-02',
-  'pressure',
+  'sample',
   primaryDevice,
 )
 assert.equal(targets.valueBindings.length, 0)
 assert.equal(targets.behaviors.length, 0)
 
-// An explicit external source keeps its stable source id and only wakes the
-// Value Binding that actually depends on it.
+// `$device.pressure` wakes only the Value Binding that actually depends on it.
 targets = getScadaDslSourceUpdateTargets(
   compiled,
-  'outlet-01',
+  'pump-02',
   'pressure',
   primaryDevice,
 )
@@ -185,8 +187,8 @@ assert.equal(componentTargets.behaviors.length, 0)
 const sourceValues = new Map<string, ComponentScalarValue>([
   ['pump-02:fault', true],
   ['pump-02:running', true],
-  ['pump-02:pressure', 0.73],
-  ['outlet-01:pressure', 1.25],
+  ['pump-02:pressure', 1.25],
+  ['pump-02:sample', 0.73],
 ])
 const componentValues = new Map<string, ComponentScalarValue>([
   ['state', 'stopped'],
@@ -203,8 +205,8 @@ const context = {
   },
 }
 
-// Initial evaluation still exists as an explicit operation; steady-state
-// Properties and the initially active Behavior branch can be established once.
+// Initial target evaluation is intentionally one pass. The label reads the
+// current component level (0); propagation-session tests own fixed-point settle.
 const initial = evaluateScadaDslRuntimeTargets(
   getScadaDslInitialTargets(compiled),
   context,
@@ -240,7 +242,7 @@ const repeated = evaluateScadaDslRuntimeTargets(
 )
 assert.deepEqual(repeated.componentActions, [])
 assert.deepEqual(repeated.valueUpdates, [
-  { bindingId: 'value:0', property: 'state', value: 'fault' },
+  { bindingId: 'value:0:state', property: 'state', value: 'fault' },
 ])
 
 // Moving to the next ordered branch fires that branch exactly once.
@@ -259,33 +261,33 @@ assert.deepEqual(faultCleared.componentActions, [
   },
 ])
 assert.deepEqual(faultCleared.valueUpdates, [
-  { bindingId: 'value:0', property: 'state', value: 'running' },
+  { bindingId: 'value:0:state', property: 'state', value: 'running' },
 ])
 
 // The derived level update can be propagated through the component-property
-// reverse index without waking unrelated Value Bindings or Behaviors.
-const outletTargets = getScadaDslSourceUpdateTargets(
+// reverse index without waking unrelated bindings or Behaviors.
+const pressureTargets = getScadaDslSourceUpdateTargets(
   compiled,
-  'outlet-01',
+  'pump-02',
   'pressure',
   primaryDevice,
 )
-const outletEvaluation = evaluateScadaDslRuntimeTargets(
-  outletTargets,
+const pressureEvaluation = evaluateScadaDslRuntimeTargets(
+  pressureTargets,
   context,
   faultCleared.nextBehaviorBranches,
 )
-assert.deepEqual(outletEvaluation.valueUpdates, [
+assert.deepEqual(pressureEvaluation.valueUpdates, [
   { bindingId: 'value:1', property: 'level', value: 125 },
 ])
 componentValues.set('level', 125)
 const labelEvaluation = evaluateScadaDslRuntimeTargets(
   getScadaDslComponentPropertyUpdateTargets(compiled, 'level'),
   context,
-  outletEvaluation.nextBehaviorBranches,
+  pressureEvaluation.nextBehaviorBranches,
 )
 assert.deepEqual(labelEvaluation.valueUpdates, [
-  { bindingId: 'value:2', property: 'label', value: 'high' },
+  { bindingId: 'value:2:label', property: 'label', value: 'high' },
 ])
 
 // Component Events are indexed independently from telemetry. Only the matching
@@ -301,7 +303,7 @@ assert.deepEqual(startEvent.deviceActions, [
     interactionId: 'interaction:4',
     sourceId: 'pump-02',
     action: 'start',
-    arguments: [1.25],
+    arguments: [0.73],
   },
 ])
 
@@ -313,9 +315,9 @@ const stopEvent = evaluateScadaDslComponentEvent(
 assert.deepEqual(stopEvent.deviceActions, [
   {
     interactionId: 'interaction:5',
-    sourceId: 'outlet-01',
+    sourceId: 'pump-02',
     action: 'stop',
-    arguments: [0.73],
+    arguments: [],
   },
 ])
 
@@ -324,17 +326,52 @@ assert.deepEqual(
   [],
 )
 
-// Rebinding only changes runtime context. The same compiled relative index now
-// routes device.* dependencies to pump-03 without recompiling the DSL.
+// Rebinding changes only runtime context. The same compiled relative index now
+// routes `$device.*` dependencies to pump-03 without recompiling source text.
 const reboundTargets = getScadaDslSourceUpdateTargets(
   compiled,
   'pump-03',
   'fault',
   { deviceId: 'pump-03' },
 )
-assert.deepEqual(reboundTargets.valueBindings.map((entry) => entry.id), ['value:0'])
+assert.deepEqual(reboundTargets.valueBindings.map((entry) => entry.id), ['value:0:state'])
 assert.deepEqual(reboundTargets.behaviors.map((entry) => entry.id), ['behavior:3'])
 
+// Structured persisted semantics retain explicit external-reference support for
+// old accepted artifacts even though DSL v1 no longer authors named roots.
+const legacyExternalPlan: ScadaDslSemanticPlan = {
+  valueBindings: [
+    {
+      id: 'legacy:value:external',
+      targetProperty: 'level',
+      expression: {
+        kind: 'reference',
+        reference: {
+          kind: 'source-property',
+          reference: {
+            scope: 'external',
+            sourceId: 'outlet-01',
+            property: 'pressure',
+          },
+        },
+      },
+    },
+  ],
+  behaviors: [],
+  interactions: [],
+}
+const legacyExternalRuntime = compileScadaDslRuntime(legacyExternalPlan)
+const legacyExternalTargets = getScadaDslSourceUpdateTargets(
+  legacyExternalRuntime,
+  'outlet-01',
+  'pressure',
+  primaryDevice,
+)
+assert.deepEqual(
+  legacyExternalTargets.valueBindings.map((entry) => entry.id),
+  ['legacy:value:external'],
+)
+
 console.log(
-  'SCADA DSL runtime checks passed: the compiled reverse index routes only affected Value/Behavior plans, read-only Action arguments do not become triggers, Component Property propagation and Component Event lookup are indexed, ordered branch-entry actions remain idempotent, and primary-device rebinding works without recompilation.',
+  'SCADA DSL v1 runtime checks passed: newly authored $device references compile into a primary-device-relative reverse index, read-only Action arguments do not become triggers, Component Property propagation and Event lookup remain indexed, branch-entry Actions remain idempotent, rebinding requires no recompilation, and structured external references remain executable only as persisted compatibility data.',
 )
