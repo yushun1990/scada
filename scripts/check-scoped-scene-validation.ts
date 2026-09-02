@@ -295,6 +295,7 @@ const semanticScene = scene([
 
 const parsedSemantic = parseSceneDocumentWithRegistry(semanticScene, semanticRegistry)
 assert.equal(parsedSemantic.nodes.length, 1)
+assert.equal(parsedSemantic.version, 8)
 assert.throws(
   () => parseSceneDocumentWithRegistry(semanticScene, semanticMissingPropertyRegistry),
   /无效节点/,
@@ -311,6 +312,103 @@ assert.deepEqual(
   'scoped serialization must reuse the same scoped parser/migrator',
 )
 
+// M9A1.3 authority proof: one legacy v7 `props` bag must split according to
+// the current public component definition, not be copied wholesale into the
+// runtime-capable Property namespace.
+const authorityType = 'm9.fixture.scene-authority'
+const authorityDefinition: ComponentDefinition = {
+  type: authorityType,
+  title: 'Scene authority fixture',
+  category: 'M9 fixture',
+  description: '',
+  size: {
+    defaultWidth: 80,
+    defaultHeight: 48,
+    minWidth: 20,
+    minHeight: 16,
+  },
+  attributes: {
+    runningColor: {
+      title: 'Running color',
+      kind: 'color',
+      defaultValue: '#00c853',
+    },
+  },
+  properties: {
+    state: {
+      title: 'State',
+      kind: 'select',
+      defaultValue: 'stopped',
+      bindable: true,
+      options: [
+        { label: 'Stopped', value: 'stopped' },
+        { label: 'Running', value: 'running' },
+      ],
+    },
+  },
+  actions: {},
+  events: {},
+  anchors: [],
+}
+const authorityRegistry = new ComponentRegistry([
+  registration(authorityDefinition),
+])
+const authorityV7 = scene([
+  node('authority-node', authorityType, {
+    runningColor: '#ff0000',
+    state: 'running',
+  }, {
+    scadaSemantics: {
+      version: 1,
+      valueBindings: [
+        {
+          id: 'value:state',
+          targetProperty: 'state',
+          expression: { kind: 'literal', value: 'running' },
+        },
+      ],
+      behaviors: [],
+      interactions: [],
+    },
+  }),
+])
+const authorityV8 = parseSceneDocumentWithRegistry(authorityV7, authorityRegistry)
+assert.equal(authorityV8.version, 8)
+const authorityNode = authorityV8.nodes[0]
+assert.ok(authorityNode && authorityNode.type !== 'core.group')
+assert.deepEqual(authorityNode.attributes, { runningColor: '#ff0000' })
+assert.deepEqual(authorityNode.propertyFallbacks, { state: 'running' })
+assert.equal(Object.hasOwn(authorityNode, 'props'), false)
+assert.equal(authorityNode.scadaSemantics?.valueBindings[0]?.targetProperty, 'state')
+
+const authoritySerialized = serializeSceneDocumentWithRegistry(
+  authorityV8,
+  authorityRegistry,
+)
+const authoritySerializedValue = JSON.parse(authoritySerialized) as {
+  version: number
+  nodes: Array<Record<string, unknown>>
+}
+assert.equal(authoritySerializedValue.version, 8)
+assert.equal(Object.hasOwn(authoritySerializedValue.nodes[0] ?? {}, 'props'), false)
+assert.deepEqual(authoritySerializedValue.nodes[0]?.attributes, {
+  runningColor: '#ff0000',
+})
+assert.deepEqual(authoritySerializedValue.nodes[0]?.propertyFallbacks, {
+  state: 'running',
+})
+
+const invalidV8WithLegacyProps = structuredClone(authoritySerializedValue)
+invalidV8WithLegacyProps.nodes[0]!.props = { state: 'running' }
+assert.throws(
+  () => parseSceneDocumentWithRegistry(
+    JSON.stringify(invalidV8WithLegacyProps),
+    authorityRegistry,
+  ),
+  /无效节点/,
+  'Scene v8 must reject a second legacy component props authority',
+)
+
 const emptyRegistry = new ComponentRegistry()
 assert.throws(
   () => parseSceneDocumentWithRegistry(propertyScene, emptyRegistry),
@@ -322,5 +420,5 @@ assert.equal(propertyNumberRegistry.has(anchorType), false)
 assert.equal(leftRightRegistry.has(propertyType), false)
 
 console.log(
-  'Scoped Scene validation checks passed: the pure codec has no Studio/native imports; Property, Anchor, legacy Event/Action and canonical Scene v7 semantics resolve only through the supplied registry; scoped serialization reuses the same boundary; unknown types fail closed; and isolated registries do not cross-contaminate or gain registrations during validation.',
+  'Scoped Scene validation checks passed: the pure codec has no Studio/native imports; Property, Anchor, legacy Event/Action and persisted SCADA semantics resolve only through the supplied registry; Scene v7 mixed props split deterministically into Scene v8 Attributes plus Property fallbacks; canonical v8 serialization rejects a second component props authority; unknown types fail closed; and isolated registries do not cross-contaminate or gain registrations during validation.',
 )
