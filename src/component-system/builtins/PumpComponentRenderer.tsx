@@ -22,11 +22,11 @@ function resolvePumpPalette(value: unknown): PumpState {
 export const PumpComponentRenderer = forwardRef<
   Konva.Group,
   ComponentRendererProps
->(function PumpComponentRendererImpl({ props, ...rendererProps }, ref) {
+>(function PumpComponentRendererImpl({ properties, attributes: _attributes, ...rendererProps }, ref) {
   return (
     <PumpNode
       ref={ref}
-      state={resolvePumpPalette(props.state)}
+      state={resolvePumpPalette(properties.state)}
       {...rendererProps}
     />
   )
