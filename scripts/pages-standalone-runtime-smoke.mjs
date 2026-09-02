@@ -7,6 +7,8 @@ const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
 const page = await context.newPage()
 const pageErrors = []
+const SELF_CONTAINED_SVG_DATA_URL =
+  'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22480%22%20height%3D%22360%22%3E%3Crect%20width%3D%22480%22%20height%3D%22360%22%20fill%3D%22%23ff00ff%22%2F%3E%3C%2Fsvg%3E'
 
 page.on('pageerror', (error) => pageErrors.push(error.message))
 
@@ -40,6 +42,32 @@ try {
   )
   assert.equal(packageResponse.ok(), true, 'portable dependency fixture is deployed')
   const dependency = await packageResponse.json()
+  dependency.visual = {
+    ...dependency.visual,
+    layers: [
+      ...dependency.visual.layers,
+      {
+        id: 'standalone-portable-asset-smoke',
+        name: 'Standalone portable asset smoke',
+        kind: 'image',
+        parentId: null,
+        transform: {
+          x: 0,
+          y: 0,
+          width: dependency.visual.designSize.width,
+          height: dependency.visual.designSize.height,
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+        },
+        visible: true,
+        opacity: 1,
+        assetRef: SELF_CONTAINED_SVG_DATA_URL,
+        style: { fit: 'stretch' },
+      },
+    ],
+  }
+
   const workPackage = {
     packageVersion: 1,
     scene: {
@@ -88,6 +116,30 @@ try {
     await page.locator('.standalone-runtime-canvas canvas').count() >= 1,
     'standalone route renders the work artifact through a Konva runtime surface',
   )
+
+  await page.waitForFunction(() => {
+    const canvases = [...document.querySelectorAll('.standalone-runtime-canvas canvas')]
+
+    return canvases.some((canvas) => {
+      const context = canvas.getContext('2d')
+      if (!context || canvas.width <= 0 || canvas.height <= 0) return false
+
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+      for (let index = 0; index < pixels.length; index += 4 * 16) {
+        const red = pixels[index]
+        const green = pixels[index + 1]
+        const blue = pixels[index + 2]
+        const alpha = pixels[index + 3]
+
+        if (alpha > 200 && red > 220 && green < 40 && blue > 220) {
+          return true
+        }
+      }
+
+      return false
+    })
+  })
+
   assert.equal(await page.locator('.workspace-shell').count(), 0)
   assert.equal(await page.locator('.editor-shell').count(), 0)
   assert.equal(await page.getByRole('button', { name: '保存', exact: true }).count(), 0)
@@ -99,7 +151,7 @@ try {
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'Pages standalone runtime smoke passed: a fresh browser opens the storage-independent runtime route, directly loads the accepted dependency-complete work artifact, renders its portable component without authoring chrome, and never initializes Studio IndexedDB.',
+    'Pages standalone runtime smoke passed: a fresh browser opens the storage-independent runtime route, directly loads the accepted dependency-complete work artifact, renders a bundled self-contained SVG/Image resource without external asset installation or network dependency, and never initializes Studio IndexedDB.',
   )
 } finally {
   await context.close()
