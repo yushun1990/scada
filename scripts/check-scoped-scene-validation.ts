@@ -34,6 +34,7 @@ function definition(
       minWidth: 20,
       minHeight: 16,
     },
+    attributes: {},
     properties: property === 'other'
       ? {
           other: {
