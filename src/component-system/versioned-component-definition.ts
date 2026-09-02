@@ -8,6 +8,7 @@ import {
   type ComponentPropertyFallbackValues,
   type LegacyComponentDefinition,
 } from './definition'
+import { assertComponentDefinition } from './validation'
 
 export const COMPONENT_DEFINITION_SCHEMA_VERSION = 2 as const
 
@@ -53,6 +54,45 @@ export type LegacyComponentDefinitionMigrationResult =
       classifications: readonly LegacyComponentFieldClassification[]
       issues: readonly string[]
     }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Parse the pre-M9 public component-definition shape without assigning
+ * Attribute/Property authority. Validation is reused only for scalar/action/
+ * event/anchor structure by temporarily supplying an empty Attribute map; the
+ * returned value remains explicitly typed as legacy migration input.
+ */
+export function parseLegacyComponentDefinition(
+  value: unknown,
+): LegacyComponentDefinition | null {
+  if (!isRecord(value) || 'attributes' in value) return null
+
+  const candidate = {
+    ...value,
+    attributes: {},
+  }
+
+  try {
+    assertComponentDefinition(candidate)
+  } catch {
+    return null
+  }
+
+  return {
+    type: candidate.type,
+    title: candidate.title,
+    category: candidate.category,
+    description: candidate.description,
+    size: candidate.size,
+    properties: candidate.properties,
+    actions: candidate.actions,
+    events: candidate.events,
+    anchors: candidate.anchors,
+  }
+}
 
 function toAttributeDefinition(
   property: ComponentPropertyDefinition,
