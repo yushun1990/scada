@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import type { ComponentProps } from '../src/component-system/definition'
+import type { ComponentPropertyFallbackValues } from '../src/component-system/definition'
 import type { ComponentRegistration } from '../src/component-system/registration'
 import { ComponentRegistry } from '../src/component-system/registry'
 import type { ScadaDeviceActionInvocation } from '../src/runtime/device-action-dispatcher'
@@ -14,7 +14,7 @@ import type { SceneDocument } from '../src/scene/model'
 
 const actionSnapshots: Array<{
   action: string
-  props: Readonly<ComponentProps>
+  properties: Readonly<ComponentPropertyFallbackValues>
 }> = []
 let legacyActionCount = 0
 
@@ -58,11 +58,11 @@ const registration: ComponentRegistration = {
   renderer: (() => null) as unknown as ComponentRegistration['renderer'],
   createDefaultProps: () => ({ level: 7, label: 'low' }),
   actions: {
-    showHigh: ({ props }) => {
-      actionSnapshots.push({ action: 'showHigh', props })
+    showHigh: ({ properties }) => {
+      actionSnapshots.push({ action: 'showHigh', properties })
     },
-    showLow: ({ props }) => {
-      actionSnapshots.push({ action: 'showLow', props })
+    showLow: ({ properties }) => {
+      actionSnapshots.push({ action: 'showLow', properties })
     },
     legacyAction: () => {
       legacyActionCount += 1
@@ -88,7 +88,7 @@ const catalog = createScadaDslCapabilityCatalog(registration.definition, [
 function createScene(
   id: string,
   nodeId: string,
-  propertyFallbacks: ComponentProps = { level: 7, label: 'low' },
+  propertyFallbacks: ComponentPropertyFallbackValues = { level: 7, label: 'low' },
 ): SceneDocument {
   return {
     version: 8,
@@ -188,7 +188,7 @@ const attachment = attachPreviewScadaSemantics(
 let renderedSnapshot = runtime.componentProps.getNodeSnapshot('component-1')
 assert.deepEqual(renderedSnapshot, { level: 42, label: 'high' })
 assert.equal(actionSnapshots.at(-1)?.action, 'showHigh')
-assert.strictEqual(actionSnapshots.at(-1)?.props, renderedSnapshot)
+assert.strictEqual(actionSnapshots.at(-1)?.properties, renderedSnapshot)
 
 // A concrete source publication routes through the compiled reverse index and
 // changes the host-owned rendered snapshot without writing authored Scene
@@ -197,7 +197,7 @@ runtime.values.set('pump-01:level', 5)
 renderedSnapshot = runtime.componentProps.getNodeSnapshot('component-1')
 assert.deepEqual(renderedSnapshot, { level: 5, label: 'low' })
 assert.equal(actionSnapshots.at(-1)?.action, 'showLow')
-assert.strictEqual(actionSnapshots.at(-1)?.props, renderedSnapshot)
+assert.strictEqual(actionSnapshots.at(-1)?.properties, renderedSnapshot)
 assert.deepEqual(
   scene.nodes[0] && 'propertyFallbacks' in scene.nodes[0]
     ? scene.nodes[0].propertyFallbacks
