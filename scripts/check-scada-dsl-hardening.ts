@@ -23,6 +23,7 @@ const component: ComponentDefinition = {
     minWidth: 10,
     minHeight: 10,
   },
+  attributes: {},
   properties: {
     level: {
       title: 'Level',
@@ -61,16 +62,6 @@ const catalog = createScadaDslCapabilityCatalog(component, [
   {
     sourceId: 'authoring-device',
     title: 'Primary device',
-    symbol: 'device',
-    properties: {
-      level: { title: 'Level', kind: 'number', defaultValue: 0 },
-    },
-    actions: {},
-  },
-  {
-    sourceId: 'outlet-01',
-    title: 'Outlet',
-    symbol: 'outlet',
     properties: {
       level: { title: 'Level', kind: 'number', defaultValue: 0 },
     },
@@ -79,13 +70,17 @@ const catalog = createScadaDslCapabilityCatalog(component, [
 ])
 
 const validSource = `
-component.level = device.level
-component.label = if component.level > 10 then "high" else "low"
-
-if component.label == "high" {
-  component.showHigh()
+$self.level = $device.level
+if $self.level > 10 {
+  $self.label = "high"
 } else {
-  component.showLow()
+  $self.label = "low"
+}
+
+if $self.label == "high" {
+  $self.showHigh()
+} else {
+  $self.showLow()
 }
 `
 
@@ -102,8 +97,8 @@ assert.ok(validated.compiled)
 // error, and the lower-level runtime compiler independently refuses the same
 // ambiguous semantic plan so internal callers cannot bypass the hard gate.
 const duplicateSource = `
-component.level = device.level
-component.level = outlet.level
+$self.level = $device.level
+$self.level = $device.level + 1
 `
 const duplicate = compileScadaDslSource(duplicateSource, catalog)
 assert.equal(duplicate.compiled, null)
@@ -127,8 +122,8 @@ assert.throws(
 // Cyclic derived Property graphs are also rejected by the validated source
 // compiler before an executable runtime is constructed.
 const cyclic = compileScadaDslSource(`
-component.a = component.b
-component.b = component.a
+$self.a = $self.b
+$self.b = $self.a
 `, catalog)
 assert.equal(cyclic.compiled, null)
 assert.equal(
@@ -226,13 +221,17 @@ rebindSession.dispose()
 // an abort under maxPropagationSteps=2. The prior Primary Device, derived
 // values and Behavior branch state must all survive unchanged.
 const rollbackSource = `
-component.label = if component.level > 10 then "high" else "low"
-component.level = device.level
-
-if component.label == "high" {
-  component.showHigh()
+if $self.level > 10 {
+  $self.label = "high"
 } else {
-  component.showLow()
+  $self.label = "low"
+}
+$self.level = $device.level
+
+if $self.label == "high" {
+  $self.showHigh()
+} else {
+  $self.showLow()
 }
 `
 const rollbackCompiled = compileScadaDslSource(rollbackSource, catalog)
@@ -277,5 +276,5 @@ assert.deepEqual(rollbackSession.getBehaviorBranches(), beforeBranches)
 rollbackSession.dispose()
 
 console.log(
-  'SCADA DSL semantic hardening checks passed: validated compilation rejects duplicate writers/cycles, unresolved bindings release derived overrides, primary-device rebind rebuilds derived state without leakage, and aborted rebind restores the complete previously committed runtime state.',
+  'SCADA DSL v1 semantic hardening checks passed: validated $self/$device compilation rejects duplicate writers/cycles, unresolved bindings release derived overrides, primary-device rebind rebuilds derived state without leakage, and aborted rebind restores the complete previously committed runtime state.',
 )
