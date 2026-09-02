@@ -1,28 +1,18 @@
-import type {
-  ComponentDefinition,
-  ComponentPropertyDefinition,
-  ComponentPropertyKind,
-  ComponentPropertyOption,
-  ComponentScalarValue,
+import {
+  createDefaultAttributeValuesFromDefinition,
+  createDefaultPropertyFallbackValuesFromDefinition,
+  type ComponentAttributeDefinition,
+  type ComponentAttributeValues,
+  type ComponentDefinition,
+  type ComponentPropertyDefinition,
+  type ComponentPropertyFallbackValues,
+  type LegacyComponentDefinition,
 } from './definition'
 
 export const COMPONENT_DEFINITION_SCHEMA_VERSION = 2 as const
 
-export type ComponentAttributeDefinition = {
-  title: string
-  kind: ComponentPropertyKind
-  defaultValue: ComponentScalarValue
-  description?: string
-  options?: readonly ComponentPropertyOption[]
-}
-
-export type ComponentAttributeValues = Record<string, ComponentScalarValue>
-export type ComponentPropertyFallbackValues = Record<string, ComponentScalarValue>
-
-export type VersionedComponentDefinition = Omit<ComponentDefinition, 'properties'> & {
+export type VersionedComponentDefinition = ComponentDefinition & {
   schemaVersion: typeof COMPONENT_DEFINITION_SCHEMA_VERSION
-  attributes: Readonly<Record<string, ComponentAttributeDefinition>>
-  properties: Readonly<Record<string, ComponentPropertyDefinition>>
 }
 
 export type LegacyComponentFieldAuthority = 'attribute' | 'property'
@@ -119,7 +109,7 @@ export function classifyLegacyComponentField(
 }
 
 export function migrateLegacyComponentDefinition(
-  legacy: ComponentDefinition,
+  legacy: LegacyComponentDefinition,
   manifest: LegacyComponentAuthorityManifest = {},
 ): LegacyComponentDefinitionMigrationResult {
   const attributes: Record<string, ComponentAttributeDefinition> = {}
@@ -186,23 +176,11 @@ export function migrateLegacyComponentDefinition(
 export function createDefaultAttributeValues(
   definition: VersionedComponentDefinition,
 ): ComponentAttributeValues {
-  const attributes: ComponentAttributeValues = {}
-
-  for (const [field, attribute] of Object.entries(definition.attributes)) {
-    attributes[field] = attribute.defaultValue
-  }
-
-  return attributes
+  return createDefaultAttributeValuesFromDefinition(definition)
 }
 
 export function createDefaultPropertyFallbackValues(
   definition: VersionedComponentDefinition,
 ): ComponentPropertyFallbackValues {
-  const properties: ComponentPropertyFallbackValues = {}
-
-  for (const [field, property] of Object.entries(definition.properties)) {
-    properties[field] = property.defaultValue
-  }
-
-  return properties
+  return createDefaultPropertyFallbackValuesFromDefinition(definition)
 }
