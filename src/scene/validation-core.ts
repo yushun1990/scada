@@ -5,6 +5,7 @@ import {
   type ComponentDefinition,
   type ComponentPropertyFallbackValues,
 } from '../component-system/definition'
+import type { ComponentRegistration } from '../component-system/registration'
 import type { ComponentRegistryView } from '../component-system/registry-view'
 import {
   GROUP_NODE_TYPE,
@@ -136,14 +137,80 @@ function hasOnlyDeclaredKeys(
   return Object.keys(value).every((key) => Object.hasOwn(definitions, key))
 }
 
+function pickDeclaredValues(
+  value: Record<string, unknown>,
+  definitions: Readonly<Record<string, unknown>>,
+) {
+  return Object.fromEntries(
+    Object.keys(definitions)
+      .filter((key) => Object.hasOwn(value, key))
+      .map((key) => [key, value[key]]),
+  )
+}
+
+function normalizeComponentAuthoredState(
+  registration: ComponentRegistration,
+  sceneVersion: number,
+  attributesValue: Record<string, unknown>,
+  propertyFallbacksValue: Record<string, unknown>,
+): {
+  attributes: ComponentAttributeValues
+  propertyFallbacks: ComponentPropertyFallbackValues
+} | null {
+  const { definition } = registration
+
+  let migratedAttributes: Record<string, unknown> = { ...attributesValue }
+  let migratedPropertyFallbacks: Record<string, unknown> = {
+    ...propertyFallbacksValue,
+  }
+
+  if (registration.migratePersistedAuthoredState) {
+    try {
+      const migrated = registration.migratePersistedAuthoredState({
+        sceneVersion,
+        attributes: migratedAttributes,
+        propertyFallbacks: migratedPropertyFallbacks,
+      })
+      if (
+        !isRecord(migrated.attributes) ||
+        !isRecord(migrated.propertyFallbacks)
+      ) {
+        return null
+      }
+      migratedAttributes = { ...migrated.attributes }
+      migratedPropertyFallbacks = { ...migrated.propertyFallbacks }
+    } catch {
+      return null
+    }
+  }
+
+  if (
+    !hasOnlyDeclaredKeys(migratedAttributes, definition.attributes) ||
+    !hasOnlyDeclaredKeys(migratedPropertyFallbacks, definition.properties)
+  ) {
+    return null
+  }
+
+  const attributes = parseAttributeValues(definition, migratedAttributes)
+  const propertyFallbacks = parsePropertyFallbackValues(
+    definition,
+    migratedPropertyFallbacks,
+  )
+  return attributes && propertyFallbacks
+    ? { attributes, propertyFallbacks }
+    : null
+}
+
 function parseComponentAuthoredState(
-  definition: ComponentDefinition,
+  registration: ComponentRegistration,
   value: Record<string, unknown>,
   version: number,
 ): {
   attributes: ComponentAttributeValues
   propertyFallbacks: ComponentPropertyFallbackValues
 } | null {
+  const { definition } = registration
+
   if (version >= SCENE_VERSION) {
     if (
       !isRecord(value.attributes) ||
@@ -155,29 +222,27 @@ function parseComponentAuthoredState(
       return null
     }
 
-    const attributes = parseAttributeValues(definition, value.attributes)
-    const propertyFallbacks = parsePropertyFallbackValues(
-      definition,
+    return normalizeComponentAuthoredState(
+      registration,
+      version,
+      value.attributes,
       value.propertyFallbacks,
     )
-    return attributes && propertyFallbacks
-      ? { attributes, propertyFallbacks }
-      : null
   }
 
   if (!isRecord(value.props)) return null
 
-  // Pre-v8 Scene nodes persisted one mixed `props` bag. Migrate each legacy key
-  // through the current public component contract: a field declared as an
-  // Attribute becomes authored configuration; a field declared as a Property
-  // becomes a Property fallback. Missing values use their respective defaults.
-  // Extra legacy fields are ignored for historical compatibility, matching the
-  // pre-v8 parser's behavior for fields no longer present in the definition.
-  const attributes = parseAttributeValues(definition, value.props)
-  const propertyFallbacks = parsePropertyFallbackValues(definition, value.props)
-  return attributes && propertyFallbacks
-    ? { attributes, propertyFallbacks }
-    : null
+  // Pre-v8 Scene nodes persisted one mixed `props` bag. First split only the
+  // fields that still exist in the current public contract, then give the
+  // component registration one explicit compatibility opportunity to translate
+  // historical authored values before the current Attribute / Property schema
+  // validates them. Extra legacy fields remain ignored as in the old parser.
+  return normalizeComponentAuthoredState(
+    registration,
+    version,
+    pickDeclaredValues(value.props, definition.attributes),
+    pickDeclaredValues(value.props, definition.properties),
+  )
 }
 
 function parseDataBindings(
@@ -451,7 +516,7 @@ function parseSceneNode(
   if (!registration) return null
 
   const authoredState = parseComponentAuthoredState(
-    registration.definition,
+    registration,
     value,
     version,
   )

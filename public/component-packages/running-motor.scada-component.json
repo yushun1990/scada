@@ -1,5 +1,5 @@
 {
-  "packageVersion": 1,
+  "packageVersion": 2,
   "definition": {
     "type": "starter.running-motor",
     "title": "运行电机",
@@ -11,6 +11,7 @@
       "minWidth": 70,
       "minHeight": 45
     },
+    "attributes": {},
     "properties": {
       "running": {
         "title": "运行",
