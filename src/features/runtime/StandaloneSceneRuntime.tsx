@@ -137,7 +137,7 @@ function RuntimeComponentNode({
       draggable={false}
       visible={visible}
       opacity={1}
-      listening={false}
+      listening
     />
   )
 }
@@ -182,7 +182,7 @@ function RuntimeNode({
       scaleX={scaleX}
       scaleY={scaleY}
       visible={effectiveVisible}
-      listening={false}
+      listening
     >
       {children.map((child) => (
         <RuntimeNode
@@ -202,15 +202,17 @@ export function StandaloneSceneRuntime({
   scene,
   registry,
   runtime,
+  acquireRuntime,
 }: {
   scene: SceneDocument
   registry: ComponentRegistry
   runtime: PreviewRuntime
+  acquireRuntime: () => () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ width: 960, height: 640 })
 
-  useEffect(() => runtime.acquire(scene), [runtime, scene])
+  useEffect(() => acquireRuntime(), [acquireRuntime])
 
   useEffect(() => {
     const container = containerRef.current
@@ -237,14 +239,14 @@ export function StandaloneSceneRuntime({
 
   return (
     <div className="standalone-runtime-canvas" ref={containerRef}>
-      <Stage width={viewport.width} height={viewport.height} listening={false}>
-        <Layer listening={false}>
+      <Stage width={viewport.width} height={viewport.height} listening>
+        <Layer listening>
           <Group
             x={transform.x}
             y={transform.y}
             scaleX={transform.scale}
             scaleY={transform.scale}
-            listening={false}
+            listening
           >
             <Rect
               x={0}
