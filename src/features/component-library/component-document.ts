@@ -1,6 +1,10 @@
 import { assertComponentVisualAnimations } from '../../component-system/animations'
-import type { ComponentDefinition } from '../../component-system/definition'
+import type {
+  ComponentDefinition,
+  LegacyComponentDefinition,
+} from '../../component-system/definition'
 import { assertComponentDefinition } from '../../component-system/validation'
+import { migrateLegacyComponentDefinition } from '../../component-system/versioned-component-definition'
 import {
   assertComponentVisualDefinition,
   cloneComponentVisual,
@@ -10,7 +14,8 @@ import {
 import { normalizeStoredComponentVisual } from '../../component-system/visualMigration'
 import { assertComponentVisualRules } from '../../component-system/visualRules'
 
-export const COMPONENT_PACKAGE_VERSION = 1 as const
+export const LEGACY_COMPONENT_PACKAGE_VERSION = 1 as const
+export const COMPONENT_PACKAGE_VERSION = 2 as const
 
 export type ComponentStatus = 'draft' | 'ready'
 
@@ -23,6 +28,17 @@ export type ComponentLibraryEntry = {
   implementationDraft: string
   updatedAt: string
   builtIn: boolean
+}
+
+type LegacyVersionOneComponentLibraryEntry = {
+  version: typeof LEGACY_COMPONENT_PACKAGE_VERSION
+  id: string
+  definition: LegacyComponentDefinition
+  visual: unknown
+  status: ComponentStatus
+  implementationDraft: string
+  updatedAt: string
+  builtIn: false
 }
 
 type LegacyComponentLibraryEntry = {
@@ -181,6 +197,90 @@ function parseCurrentComponent(value: unknown): ComponentLibraryEntry | null {
   }
 }
 
+function parseVersionOneDefinition(value: unknown): LegacyComponentDefinition | null {
+  if (!isRecord(value) || 'attributes' in value) return null
+
+  const candidate = {
+    ...value,
+    attributes: {},
+  }
+
+  try {
+    assertComponentDefinition(candidate)
+  } catch {
+    return null
+  }
+
+  return {
+    type: candidate.type,
+    title: candidate.title,
+    category: candidate.category,
+    description: candidate.description,
+    size: candidate.size,
+    properties: candidate.properties,
+    actions: candidate.actions,
+    events: candidate.events,
+    anchors: candidate.anchors,
+  }
+}
+
+function parseVersionOneComponent(
+  value: unknown,
+): LegacyVersionOneComponentLibraryEntry | null {
+  if (
+    !isRecord(value) ||
+    value.version !== LEGACY_COMPONENT_PACKAGE_VERSION ||
+    typeof value.id !== 'string' ||
+    !value.id.trim() ||
+    !isComponentStatus(value.status) ||
+    typeof value.implementationDraft !== 'string' ||
+    typeof value.updatedAt !== 'string' ||
+    value.builtIn !== false
+  ) {
+    return null
+  }
+
+  const definition = parseVersionOneDefinition(value.definition)
+  if (!definition) return null
+
+  return {
+    version: LEGACY_COMPONENT_PACKAGE_VERSION,
+    id: value.id,
+    definition,
+    visual: value.visual,
+    status: value.status,
+    implementationDraft: value.implementationDraft,
+    updatedAt: value.updatedAt,
+    builtIn: false,
+  }
+}
+
+function migrateVersionOneComponent(
+  legacy: LegacyVersionOneComponentLibraryEntry,
+): ComponentLibraryEntry | null {
+  const migrated = migrateLegacyComponentDefinition(legacy.definition)
+  if (!migrated.ok) return null
+
+  const {
+    schemaVersion: _schemaVersion,
+    ...currentDefinition
+  } = migrated.definition
+  const definition = cloneComponentDefinition(currentDefinition)
+  const visual = parseVisual(legacy.visual, definition)
+  if (!visual) return null
+
+  return {
+    version: COMPONENT_PACKAGE_VERSION,
+    id: legacy.id,
+    definition,
+    visual,
+    status: legacy.status,
+    implementationDraft: legacy.implementationDraft,
+    updatedAt: legacy.updatedAt,
+    builtIn: false,
+  }
+}
+
 function parseLegacyComponent(value: unknown): LegacyComponentLibraryEntry | null {
   if (
     !isRecord(value) ||
@@ -251,10 +351,14 @@ export function parseComponentLibraryDocument(
     return null
   }
 
-  return parseCurrentComponent(value)
-    ?? (parseLegacyComponent(value)
-      ? migrateLegacyComponent(parseLegacyComponent(value)!)
-      : null)
+  const current = parseCurrentComponent(value)
+  if (current) return current
+
+  const versionOne = parseVersionOneComponent(value)
+  if (versionOne) return migrateVersionOneComponent(versionOne)
+
+  const legacy = parseLegacyComponent(value)
+  return legacy ? migrateLegacyComponent(legacy) : null
 }
 
 export function serializeComponentLibraryDocument(
