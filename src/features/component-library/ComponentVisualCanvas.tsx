@@ -45,7 +45,7 @@ import './component-canvas-snap.css'
 
 type ComponentVisualCanvasProps = {
   visual: ComponentVisualDefinition
-  attributeValues: ComponentAttributeValues
+  attributeValues?: ComponentAttributeValues
   propertyValues: ComponentPropertyFallbackValues
   componentTitle: string
   designWidth: number
@@ -134,7 +134,7 @@ function isTextEditingTarget(target: EventTarget | null) {
 
 export function ComponentVisualCanvas({
   visual,
-  attributeValues,
+  attributeValues = {},
   propertyValues,
   componentTitle,
   designWidth,
