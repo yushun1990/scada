@@ -1,24 +1,38 @@
 export type ComponentScalarValue = string | number | boolean | null
 
-export type ComponentPropertyKind =
+export type ComponentValueKind =
   | 'string'
   | 'number'
   | 'boolean'
   | 'color'
   | 'select'
 
-export type ComponentPropertyOption = {
+/** @deprecated Prefer ComponentValueKind for shared scalar contract kinds. */
+export type ComponentPropertyKind = ComponentValueKind
+
+export type ComponentValueOption = {
   label: string
   value: string | number
 }
 
+/** @deprecated Prefer ComponentValueOption for shared scalar contract options. */
+export type ComponentPropertyOption = ComponentValueOption
+
+export type ComponentAttributeDefinition = {
+  title: string
+  kind: ComponentValueKind
+  defaultValue: ComponentScalarValue
+  description?: string
+  options?: readonly ComponentValueOption[]
+}
+
 export type ComponentPropertyDefinition = {
   title: string
-  kind: ComponentPropertyKind
+  kind: ComponentValueKind
   defaultValue: ComponentScalarValue
   description?: string
   bindable?: boolean
-  options?: readonly ComponentPropertyOption[]
+  options?: readonly ComponentValueOption[]
 }
 
 /**
@@ -28,10 +42,10 @@ export type ComponentPropertyDefinition = {
  */
 export type ComponentContractValueDefinition = {
   title: string
-  kind: ComponentPropertyKind
+  kind: ComponentValueKind
   description?: string
   nullable?: boolean
-  options?: readonly ComponentPropertyOption[]
+  options?: readonly ComponentValueOption[]
 }
 
 export type ComponentActionParameterDefinition = ComponentContractValueDefinition & {
@@ -90,23 +104,47 @@ export type ComponentSizeDefinition = {
   minHeight: number
 }
 
-export type ComponentDefinition = {
+type ComponentDefinitionBase = {
   type: string
   title: string
   category: string
   description: string
   size: ComponentSizeDefinition
-  properties: Readonly<Record<string, ComponentPropertyDefinition>>
   actions: Readonly<Record<string, ComponentActionDefinition>>
   events: Readonly<Record<string, ComponentEventDefinition>>
   anchors: readonly VisualAnchorDefinition[]
 }
 
-export type ComponentProps = Record<string, ComponentScalarValue>
+/**
+ * Current public component contract. Authored configuration and runtime-capable
+ * state are structurally separate authorities.
+ */
+export type ComponentDefinition = ComponentDefinitionBase & {
+  attributes: Readonly<Record<string, ComponentAttributeDefinition>>
+  properties: Readonly<Record<string, ComponentPropertyDefinition>>
+}
+
+/**
+ * Pre-M9 component definition shape. This type is migration input only and must
+ * not become a second live component authority.
+ */
+export type LegacyComponentDefinition = ComponentDefinitionBase & {
+  properties: Readonly<Record<string, ComponentPropertyDefinition>>
+}
+
+export type ComponentAttributeValues = Record<string, ComponentScalarValue>
+export type ComponentPropertyFallbackValues = Record<string, ComponentScalarValue>
+
+/**
+ * Compatibility name used by the current runtime/renderer until M9B1 splits
+ * authored Attributes from effective Properties at runtime. It represents only
+ * the Property-side value bag and must not be used for Attributes.
+ */
+export type ComponentProps = ComponentPropertyFallbackValues
 
 function isComponentScalarForContract(
-  kind: ComponentPropertyKind,
-  options: readonly ComponentPropertyOption[] | undefined,
+  kind: ComponentValueKind,
+  options: readonly ComponentValueOption[] | undefined,
   allowNull: boolean,
   value: unknown,
 ): value is ComponentScalarValue {
@@ -145,6 +183,18 @@ export function isComponentContractValue(
   )
 }
 
+export function isComponentAttributeValue(
+  definition: ComponentAttributeDefinition,
+  value: unknown,
+): value is ComponentScalarValue {
+  return isComponentScalarForContract(
+    definition.kind,
+    definition.options,
+    definition.defaultValue === null,
+    value,
+  )
+}
+
 export function isComponentPropertyValue(
   definition: ComponentPropertyDefinition,
   value: unknown,
@@ -157,14 +207,36 @@ export function isComponentPropertyValue(
   )
 }
 
-export function createDefaultPropsFromDefinition(
+export function createDefaultAttributeValuesFromDefinition(
   definition: ComponentDefinition,
-): ComponentProps {
-  const props: ComponentProps = {}
+): ComponentAttributeValues {
+  const attributes: ComponentAttributeValues = {}
 
-  for (const [key, property] of Object.entries(definition.properties)) {
-    props[key] = property.defaultValue
+  for (const [key, attribute] of Object.entries(definition.attributes)) {
+    attributes[key] = attribute.defaultValue
   }
 
-  return props
+  return attributes
+}
+
+export function createDefaultPropertyFallbackValuesFromDefinition(
+  definition: Pick<ComponentDefinition, 'properties'>,
+): ComponentPropertyFallbackValues {
+  const properties: ComponentPropertyFallbackValues = {}
+
+  for (const [key, property] of Object.entries(definition.properties)) {
+    properties[key] = property.defaultValue
+  }
+
+  return properties
+}
+
+/**
+ * Compatibility helper for the current Property-only runtime value bag.
+ * Attributes deliberately do not participate in this result.
+ */
+export function createDefaultPropsFromDefinition(
+  definition: Pick<ComponentDefinition, 'properties'>,
+): ComponentProps {
+  return createDefaultPropertyFallbackValuesFromDefinition(definition)
 }
