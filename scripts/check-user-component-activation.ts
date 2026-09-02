@@ -7,7 +7,10 @@ import {
   createEmptyCompositeVisual,
   createNativeVisual,
 } from '../src/component-system/visual'
-import type { ComponentLibraryEntry } from '../src/features/component-library/component-document'
+import {
+  COMPONENT_PACKAGE_VERSION,
+  type ComponentLibraryEntry,
+} from '../src/features/component-library/component-document'
 import { createUserComponentActivationController } from '../src/features/component-library/runtime-activation-core'
 
 const dummyRenderer = (() => null) as unknown as ComponentRenderer
@@ -27,6 +30,7 @@ function definition(
       minWidth: 20,
       minHeight: 16,
     },
+    attributes: {},
     properties: {
       value: {
         title: 'Value',
@@ -63,7 +67,7 @@ function packageEntry(
   } = {},
 ): ComponentLibraryEntry {
   return {
-    version: 1,
+    version: COMPONENT_PACKAGE_VERSION,
     id,
     definition: definition(type, options),
     visual: options.native ? createNativeVisual() : createEmptyCompositeVisual(),
