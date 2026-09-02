@@ -21,6 +21,35 @@ async function localDatabaseNames() {
   })
 }
 
+async function canvasHasColor(matches) {
+  return page.waitForFunction((matcher) => {
+    const canvases = [...document.querySelectorAll('.standalone-runtime-canvas canvas')]
+
+    return canvases.some((canvas) => {
+      const context = canvas.getContext('2d')
+      if (!context || canvas.width <= 0 || canvas.height <= 0) return false
+
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+      for (let index = 0; index < pixels.length; index += 4 * 8) {
+        const red = pixels[index]
+        const green = pixels[index + 1]
+        const blue = pixels[index + 2]
+        const alpha = pixels[index + 3]
+        if (
+          alpha > matcher.alphaMin &&
+          red >= matcher.redMin && red <= matcher.redMax &&
+          green >= matcher.greenMin && green <= matcher.greenMax &&
+          blue >= matcher.blueMin && blue <= matcher.blueMax
+        ) {
+          return true
+        }
+      }
+
+      return false
+    })
+  }, matches)
+}
+
 try {
   console.log(`Opening standalone runtime in a fresh browser: ${baseUrl}#/runtime`)
   await page.goto(`${baseUrl}#/runtime`, { waitUntil: 'networkidle' })
@@ -54,8 +83,8 @@ try {
         transform: {
           x: 0,
           y: 0,
-          width: dependency.visual.designSize.width,
-          height: dependency.visual.designSize.height,
+          width: 24,
+          height: 24,
           rotation: 0,
           scaleX: 1,
           scaleY: 1,
@@ -92,10 +121,21 @@ try {
             height: 80,
             rotation: 0,
           },
-          props: { state: 'open' },
+          props: { state: 'closed' },
           bindings: [],
           behaviors: [],
-          scadaSemantics: null,
+          scadaSemantics: {
+            version: 1,
+            valueBindings: [
+              {
+                id: 'value:standalone-open-state',
+                targetProperty: 'state',
+                expression: { kind: 'literal', value: 'open' },
+              },
+            ],
+            behaviors: [],
+            interactions: [],
+          },
         },
       ],
       connections: [],
@@ -117,27 +157,23 @@ try {
     'standalone route renders the work artifact through a Konva runtime surface',
   )
 
-  await page.waitForFunction(() => {
-    const canvases = [...document.querySelectorAll('.standalone-runtime-canvas canvas')]
-
-    return canvases.some((canvas) => {
-      const context = canvas.getContext('2d')
-      if (!context || canvas.width <= 0 || canvas.height <= 0) return false
-
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
-      for (let index = 0; index < pixels.length; index += 4 * 16) {
-        const red = pixels[index]
-        const green = pixels[index + 1]
-        const blue = pixels[index + 2]
-        const alpha = pixels[index + 3]
-
-        if (alpha > 200 && red > 220 && green < 40 && blue > 220) {
-          return true
-        }
-      }
-
-      return false
-    })
+  await canvasHasColor({
+    alphaMin: 200,
+    redMin: 220,
+    redMax: 255,
+    greenMin: 0,
+    greenMax: 50,
+    blueMin: 220,
+    blueMax: 255,
+  })
+  await canvasHasColor({
+    alphaMin: 200,
+    redMin: 20,
+    redMax: 70,
+    greenMin: 160,
+    greenMax: 220,
+    blueMin: 60,
+    blueMax: 130,
   })
 
   assert.equal(await page.locator('.workspace-shell').count(), 0)
@@ -151,7 +187,7 @@ try {
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'Pages standalone runtime smoke passed: a fresh browser opens the storage-independent runtime route, directly loads the accepted dependency-complete work artifact, renders a bundled self-contained SVG/Image resource without external asset installation or network dependency, and never initializes Studio IndexedDB.',
+    'Pages standalone runtime smoke passed: a fresh browser directly loads the dependency-complete work artifact, renders its self-contained SVG/Image resource, restores canonical Scene v7 semantics so authored valve state=closed becomes effective runtime state=open (green), exposes no authoring chrome, and never initializes Studio IndexedDB.',
   )
 } finally {
   await context.close()

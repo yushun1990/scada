@@ -1,6 +1,6 @@
 # M8A4 — Portable visual resource closure
 
-Status: **implementation ready · 2026-09-01**
+Status: **accepted · 2026-09-02**
 
 ## Why this gate exists
 
@@ -18,7 +18,7 @@ That made the phrase **dependency-complete work artifact** stronger than the imp
 
 M8A4 deliberately does **not** introduce a package v2 resource table, broad asset manager, upload catalog or remote resource fetcher.
 
-Instead, the transport/distribution boundary is made strict while local authoring remains flexible:
+Instead, the transport/distribution boundary is strict while local authoring remains flexible:
 
 ```text
 local editable Component visual
@@ -31,7 +31,7 @@ accepted portable forms: data:image/...
 rejected forms: relative path / absolute host path / http(s) / blob: / non-image data URL
 ```
 
-The currently accepted self-contained image media types are:
+The accepted self-contained image media types are:
 
 - `image/svg+xml`
 - `image/png`
@@ -44,7 +44,7 @@ The package version remains `1` because the artifact shape does not change. This
 
 ## Implementation
 
-`src/features/component-library/distributable-component-package.ts` now owns portable visual-resource validation.
+`src/features/component-library/distributable-component-package.ts` owns portable visual-resource validation.
 
 For every `svg` or `image` visual layer:
 
@@ -63,7 +63,7 @@ Local `ComponentVisualDefinition` validation is intentionally unchanged. A draft
 
 ## Deterministic evidence
 
-`scripts/check-distributable-component-package.ts` now proves:
+`scripts/check-distributable-component-package.ts` proves:
 
 - vector-only packages remain compatible
 - an image-bearing package using an embedded SVG `data:image/svg+xml,...` resource is accepted
@@ -80,7 +80,7 @@ Because M8 work packages already parse each dependency through this codec, inval
 
 ## Browser evidence
 
-`scripts/pages-standalone-runtime-smoke.mjs` now extends the deployed standalone fixture with a real SVG/Image visual layer whose resource is embedded as a magenta `data:image/svg+xml,...` URL.
+`scripts/pages-standalone-runtime-smoke.mjs` extends the deployed standalone fixture with a real SVG/Image visual layer whose resource is embedded as a magenta `data:image/svg+xml,...` URL.
 
 The fresh-browser smoke:
 
@@ -91,7 +91,19 @@ The fresh-browser smoke:
 5. confirms Studio IndexedDB is still not initialized
 6. confirms there are no browser page errors
 
-This proves the resource is not only accepted by the codec but can actually render in the fresh-browser standalone runtime without external asset installation or network fetch.
+This proves the resource is not only accepted by the codec but renders in the fresh-browser standalone runtime without external asset installation or network fetch.
+
+## Acceptance evidence
+
+- PR #109: `feat: close portable visual resource boundary`
+- final PR head `2ada74c8ffd249599a97c8609d71a619d84ddb9a`
+- PR CI #765 (`33494929623`) passed Build, runtime/model checks, Lint and publication-api
+- merged revision `main@f318b6a0b832316b03eb1a15caa3633da0da26fd`
+- main CI #766 (`33588555660`) passed
+- Deploy GitHub Pages #244 (`33588555564`) passed
+- Pages Browser Smoke #195 (`33588593832`) passed, including the image-bearing standalone fixture
+
+M8A4 is therefore accepted. The portable package boundary no longer accepts undeclared host-relative visual dependencies.
 
 ## Explicit non-goals
 
@@ -109,13 +121,6 @@ M8A4 does not add:
 
 A future real product requirement may justify a package v2 resource table. M8 closeout does not require inventing it now.
 
-## Acceptance gate
+## Next gate
 
-M8A4 remains **not accepted** until:
-
-- PR CI passes Build + runtime/model checks + Lint
-- the change merges to `main`
-- GitHub Pages deploys the merged revision
-- the deployed Pages browser smoke passes with the self-contained SVG/Image fixture
-
-After M8A4 acceptance, the next M8 repair is **M8B2 Standalone canonical semantic parity**. Concrete runtime transport remains deferred by M7B2.
+The remaining M8 closeout repair is **M8B2 Standalone canonical semantic parity**. Concrete runtime transport remains deferred by M7B2.

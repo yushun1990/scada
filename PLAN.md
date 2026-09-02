@@ -4,7 +4,7 @@
 
 `PLAN.md` is the **authoritative current execution roadmap and architecture gate** for this repository.
 
-It intentionally stays concise. Detailed milestone evidence belongs under `docs/progress/`; detailed architecture belongs under `docs/architecture/`.
+Keep this file concise. Detailed milestone evidence belongs under `docs/progress/`; detailed architecture belongs under `docs/architecture/`.
 
 When this file and an older progress note disagree about what happens next, this file wins.
 
@@ -149,7 +149,7 @@ Authored/default fallback, external binding and derived layers may be separate i
 - persisted Scene v7 semantics are structured/canonical; DSL text is not persistence authority
 - accepted persisted semantics must not be silently ignored by a runtime host that claims to run the Scene
 
-### 3.7 Local-first persistence remains the authoring authority
+### 3.7 Local-first persistence remains authoring authority
 
 ```text
 Workbench / Runtime-facing repositories
@@ -159,11 +159,11 @@ Storage abstraction
         └─ Memory          deterministic fixtures
 ```
 
-`localStorage` is migration input only. Save succeeds only after the asynchronous repository write succeeds.
+`localStorage` is migration input only. Save succeeds only after asynchronous repository persistence succeeds.
 
-A standalone runtime that directly consumes a distribution artifact is **not** an authoring repository client and must not persist merely to become runnable.
+A standalone runtime that consumes a distribution artifact is **not** an authoring repository client and must not persist merely to become runnable.
 
-### 3.8 Backend is optional infrastructure
+### 3.8 Backend remains optional infrastructure
 
 The publication backend must not own SCADA runtime evaluation, rendering, DSL execution or device presentation state.
 
@@ -184,7 +184,7 @@ Published / installed remote record
 
 Local IndexedDB identity, publication identity and protocol-specific configuration do not belong in reusable component packages.
 
-### 3.10 Production adapter lifecycle is host-owned
+### 3.10 Runtime adapter lifecycle is host-owned
 
 ```text
 RuntimeDataSource                  inbound telemetry/value state
@@ -205,25 +205,21 @@ Current ready user composite activation supports declarative visuals/rules/anima
 
 Trusted built-ins may implement Actions/Events. Do not silently turn draft text into executable portable behavior.
 
-### 3.12 Work portability must be dependency-complete
+### 3.12 Work portability is dependency-complete
 
 A raw Scene v7 document references component types but does not contain user-component definitions.
 
 A runnable work artifact must make its portable user-component dependencies explicit. Trusted built-in/native components remain host capabilities rather than copied dependencies.
 
-Validation must not require mutating the live Studio component registry first.
-
 Exact work-package closure means every non-host Scene component type is supplied once by the artifact and every supplied portable dependency is actually referenced by that Scene.
 
-Browser import preserves that contract: inspection is side-effect free, conflicting same-type definitions fail closed, and a confirmed import cannot persist only part of the work dependency closure.
+Portable SVG/Image dependencies are now also resource-closed: distributable asset refs must be self-contained accepted `data:image/...` values. Host-relative, remote and blob refs fail closed at the component-package boundary.
 
-Standalone loading preserves the same artifact authority: bundled dependencies are runtime-scoped capabilities, not an excuse to silently install packages into Studio state.
+Browser import preserves the artifact contract without partial persistence. Standalone loading keeps bundled dependencies runtime-scoped rather than silently installing them into Studio.
 
-The phrase **dependency-complete work artifact** is not considered fully satisfied until portable visual-resource closure is accepted.
+### 3.13 Standalone runtime is package-scoped
 
-### 3.13 Standalone runtime state is package-scoped
-
-A standalone runtime instance owns the runtime registry and runtime session for the loaded work package.
+A standalone runtime instance owns its registry and runtime session:
 
 ```text
 trusted host registrations
@@ -231,12 +227,26 @@ trusted host registrations
         ↓
 package-scoped ComponentRegistry
         ↓
-package-scoped runtime session
+package-scoped PreviewRuntime
+        ↓
+package-scoped canonical semantic attachments
 ```
 
-The standalone path must not require `studioComponentRegistry`, local component installation, authoring persistence or editor mock telemetry before it can render the package.
+The standalone path must not require `studioComponentRegistry`, local component installation, authoring persistence or editor mock telemetry.
 
-Real runtime data/action adapters remain explicit host capabilities and are not inferred from the work artifact.
+Canonical Scene v7 semantics use the existing accepted chain:
+
+```text
+PersistedScadaSemantics
+    ↓ restoreScadaSemanticPlan
+ScadaDslSemanticPlan
+    ↓ compileScadaDslRuntime
+ScadaDslCompiledRuntime
+    ↓ runtime activation
+attachPreviewScadaSemantics
+```
+
+Real data sources, primary-device resolution and outbound device-action dispatch remain explicit host capabilities. Missing mandatory capabilities fail closed; the generic host does not infer a protocol.
 
 ---
 
@@ -251,16 +261,14 @@ M4 Generic component kernel / registry                         accepted
 M5 SCADA Runtime v0.1                                          accepted
 M6 Component Workbench + scene semantics                       accepted · 2026-08-30
 M7 Packaging / adapter foundation / reusable components         accepted · 2026-08-31
-M8 Portable SCADA Work + Standalone Runtime                     active · CLOSEOUT BLOCKED
+M8 Portable SCADA Work + Standalone Runtime                     active · M8B2 ACTIVE
 ```
 
-Detailed history: `docs/progress/`.
+Detailed evidence: `docs/progress/`.
 
 ---
 
 ## 5. Current runtime model
-
-Scene-level semantics remain intentionally narrow:
 
 ```text
 Value Binding
@@ -301,8 +309,6 @@ QuickJS is not the current product center. Existing controlled-runtime experimen
 
 ## 6. M7 closeout — accepted · 2026-08-31
 
-M7 is closed. Do not create an M7C2 merely to continue numbering.
-
 Accepted boundaries:
 
 - M7A1 transport-neutral distributable component package codec
@@ -321,7 +327,7 @@ Record: `docs/progress/m7-closeout.md`.
 
 ## 7. M8 Portable SCADA Work + Standalone Runtime — active
 
-### 7.1 Original M8 product path
+### 7.1 Product path
 
 ```text
 saved SCADA work
@@ -334,73 +340,36 @@ fresh browser
 read-only runnable SCADA surface
 ```
 
-Built-in/native components remain host capabilities. Portable user components are explicit dependencies when the work requires them.
+Built-in/native components remain host capabilities. Portable user components are explicit dependencies when required.
 
 Do not treat raw editor Scene JSON or a debug snapshot as a distribution format.
 
 ### M8A1 Registry-scoped Scene validation — accepted · 2026-08-31
 
-Accepted:
-
-- `ComponentRegistryView`
-- registry-scoped Scene parse/serialize validation
-- isolated validation without mutating `studioComponentRegistry`
+Accepted registry-scoped Scene parse/serialize validation without mutating `studioComponentRegistry`.
 
 Record: `docs/progress/m8a1-registry-scoped-scene-validation.md`.
 
 ### M8A2 Portable SCADA work package codec — accepted · 2026-08-31
 
-Accepted artifact:
-
-```text
-ScadaWorkPackage
-├─ packageVersion
-├─ scene                  canonical/migrated Scene v7
-└─ dependencies[]         distributable portable user components
-
-host capabilities         trusted built-in/native registrations, injected
-```
-
-Accepted rules include exact component-type dependency closure, host collision protection, deterministic normalization, no global-registry mutation and fail-closed package validation.
+Accepted versioned `ScadaWorkPackage` with canonical Scene v7 plus exact portable user-component dependency closure.
 
 Record: `docs/progress/m8a2-portable-work-package-codec.md`.
 
-### M8A3 Explicit browser SCADA work package transfer — accepted · 2026-08-31
+### M8A3 Explicit browser work transfer — accepted · 2026-08-31
 
-Accepted browser flow:
-
-```text
-persisted SCADA work
-    ↓ exact dependency resolution
-.scada-work.json
-    ↓ fresh browser / file selection
-side-effect-free package + inventory preflight
-    ↓ explicit confirmation
-atomic Scene + missing-dependency persistence
-    ↓
-normal component activation + SCADA editor/runtime
-```
+Accepted side-effect-free preflight plus atomic Scene/dependency persistence across a fresh-browser file-transfer boundary.
 
 Record: `docs/progress/m8a3-browser-work-package-transfer.md`.
 
 ### M8B1 Standalone/read-only runtime shell — accepted · 2026-08-31
 
-Accepted boundary:
-
-```text
-.scada-work.json
-    ↓ direct parse/preflight
-trusted host registrations + bundled portable dependencies
-    ↓ package-scoped ComponentRegistry
-package-scoped PreviewRuntime
-    ↓
-read-only Scene surface
-```
+Accepted storage-independent direct work-package load, package-scoped registry/runtime and read-only Scene rendering.
 
 Final evidence:
 
 - PR #107
-- merged revision `main@9a1a0f9ac2da157bc6b496e0c05c905196a3f548`
+- merged `main@9a1a0f9ac2da157bc6b496e0c05c905196a3f548`
 - main CI #759 passed
 - Deploy GitHub Pages #240 passed
 - Pages Browser Smoke #191 passed
@@ -409,64 +378,65 @@ Record: `docs/progress/m8b1-standalone-runtime-shell.md`.
 
 ### M8 closeout review — BLOCKED · 2026-08-31
 
-The closeout review found two demonstrated gaps. M8 therefore remains open rather than being marked complete merely because A1/A2/A3/B1 individually passed.
+The review found two demonstrated gaps rather than closing M8 prematurely:
 
-#### Blocker 1 — portable visual resource closure
-
-SVG/Image layers still carried free-form `assetRef` strings while the distributable package had no resource payload/table. A host-relative asset could therefore validate/transfer without existing in a fresh browser.
-
-Invariant required for closeout:
-
-> A component accepted as portable must not depend on an undeclared host-relative visual resource.
-
-#### Blocker 2 — standalone canonical Scene semantic parity
-
-Scene v7 persists canonical `scadaSemantics`, but M8B1 standalone construction currently validates/renders the Scene without restoring/compiling/attaching non-null persisted semantic programs.
-
-Invariant required for closeout:
-
-> A standalone host that claims to run a valid Scene must execute its accepted persisted semantics or fail closed; it must not silently ignore them.
+1. portable visual-resource closure
+2. standalone canonical Scene semantic parity
 
 Record: `docs/progress/m8-closeout-review.md`.
 
-### M8A4 Portable visual resource closure — ACTIVE
+### M8A4 Portable visual resource closure — accepted · 2026-09-02
 
-Goal:
+Accepted boundary:
 
-> Make the existing portable package boundary honestly self-contained for SVG/Image visual resources without prematurely building a broad asset-management system.
+- distributable component package remains version 1
+- local authoring may retain unresolved/local refs until export
+- portable SVG/Image refs must be self-contained accepted `data:image/...`
+- relative/root-relative/`http(s)`/`blob:`/non-image refs fail closed
+- work-package/browser-transfer/standalone paths inherit the same component-package validation
 
-Current design boundary:
+Acceptance evidence:
 
-- keep distributable component package version 1
-- local editable visuals may retain authoring-local refs
-- distribution parsing/export accepts only self-contained `data:image/...` SVG/Image refs
-- relative, host-root, `http(s)`, `blob:` and non-image data refs fail closed
-- no hidden network fetch or Studio asset installation is required
-- deterministic package fixtures must prove accepted/rejected forms and round-trip preservation
-- deployed Pages standalone smoke must prove an image-bearing portable dependency actually renders in a fresh browser
+- PR #109
+- final PR head `2ada74c8ffd249599a97c8609d71a619d84ddb9a`
+- merged `main@f318b6a0b832316b03eb1a15caa3633da0da26fd`
+- main CI #766 passed
+- Deploy GitHub Pages #244 passed
+- Pages Browser Smoke #195 passed with the self-contained image-bearing fixture
 
 Record: `docs/progress/m8a4-portable-visual-resource-closure.md`.
 
-M8A4 is not accepted until PR CI passes and the merged revision passes Deploy Pages + deployed browser smoke.
+### M8B2 Standalone canonical semantic parity — ACTIVE
 
-### M8B2 Standalone canonical semantic parity — QUEUED
+Goal:
 
-After M8A4 acceptance:
+> A standalone host that claims to run a valid Scene must execute its accepted persisted semantics or fail closed; it must not silently ignore them.
 
-- restore/compile every non-null persisted Scene v7 semantic program against the package-scoped registry
-- attach semantic sessions only after standalone runtime activation
-- own deterministic disposal
-- keep `RuntimeDataSource` and `ScadaDeviceActionDispatcher` as explicit host capabilities
+Implementation boundary:
+
+- restore and compile every non-null persisted Scene v7 semantic program during standalone package construction
+- acquire one package-owned runtime session; attach semantics only after `PreviewRuntime` activation
+- dispose semantic attachments before final runtime release
+- inject `RuntimeDataSource`, primary-device resolution and `ScadaDeviceActionDispatcher` explicitly
+- require a primary-device host capability when a semantic program uses primary-device references
+- require a dispatcher when a semantic program contains Interaction bindings
 - do not choose MQTT/WebSocket/HTTP/vendor transport
-- fail closed when a semantic program requires unavailable mandatory host capability
-- add deterministic coverage with non-null `scadaSemantics`
-- add deployed browser proof that canonical semantics affect runtime/rendered state
+- keep standalone authoring-read-only while allowing operational component hit-testing/events
 
-Operational interaction should be reviewed inside this gate: read-only means no authoring mutation, not necessarily that all runtime-facing interaction is permanently disabled.
+Required evidence:
+
+- deterministic non-null persisted-semantics fixture changes the effective Component Property snapshot without mutating authored Scene props
+- explicit primary-device + RuntimeDataSource fixture drives a source-property binding
+- missing primary-device/dispatcher capabilities fail closed
+- explicit dispatcher receives Interaction effects
+- deployed browser fixture proves persisted semantics affect the rendered process-valve state
+- main/Pages deployed evidence after merge
+
+Record: `docs/progress/m8b2-standalone-canonical-semantic-parity.md`.
 
 ### M8 closeout
 
-Repeat the M8 closeout review only after M8A4 and M8B2 are accepted.
+Repeat the closeout review only after M8B2 is accepted. If no further demonstrated portability/runtime blocker exists, close M8 rather than inventing another slice.
 
 Concrete runtime transport remains separately deferred by M7B2.
 
@@ -474,11 +444,11 @@ Concrete runtime transport remains separately deferred by M7B2.
 
 ## 8. Next architecture gate after M8
 
-After M8 portability/runtime closeout, proceed with the Component Attribute / Property split defined in:
+After M8 closeout, proceed with the Component Attribute / Property split defined in:
 
 `docs/architecture/component-attributes-properties.md`
 
-Required migration slices remain:
+Required migration areas:
 
 ```text
 Component Attribute / Property split
@@ -495,7 +465,7 @@ Component Attribute / Property split
 │   ├─ deterministic effective Property snapshot
 │   └─ renderer/behavior receives Attributes + Properties without authority mixing
 ├─ package / Scene compatibility
-│   ├─ version/migrate persisted component contracts as required
+│   ├─ version/migrate persisted contracts as required
 │   ├─ preserve browser transfer semantics
 │   └─ preserve standalone runtime semantics
 └─ acceptance
@@ -519,15 +489,15 @@ M8A2 dependency-complete work package                          accepted
 M8A3 explicit browser work transfer                            accepted
 M8B1 standalone/read-only runtime shell                        accepted
 M8 closeout review                                             BLOCKED
-M8A4 portable visual resource closure                          ACTIVE
-M8B2 standalone canonical semantic parity                      QUEUED
-M8 closeout                                                    after A4 + B2
+M8A4 portable visual resource closure                          accepted · 2026-09-02
+M8B2 standalone canonical semantic parity                      ACTIVE
+M8 closeout                                                    next after M8B2 acceptance
 Component Attribute / Property split                           after M8 closeout
 ```
 
-**Current implementation gate: M8A4 Portable visual resource closure.**
+**Current implementation gate: M8B2 Standalone canonical semantic parity.**
 
-Do not begin the Attribute/Property schema migration, select a concrete transport, add hidden dependency installation, execute `implementationDraft`, or provision production publication infrastructure while M8A4 remains active.
+Do not begin the Attribute/Property schema migration, select a concrete transport, add hidden dependency installation, execute `implementationDraft`, or provision production publication infrastructure while M8B2 remains active.
 
 ---
 
@@ -543,18 +513,16 @@ Use the narrowest relevant verification set:
 - deployed Pages smoke when browser/UI/public distribution behavior changes
 - storage migration fixtures when persistence formats change
 - publication contract and PostgreSQL/API integration when remote publication behavior changes
-- M7 component-package fixtures for codec, transfer, persistence and activation
+- M7 component-package fixtures for codec/transfer/persistence/activation
 - M7 runtime-adapter fixtures for lifecycle/reconnect/fencing/no-replay
-- M8 scoped-scene fixtures for isolated registry validation and legacy/current schema behavior
-- M8 work-package fixtures for exact dependency closure, host-capability collision handling, deterministic normalization and fail-closed validation
-- M8 browser-transfer fixtures for dependency resolution/reuse/collision planning
-- M8 deployed browser-transfer smoke for fresh-browser atomic import/activation
-- M8 standalone-runtime fixture for isolated registry/session construction with no mock or Studio activation dependency
-- M8 deployed standalone-runtime smoke for fresh-browser direct package load/render with no authoring IndexedDB side effect
-- M8A4 package fixtures proving self-contained SVG/Image resources survive round-trip while external/host-local refs fail closed
-- M8A4 deployed standalone smoke proving a self-contained image-bearing dependency renders without external asset installation/network fetch
-- M8B2 fixtures with non-null persisted semantics and package-scoped lifecycle/disposal
-- Attribute/Property migration fixtures only after that architecture gate becomes active
+- M8 scoped-scene fixtures for isolated registry validation
+- M8 work-package fixtures for exact dependency closure and fail-closed validation
+- M8 browser-transfer fixtures + deployed fresh-browser smoke
+- M8 standalone-runtime fixture for isolated registry/session construction
+- M8A4 package/browser fixture for self-contained SVG/Image resources
+- M8B2 fixtures with non-null persisted semantics, explicit host capabilities and package-scoped lifecycle/disposal
+- M8B2 deployed standalone smoke proving canonical semantics affect rendered state
+- Attribute/Property migration fixtures only after that gate becomes active
 
 Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -562,7 +530,7 @@ Prefer explicit deterministic state/snapshots over timing-sensitive renderer ins
 
 ## 11. Current non-goals / reopening conditions
 
-Do not distract M8A4/M8B2 with:
+Do not distract M8B2 with:
 
 - production publication-backend provisioning while M6.7B3 remains deferred
 - speculative MQTT/WebSocket/HTTP/SSE/vendor adapter implementation
@@ -570,12 +538,12 @@ Do not distract M8A4/M8B2 with:
 - outbound command replay/exactly-once claims without protocol idempotency support
 - executable `implementationDraft`
 - portable Actions/Events without an accepted executable contract
-- automatic remote dependency fetching during runtime load
-- hidden local installation of bundled runtime dependencies
+- automatic remote dependency fetching
+- hidden local installation of bundled dependencies
 - runtime authoring/persistence in standalone mode
 - editor mock telemetry in standalone mode
 - broad asset-manager/media-library UX solely for M8 closeout
-- package v2 resource tables without a demonstrated requirement beyond M8A4
+- package v2 resource tables without a demonstrated requirement
 - component marketplace/catalog expansion
 - large starter component catalogs
 - unrestricted JavaScript
