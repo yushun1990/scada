@@ -61,8 +61,8 @@ export const PumpNode = forwardRef<Konva.Group, PumpNodeProps>(
       }
 
       const canvas = document.createElement('canvas')
-      canvas.width = image.naturalWidth || image.width
-      canvas.height = image.naturalHeight || image.height
+      canvas.width = image.width
+      canvas.height = image.height
       const context = canvas.getContext('2d')
       if (!context) {
         setTintedImage(null)
