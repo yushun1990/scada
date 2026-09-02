@@ -48,7 +48,7 @@ SCADA is not a general rule engine. Scene runtime semantics stay focused on pres
 
 ### 3.1 Public component contract vs private implementation
 
-Target reusable component public contract:
+Reusable component public contract:
 
 ```text
 Attributes + Properties + Actions + Events + Anchors
@@ -90,14 +90,14 @@ component-private rule
 visual state
 ```
 
-Normative target rules:
+Normative rules:
 
 - Attributes are authored/persisted configuration.
 - Properties are runtime-capable semantic values.
 - Value Binding targets Properties only.
 - runtime telemetry must not overwrite authored Attributes.
 - Attribute changes happen through authoring/configuration flows, not runtime propagation.
-- component-private rules may read both Attributes and effective Properties.
+- component-private rules may read both Attributes and effective Properties once the M9B1 runtime boundary is complete.
 - component type identity represents a genuinely different component, not a running/alarm/fault/color combination.
 
 The accepted design authority is:
@@ -136,7 +136,7 @@ Visual Anchors are not runtime ports.
 
 ### 3.5 One effective Component Property truth
 
-Renderer and Component Action handlers observe the same effective Component Property snapshot.
+Renderer and Component Action handlers must observe the same effective Component Property snapshot.
 
 Authored/default fallback, external binding and derived layers may be separate internally, but final effective Property state has deterministic ownership and ordering.
 
@@ -146,7 +146,7 @@ Authored/default fallback, external binding and derived layers may be separate i
 - missing/unresolved derived values use explicit invalidation
 - cycles are authoring errors, not fixed-point programs
 - primary-device rebind is transactional
-- persisted Scene v7 semantics are structured/canonical; DSL text is not persistence authority
+- persisted Scene v8 semantics are structured/canonical; DSL text is not persistence authority
 - accepted persisted semantics must not be silently ignored by a runtime host that claims to run the Scene
 - missing mandatory host runtime capabilities fail closed rather than degrading silently
 
@@ -208,7 +208,7 @@ Trusted built-ins may implement Actions/Events. Do not silently turn draft text 
 
 ### 3.12 Work portability is dependency-complete
 
-A raw Scene v7 document references component types but does not contain user-component definitions.
+A raw Scene v8 document references component types but does not contain user-component definitions.
 
 A runnable work artifact carries exact portable user-component dependency closure while trusted built-in/native components remain explicit host capabilities.
 
@@ -233,7 +233,7 @@ package-scoped PreviewRuntime
 package-scoped canonical semantic attachments
 ```
 
-Canonical Scene v7 semantics use the accepted runtime chain:
+Current canonical Scene v8 semantics use the accepted runtime chain:
 
 ```text
 PersistedScadaSemantics
@@ -263,7 +263,10 @@ M5 SCADA Runtime v0.1                                          accepted
 M6 Component Workbench + scene semantics                       accepted · 2026-08-30
 M7 Packaging / adapter foundation / reusable components         accepted · 2026-08-31
 M8 Portable SCADA Work + Standalone Runtime                     accepted · 2026-09-02
-M9 Component Attribute / Property Authority Split               NEXT
+M9A1 Attribute / Property schema + migration authority          accepted · 2026-09-02
+M9A2 Workbench + Inspector authority separation                 acceptance in PR #119
+M9B1 Runtime Attribute / Property authority split               NEXT after M9A2
+M9B2 Package / Scene compatibility + end-to-end acceptance      QUEUED
 ```
 
 Detailed evidence: `docs/progress/`.
@@ -298,7 +301,8 @@ Accepted rules:
 - Behavior Binding reacts to runtime state and may invoke Component Actions.
 - Interaction Binding routes Component/user Events to Device/Platform Actions.
 - data-driven device orchestration remains outside this narrow SCADA layer.
-- `device.*` is relative to the component instance's primary device.
+- `$device.*` is relative to the component instance's one primary device.
+- `$self.*` exposes Scene-DSL runtime Properties / Actions / Events, never Attributes.
 - propagation settles affected Value Bindings before affected Behaviors.
 - one `RuntimeValueStore` publication is one source transaction.
 - Preview owns the settled Property snapshot consumed by Renderer and Action handlers.
@@ -369,7 +373,7 @@ Final evidence:
 - Deploy GitHub Pages #245 (`33591388105`) passed
 - Pages Browser Smoke #196 (`33591427942`) passed
 
-The deployed standalone proof covers the final end-to-end path:
+The deployed standalone proof covered the then-current Scene v7 path:
 
 ```text
 .scada-work.json
@@ -386,29 +390,24 @@ no authoring chrome
 no Studio IndexedDB initialization
 ```
 
-Closeout record:
+Closeout record: `docs/progress/m8-closeout.md`.
 
-`docs/progress/m8-closeout.md`
-
-Historical blocked review:
-
-`docs/progress/m8-closeout-review.md`
+Historical blocked review: `docs/progress/m8-closeout-review.md`.
 
 Do not create M8B3 merely to continue numbering.
-
 Concrete runtime transport remains separately deferred by M7B2.
 
 ---
 
-## 8. M9 Component Attribute / Property Authority Split — NEXT
+## 8. M9 Component Attribute / Property Authority Split — active
 
 Architecture authority:
 
 `docs/architecture/component-attributes-properties.md`
 
-M9 corrects the current conflated public Property namespace so authored presentation/configuration and runtime semantic state have distinct authority.
+M9 corrects the previously conflated public Property namespace so authored presentation/configuration and runtime semantic state have distinct authority.
 
-Target public contract:
+Target/current public contract:
 
 ```text
 Component
@@ -419,79 +418,78 @@ Component
 └─ Anchors
 ```
 
-The migration must be deliberate and versioned. Do not implement this as scattered field renames or Inspector-only grouping.
+### M9A1 Schema / SDK + versioned migration authority — accepted · 2026-09-02
 
-### M9A1 Schema / SDK + versioned legacy classification — NEXT
+M9A1 established the structural authority required before UI/runtime migration:
+
+- first-class `attributes` and `properties` in `ComponentDefinition`;
+- deterministic legacy field classification with ambiguous cases failing closed;
+- Scene v8 separates instance `attributes` from `propertyFallbacks`;
+- component/package codecs normalize legacy input through explicit migration rather than dual live authority;
+- component-private authored-state migration hook handles safe component-specific value evolution while final current-schema validation remains mandatory;
+- built-ins/starter packages use the current Attribute-aware contract;
+- Pump `state` is semantic (`stopped/running/manual/warning/alarm`) instead of encoding palette names;
+- Pump presentation colors are authored Attributes;
+- SCADA DSL v1 uses only `$self` / `$device`, cannot target Attributes, and lowers to structured persisted semantics.
+
+Key records:
+
+- `docs/progress/m9a1-0-contract-freeze.md`
+- `docs/progress/m9a1.4-dsl-symbol-contract.md`
+- PR #117 DSL v1 migration
+- PR #118 built-in / starter migration
+
+### M9A2 Component Workbench + SCADA Inspector separation — acceptance in PR #119
 
 Goal:
 
-> Establish first-class Attribute and Property schema authority while preserving deterministic compatibility with existing component/Scene/package data.
+> Make the schema authority visible and enforceable in normal authoring without changing runtime execution authority prematurely.
+
+Implemented acceptance surface:
+
+- Component Workbench exposes independent `Attributes` and `Properties` contract sections;
+- Attribute contract editing has no `bindable` control;
+- SCADA Inspector renders `组件配置 · Attributes` separately from `运行属性 · Properties`;
+- Attribute edits write `SceneNode.attributes` only;
+- Property fallback edits write `SceneNode.propertyFallbacks` only;
+- binding controls are generated only from `definition.properties[key].bindable`;
+- Pump provides representative proof: `runningColor` is authored configuration while `state` is a bindable runtime Property.
+
+Record: `docs/progress/m9a2-authoring-authority-ui.md`.
+
+M9A2 does **not** claim authored Attribute values already influence rendering. That is the next runtime gate.
+
+### M9B1 Runtime Attribute / Property authority split — NEXT after M9A2
+
+Goal:
+
+> Carry the already-separated authored/runtime authorities through Preview, Renderer, Component Actions and component-private visual evaluation.
 
 Required work:
 
-- add first-class `attributes` and runtime-capable `properties` to the public component definition
-- define instance-authored Attribute values separately from runtime-capable Property fallback/effective values
-- preserve Actions, Events, Anchors and private implementation state
-- define explicit component/package/schema versioning or migration boundaries as required
-- classify legacy fields deterministically where semantics are unambiguous
-- require an explicit migration decision or fail closed where legacy intent is ambiguous; do not guess unsafe semantics
-- migrate existing built-in/starter/user fixtures through one authority path
-- preserve old artifact readability through explicit migration rather than indefinite dual authority
+- Value Binding continues to write Properties only;
+- runtime telemetry/derived updates cannot mutate authored Attributes;
+- Preview/runtime owns a resolved immutable Attribute snapshot separately from the effective Property store;
+- Renderer receives explicit authored Attributes plus one deterministic effective Property snapshot;
+- Component Action handlers observe the same effective Property truth as Renderer and may read authored Attributes through an explicit separate namespace where required;
+- component-private Visual Rules can read Attributes and Properties through distinct authority namespaces;
+- Pump authored color Attributes become the first end-to-end runtime proof instead of remaining schema/UI-only configuration;
+- Attribute edits remain authoring operations and do not enter telemetry propagation/history paths.
 
-Acceptance must prove:
-
-- one legacy configurable-only field migrates to Attribute
-- one legacy bindable/runtime field remains Property
-- ambiguous legacy classification cannot silently change authority
-- migrated definitions round-trip deterministically
-- existing Scene/work/component packages have an explicit compatible migration path
-
-### M9A2 Component Workbench + SCADA Inspector separation — QUEUED
-
-After M9A1 establishes schema authority:
-
-- Component Workbench authors Attributes and Properties as separate first-class contract sections
-- SCADA Inspector renders ordinary Attribute configuration separately from Property binding/value controls
-- Attribute runtime binding is structurally unavailable/rejected
-- normal SCADA authoring complexity stays low and generated from component metadata
-
-### M9B1 Runtime Attribute / Property authority split — QUEUED
-
-After schema/UI authority exists:
-
-- Value Binding writes Properties only
-- runtime telemetry/derived updates cannot mutate authored Attributes
-- renderer/private visual rules receive authored Attributes plus one deterministic effective Property snapshot
-- Action handlers observe the same effective Property truth as Renderer
-- Attribute edits remain authoring operations and do not enter runtime propagation/history paths
+Do not flatten Attributes back into `ComponentProps` to implement this. The runtime API itself must express the distinction.
 
 ### M9B2 Package / Scene compatibility + end-to-end acceptance — QUEUED
 
 Prove the split survives all accepted M7/M8 distribution/runtime boundaries:
 
-- component package export/import
-- SCADA work package export/import
-- registry-scoped Scene validation/migration
-- standalone direct package load
-- canonical persisted semantics
-- fresh-browser Pages smoke
+- component package export/import;
+- SCADA work package export/import;
+- registry-scoped Scene validation/migration;
+- standalone direct package load;
+- canonical persisted semantics;
+- fresh-browser Pages smoke.
 
-Acceptance scenario should prove one generic industrial component can use:
-
-```text
-Attributes:
-  runningColor
-  stoppedColor
-  alarmColor
-  faultColor
-
-Properties:
-  running
-  alarm
-  fault
-```
-
-without creating state-specific component types.
+Final acceptance scenario should prove one generic industrial component can use semantic runtime state plus authored presentation Attributes without state-specific component types.
 
 ### M9 closeout
 
@@ -505,16 +503,16 @@ Close M9 only after A1/A2/B1/B2 are individually accepted and the end-to-end aut
 M6 browser-first authoring/runtime foundation                   accepted · 2026-08-30
 M7 packaging / adapter foundation                              accepted · 2026-08-31
 M8 Portable SCADA Work + Standalone Runtime                    accepted · 2026-09-02
-M9A1 schema / SDK + versioned legacy classification            NEXT
-M9A2 Workbench + Inspector separation                          QUEUED
-M9B1 runtime Attribute / Property authority split              QUEUED
+M9A1 schema / Scene v8 / DSL v1 / migration authority          accepted · 2026-09-02
+M9A2 Workbench + Inspector separation                          acceptance in PR #119
+M9B1 runtime Attribute / Property authority split              NEXT after M9A2
 M9B2 package / Scene compatibility + acceptance                QUEUED
 M9 closeout                                                    after A1 + A2 + B1 + B2
 ```
 
-**Current implementation gate after this closeout record merges: M9A1 Schema / SDK + versioned legacy classification.**
+**Current implementation gate after PR #119 merges: M9B1 Runtime Attribute / Property authority split.**
 
-Before M9A1 implementation, always re-read latest `main`, this roadmap and the accepted Attribute/Property architecture document.
+Before M9B1 implementation, re-read latest `main`, this roadmap, the accepted Attribute/Property architecture document and the M9A2 progress record. Preserve M6–M8 boundaries; M9B1 is a runtime-authority migration, not a broad component-system rewrite.
 
 ---
 
@@ -524,29 +522,29 @@ A milestone is not accepted merely because TypeScript compiles.
 
 Use the narrowest relevant verification set:
 
-- deterministic model/runtime scripts for semantic behavior
-- CI Build + runtime/model checks + Lint
-- deployed Pages smoke when browser/UI/public distribution behavior changes
-- storage migration fixtures when persistence formats change
-- publication contract and PostgreSQL/API integration when remote publication behavior changes
-- component-package fixtures for codec/transfer/persistence/activation
-- runtime-adapter fixtures for lifecycle/reconnect/fencing/no-replay
-- registry-scoped Scene fixtures for isolated validation/migration
-- work-package fixtures for exact dependency closure and fail-closed validation
-- browser-transfer fresh-browser fixtures
-- standalone-runtime package/session fixtures
-- portable visual-resource fixtures
-- canonical persisted-semantics fixtures
+- deterministic model/runtime scripts for semantic behavior;
+- CI Build + runtime/model checks + Lint;
+- deployed Pages smoke when browser/UI/public distribution behavior changes materially;
+- storage migration fixtures when persistence formats change;
+- publication contract and PostgreSQL/API integration when remote publication behavior changes;
+- component-package fixtures for codec/transfer/persistence/activation;
+- runtime-adapter fixtures for lifecycle/reconnect/fencing/no-replay;
+- registry-scoped Scene fixtures for isolated validation/migration;
+- work-package fixtures for exact dependency closure and fail-closed validation;
+- browser-transfer fresh-browser fixtures;
+- standalone-runtime package/session fixtures;
+- portable visual-resource fixtures;
+- canonical persisted-semantics fixtures.
 
 M9 specifically requires:
 
-- schema migration fixtures proving Attribute vs Property authority classification
-- explicit ambiguous-legacy behavior tests
-- Attribute-binding rejection tests
-- runtime tests proving telemetry cannot mutate Attributes
-- Renderer/Action tests proving one effective Property snapshot
-- component/work package compatibility fixtures
-- fresh-browser standalone proof that authored Attributes survive while runtime Properties drive visual state
+- schema migration fixtures proving Attribute vs Property authority classification;
+- explicit ambiguous-legacy behavior tests;
+- Attribute-binding rejection/absence tests;
+- runtime tests proving telemetry cannot mutate Attributes;
+- Renderer/Action tests proving one effective Property snapshot and separate Attribute context;
+- component/work package compatibility fixtures;
+- fresh-browser standalone proof that authored Attributes survive while runtime Properties drive visual state.
 
 Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
@@ -556,23 +554,22 @@ Prefer explicit deterministic state/snapshots over timing-sensitive renderer ins
 
 Do not distract M9 with unrelated expansion:
 
-- production publication-backend provisioning while M6.7B3 remains deferred
-- speculative MQTT/WebSocket/HTTP/SSE/vendor adapter implementation
-- protocol-specific Component, Scene or work-package fields
-- outbound command replay/exactly-once claims without protocol idempotency support
-- executable `implementationDraft`
-- portable user Actions/Events without an accepted executable contract
-- automatic remote dependency fetching
-- hidden local installation of bundled runtime dependencies
-- runtime authoring/persistence in standalone mode
-- editor mock telemetry in standalone mode
-- broad asset-manager/media-library UX without a demonstrated product requirement
-- package-v2 resource tables without a demonstrated need
-- component marketplace/catalog expansion
-- large starter component catalogs before the Attribute/Property authority split stabilizes
-- unrestricted JavaScript
-- arbitrary DOM / React / Konva authored access
-- full vector illustration/path tooling
-- collaborative editing
+- production publication-backend provisioning while M6.7B3 remains deferred;
+- speculative MQTT/WebSocket/HTTP/SSE/vendor adapter implementation;
+- protocol-specific Component, Scene or work-package fields;
+- outbound command replay/exactly-once claims without protocol idempotency support;
+- executable `implementationDraft`;
+- portable user Actions/Events without an accepted executable contract;
+- automatic remote dependency fetching;
+- hidden local installation of bundled runtime dependencies;
+- runtime authoring/persistence in standalone mode;
+- editor mock telemetry in standalone mode;
+- broad asset-manager/media-library UX without a demonstrated product requirement;
+- component marketplace/catalog expansion;
+- large starter component catalogs before the Attribute/Property authority split stabilizes;
+- unrestricted JavaScript;
+- arbitrary DOM / React / Konva authored access;
+- full vector illustration/path tooling;
+- collaborative editing.
 
 These are deferred or separate concerns, not rejected forever.
