@@ -25,7 +25,7 @@ export function StandaloneRuntimePage() {
     try {
       const next = parseStandaloneWorkRuntimeDocument(await file.text())
       if (!next) {
-        throw new Error('作品包无效、依赖不完整或版本不受支持')
+        throw new Error('作品包无效、依赖不完整、运行能力缺失或版本不受支持')
       }
       setLoaded(next)
       setFileName(file.name)
@@ -88,6 +88,7 @@ export function StandaloneRuntimePage() {
             scene={scene}
             registry={loaded.registry}
             runtime={loaded.runtime}
+            acquireRuntime={loaded.acquire}
           />
         ) : (
           <section className="standalone-runtime-empty">
