@@ -139,7 +139,10 @@ const ruleVisual = {
     },
   ],
 } as const
-const ruleResolved = resolveComponentVisualRules(ruleVisual, { alarm: true })
+const ruleResolved = resolveComponentVisualRules(ruleVisual, {
+  attributes: {},
+  properties: { alarm: true },
+})
 assert.equal(ruleResolved.layers[0]?.visible, false)
 const ruleOverlay = evaluateVisualAnimations(ruleResolved, { alarm: true }, 100)
 assert.equal(ruleOverlay.lamp?.visible, true)
