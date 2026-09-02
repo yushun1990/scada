@@ -3,7 +3,7 @@ import type Konva from 'konva'
 import type { PumpState } from '../../assets/pump'
 import { PumpNode } from '../../components/PumpNode'
 import type { ComponentRendererProps } from '../renderer'
-import type { PumpSemanticState } from './pump'
+import type { PumpSemanticState } from './pump-contract'
 
 const PUMP_PALETTE_BY_SEMANTIC_STATE: Readonly<Record<PumpSemanticState, PumpState>> = {
   stopped: 'gray',
