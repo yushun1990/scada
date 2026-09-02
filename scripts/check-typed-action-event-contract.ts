@@ -209,7 +209,6 @@ const catalog = createScadaDslCapabilityCatalog(definition, [
   {
     sourceId: 'authoring-device',
     title: 'Primary device',
-    symbol: 'device',
     properties: {
       level: { title: 'Level', kind: 'number', defaultValue: 0 },
     },
@@ -234,14 +233,14 @@ const catalog = createScadaDslCapabilityCatalog(definition, [
 ])
 
 const validSource = `
-component.level = device.level
+$self.level = $device.level
 
-if component.level > 10 {
-  component.record(component.level, "auto")
+if $self.level > 10 {
+  $self.record($self.level, "auto")
 }
 
-on component.commandRequested {
-  device.start(component.level, "fast")
+on $self.commandRequested {
+  $device.start($self.level, "fast")
 }
 `
 const valid = compileScadaDslSource(validSource, catalog)
@@ -249,26 +248,26 @@ assert.deepEqual(valid.diagnostics, [])
 assert.ok(valid.compiled)
 
 const wrongComponentArgument = compileScadaDslSource(`
-if device.level > 10 {
-  component.record("bad")
+if $device.level > 10 {
+  $self.record("bad")
 }
 `, catalog)
 assert.equal(wrongComponentArgument.compiled, null)
 assert.ok(
   wrongComponentArgument.diagnostics.some((diagnostic) =>
-    diagnostic.message.includes('Action component.record 参数 1'),
+    diagnostic.message.includes('Action $self.record 参数 1'),
   ),
 )
 
 const missingDeviceArgument = compileScadaDslSource(`
-on component.commandRequested {
-  device.start(device.level)
+on $self.commandRequested {
+  $device.start($device.level)
 }
 `, catalog)
 assert.equal(missingDeviceArgument.compiled, null)
 assert.ok(
   missingDeviceArgument.diagnostics.some((diagnostic) =>
-    diagnostic.message.includes('Action device.start 参数数量无效'),
+    diagnostic.message.includes('Action $device.start 参数数量无效'),
   ),
 )
 
@@ -314,5 +313,5 @@ attachment.dispose()
 releasePreview()
 
 console.log(
-  'Typed Action/Event contract checks passed: component definitions validate ordered Action parameters and Event payload schemas, DSL compilation rejects Action arity/type mismatches, Preview validates runtime invocations/payloads, parameterized Component Actions execute against the settled Renderer snapshot, and Device/Platform Actions cross an explicit typed dispatcher boundary.',
+  'Typed Action/Event contract checks passed: component definitions validate ordered Action parameters and Event payload schemas, DSL v1 $self/$device compilation rejects Action arity/type mismatches, Preview validates runtime invocations/payloads, parameterized Component Actions execute against the settled Renderer snapshot, and Device/Platform Actions cross an explicit typed dispatcher boundary.',
 )
