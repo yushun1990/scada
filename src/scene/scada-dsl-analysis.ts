@@ -30,6 +30,10 @@ export type ScadaDslTypeCheckResult = {
   diagnostics: readonly ScadaDslTypeDiagnostic[]
 }
 
+/**
+ * Kept as a source-compatible shell while M9 migrates callers. DSL v1 roots are
+ * fixed and cannot be changed through options.
+ */
 export type ScadaDslTypeCheckOptions = {
   primaryDeviceSymbol?: string
 }
@@ -74,15 +78,10 @@ function propertyTypes(
   } else if (property.defaultValue !== null) {
     types.push(scalarType(property.defaultValue))
   } else {
-    // A select without options/default is unresolved at authoring time. Keep
-    // both scalar select families rather than inventing coercion semantics.
     types.push('string', 'number')
   }
 
-  if (property.defaultValue === null) {
-    types.push('null')
-  }
-
+  if (property.defaultValue === null) types.push('null')
   return uniqueTypes(types)
 }
 
@@ -100,7 +99,6 @@ function contractValueTypes(
       types.push(typeof option.value === 'number' ? 'number' : 'string')
     }
   } else {
-    // An unbounded select may accept either supported scalar select family.
     types.push('string', 'number')
   }
 
@@ -116,7 +114,6 @@ function findCapability(
   reference: ScadaDslReferenceExpression,
   catalog: ScadaDslCapabilityCatalog,
 ): ScadaDslCapabilityItem | null {
-  if (reference.path.length !== 2) return null
   const [symbol, member] = reference.path
   const matches = catalog.items.filter(
     (item) => item.symbol === symbol && item.member === member,
@@ -130,8 +127,6 @@ function inferReferenceType(
 ): InferredType {
   const capability = findCapability(reference, catalog)
   if (!capability || capability.capabilityKind !== 'property' || !capability.property) {
-    // Semantic lowering owns the detailed unknown/ambiguous/not-a-property
-    // diagnostic. Avoid duplicating a less useful type error here.
     return { types: [], valid: false }
   }
 
@@ -203,36 +198,6 @@ function inferExpressionType(
       '一元 `-` ',
     )
     return { types: ['number'], valid }
-  }
-
-  if (expression.kind === 'conditional') {
-    const condition = inferExpressionType(
-      expression.condition,
-      catalog,
-      diagnostics,
-    )
-    const conditionValid = requireExactType(
-      condition,
-      'boolean',
-      expression.condition.span,
-      diagnostics,
-      '`if` 条件',
-    )
-    const consequent = inferExpressionType(
-      expression.consequent,
-      catalog,
-      diagnostics,
-    )
-    const alternate = inferExpressionType(
-      expression.alternate,
-      catalog,
-      diagnostics,
-    )
-
-    return {
-      types: uniqueTypes([...consequent.types, ...alternate.types]),
-      valid: conditionValid && consequent.valid && alternate.valid,
-    }
   }
 
   const left = inferExpressionType(expression.left, catalog, diagnostics)
@@ -341,7 +306,6 @@ function checkActionArguments(
     capability.capabilityKind !== 'action' ||
     !capability.action
   ) {
-    // Semantic lowering owns unknown/not-an-Action diagnostics.
     return
   }
 
@@ -387,7 +351,7 @@ function checkStatement(
     const source = inferExpressionType(statement.value, catalog, diagnostics)
 
     if (
-      target?.symbol === 'component' &&
+      target?.symbol === '$self' &&
       target.capabilityKind === 'property' &&
       target.property &&
       source.valid
@@ -395,7 +359,7 @@ function checkStatement(
       const accepted = propertyTypes(target.property)
       if (!isAssignable(source.types, accepted)) {
         diagnostics.push({
-          message: `不能把 ${formatTypes(source.types)} 赋给 component.${target.member}（需要 ${formatTypes(accepted)}）`,
+          message: `不能把 ${formatTypes(source.types)} 赋给 $self.${target.member}（需要 ${formatTypes(accepted)}）`,
           span: statement.value.span,
         })
       }
@@ -422,6 +386,23 @@ function checkStatement(
     }
     for (const child of statement.alternate ?? []) {
       checkStatement(child, catalog, diagnostics)
+    }
+    return
+  }
+
+  if (statement.kind === 'case') {
+    const subject = inferExpressionType(statement.expression, catalog, diagnostics)
+    for (const arm of statement.arms) {
+      if (arm.pattern.kind === 'literal' && subject.valid) {
+        const patternType = scalarType(arm.pattern.value)
+        if (!subject.types.includes(patternType)) {
+          diagnostics.push({
+            message: `case arm 字面量类型 ${patternType} 与被匹配值 ${formatTypes(subject.types)} 不兼容`,
+            span: arm.pattern.span,
+          })
+        }
+      }
+      for (const child of arm.body) checkStatement(child, catalog, diagnostics)
     }
     return
   }
@@ -497,6 +478,8 @@ function collectExpressionDependencies(
     return
   }
 
+  // Conditional expressions remain part of the persisted semantic compatibility
+  // model even though the DSL v1 parser no longer authors `if ... then ... else`.
   if (expression.kind === 'conditional') {
     collectExpressionDependencies(expression.condition, output)
     collectExpressionDependencies(expression.consequent, output)
