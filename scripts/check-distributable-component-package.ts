@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict'
 import { createEmptyCompositeVisual } from '../src/component-system/visual'
-import type { ComponentLibraryEntry } from '../src/features/component-library/component-document'
+import {
+  COMPONENT_PACKAGE_VERSION,
+  type ComponentLibraryEntry,
+} from '../src/features/component-library/component-document'
 import {
   DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
+  LEGACY_DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
   createDistributableComponentPackage,
   distributableComponentPackageToLibraryEntry,
   parseDistributableComponentPackage,
@@ -19,7 +23,7 @@ const SELF_CONTAINED_SVG_DATA_URL =
 
 function readyEntry(): ComponentLibraryEntry {
   return {
-    version: 1,
+    version: COMPONENT_PACKAGE_VERSION,
     id: 'local-portable-123',
     definition: {
       type: 'custom.portable.fixture',
@@ -32,6 +36,7 @@ function readyEntry(): ComponentLibraryEntry {
         minWidth: 40,
         minHeight: 24,
       },
+      attributes: {},
       properties: {
         value: {
           title: 'Value',
@@ -116,6 +121,51 @@ assert.equal(
   serializeDistributableComponentPackage(parsedDocument),
   serialized,
   'normalized serialization is deterministic',
+)
+
+// V1 is migration input only. A legacy definition containing only bindable
+// runtime fields has provable Property authority and normalizes to V2.
+const {
+  attributes: _legacyAttributes,
+  ...legacyDefinition
+} = artifact.definition
+const migratedVersionOne = parseDistributableComponentPackage({
+  packageVersion: LEGACY_DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
+  definition: legacyDefinition,
+  visual: artifact.visual,
+  implementationDraft: artifact.implementationDraft,
+})
+assert.ok(migratedVersionOne)
+assert.equal(
+  migratedVersionOne.packageVersion,
+  DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
+)
+assert.deepEqual(migratedVersionOne.definition.attributes, {})
+assert.deepEqual(
+  migratedVersionOne.definition.properties,
+  artifact.definition.properties,
+)
+
+// A non-bindable V1 field has no encoded authored/runtime authority. It must not
+// be silently treated as either an Attribute or a Property by the transport codec.
+assert.equal(
+  parseDistributableComponentPackage({
+    packageVersion: LEGACY_DISTRIBUTABLE_COMPONENT_PACKAGE_VERSION,
+    definition: {
+      ...legacyDefinition,
+      properties: {
+        visualColor: {
+          title: 'Visual color',
+          kind: 'color',
+          defaultValue: '#00ff00',
+        },
+      },
+    },
+    visual: artifact.visual,
+    implementationDraft: artifact.implementationDraft,
+  }),
+  null,
+  'ambiguous V1 field authority must fail closed',
 )
 
 const selfContainedImageArtifact = createDistributableComponentPackage(
@@ -233,7 +283,7 @@ const imported = distributableComponentPackageToLibraryEntry(artifact, {
   id: 'imported-local-id',
   updatedAt: '2026-08-30T01:00:00.000Z',
 })
-assert.equal(imported.version, 1)
+assert.equal(imported.version, COMPONENT_PACKAGE_VERSION)
 assert.equal(imported.id, 'imported-local-id')
 assert.equal(imported.status, 'ready')
 assert.equal(imported.builtIn, false)
@@ -262,5 +312,5 @@ assert.deepEqual(
 )
 
 console.log(
-  'Distributable component package checks passed: ready local authoring metadata is stripped at the transport boundary, self-contained data:image visual resources round-trip deterministically, host-relative/remote/blob visual references fail closed, malformed/unsupported artifacts are rejected, pure import conversion injects new local identity explicitly, and publication reuses the same artifact codec.',
+  'Distributable component package checks passed: V2 owns first-class Attribute/Property authority, safe V1 bindable fields migrate deterministically, ambiguous V1 fields fail closed, self-contained data:image resources round-trip, malformed/unsupported artifacts are rejected, local identity remains out of transport, and publication reuses the same artifact codec.',
 )
