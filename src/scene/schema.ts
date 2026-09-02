@@ -1,8 +1,12 @@
-import type { ComponentProps } from '../component-system/definition'
+import type {
+  ComponentAttributeValues,
+  ComponentPropertyFallbackValues,
+} from '../component-system/definition'
 import type { PersistedScadaSemantics } from './scada-semantics-persistence'
 
 export const LEGACY_SCENE_VERSION = 6 as const
-export const SCENE_VERSION = 7 as const
+export const PREVIOUS_SCENE_VERSION = 7 as const
+export const SCENE_VERSION = 8 as const
 export const GROUP_NODE_TYPE = 'core.group' as const
 
 export type NodeTransform = {
@@ -48,21 +52,23 @@ type SceneNodeBase = {
   transform: NodeTransform
 }
 
+/**
+ * Canonical Scene v8 component instance authored state.
+ *
+ * Attributes and Property fallbacks are persisted as distinct authorities.
+ * Effective/runtime Property values are deliberately not persisted here.
+ * Pre-v8 `props` exists only at the parser migration boundary.
+ */
 export type ComponentSceneNode = SceneNodeBase & {
   type: string
-  props: ComponentProps
+  attributes: ComponentAttributeValues
+  propertyFallbacks: ComponentPropertyFallbackValues
   /** Scene v5 compatibility-only runtime-value bindings. */
   bindings: DataBinding[]
   /** Scene v6 compatibility-only Event -> Component Action behaviors. */
   behaviors: ComponentBehavior[]
-  /**
-   * Scene v7 canonical SCADA Value/Behavior/Interaction semantics.
-   *
-   * Optional in the in-memory TypeScript shape so older deterministic fixtures
-   * can still construct legacy-v6 documents directly. Serialized Scene v7 JSON
-   * always normalizes this field to an explicit object or null.
-   */
-  scadaSemantics?: PersistedScadaSemantics | null
+  /** Scene v7+ canonical SCADA Value/Behavior/Interaction semantics. */
+  scadaSemantics: PersistedScadaSemantics | null
 }
 
 export type GroupSceneNode = SceneNodeBase & {
@@ -99,10 +105,13 @@ export type SceneConnection = {
 
 export type SceneDocument = {
   /**
-   * v6 remains constructible in-memory only as a compatibility shape. Normal
-   * load/save paths migrate and serialize the current v7 schema.
+   * v6/v7 remain constructible in-memory only for deterministic migration
+   * fixtures. Normal load/save paths canonicalize to Scene v8.
    */
-  version: typeof LEGACY_SCENE_VERSION | typeof SCENE_VERSION
+  version:
+    | typeof LEGACY_SCENE_VERSION
+    | typeof PREVIOUS_SCENE_VERSION
+    | typeof SCENE_VERSION
   id: string
   name: string
   width: number

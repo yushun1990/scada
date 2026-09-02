@@ -60,7 +60,7 @@ const registry = new ComponentRegistry([registration])
 const runtime = new PreviewRuntime([], registry)
 
 const scene: SceneDocument = {
-  version: 6,
+  version: 8,
   id: 'scene-preview-state',
   name: 'Preview state ownership',
   width: 1280,
@@ -81,7 +81,8 @@ const scene: SceneDocument = {
         height: 100,
         rotation: 0,
       },
-      props: {
+      attributes: {},
+      propertyFallbacks: {
         state: 'authored',
       },
       bindings: [
@@ -108,6 +109,7 @@ const scene: SceneDocument = {
           },
         },
       ],
+      scadaSemantics: null,
     },
   ],
   connections: [],
@@ -116,7 +118,7 @@ const scene: SceneDocument = {
 const releaseRuntime = runtime.acquire(scene)
 
 // The store owns the effective snapshot. Without an external value the authored
-// layer wins over the component default.
+// fallback layer wins over the component default.
 assert.equal(
   runtime.componentProps.getNodeSnapshot('component-1').state,
   'authored',
@@ -214,5 +216,5 @@ assert.equal(runtime.isRunning, false)
 assert.deepEqual(runtime.componentProps.getNodeSnapshot('component-1'), {})
 
 console.log(
-  'Preview Component Property state checks passed: Preview owns one deterministic default/authored/legacy/derived snapshot, RuntimeValueStore stays external, Renderer/Action consumers share the same settled props object, and compiled semantic claims suppress legacy v6 Event -> Component Action dispatch without hiding Component Events.',
+  'Preview Component Property state checks passed: Preview owns one deterministic default/authored-fallback/legacy/derived snapshot, authored Attributes stay outside the Property store, RuntimeValueStore stays external, Renderer/Action consumers share the same settled props object, and compiled semantic claims suppress legacy v6 Event -> Component Action dispatch without hiding Component Events.',
 )

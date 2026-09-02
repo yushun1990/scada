@@ -89,10 +89,10 @@ const catalog = createScadaDslCapabilityCatalog(registration.definition, [
 function createScene(
   id: string,
   nodeId: string,
-  props: ComponentProps = { level: 7, label: 'low' },
+  propertyFallbacks: ComponentProps = { level: 7, label: 'low' },
 ): SceneDocument {
   return {
-    version: 6,
+    version: 8,
     id,
     name: id,
     width: 1280,
@@ -113,7 +113,8 @@ function createScene(
           height: 100,
           rotation: 0,
         },
-        props,
+        attributes: {},
+        propertyFallbacks,
         bindings: [],
         behaviors: [
           {
@@ -129,6 +130,7 @@ function createScene(
             },
           },
         ],
+        scadaSemantics: null,
       },
     ],
     connections: [],
@@ -186,17 +188,23 @@ assert.equal(actionSnapshots.at(-1)?.action, 'showHigh')
 assert.strictEqual(actionSnapshots.at(-1)?.props, renderedSnapshot)
 
 // A concrete source publication routes through the compiled reverse index and
-// changes the host-owned rendered snapshot without writing authored Scene props.
+// changes the host-owned rendered snapshot without writing authored Scene
+// Property fallbacks.
 runtime.values.set('pump-01:level', 5)
 renderedSnapshot = runtime.componentProps.getNodeSnapshot('component-1')
 assert.deepEqual(renderedSnapshot, { level: 5, label: 'low' })
 assert.equal(actionSnapshots.at(-1)?.action, 'showLow')
 assert.strictEqual(actionSnapshots.at(-1)?.props, renderedSnapshot)
-assert.deepEqual(scene.nodes[0]?.props, { level: 7, label: 'low' })
+assert.deepEqual(
+  scene.nodes[0] && 'propertyFallbacks' in scene.nodes[0]
+    ? scene.nodes[0].propertyFallbacks
+    : null,
+  { level: 7, label: 'low' },
+)
 
 // While compiled semantics owns the node, the same Component Event is routed
-// only into the new Interaction Binding path. The compatibility-only Scene v6
-// Event -> Component Action behavior stays suppressed.
+// only into the new Interaction Binding path. The compatibility-only Event ->
+// Component Action behavior stays suppressed.
 runtime.emitEvent('component-1', 'commandRequested')
 assert.equal(legacyActionCount, 0)
 assert.deepEqual(deviceActions.at(-1), {
@@ -305,5 +313,5 @@ abortAttachment.dispose()
 releaseAbortRuntime()
 
 console.log(
-  'Preview SCADA integration checks passed: source publications flow through the compiled transactional session into the single Preview Component Property snapshot, Behaviors run only after derived settling, Component Actions share the Renderer snapshot, Interactions emit one host-owned device action, rebind never leaks old-device values, and aborted source/rebind propagation exposes no partial Preview effects.',
+  'Preview SCADA integration checks passed: Scene v8 Property fallbacks stay authored and immutable under runtime propagation, source publications flow through the compiled transactional session into the single Preview Component Property snapshot, Behaviors run only after derived settling, Component Actions share the Renderer snapshot, Interactions emit one host-owned device action, rebind never leaks old-device values, and aborted source/rebind propagation exposes no partial Preview effects.',
 )

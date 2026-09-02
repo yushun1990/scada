@@ -373,20 +373,31 @@ export function assertComponentDefinition(
     throw new Error(`组件 ${value.type} 的最小尺寸不能大于默认尺寸`)
   }
 
-  if (!isRecord(value.attributes)) {
+  const attributes = value.attributes
+  if (!isRecord(attributes)) {
     throw new Error(`组件 ${value.type} 的 attributes 必须是对象`)
   }
 
-  for (const [key, attribute] of Object.entries(value.attributes)) {
+  for (const [key, attribute] of Object.entries(attributes)) {
     assertAttribute(value.type as string, key, attribute)
   }
 
-  if (!isRecord(value.properties)) {
+  const properties = value.properties
+  if (!isRecord(properties)) {
     throw new Error(`组件 ${value.type} 的 properties 必须是对象`)
   }
 
-  for (const [key, property] of Object.entries(value.properties)) {
+  for (const [key, property] of Object.entries(properties)) {
     assertProperty(value.type as string, key, property)
+  }
+
+  const overlappingKeys = Object.keys(attributes).filter((key) =>
+    Object.hasOwn(properties, key),
+  )
+  if (overlappingKeys.length > 0) {
+    throw new Error(
+      `组件 ${value.type} 的 Attribute / Property 名称不能重叠: ${overlappingKeys.join(', ')}`,
+    )
   }
 
   assertInteractionMap(value.type as string, 'Action', value.actions)

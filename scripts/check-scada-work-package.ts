@@ -132,7 +132,7 @@ function scene(version: 6 | 7 = 7): SceneDocument {
     background: '#ffffff',
     nodes,
     connections: [],
-  }
+  } as unknown as SceneDocument
 }
 
 // The runnable-work codec is a pure artifact boundary. It must not gain a
@@ -159,7 +159,17 @@ const workPackage = createScadaWorkPackage(
 )
 
 assert.equal(workPackage.packageVersion, SCADA_WORK_PACKAGE_VERSION)
-assert.equal(workPackage.scene.version, 7)
+assert.equal(
+  workPackage.scene.version,
+  8,
+  'Work Package v1 owns its envelope version independently while normalizing nested Scene v7 input to Scene v8',
+)
+assert.ok(
+  workPackage.scene.nodes.every((candidate) =>
+    candidate.type === 'core.group' || !Object.hasOwn(candidate, 'props'),
+  ),
+  'canonical Work Package output must not persist legacy component props',
+)
 assert.deepEqual(
   workPackage.dependencies.map((dependency) => dependency.definition.type),
   ['portable.a', 'portable.b'],
@@ -294,10 +304,10 @@ const migrated = createScadaWorkPackage(
 )
 assert.equal(
   migrated.scene.version,
-  7,
-  'legacy Scene documents are migrated through the scoped Scene codec',
+  8,
+  'legacy Scene documents are migrated through the scoped Scene codec to the canonical Scene v8 authority',
 )
 
 console.log(
-  'Portable SCADA work package checks passed: the work envelope remains independently versioned while nested component packages use their current schema; exact portable dependency closure is required, host capabilities cannot be shadowed, unsupported executable dependencies fail closed, Scene migration/validation stays registry-scoped, and preflight does not mutate host registrations.',
+  'Portable SCADA work package checks passed: the work envelope remains independently versioned at v1 while nested Scene v6/v7 input normalizes to Scene v8 authored Attribute/Property authority; exact portable dependency closure is required, host capabilities cannot be shadowed, unsupported executable dependencies fail closed, Scene migration/validation stays registry-scoped, and preflight does not mutate host registrations.',
 )
