@@ -2,6 +2,8 @@ import {
   createGroupNode,
   createSceneId,
   isGroupNode,
+  type ComponentSceneNode,
+  type GroupSceneNode,
   type SceneConnection,
   type SceneDocument,
   type SceneNode,
@@ -287,7 +289,7 @@ export function cloneSceneSubtrees(
   const rootIdSet = new Set(uniqueRootIds)
   const clonedNodes = scene.nodes
     .filter((node) => subtreeIds.has(node.id))
-    .map((node) => {
+    .map((node): SceneNode | null => {
       const clonedId = idMap.get(node.id)
 
       if (!clonedId) {
@@ -298,32 +300,38 @@ export function cloneSceneSubtrees(
       const clonedParentId = node.parentId && idMap.has(node.parentId)
         ? idMap.get(node.parentId) ?? null
         : null
-      const clonedBase = {
+      const transform = {
+        ...node.transform,
+        x: node.transform.x + (isRoot ? 24 : 0),
+        y: node.transform.y + (isRoot ? 24 : 0),
+      }
+
+      if (isGroupNode(node)) {
+        return {
+          ...node,
+          id: clonedId,
+          name: isRoot ? `${node.name} 副本` : node.name,
+          parentId: clonedParentId,
+          transform,
+          props: { ...node.props },
+          bindings: [],
+          behaviors: [],
+        } satisfies GroupSceneNode
+      }
+
+      return {
         ...node,
         id: clonedId,
         name: isRoot ? `${node.name} 副本` : node.name,
         parentId: clonedParentId,
-        transform: {
-          ...node.transform,
-          x: node.transform.x + (isRoot ? 24 : 0),
-          y: node.transform.y + (isRoot ? 24 : 0),
-        },
+        transform,
+        attributes: { ...node.attributes },
+        propertyFallbacks: { ...node.propertyFallbacks },
         bindings: [],
         behaviors: [],
-      }
-
-      return isGroupNode(node)
-        ? {
-            ...clonedBase,
-            props: { ...node.props },
-          } satisfies SceneNode
-        : {
-            ...clonedBase,
-            attributes: { ...node.attributes },
-            propertyFallbacks: { ...node.propertyFallbacks },
-          } satisfies SceneNode
+      } satisfies ComponentSceneNode
     })
-    .filter((node): node is SceneNode => Boolean(node))
+    .filter((node): node is SceneNode => node !== null)
   const clonedConnections = cloneInternalConnections(scene, subtreeIds, idMap)
 
   return {
