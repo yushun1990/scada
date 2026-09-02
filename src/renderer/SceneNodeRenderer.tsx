@@ -8,7 +8,10 @@ import {
 import type Konva from 'konva'
 import { Group, Rect } from 'react-konva'
 import { builtInComponentRegistry } from '../component-system/builtins'
-import type { ComponentProps } from '../component-system/definition'
+import type {
+  ComponentAttributeValues,
+  ComponentPropertyFallbackValues,
+} from '../component-system/definition'
 import { previewRuntime, resolveEffectiveComponentProps } from '../runtime'
 import type { RuntimeValueSnapshot } from '../runtime'
 import { getNodeBounds } from '../scene/geometry'
@@ -29,9 +32,11 @@ type Point = {
 }
 
 const EMPTY_RUNTIME_VALUES: RuntimeValueSnapshot = Object.freeze({})
-const EMPTY_COMPONENT_PROPS: Readonly<ComponentProps> = Object.freeze({})
+const EMPTY_COMPONENT_ATTRIBUTES: Readonly<ComponentAttributeValues> = Object.freeze({})
+const EMPTY_COMPONENT_PROPERTIES: Readonly<ComponentPropertyFallbackValues> = Object.freeze({})
 const subscribeToNothing = () => () => undefined
-const getEmptyComponentProps = () => EMPTY_COMPONENT_PROPS
+const getEmptyComponentAttributes = () => EMPTY_COMPONENT_ATTRIBUTES
+const getEmptyComponentProperties = () => EMPTY_COMPONENT_PROPERTIES
 
 export type SceneNodeRendererProps = {
   scene: SceneDocument
@@ -78,14 +83,24 @@ export const SceneNodeRenderer = forwardRef<
     return previewRuntime.acquire(scene)
   }, [previewRuntimeLeaseActive, scene])
 
-  const previewOwnedProps = useSyncExternalStore(
+  const previewOwnedAttributes = useSyncExternalStore(
+    previewStateActive
+      ? previewRuntime.componentAttributes.subscribe
+      : subscribeToNothing,
+    previewStateActive
+      ? () => previewRuntime.componentAttributes.getNodeSnapshot(node.id)
+      : getEmptyComponentAttributes,
+    getEmptyComponentAttributes,
+  )
+
+  const previewOwnedProperties = useSyncExternalStore(
     previewStateActive
       ? previewRuntime.componentProps.subscribe
       : subscribeToNothing,
     previewStateActive
       ? () => previewRuntime.componentProps.getNodeSnapshot(node.id)
-      : getEmptyComponentProps,
-    getEmptyComponentProps,
+      : getEmptyComponentProperties,
+    getEmptyComponentProperties,
   )
 
   const bindRootRef = useCallback(
@@ -124,8 +139,6 @@ export const SceneNodeRenderer = forwardRef<
         [node.id]: proposedTransform,
       })
 
-      // A node that is already larger than the artboard cannot be made valid by
-      // translating it. Keep its current origin rather than introducing jitter.
       if (bounds.width > scene.width || bounds.height > scene.height) {
         return parentTransform.point({ x: transform.x, y: transform.y })
       }
@@ -188,9 +201,6 @@ export const SceneNodeRenderer = forwardRef<
         return
       }
 
-      // Live dragging deliberately bypasses snapping. Once Konva emits
-      // dragend, resolve the final local position again so grid/object snapping
-      // happens exactly once before the stage commits the transform.
       const resolvedPosition = resolveDragPosition(node.id, {
         x: instance.x(),
         y: instance.y(),
@@ -226,11 +236,6 @@ export const SceneNodeRenderer = forwardRef<
       next?: Point,
     ) => Point | Konva.Group
 
-    // Konva owns the primary node position while native dragging is active.
-    // Dependent visuals may request the same preview position, but writing it
-    // back through position() competes with Konva's drag bookkeeping and causes
-    // the node to lag behind the pointer or flicker. Snapping is resolved in
-    // dragBoundFunc before Konva applies the position instead.
     instance.position = ((next?: Point) => {
       if (next && instance.isDragging()) {
         return instance
@@ -295,9 +300,14 @@ export const SceneNodeRenderer = forwardRef<
 
   const registration = builtInComponentRegistry.get(node.type)
   const ComponentRenderer = registration?.renderer
-  const effectiveProps = registration
+  const effectiveAttributes = registration
     ? previewStateActive && previewRuntime.isRunning
-      ? previewOwnedProps
+      ? previewOwnedAttributes
+      : node.attributes
+    : node.attributes
+  const effectiveProperties = registration
+    ? previewStateActive && previewRuntime.isRunning
+      ? previewOwnedProperties
       : resolveEffectiveComponentProps(
           registration.definition,
           node.propertyFallbacks,
@@ -307,7 +317,8 @@ export const SceneNodeRenderer = forwardRef<
     : node.propertyFallbacks
   const commonRendererProps = {
     nodeId: selectable ? node.id : undefined,
-    props: effectiveProps,
+    attributes: effectiveAttributes,
+    properties: effectiveProperties,
     ...transform,
     draggable: selectable && editorMode && !effectiveLocked,
     dragBoundFunc: selectable ? constrainDragPosition : undefined,
@@ -320,8 +331,6 @@ export const SceneNodeRenderer = forwardRef<
     return <ComponentRenderer ref={bindRootRef} {...commonRendererProps} />
   }
 
-  // Keep an unavailable component selectable so a missing registration never
-  // makes scene content impossible to inspect or delete.
   return (
     <Group
       ref={bindRootRef}
