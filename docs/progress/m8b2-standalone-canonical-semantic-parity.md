@@ -1,6 +1,6 @@
 # M8B2 — Standalone canonical semantic parity
 
-Status: **active · 2026-09-02**
+Status: **accepted · 2026-09-02**
 
 ## Why this gate exists
 
@@ -24,7 +24,7 @@ M8B2 closes that gap without inventing a second runtime language or concrete dev
 
 ## Accepted semantic chain reused
 
-The standalone host must consume exactly the existing canonical runtime path:
+The standalone host consumes exactly the existing canonical runtime path:
 
 ```text
 PersistedScadaSemantics
@@ -42,7 +42,7 @@ DSL source text is not reparsed and remains outside runtime persistence authorit
 
 ## Package-owned runtime session
 
-`standalone-work-runtime-core.ts` now constructs the semantic programs during standalone package construction and exposes one package-owned `acquire()` lifecycle.
+`standalone-work-runtime-core.ts` constructs the semantic programs during standalone package construction and exposes one package-owned `acquire()` lifecycle.
 
 First acquire:
 
@@ -99,7 +99,7 @@ However, read-only authoring does not mean runtime event hit-testing must be dis
 
 ## Deterministic verification
 
-`scripts/check-standalone-work-runtime.ts` now covers non-null Scene v7 semantics:
+`scripts/check-standalone-work-runtime.ts` covers non-null Scene v7 semantics:
 
 1. a persisted literal Value Binding changes effective Component Property `state` from authored `closed` to runtime `open`
 2. authored Scene props remain unchanged
@@ -109,6 +109,8 @@ However, read-only authoring does not mean runtime event hit-testing must be dis
 6. with an explicit dispatcher, a Component Event produces the expected host-owned device-action invocation
 7. runtime/data-source/semantic attachment disposal remains package-owned
 8. Studio/global activation/editor mock dependencies remain absent from the generic core
+
+Scene v7 parsing still validates persisted semantic references against the concrete component contract before standalone execution. M8B2 adds execution parity; it does not bypass the accepted Scene validation authority.
 
 ## Deployed browser verification
 
@@ -123,24 +125,26 @@ runtime effective state = open
 valve body renders green
 ```
 
-The smoke waits for both:
+The deployed smoke waits for both:
 
 - distinctive magenta pixels from the embedded self-contained SVG resource
 - green pixels from the valve's existing `state=open` Visual Rule
 
-It also continues to prove no Studio IndexedDB initialization and no authoring chrome.
+It also proves no Studio IndexedDB initialization and no authoring chrome.
 
-## Acceptance gate
+## Final acceptance evidence
 
-M8B2 remains active until:
+- PR #110 — `feat: run canonical semantics in standalone runtime`
+- final PR head `2d1328a637d9acafc3d9d5806c39b2b0e315981f`
+- PR CI #770 (`33589416945`) passed Build + runtime/model checks + Lint + publication-api
+- merged revision `main@b967c0f515e3b4e52a4ecab5c56e275f1a63c6ea`
+- main CI #771 (`33591388326`) passed
+- Deploy GitHub Pages #245 (`33591388105`) passed
+- Pages Browser Smoke #196 (`33591427942`) passed
 
-- PR CI passes Build + runtime/model checks + Lint + publication-api
-- the change merges to `main`
-- main CI passes
-- GitHub Pages deploys the merged revision
-- deployed Pages Browser Smoke passes the non-null semantics fixture
+The #196 deployed log explicitly confirms that a fresh browser directly loads the dependency-complete work artifact, renders its self-contained SVG/Image resource, restores canonical Scene v7 semantics so authored `state=closed` becomes effective runtime `state=open` (green), exposes no authoring chrome, and never initializes Studio IndexedDB.
 
-After that evidence exists, mark M8B2 accepted and repeat the M8 closeout review. Do not start the Component Attribute / Property migration until M8 is actually closed.
+Therefore M8B2 is accepted.
 
 ## Explicit non-goals
 
@@ -153,3 +157,5 @@ M8B2 does not add:
 - runtime authoring or persistence
 - hidden dependency installation
 - Component Attribute / Property schema migration
+
+The next action after this gate is the final M8 closeout review, not another semantic-runtime slice by default.
