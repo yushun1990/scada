@@ -1,7 +1,9 @@
 import {
+  isComponentAttributeValue,
   isComponentPropertyValue,
+  type ComponentAttributeValues,
   type ComponentDefinition,
-  type ComponentProps,
+  type ComponentPropertyFallbackValues,
   type ComponentScalarValue,
 } from './definition'
 import {
@@ -46,15 +48,33 @@ export type VisualRuleTargetField =
   | 'style.lineHeight'
   | 'style.fit'
 
+export type VisualRuleValueSource = {
+  namespace: 'attribute' | 'property'
+  key: string
+}
+
+export type ComponentVisualRuntimeContext = {
+  attributes: Readonly<ComponentAttributeValues>
+  properties: Readonly<ComponentPropertyFallbackValues>
+}
+
 export type VisualRule = {
   id: string
   enabled: boolean
+  /** Visual Rule conditions remain Property-driven runtime semantics. */
   propertyKey: string
   operator: VisualRuleOperator
   compareValue: ComponentScalarValue
   layerId: string
   target: VisualRuleTargetField
+  /** Literal target value used when valueSource is absent. */
   value: ComponentScalarValue
+  /**
+   * Optional explicit runtime source for the target value. This is never a
+   * flattened props lookup: authored Attributes and effective Properties retain
+   * separate namespaces all the way through private visual evaluation.
+   */
+  valueSource?: VisualRuleValueSource
 }
 
 const RULE_OPERATORS = new Set<VisualRuleOperator>([
@@ -143,6 +163,49 @@ function targetAcceptsValue(
   }
 
   return false
+}
+
+function assertValueSource(
+  definition: ComponentDefinition,
+  layer: ComponentVisualLayer,
+  target: VisualRuleTargetField,
+  source: unknown,
+  ruleId: string,
+): asserts source is VisualRuleValueSource {
+  if (!isRecord(source)) {
+    throw new Error(`Visual Rule ${ruleId} valueSource 无效`)
+  }
+  if (source.namespace !== 'attribute' && source.namespace !== 'property') {
+    throw new Error(`Visual Rule ${ruleId} valueSource namespace 无效`)
+  }
+  if (typeof source.key !== 'string' || !source.key.trim()) {
+    throw new Error(`Visual Rule ${ruleId} valueSource key 无效`)
+  }
+
+  if (source.namespace === 'attribute') {
+    const attribute = definition.attributes[source.key]
+    if (!attribute) {
+      throw new Error(`Visual Rule ${ruleId} 引用了不存在的 Attribute：${source.key}`)
+    }
+    if (
+      !isComponentAttributeValue(attribute, attribute.defaultValue) ||
+      !targetAcceptsValue(layer, target, attribute.defaultValue)
+    ) {
+      throw new Error(`Visual Rule ${ruleId} Attribute 与视觉目标类型不匹配`)
+    }
+    return
+  }
+
+  const property = definition.properties[source.key]
+  if (!property) {
+    throw new Error(`Visual Rule ${ruleId} 引用了不存在的 Property：${source.key}`)
+  }
+  if (
+    !isComponentPropertyValue(property, property.defaultValue) ||
+    !targetAcceptsValue(layer, target, property.defaultValue)
+  ) {
+    throw new Error(`Visual Rule ${ruleId} Property 与视觉目标类型不匹配`)
+  }
 }
 
 export function visualRuleTargetsForLayer(layer: ComponentVisualLayer): VisualRuleTargetField[] {
@@ -241,11 +304,17 @@ export function assertComponentVisualRules(
     if (!isScalar(rule.value) || !targetAcceptsValue(layer, rule.target, rule.value)) {
       throw new Error(`Visual Rule ${rule.id} target value 无效`)
     }
+    if (rule.valueSource !== undefined) {
+      assertValueSource(definition, layer, rule.target, rule.valueSource, rule.id)
+    }
   }
 }
 
-function matchesRule(rule: VisualRule, values: ComponentProps) {
-  const actual = values[rule.propertyKey]
+function matchesRule(
+  rule: VisualRule,
+  context: ComponentVisualRuntimeContext,
+) {
+  const actual = context.properties[rule.propertyKey]
   const expected = rule.compareValue
 
   if (rule.operator === 'equals') return actual === expected
@@ -256,6 +325,17 @@ function matchesRule(rule: VisualRule, values: ComponentProps) {
   if (rule.operator === 'greaterOrEqual') return actual >= expected
   if (rule.operator === 'lessThan') return actual < expected
   return actual <= expected
+}
+
+function readRuleTargetValue(
+  rule: VisualRule,
+  context: ComponentVisualRuntimeContext,
+): ComponentScalarValue | undefined {
+  if (!rule.valueSource) return rule.value
+  const values = rule.valueSource.namespace === 'attribute'
+    ? context.attributes
+    : context.properties
+  return values[rule.valueSource.key]
 }
 
 function applyRuleTarget(
@@ -298,7 +378,7 @@ function applyRuleTarget(
 
 export function resolveComponentVisualRules(
   visual: ComponentVisualDefinition,
-  values: ComponentProps,
+  context: ComponentVisualRuntimeContext,
 ): ComponentVisualDefinition {
   const rules = visual.rules ?? []
   if (rules.length === 0) return visual
@@ -308,10 +388,12 @@ export function resolveComponentVisualRules(
   const layers = [...resolved.layers]
 
   for (const rule of rules) {
-    if (!rule.enabled || !matchesRule(rule, values)) continue
+    if (!rule.enabled || !matchesRule(rule, context)) continue
     const index = layerIndex.get(rule.layerId)
     if (index === undefined) continue
-    layers[index] = applyRuleTarget(layers[index], rule.target, rule.value)
+    const value = readRuleTargetValue(rule, context)
+    if (value === undefined) continue
+    layers[index] = applyRuleTarget(layers[index], rule.target, value)
   }
 
   return { ...resolved, layers }
