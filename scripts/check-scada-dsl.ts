@@ -5,6 +5,7 @@ import {
   getScadaDslCompletionItems,
   getScadaDslInsertText,
   parseScadaDsl,
+  type ScadaDslCaseStatement,
   type ScadaDslIfStatement,
 } from '../src/scene/scada-dsl'
 
@@ -18,6 +19,13 @@ const component: ComponentDefinition = {
     defaultHeight: 100,
     minWidth: 10,
     minHeight: 10,
+  },
+  attributes: {
+    runningColor: {
+      title: 'Running color',
+      kind: 'color',
+      defaultValue: '#00c853',
+    },
   },
   properties: {
     state: {
@@ -51,30 +59,41 @@ const component: ComponentDefinition = {
 }
 
 const valueProgram = parseScadaDsl(`
-component.state = if device.fault then "fault" else if device.running then "running" else "stopped"
-component.level = device.pressure * 100
+if $device.fault {
+  $self.state = "fault"
+} else if $device.running {
+  $self.state = "running"
+} else {
+  $self.state = "stopped"
+}
+$self.level = $device.pressure * 100
 `)
 assert.deepEqual(valueProgram.diagnostics, [])
 assert.equal(valueProgram.program?.statements.length, 2)
-const firstAssignment = valueProgram.program?.statements[0]
-assert.equal(firstAssignment?.kind, 'assignment')
-if (firstAssignment?.kind === 'assignment') {
-  assert.deepEqual(firstAssignment.target.path, ['component', 'state'])
-  assert.equal(firstAssignment.value.kind, 'conditional')
-  if (firstAssignment.value.kind === 'conditional') {
-    assert.equal(firstAssignment.value.alternate.kind, 'conditional')
-  }
+const firstStatement = valueProgram.program?.statements[0]
+assert.equal(firstStatement?.kind, 'if')
+if (firstStatement?.kind === 'if') {
+  assert.deepEqual(firstStatement.condition, {
+    kind: 'reference',
+    path: ['$device', 'fault'],
+    span: firstStatement.condition.span,
+  })
+  assert.equal(firstStatement.consequent[0]?.kind, 'assignment')
+  assert.equal(firstStatement.alternate?.[0]?.kind, 'if')
+}
+const directAssignment = valueProgram.program?.statements[1]
+assert.equal(directAssignment?.kind, 'assignment')
+if (directAssignment?.kind === 'assignment') {
+  assert.deepEqual(directAssignment.target.path, ['$self', 'level'])
 }
 
 const behaviorProgram = parseScadaDsl(`
-if device.fault and device.pressure > 1.2 {
-  component.showFault()
-}
-else if device.running {
-  component.showRunning()
-}
-else {
-  component.showStopped()
+if $device.fault and $device.pressure > 1.2 {
+  $self.showFault()
+} else if $device.running {
+  $self.showRunning()
+} else {
+  $self.showStopped()
 }
 `)
 assert.deepEqual(behaviorProgram.diagnostics, [])
@@ -88,9 +107,49 @@ if (ifStatement.condition.kind === 'binary') {
 assert.equal(ifStatement.consequent[0]?.kind, 'call-statement')
 assert.equal(ifStatement.alternate?.[0]?.kind, 'if')
 
+const caseProgram = parseScadaDsl(`
+case $device.state {
+  0: $self.state = "stopped"
+  1: $self.state = "running"
+  2: $self.state = "fault"
+  _: $self.state = "stopped"
+}
+`)
+assert.deepEqual(caseProgram.diagnostics, [])
+assert.equal(caseProgram.program?.statements.length, 1)
+const caseStatement = caseProgram.program?.statements[0] as ScadaDslCaseStatement
+assert.equal(caseStatement.kind, 'case')
+assert.deepEqual(caseStatement.expression.path, ['$device', 'state'])
+assert.equal(caseStatement.arms.length, 4)
+assert.equal(caseStatement.arms.at(-1)?.pattern.kind, 'wildcard')
+assert.equal(caseStatement.arms[0]?.body[0]?.kind, 'assignment')
+
+const multiStatementCase = parseScadaDsl(`
+case $device.mode {
+  "auto": {
+    $self.state = "running"
+    $self.level = 100
+  }
+  _: {
+    $self.state = "stopped"
+    $self.level = 0
+  }
+}
+`)
+assert.deepEqual(multiStatementCase.diagnostics, [])
+
+const fallbackNotLast = parseScadaDsl(`
+case $device.state {
+  _: $self.state = "stopped"
+  1: $self.state = "running"
+}
+`)
+assert.equal(fallbackNotLast.program, null)
+assert.match(fallbackNotLast.diagnostics[0]?.message ?? '', /最后一个 arm/)
+
 const interactionProgram = parseScadaDsl(`
-on component.startRequested {
-  device.start()
+on $self.startRequested {
+  $device.start()
 }
 `)
 assert.deepEqual(interactionProgram.diagnostics, [])
@@ -98,104 +157,135 @@ assert.equal(interactionProgram.program?.statements.length, 1)
 const onStatement = interactionProgram.program?.statements[0]
 assert.equal(onStatement?.kind, 'on')
 if (onStatement?.kind === 'on') {
-  assert.deepEqual(onStatement.event.path, ['component', 'startRequested'])
+  assert.deepEqual(onStatement.event.path, ['$self', 'startRequested'])
   assert.equal(onStatement.body.length, 1)
   assert.equal(onStatement.body[0]?.kind, 'call-statement')
 }
 
 const directActions = parseScadaDsl(`
-device.start()
-component.setLevel(device.pressure * 100)
+$device.start()
+$self.setLevel($device.pressure * 100)
 `)
 assert.deepEqual(directActions.diagnostics, [])
 assert.equal(directActions.program?.statements.length, 2)
 const deviceAction = directActions.program?.statements[0]
 assert.equal(deviceAction?.kind, 'call-statement')
 if (deviceAction?.kind === 'call-statement') {
-  assert.deepEqual(deviceAction.call.callee.path, ['device', 'start'])
+  assert.deepEqual(deviceAction.call.callee.path, ['$device', 'start'])
   assert.deepEqual(deviceAction.call.arguments, [])
 }
 
 const comments = parseScadaDsl(`
 # label clicks may insert the references below
-component.level = device.pressure // ordinary inline comment
+$self.level = $device.pressure // ordinary inline comment
 `)
 assert.deepEqual(comments.diagnostics, [])
 assert.equal(comments.program?.statements.length, 1)
 
-const malformed = parseScadaDsl('if device.fault { component.showFault()')
+const malformed = parseScadaDsl('if $device.fault { $self.showFault()')
 assert.equal(malformed.program, null)
 assert.match(malformed.diagnostics[0]?.message ?? '', /缺少 }/)
 
-const unsupportedLoop = parseScadaDsl('while device.running { component.showRunning() }')
+const unsupportedLoop = parseScadaDsl('while $device.running { $self.showRunning() }')
 assert.equal(unsupportedLoop.program, null)
-assert.ok((unsupportedLoop.diagnostics[0]?.message.length ?? 0) > 0)
+assert.match(unsupportedLoop.diagnostics[0]?.message ?? '', /只允许 \$self 与 \$device/)
 
-const bareReference = parseScadaDsl('component.state')
+const legacyRoot = parseScadaDsl('component.state = device.state')
+assert.equal(legacyRoot.program, null)
+assert.match(legacyRoot.diagnostics[0]?.message ?? '', /只允许 \$self 与 \$device/)
+
+const arbitraryRoot = parseScadaDsl('$outlet.pressure = $device.pressure')
+assert.equal(arbitraryRoot.program, null)
+assert.match(arbitraryRoot.diagnostics[0]?.message ?? '', /只允许 \$self 与 \$device/)
+
+const expressionIf = parseScadaDsl(
+  '$self.state = if $device.fault then "fault" else "stopped"',
+)
+assert.equal(expressionIf.program, null)
+assert.ok((expressionIf.diagnostics[0]?.message.length ?? 0) > 0)
+
+const bareReference = parseScadaDsl('$self.state')
 assert.equal(bareReference.program, null)
-assert.match(bareReference.diagnostics[0]?.message ?? '', /赋值、Action 调用、if\/else 或 on Event/)
+assert.match(bareReference.diagnostics[0]?.message ?? '', /赋值、Action 调用、if、case 或 on Event/)
 
 const catalog = createScadaDslCapabilityCatalog(component, [
   {
     sourceId: 'pump-01',
     title: 'Pump 01',
-    symbol: 'device',
+    symbol: 'legacy-device-name-is-ignored',
     properties: {
       running: { title: 'Running', kind: 'boolean', defaultValue: false },
       fault: { title: 'Fault', kind: 'boolean', defaultValue: false },
       pressure: { title: 'Pressure', kind: 'number', defaultValue: 0 },
+      state: { title: 'State', kind: 'number', defaultValue: 0 },
+      mode: { title: 'Mode', kind: 'string', defaultValue: 'auto' },
     },
     actions: {
       start: { title: 'Start' },
       stop: { title: 'Stop' },
     },
   },
-  {
-    sourceId: 'pressure-outlet',
-    title: 'Outlet pressure',
-    symbol: 'outlet',
-    properties: {
-      pressure: { title: 'Pressure', kind: 'number', defaultValue: 0 },
-    },
-    actions: {},
-  },
 ])
 
-const componentCompletion = getScadaDslCompletionItems(
-  'if device.fault { component.sh',
-  'if device.fault { component.sh'.length,
+assert.throws(
+  () => createScadaDslCapabilityCatalog(component, [
+    {
+      sourceId: 'pump-01',
+      title: 'Pump 01',
+      properties: {},
+      actions: {},
+    },
+    {
+      sourceId: 'pump-02',
+      title: 'Pump 02',
+      properties: {},
+      actions: {},
+    },
+  ]),
+  /只允许一个绑定设备/,
+)
+
+const selfCompletion = getScadaDslCompletionItems(
+  'if $device.fault { $self.sh',
+  'if $device.fault { $self.sh'.length,
   catalog,
 )
-assert.equal(componentCompletion.replacement.start, 'if device.fault { component.'.length)
+assert.equal(selfCompletion.replacement.start, 'if $device.fault { $self.'.length)
 assert.deepEqual(
-  componentCompletion.items.map((item) => item.member),
+  selfCompletion.items.map((item) => item.member),
   ['showFault', 'showRunning', 'showStopped'],
 )
 assert.equal(
-  getScadaDslInsertText(componentCompletion.items[0]!),
-  'component.showFault()',
+  getScadaDslInsertText(selfCompletion.items[0]!),
+  '$self.showFault()',
 )
 
 const deviceCompletion = getScadaDslCompletionItems(
-  'component.level = device.pr',
-  'component.level = device.pr'.length,
+  '$self.level = $device.pr',
+  '$self.level = $device.pr'.length,
   catalog,
 )
 assert.deepEqual(deviceCompletion.items.map((item) => item.member), ['pressure'])
-assert.equal(getScadaDslInsertText(deviceCompletion.items[0]!), 'device.pressure')
+assert.equal(getScadaDslInsertText(deviceCompletion.items[0]!), '$device.pressure')
 
-const externalTag = catalog.items.find(
-  (item) => item.symbol === 'outlet' && item.member === 'pressure',
+const rootCompletion = getScadaDslCompletionItems('$', 1, catalog)
+assert.deepEqual(
+  [...new Set(rootCompletion.items.map((item) => item.symbol))],
+  ['$self', '$device'],
 )
-assert.ok(externalTag)
-assert.equal(getScadaDslInsertText(externalTag!), 'outlet.pressure')
 
 const componentEvent = catalog.items.find(
-  (item) => item.symbol === 'component' && item.member === 'startRequested',
+  (item) => item.symbol === '$self' && item.member === 'startRequested',
 )
 assert.equal(componentEvent?.capabilityKind, 'event')
-assert.equal(getScadaDslInsertText(componentEvent!), 'component.startRequested')
+assert.equal(getScadaDslInsertText(componentEvent!), '$self.startRequested')
+
+assert.equal(
+  catalog.items.some((item) => item.member === 'runningColor'),
+  false,
+  'Attributes are not Scene DSL capabilities',
+)
 
 console.log(
-  'SCADA DSL checks passed: the text-first surface supports Property assignment, expression and statement if/else, explicit on Component Event interaction blocks, direct Action syntax for editor completion, arithmetic/boolean expressions, diagnostics, completion candidates, and click-to-insert capability text without making DSL the persisted behavior model.',
+  'SCADA DSL v1 checks passed: only $self/$device roots are accepted, one-device capability discovery ignores legacy source symbols, statement-if requires braces, case supports scalar arms with final _ fallback, expression-if/arbitrary roots are rejected, Attributes stay outside Scene DSL capabilities, and completion/click-to-insert emits the frozen v1 surface.',
 )
