@@ -298,8 +298,7 @@ export function cloneSceneSubtrees(
       const clonedParentId = node.parentId && idMap.has(node.parentId)
         ? idMap.get(node.parentId) ?? null
         : null
-
-      return {
+      const clonedBase = {
         ...node,
         id: clonedId,
         name: isRoot ? `${node.name} 副本` : node.name,
@@ -309,10 +308,20 @@ export function cloneSceneSubtrees(
           x: node.transform.x + (isRoot ? 24 : 0),
           y: node.transform.y + (isRoot ? 24 : 0),
         },
-        props: { ...node.props },
         bindings: [],
         behaviors: [],
-      } as SceneNode
+      }
+
+      return isGroupNode(node)
+        ? {
+            ...clonedBase,
+            props: { ...node.props },
+          } satisfies SceneNode
+        : {
+            ...clonedBase,
+            attributes: { ...node.attributes },
+            propertyFallbacks: { ...node.propertyFallbacks },
+          } satisfies SceneNode
     })
     .filter((node): node is SceneNode => Boolean(node))
   const clonedConnections = cloneInternalConnections(scene, subtreeIds, idMap)
