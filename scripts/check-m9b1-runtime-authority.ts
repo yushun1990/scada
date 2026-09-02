@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
+import { resolvePumpPresentationColor } from '../src/component-system/builtins/pump-contract'
 import type { ComponentDefinition } from '../src/component-system/definition'
-import { resolvePumpPresentationColor } from '../src/component-system/builtins/PumpComponentRenderer'
 import type { ComponentVisualDefinition } from '../src/component-system/visual'
 import {
   assertComponentVisualRules,
