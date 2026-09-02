@@ -122,7 +122,7 @@ function RuntimeComponentNode({
     () => runtime.componentProps.getNodeSnapshot(node.id),
     () => EMPTY_COMPONENT_PROPS,
   )
-  const props = runtime.isRunning ? runtimeProps : node.props
+  const props = runtime.isRunning ? runtimeProps : node.propertyFallbacks
 
   if (!ComponentRenderer) return null
 
