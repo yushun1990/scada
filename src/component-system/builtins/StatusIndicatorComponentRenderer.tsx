@@ -27,7 +27,7 @@ export const StatusIndicatorComponentRenderer = forwardRef<
 >(function StatusIndicatorComponentRendererImpl(
   {
     nodeId,
-    props,
+    properties,
     x,
     y,
     width,
@@ -41,7 +41,7 @@ export const StatusIndicatorComponentRenderer = forwardRef<
   },
   ref,
 ) {
-  const state = resolveIndicatorState(props.state)
+  const state = resolveIndicatorState(properties.state)
   const palette = indicatorPalettes[state]
   const unit = Math.min(width, height)
   const bezelInset = unit * 0.07

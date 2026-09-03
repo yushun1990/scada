@@ -1,7 +1,9 @@
 import type {
   ComponentActionArguments,
+  ComponentAttributeValues,
   ComponentDefinition,
   ComponentEventPayload,
+  ComponentPropertyFallbackValues,
   ComponentProps,
 } from './definition'
 import type { ComponentRenderer } from './renderer'
@@ -9,7 +11,8 @@ import type { ComponentRenderer } from './renderer'
 export type ComponentActionHandlerContext = {
   nodeId: string
   componentType: string
-  props: Readonly<ComponentProps>
+  attributes: Readonly<ComponentAttributeValues>
+  properties: Readonly<ComponentPropertyFallbackValues>
   emit: (eventName: string, payload?: ComponentEventPayload) => void
 }
 
@@ -45,6 +48,7 @@ export type ComponentPersistedAuthoredStateMigrator = (
 export type ComponentRegistration = {
   definition: ComponentDefinition
   renderer: ComponentRenderer
+  /** @deprecated Property-only compatibility factory; rename after M9 runtime migration settles. */
   createDefaultProps: () => ComponentProps
   actions?: Readonly<Record<string, ComponentActionHandler>>
   migratePersistedAuthoredState?: ComponentPersistedAuthoredStateMigrator

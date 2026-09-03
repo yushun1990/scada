@@ -264,9 +264,9 @@ M6 Component Workbench + scene semantics                       accepted · 2026-
 M7 Packaging / adapter foundation / reusable components         accepted · 2026-08-31
 M8 Portable SCADA Work + Standalone Runtime                     accepted · 2026-09-02
 M9A1 Attribute / Property schema + migration authority          accepted · 2026-09-02
-M9A2 Workbench + Inspector authority separation                 acceptance in PR #119
-M9B1 Runtime Attribute / Property authority split               NEXT after M9A2
-M9B2 Package / Scene compatibility + end-to-end acceptance      QUEUED
+M9A2 Workbench + Inspector authority separation                 accepted · 2026-09-02
+M9B1 Runtime Attribute / Property authority split               acceptance in PR #120
+M9B2 Package / Scene compatibility + end-to-end acceptance      NEXT after M9B1
 ```
 
 Detailed evidence: `docs/progress/`.
@@ -439,13 +439,13 @@ Key records:
 - PR #117 DSL v1 migration
 - PR #118 built-in / starter migration
 
-### M9A2 Component Workbench + SCADA Inspector separation — acceptance in PR #119
+### M9A2 Component Workbench + SCADA Inspector separation — accepted · 2026-09-02
 
 Goal:
 
 > Make the schema authority visible and enforceable in normal authoring without changing runtime execution authority prematurely.
 
-Implemented acceptance surface:
+Accepted surface:
 
 - Component Workbench exposes independent `Attributes` and `Properties` contract sections;
 - Attribute contract editing has no `bindable` control;
@@ -457,28 +457,33 @@ Implemented acceptance surface:
 
 Record: `docs/progress/m9a2-authoring-authority-ui.md`.
 
-M9A2 does **not** claim authored Attribute values already influence rendering. That is the next runtime gate.
+M9A2 intentionally stopped before changing runtime execution authority. M9B1 carries that accepted authoring split through Preview, Renderer, Actions and private visual evaluation.
 
-### M9B1 Runtime Attribute / Property authority split — NEXT after M9A2
+### M9B1 Runtime Attribute / Property authority split — acceptance in PR #120
 
 Goal:
 
 > Carry the already-separated authored/runtime authorities through Preview, Renderer, Component Actions and component-private visual evaluation.
 
-Required work:
+Implemented acceptance surface:
 
 - Value Binding continues to write Properties only;
 - runtime telemetry/derived updates cannot mutate authored Attributes;
-- Preview/runtime owns a resolved immutable Attribute snapshot separately from the effective Property store;
-- Renderer receives explicit authored Attributes plus one deterministic effective Property snapshot;
-- Component Action handlers observe the same effective Property truth as Renderer and may read authored Attributes through an explicit separate namespace where required;
-- component-private Visual Rules can read Attributes and Properties through distinct authority namespaces;
-- Pump authored color Attributes become the first end-to-end runtime proof instead of remaining schema/UI-only configuration;
-- Attribute edits remain authoring operations and do not enter telemetry propagation/history paths.
+- Preview/runtime owns an immutable authored Attribute snapshot separately from the effective Property store;
+- Renderer receives explicit `attributes` plus one deterministic effective `properties` snapshot;
+- Component Action handlers observe the same effective Property truth as Renderer and receive authored Attributes through an explicit separate namespace;
+- component-private Visual Rules evaluate with explicit Attribute and Property namespaces;
+- rule target values can explicitly source authored Attributes or effective Properties without flattening;
+- missing private visual sources fail validation;
+- Pump authored color Attributes are an end-to-end runtime proof: semantic `state` selects an authored presentation Attribute instead of a hard-coded runtime palette;
+- Attribute edits remain authoring operations and do not enter telemetry propagation/history paths;
+- legacy persistence fixtures remain migration inputs rather than becoming a second live runtime authority.
 
-Do not flatten Attributes back into `ComponentProps` to implement this. The runtime API itself must express the distinction.
+Do not flatten Attributes back into `ComponentProps`. The runtime API itself now expresses the distinction.
 
-### M9B2 Package / Scene compatibility + end-to-end acceptance — QUEUED
+Record: `docs/progress/m9b1-runtime-authority.md`.
+
+### M9B2 Package / Scene compatibility + end-to-end acceptance — NEXT after M9B1
 
 Prove the split survives all accepted M7/M8 distribution/runtime boundaries:
 
@@ -504,15 +509,15 @@ M6 browser-first authoring/runtime foundation                   accepted · 2026
 M7 packaging / adapter foundation                              accepted · 2026-08-31
 M8 Portable SCADA Work + Standalone Runtime                    accepted · 2026-09-02
 M9A1 schema / Scene v8 / DSL v1 / migration authority          accepted · 2026-09-02
-M9A2 Workbench + Inspector separation                          acceptance in PR #119
-M9B1 runtime Attribute / Property authority split              NEXT after M9A2
-M9B2 package / Scene compatibility + acceptance                QUEUED
+M9A2 Workbench + Inspector separation                          accepted · 2026-09-02
+M9B1 runtime Attribute / Property authority split              acceptance in PR #120
+M9B2 package / Scene compatibility + acceptance                NEXT after M9B1
 M9 closeout                                                    after A1 + A2 + B1 + B2
 ```
 
-**Current implementation gate after PR #119 merges: M9B1 Runtime Attribute / Property authority split.**
+**Current implementation gate: finish M9B1 acceptance in PR #120; after merge, proceed directly to M9B2 Package / Scene compatibility + end-to-end acceptance.**
 
-Before M9B1 implementation, re-read latest `main`, this roadmap, the accepted Attribute/Property architecture document and the M9A2 progress record. Preserve M6–M8 boundaries; M9B1 is a runtime-authority migration, not a broad component-system rewrite.
+Before M9B2 implementation, re-read latest `main`, this roadmap, the accepted Attribute/Property architecture document and the M9B1 progress record. Preserve M6–M8 boundaries; M9B2 is a compatibility/end-to-end proof slice, not a new runtime authority redesign.
 
 ---
 

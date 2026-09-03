@@ -6,7 +6,10 @@ import {
 } from 'react'
 import { Group, Layer, Line, Rect, Stage } from 'react-konva'
 import type { ComponentRegistry } from '../../component-system/registry'
-import type { ComponentProps } from '../../component-system/definition'
+import type {
+  ComponentAttributeValues,
+  ComponentPropertyFallbackValues,
+} from '../../component-system/definition'
 import { fillContentToViewport } from '../../editor/viewport'
 import type { PreviewRuntime } from '../../runtime/preview-runtime'
 import { getWorldTransform } from '../../scene/geometry'
@@ -21,7 +24,8 @@ import {
   type SceneNode,
 } from '../../scene/schema'
 
-const EMPTY_COMPONENT_PROPS: Readonly<ComponentProps> = Object.freeze({})
+const EMPTY_COMPONENT_ATTRIBUTES: Readonly<ComponentAttributeValues> = Object.freeze({})
+const EMPTY_COMPONENT_PROPERTIES: Readonly<ComponentPropertyFallbackValues> = Object.freeze({})
 
 function rotateVector(vector: { x: number; y: number }, rotation: number) {
   const radians = (rotation * Math.PI) / 180
@@ -117,18 +121,25 @@ function RuntimeComponentNode({
 }) {
   const registration = registry.get(node.type)
   const ComponentRenderer = registration?.renderer
-  const runtimeProps = useSyncExternalStore(
+  const runtimeAttributes = useSyncExternalStore(
+    runtime.componentAttributes.subscribe,
+    () => runtime.componentAttributes.getNodeSnapshot(node.id),
+    () => EMPTY_COMPONENT_ATTRIBUTES,
+  )
+  const runtimeProperties = useSyncExternalStore(
     runtime.componentProps.subscribe,
     () => runtime.componentProps.getNodeSnapshot(node.id),
-    () => EMPTY_COMPONENT_PROPS,
+    () => EMPTY_COMPONENT_PROPERTIES,
   )
-  const props = runtime.isRunning ? runtimeProps : node.propertyFallbacks
+  const attributes = runtime.isRunning ? runtimeAttributes : node.attributes
+  const properties = runtime.isRunning ? runtimeProperties : node.propertyFallbacks
 
   if (!ComponentRenderer) return null
 
   return (
     <ComponentRenderer
-      props={props}
+      attributes={attributes}
+      properties={properties}
       x={node.transform.x}
       y={node.transform.y}
       width={node.transform.width}

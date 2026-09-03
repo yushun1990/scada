@@ -12,7 +12,10 @@ import {
   applyVisualAnimationOverlay,
   evaluateVisualAnimations,
 } from '../../component-system/animations'
-import type { ComponentProps } from '../../component-system/definition'
+import type {
+  ComponentAttributeValues,
+  ComponentPropertyFallbackValues,
+} from '../../component-system/definition'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
 import { resolveComponentVisualRules } from '../../component-system/visualRules'
 import {
@@ -42,7 +45,8 @@ import './component-canvas-snap.css'
 
 type ComponentVisualCanvasProps = {
   visual: ComponentVisualDefinition
-  propertyValues: ComponentProps
+  attributeValues?: ComponentAttributeValues
+  propertyValues: ComponentPropertyFallbackValues
   componentTitle: string
   designWidth: number
   designHeight: number
@@ -130,6 +134,7 @@ function isTextEditingTarget(target: EventTarget | null) {
 
 export function ComponentVisualCanvas({
   visual,
+  attributeValues = {},
   propertyValues,
   componentTitle,
   designWidth,
@@ -167,7 +172,10 @@ export function ComponentVisualCanvas({
     [selectedLayerIds, visual.layers],
   )
   const ruleResolvedVisual = mode === 'preview'
-    ? resolveComponentVisualRules(visual, propertyValues)
+    ? resolveComponentVisualRules(visual, {
+        attributes: attributeValues,
+        properties: propertyValues,
+      })
     : visual
   const renderedVisual = mode === 'preview'
     ? applyVisualAnimationOverlay(

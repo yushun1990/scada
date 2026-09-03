@@ -178,7 +178,10 @@ const ruleVisual = {
     },
   ],
 } as const
-const ruleResolved = resolveComponentVisualRules(ruleVisual, { running: true })
+const ruleResolved = resolveComponentVisualRules(ruleVisual, {
+  attributes: {},
+  properties: { running: true },
+})
 assert.equal(ruleResolved.layers[0]?.transform.rotation, 40)
 const ruleOverlay = evaluateVisualAnimations(ruleResolved, { running: true }, 500)
 const ruleAnimated = applyVisualAnimationOverlay(ruleResolved, ruleOverlay)
@@ -269,7 +272,10 @@ const moveRuleVisual = {
   ],
   animations: [moveAnimation],
 } as const
-const moveRuleResolved = resolveComponentVisualRules(moveRuleVisual, { running: true })
+const moveRuleResolved = resolveComponentVisualRules(moveRuleVisual, {
+  attributes: {},
+  properties: { running: true },
+})
 const moveRuleOverlay = evaluateVisualAnimations(moveRuleResolved, { running: true }, 500)
 const moveRuleAnimated = applyVisualAnimationOverlay(moveRuleResolved, moveRuleOverlay)
 assert.equal(moveRuleAnimated.layers[0]?.transform.x, 130)
@@ -347,7 +353,10 @@ const scaleRuleVisual = {
   ],
   animations: [scaleAnimation],
 } as const
-const scaleRuleResolved = resolveComponentVisualRules(scaleRuleVisual, { running: true })
+const scaleRuleResolved = resolveComponentVisualRules(scaleRuleVisual, {
+  attributes: {},
+  properties: { running: true },
+})
 const scaleRuleOverlay = evaluateVisualAnimations(scaleRuleResolved, { running: true }, 500)
 const scaleRuleAnimated = applyVisualAnimationOverlay(scaleRuleResolved, scaleRuleOverlay)
 assert.equal(scaleRuleAnimated.layers[0]?.transform.scaleX, 3)

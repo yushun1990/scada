@@ -8,6 +8,7 @@ import {
 } from '../component-system/interactions'
 import type { ComponentRegistry } from '../component-system/registry'
 import type { ComponentSceneNode, SceneDocument } from '../scene/model'
+import { ComponentAttributeStore } from './component-attribute-store'
 import { ComponentPropertyStore } from './component-property-store'
 import type { RuntimeDataSource, RuntimeDataSourceStop } from './data-source'
 import { RuntimeValueStore } from './runtime-value-store'
@@ -35,6 +36,7 @@ export type ComponentRuntimeEventListener = (
 
 export class PreviewRuntime {
   readonly values = new RuntimeValueStore()
+  readonly componentAttributes: ComponentAttributeStore
   readonly componentProps: ComponentPropertyStore
 
   private readonly sources: readonly RuntimeDataSource[]
@@ -55,6 +57,7 @@ export class PreviewRuntime {
   ) {
     this.sources = [...sources]
     this.registry = registry
+    this.componentAttributes = new ComponentAttributeStore(registry)
     this.componentProps = new ComponentPropertyStore(registry)
   }
 
@@ -151,15 +154,18 @@ export class PreviewRuntime {
       `Component ${target.node.type} Action ${actionName}`,
     )
 
-    // Renderer and Action handlers consume the exact same immutable, settled
-    // host-owned snapshot. Neither path independently reconstructs props.
-    const props = this.componentProps.getNodeSnapshot(nodeId)
+    // Renderer and Action handlers consume the exact same host-owned snapshots:
+    // authored Attributes remain separate from the settled effective Property
+    // snapshot, and neither path independently reconstructs runtime state.
+    const attributes = this.componentAttributes.getNodeSnapshot(nodeId)
+    const properties = this.componentProps.getNodeSnapshot(nodeId)
 
     return handler(
       {
         nodeId,
         componentType: target.node.type,
-        props,
+        attributes,
+        properties,
         emit: (eventName, payload) => {
           this.emitEvent(nodeId, eventName, payload)
         },
@@ -281,6 +287,7 @@ export class PreviewRuntime {
     this.eventSequence = 0
     this.behaviorDispatchDepth = 0
     this.compiledSemanticClaims.clear()
+    this.componentAttributes.attachScene(this.scene)
     this.componentProps.attachScene(this.scene, this.values.getSnapshot())
     this.runtimeValueStop = this.values.subscribe(() => {
       this.componentProps.syncRuntimeValues(this.values.getSnapshot())
@@ -299,6 +306,7 @@ export class PreviewRuntime {
 
       this.runtimeValueStop?.()
       this.runtimeValueStop = null
+      this.componentAttributes.reset()
       this.componentProps.reset()
       this.running = false
       this.values.clear()
@@ -318,6 +326,7 @@ export class PreviewRuntime {
     this.runtimeValueStop = null
     this.running = false
     this.values.clear()
+    this.componentAttributes.reset()
     this.componentProps.reset()
     this.compiledSemanticClaims.clear()
     this.scene = null
