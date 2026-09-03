@@ -19,22 +19,26 @@
 
 /* These generated flex items are the two inter-group spacer slots. Each slot
  * grows equally and draws its separator at exactly 50% of its own width, so
- * the separator is centered between the adjacent visible command groups. */
+ * the separator is centered between the adjacent visible command groups.
+ * Keep the divider deliberately short and softly weighted: it should separate
+ * command families without reading like another toolbar control. */
 .editor-shell .canvas-area > .canvas-toolbar::before,
 .editor-shell .canvas-area > .canvas-toolbar::after {
   content: '';
   flex: 1 1 24px;
   min-width: 12px;
-  height: 24px;
+  height: 16px;
   align-self: center;
   pointer-events: none;
   background:
     linear-gradient(
       to right,
-      transparent calc(50% - 0.5px),
-      #dbe3ec calc(50% - 0.5px),
-      #dbe3ec calc(50% + 0.5px),
-      transparent calc(50% + 0.5px)
+      transparent calc(50% - 1.5px),
+      rgba(148, 163, 184, 0.16) calc(50% - 1.5px),
+      rgba(148, 163, 184, 0.58) calc(50% - 0.75px),
+      rgba(148, 163, 184, 0.58) calc(50% + 0.75px),
+      rgba(148, 163, 184, 0.16) calc(50% + 1.5px),
+      transparent calc(50% + 1.5px)
     );
 }
 
@@ -90,6 +94,33 @@
 .editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(2)::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: #cbd5e1;
+}
+
+/* `workbench.css` is imported by lazily loaded editor pages after the global
+ * chrome CSS. Its generic `.canvas-toast` rule can therefore re-introduce
+ * `top: 12px`, a white pill background and rounded border after
+ * `editor-chrome.css` has moved feedback to the footer with `bottom: 7px`.
+ * Having both top and bottom set stretches an absolutely positioned auto-height
+ * toast across almost the entire canvas. Pin the final editor contract here
+ * with a selector that is intentionally stronger than either generic rule, so
+ * the result is independent of CSS chunk load order. */
+.editor-shell .canvas-area > .canvas-toast {
+  top: auto;
+  right: auto;
+  bottom: 7px;
+  left: 50%;
+  width: max-content;
+  height: auto;
+  min-height: 0;
+  max-width: min(360px, 28vw);
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  color: #64748b;
+  line-height: 18px;
 }
 
 /* Grid visibility and spacing are one segmented control. Keep only the outer
