@@ -4,20 +4,39 @@
     "type": "starter.process-valve",
     "title": "流程阀门",
     "category": "流程设备",
-    "description": "可移植的声明式流程阀门示例，支持关闭、开启、故障三态和左右流程连接点。",
+    "description": "可移植的声明式流程阀门示例，支持 authored 状态颜色、关闭/开启/故障三态和左右流程连接点。",
     "size": {
       "defaultWidth": 120,
       "defaultHeight": 80,
       "minWidth": 60,
       "minHeight": 40
     },
-    "attributes": {},
+    "attributes": {
+      "closedColor": {
+        "title": "关闭色",
+        "kind": "color",
+        "defaultValue": "#64748b",
+        "description": "关闭状态的 authored presentation color。"
+      },
+      "openColor": {
+        "title": "开启色",
+        "kind": "color",
+        "defaultValue": "#22c55e",
+        "description": "开启状态的 authored presentation color。"
+      },
+      "faultColor": {
+        "title": "故障色",
+        "kind": "color",
+        "defaultValue": "#ef4444",
+        "description": "故障状态的 authored presentation color。"
+      }
+    },
     "properties": {
       "state": {
         "title": "状态",
         "kind": "select",
         "defaultValue": "closed",
-        "description": "阀门当前显示状态。",
+        "description": "阀门当前语义状态；颜色由 authored presentation configuration 决定。",
         "bindable": true,
         "options": [
           { "label": "关闭", "value": "closed" },
@@ -59,72 +78,47 @@
         "name": "流程管段",
         "kind": "vector",
         "parentId": null,
-        "transform": {
-          "x": 0,
-          "y": 35,
-          "width": 120,
-          "height": 10,
-          "rotation": 0,
-          "scaleX": 1,
-          "scaleY": 1
-        },
+        "transform": { "x": 0, "y": 35, "width": 120, "height": 10, "rotation": 0, "scaleX": 1, "scaleY": 1 },
         "visible": true,
         "opacity": 1,
         "primitive": "rect",
-        "style": {
-          "fill": "#94a3b8",
-          "stroke": "#475569",
-          "strokeWidth": 2
-        }
+        "style": { "fill": "#94a3b8", "stroke": "#475569", "strokeWidth": 2 }
       },
       {
         "id": "body",
         "name": "阀体",
         "kind": "vector",
         "parentId": null,
-        "transform": {
-          "x": 35,
-          "y": 15,
-          "width": 50,
-          "height": 50,
-          "rotation": 0,
-          "scaleX": 1,
-          "scaleY": 1
-        },
+        "transform": { "x": 35, "y": 15, "width": 50, "height": 50, "rotation": 0, "scaleX": 1, "scaleY": 1 },
         "visible": true,
         "opacity": 1,
         "primitive": "circle",
-        "style": {
-          "fill": "#64748b",
-          "stroke": "#334155",
-          "strokeWidth": 3
-        }
+        "style": { "fill": "#64748b", "stroke": "#334155", "strokeWidth": 3 }
       },
       {
         "id": "handle",
         "name": "阀杆",
         "kind": "vector",
         "parentId": null,
-        "transform": {
-          "x": 57,
-          "y": 2,
-          "width": 6,
-          "height": 32,
-          "rotation": 0,
-          "scaleX": 1,
-          "scaleY": 1
-        },
+        "transform": { "x": 57, "y": 2, "width": 6, "height": 32, "rotation": 0, "scaleX": 1, "scaleY": 1 },
         "visible": true,
         "opacity": 1,
         "primitive": "rect",
-        "style": {
-          "fill": "#334155",
-          "stroke": "#1e293b",
-          "strokeWidth": 1
-        }
+        "style": { "fill": "#334155", "stroke": "#1e293b", "strokeWidth": 1 }
       }
     ],
     "rules": [
+      {
+        "id": "closed-body",
+        "enabled": true,
+        "propertyKey": "state",
+        "operator": "equals",
+        "compareValue": "closed",
+        "layerId": "body",
+        "target": "style.fill",
+        "value": "#64748b",
+        "valueSource": { "namespace": "attribute", "key": "closedColor" }
+      },
       {
         "id": "open-body",
         "enabled": true,
@@ -133,7 +127,8 @@
         "compareValue": "open",
         "layerId": "body",
         "target": "style.fill",
-        "value": "#22c55e"
+        "value": "#22c55e",
+        "valueSource": { "namespace": "attribute", "key": "openColor" }
       },
       {
         "id": "open-handle",
@@ -153,7 +148,8 @@
         "compareValue": "fault",
         "layerId": "body",
         "target": "style.fill",
-        "value": "#ef4444"
+        "value": "#ef4444",
+        "valueSource": { "namespace": "attribute", "key": "faultColor" }
       }
     ],
     "animations": [
@@ -162,19 +158,8 @@
         "kind": "blink",
         "enabled": true,
         "layerId": "body",
-        "timing": {
-          "durationMs": 900,
-          "delayMs": 0,
-          "iterations": "infinite",
-          "direction": "normal",
-          "easing": "linear"
-        },
-        "activation": {
-          "kind": "property",
-          "propertyKey": "state",
-          "operator": "equals",
-          "compareValue": "fault"
-        }
+        "timing": { "durationMs": 900, "delayMs": 0, "iterations": "infinite", "direction": "normal", "easing": "linear" },
+        "activation": { "kind": "property", "propertyKey": "state", "operator": "equals", "compareValue": "fault" }
       }
     ]
   },
