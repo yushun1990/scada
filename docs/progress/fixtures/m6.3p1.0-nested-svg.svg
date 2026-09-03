@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
+  <g id="housing" transform="translate(12 10)">
+    <rect id="shell" x="0" y="0" width="136" height="100" rx="8" fill="#334155" stroke="#0f172a" stroke-width="4" />
+    <g id="status" transform="translate(30 22)">
+      <circle id="lamp" cx="20" cy="20" r="16" fill="#22c55e" stroke="#052e16" stroke-width="3" />
+      <path id="needle" d="M58 38 L100 18 L94 48 Z" fill="#f59e0b" stroke="#78350f" stroke-width="3" />
+    </g>
+  </g>
+</svg>
