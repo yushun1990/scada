@@ -55,6 +55,8 @@ try {
     toast.evaluate((element) => {
       const style = getComputedStyle(element)
       return {
+        // `top:auto` is resolved to a used pixel value by getComputedStyle()
+        // when the element is bottom-positioned, so keep it diagnostic only.
         top: style.top,
         bottom: style.bottom,
         height: style.height,
@@ -69,8 +71,17 @@ try {
   assert.ok(canvasBox, 'SCADA canvas area must be measurable')
   console.log(`SCADA add-component toast (${componentLabel}): ${JSON.stringify({ toastBox, canvasBox, toastStyles })}`)
 
-  assert.equal(toastStyles.top, 'auto', 'SCADA feedback toast must not regain a top inset from lazy workbench CSS')
+  // Capture evidence before assertions so any future regression still leaves a
+  // deployed-page screenshot for visual diagnosis.
+  await page.screenshot({ path: 'artifacts/scada-add-component-toast-1400.png', fullPage: true })
+
+  const toastBottomGap = (canvasBox.y + canvasBox.height) - (toastBox.y + toastBox.height)
+
   assert.equal(toastStyles.bottom, '7px', 'SCADA feedback toast must stay pinned to the footer area')
+  assert.ok(
+    Math.abs(toastBottomGap - 7) <= 1,
+    `SCADA feedback toast rendered bottom gap must remain 7px, got ${toastBottomGap}px`,
+  )
   assert.equal(toastStyles.borderTopWidth, '0px', 'SCADA feedback toast must not regain the floating-pill border')
   assert.equal(toastStyles.borderRadius, '0px', 'SCADA feedback toast must not regain the floating-pill radius')
   assert.ok(
@@ -83,8 +94,6 @@ try {
     toastBox.y >= canvasBox.y + canvasBox.height * 0.8,
     `SCADA feedback toast must stay near the canvas footer instead of stretching through the center (${toastBox.y}/${canvasBox.y + canvasBox.height})`,
   )
-
-  await page.screenshot({ path: 'artifacts/scada-add-component-toast-1400.png', fullPage: true })
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log('Pages SCADA toast smoke passed: add-component feedback stays compact at the footer and toolbar separators keep the shorter soft treatment.')
