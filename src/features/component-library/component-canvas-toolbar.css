@@ -8,12 +8,25 @@
 
 /* Reuse the SCADA workbench toolbar grammar directly: shared canvas-toolbar
  * spacing, button sizing, group separators, and active/disabled states all
- * come from workbench.css. Component Editor only owns grid placement here. */
+ * come from workbench.css. Component Editor only owns grid placement here.
+ *
+ * Unlike the scene editor, Component Workbench has a dense command surface
+ * between two fixed side panels. Do not inherit the shared hidden horizontal
+ * overflow behavior here: once the center column becomes narrow it makes the
+ * geometry and grid groups look as if they disappeared. Keep command groups
+ * intact and wrap whole groups onto another row instead. */
 .component-editor-shell .component-canvas-toolbar.component-canvas-toolbar {
   grid-area: 1 / 1;
   width: 100%;
   min-width: 0;
   justify-content: flex-start;
+  flex-wrap: wrap;
+  overflow-x: visible;
+  row-gap: 4px;
+}
+
+.component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .canvas-tool-group {
+  min-width: max-content;
 }
 
 /* component-canvas-phase remains in the DOM as a hidden compatibility node,
