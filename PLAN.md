@@ -266,7 +266,8 @@ M8 Portable SCADA Work + Standalone Runtime                     accepted · 2026
 M9A1 Attribute / Property schema + migration authority          accepted · 2026-09-02
 M9A2 Workbench + Inspector authority separation                 accepted · 2026-09-02
 M9B1 Runtime Attribute / Property authority split               accepted · 2026-09-03
-M9B2 Package / Scene compatibility + end-to-end acceptance      acceptance in PR #121 · deployed Pages smoke pending
+M9B2 Package / Scene compatibility + end-to-end acceptance      accepted · 2026-09-03
+M9 Component Attribute / Property Authority Split               accepted · 2026-09-03
 ```
 
 Detailed evidence: `docs/progress/`.
@@ -399,7 +400,7 @@ Concrete runtime transport remains separately deferred by M7B2.
 
 ---
 
-## 8. M9 Component Attribute / Property Authority Split — active
+## 8. M9 Component Attribute / Property Authority Split — accepted · 2026-09-03
 
 Architecture authority:
 
@@ -407,7 +408,7 @@ Architecture authority:
 
 M9 corrects the previously conflated public Property namespace so authored presentation/configuration and runtime semantic state have distinct authority.
 
-Target/current public contract:
+Accepted public contract:
 
 ```text
 Component
@@ -485,31 +486,44 @@ Accepted merge: PR #120 → `main@9afa0f7fa543e00aa39c88c75b82a5beab4fe964`.
 
 Record: `docs/progress/m9b1-runtime-authority.md`.
 
-### M9B2 Package / Scene compatibility + end-to-end acceptance — acceptance in PR #121
+### M9B2 Package / Scene compatibility + end-to-end acceptance — accepted · 2026-09-03
 
 Goal:
 
 > Prove the M9 authority split survives every accepted M7/M8 distribution and standalone-runtime boundary without reopening runtime design.
 
-Acceptance candidate implemented in PR #121:
+Accepted in PR #121 and final deployed acceptance completed after PR #122 repaired one stale pre-M9 Pages assertion:
 
 - portable `starter.process-valve` exposes authored `closedColor/openColor/faultColor` Attributes while `state` remains the bindable semantic Property;
 - private Visual Rules source presentation color from explicit Attribute `valueSource` while activation remains Property-driven;
-- component package canonical export/import preserves Attribute / Property contract authority;
+- component package v2 canonical export/import preserves Attribute / Property contract authority;
 - canonical Scene v8 resolves Attribute defaults while preserving instance authored overrides and keeps `propertyFallbacks` separate;
 - SCADA Work Package serialize/parse preserves both authorities and exact dependency closure;
+- browser component and work transfer preserve the split in fresh browsers;
 - standalone runtime exposes immutable authored Attribute and effective Property snapshots independently;
 - persisted semantics derive `Property.state` without mutating authored Attribute or Property fallback state;
-- private visual evaluation proves derived `state=open` selects an instance-authored non-default `openColor`;
-- Pages smoke is upgraded to load canonical Scene v8 and require the authored purple valve color rather than the package default green.
+- private visual evaluation proves derived `state=open` selects instance-authored `openColor=#7c3aed` and renders purple;
+- deployed reusable starter packages are v2 artifacts with explicit Attribute / Property namespaces.
 
-Deterministic record: `docs/progress/m9b2-package-scene-e2e.md`.
+Record: `docs/progress/m9b2-package-scene-e2e.md`.
 
-PR CI proves the in-memory artifact/runtime chain. Actual fresh-browser execution against deployed `main` remains the final M9B2 acceptance evidence after merge/deploy.
+### M9 closeout — accepted · 2026-09-03
 
-### M9 closeout
+Final M9 accepted revision:
 
-Close M9 only after M9B2 merges and the deployed Pages smoke proves the authored Attribute / runtime Property split in a fresh browser. Record the final main revision and deployment evidence before marking M9 accepted.
+`main@1584337ab620bed4a611b22257c85c1774548d60`
+
+Final exact-main evidence:
+
+- main CI #892 (`33733268754`) passed
+- Deploy GitHub Pages #258 (`33733268872`) passed
+- Pages Browser Smoke #209 (`33733329792`) passed
+
+The final fresh-browser run passed component package transfer, SCADA work package transfer, standalone authored-Attribute/runtime-Property purple rendering, and reusable starter-package v2 import/activation against the exact deployed revision.
+
+Closeout record: `docs/progress/m9-closeout.md`.
+
+Do not create M9B3 merely to continue numbering.
 
 ---
 
@@ -522,13 +536,13 @@ M8 Portable SCADA Work + Standalone Runtime                    accepted · 2026-
 M9A1 schema / Scene v8 / DSL v1 / migration authority          accepted · 2026-09-02
 M9A2 Workbench + Inspector separation                          accepted · 2026-09-02
 M9B1 runtime Attribute / Property authority split              accepted · 2026-09-03
-M9B2 package / Scene compatibility + acceptance                acceptance in PR #121 · Pages smoke pending
-M9 closeout                                                    after merged-main deployed Pages proof
+M9B2 package / Scene compatibility + acceptance                accepted · 2026-09-03
+M9 Component Attribute / Property Authority Split              accepted · 2026-09-03
 ```
 
-**Current implementation gate: finish M9B2 acceptance in PR #121. After merge/deploy, run the fresh-browser Pages standalone smoke against current main; only then close M9.**
+**Current implementation gate: M9 is closed. No M10 architecture/product scope is accepted yet. The next step is a deliberate roadmap review against the current product direction and accepted M6–M9 boundaries before authorizing another implementation milestone.**
 
-Preserve M6–M8 boundaries. M9B2 is a compatibility/end-to-end proof slice, not a runtime authority redesign. Do not reopen flattened `props`, Attribute binding, hidden installation or standalone authoring state.
+Preserve M6–M9 boundaries during that review. In particular, do not reopen flattened `props`, Attribute binding, hidden package installation or standalone authoring state without a concrete requirement and an explicit architecture decision.
 
 ---
 
@@ -552,7 +566,7 @@ Use the narrowest relevant verification set:
 - portable visual-resource fixtures;
 - canonical persisted-semantics fixtures.
 
-M9 specifically requires:
+The accepted M9 verification baseline includes:
 
 - schema migration fixtures proving Attribute vs Property authority classification;
 - explicit ambiguous-legacy behavior tests;
@@ -568,7 +582,7 @@ Prefer explicit deterministic state/snapshots over timing-sensitive renderer ins
 
 ## 11. Current non-goals / reopening conditions
 
-Do not distract M9 with unrelated expansion:
+Do not reopen accepted M6–M9 boundaries through unrelated expansion:
 
 - production publication-backend provisioning while M6.7B3 remains deferred;
 - speculative MQTT/WebSocket/HTTP/SSE/vendor adapter implementation;
@@ -582,7 +596,7 @@ Do not distract M9 with unrelated expansion:
 - editor mock telemetry in standalone mode;
 - broad asset-manager/media-library UX without a demonstrated product requirement;
 - component marketplace/catalog expansion;
-- large starter component catalogs before the Attribute/Property authority split stabilizes;
+- large starter component catalogs without a concrete product requirement;
 - unrestricted JavaScript;
 - arbitrary DOM / React / Konva authored access;
 - full vector illustration/path tooling;
