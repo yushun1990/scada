@@ -97,7 +97,7 @@ Normative rules:
 - Value Binding targets Properties only.
 - runtime telemetry must not overwrite authored Attributes.
 - Attribute changes happen through authoring/configuration flows, not runtime propagation.
-- component-private rules may read both Attributes and effective Properties once the M9B1 runtime boundary is complete.
+- component-private rules read authored Attributes and effective Properties through explicit separate namespaces.
 - component type identity represents a genuinely different component, not a running/alarm/fault/color combination.
 
 The accepted design authority is:
@@ -265,8 +265,8 @@ M7 Packaging / adapter foundation / reusable components         accepted · 2026
 M8 Portable SCADA Work + Standalone Runtime                     accepted · 2026-09-02
 M9A1 Attribute / Property schema + migration authority          accepted · 2026-09-02
 M9A2 Workbench + Inspector authority separation                 accepted · 2026-09-02
-M9B1 Runtime Attribute / Property authority split               acceptance in PR #120
-M9B2 Package / Scene compatibility + end-to-end acceptance      NEXT after M9B1
+M9B1 Runtime Attribute / Property authority split               accepted · 2026-09-03
+M9B2 Package / Scene compatibility + end-to-end acceptance      acceptance in PR #121 · deployed Pages smoke pending
 ```
 
 Detailed evidence: `docs/progress/`.
@@ -459,13 +459,13 @@ Record: `docs/progress/m9a2-authoring-authority-ui.md`.
 
 M9A2 intentionally stopped before changing runtime execution authority. M9B1 carries that accepted authoring split through Preview, Renderer, Actions and private visual evaluation.
 
-### M9B1 Runtime Attribute / Property authority split — acceptance in PR #120
+### M9B1 Runtime Attribute / Property authority split — accepted · 2026-09-03
 
 Goal:
 
 > Carry the already-separated authored/runtime authorities through Preview, Renderer, Component Actions and component-private visual evaluation.
 
-Implemented acceptance surface:
+Accepted surface:
 
 - Value Binding continues to write Properties only;
 - runtime telemetry/derived updates cannot mutate authored Attributes;
@@ -479,26 +479,37 @@ Implemented acceptance surface:
 - Attribute edits remain authoring operations and do not enter telemetry propagation/history paths;
 - legacy persistence fixtures remain migration inputs rather than becoming a second live runtime authority.
 
-Do not flatten Attributes back into `ComponentProps`. The runtime API itself now expresses the distinction.
+Do not flatten Attributes back into `ComponentProps`. The runtime API itself expresses the distinction.
+
+Accepted merge: PR #120 → `main@9afa0f7fa543e00aa39c88c75b82a5beab4fe964`.
 
 Record: `docs/progress/m9b1-runtime-authority.md`.
 
-### M9B2 Package / Scene compatibility + end-to-end acceptance — NEXT after M9B1
+### M9B2 Package / Scene compatibility + end-to-end acceptance — acceptance in PR #121
 
-Prove the split survives all accepted M7/M8 distribution/runtime boundaries:
+Goal:
 
-- component package export/import;
-- SCADA work package export/import;
-- registry-scoped Scene validation/migration;
-- standalone direct package load;
-- canonical persisted semantics;
-- fresh-browser Pages smoke.
+> Prove the M9 authority split survives every accepted M7/M8 distribution and standalone-runtime boundary without reopening runtime design.
 
-Final acceptance scenario should prove one generic industrial component can use semantic runtime state plus authored presentation Attributes without state-specific component types.
+Acceptance candidate implemented in PR #121:
+
+- portable `starter.process-valve` exposes authored `closedColor/openColor/faultColor` Attributes while `state` remains the bindable semantic Property;
+- private Visual Rules source presentation color from explicit Attribute `valueSource` while activation remains Property-driven;
+- component package canonical export/import preserves Attribute / Property contract authority;
+- canonical Scene v8 resolves Attribute defaults while preserving instance authored overrides and keeps `propertyFallbacks` separate;
+- SCADA Work Package serialize/parse preserves both authorities and exact dependency closure;
+- standalone runtime exposes immutable authored Attribute and effective Property snapshots independently;
+- persisted semantics derive `Property.state` without mutating authored Attribute or Property fallback state;
+- private visual evaluation proves derived `state=open` selects an instance-authored non-default `openColor`;
+- Pages smoke is upgraded to load canonical Scene v8 and require the authored purple valve color rather than the package default green.
+
+Deterministic record: `docs/progress/m9b2-package-scene-e2e.md`.
+
+PR CI proves the in-memory artifact/runtime chain. Actual fresh-browser execution against deployed `main` remains the final M9B2 acceptance evidence after merge/deploy.
 
 ### M9 closeout
 
-Close M9 only after A1/A2/B1/B2 are individually accepted and the end-to-end authority split is demonstrated across authoring, persistence, distribution and standalone runtime.
+Close M9 only after M9B2 merges and the deployed Pages smoke proves the authored Attribute / runtime Property split in a fresh browser. Record the final main revision and deployment evidence before marking M9 accepted.
 
 ---
 
@@ -510,14 +521,14 @@ M7 packaging / adapter foundation                              accepted · 2026-
 M8 Portable SCADA Work + Standalone Runtime                    accepted · 2026-09-02
 M9A1 schema / Scene v8 / DSL v1 / migration authority          accepted · 2026-09-02
 M9A2 Workbench + Inspector separation                          accepted · 2026-09-02
-M9B1 runtime Attribute / Property authority split              acceptance in PR #120
-M9B2 package / Scene compatibility + acceptance                NEXT after M9B1
-M9 closeout                                                    after A1 + A2 + B1 + B2
+M9B1 runtime Attribute / Property authority split              accepted · 2026-09-03
+M9B2 package / Scene compatibility + acceptance                acceptance in PR #121 · Pages smoke pending
+M9 closeout                                                    after merged-main deployed Pages proof
 ```
 
-**Current implementation gate: finish M9B1 acceptance in PR #120; after merge, proceed directly to M9B2 Package / Scene compatibility + end-to-end acceptance.**
+**Current implementation gate: finish M9B2 acceptance in PR #121. After merge/deploy, run the fresh-browser Pages standalone smoke against current main; only then close M9.**
 
-Before M9B2 implementation, re-read latest `main`, this roadmap, the accepted Attribute/Property architecture document and the M9B1 progress record. Preserve M6–M8 boundaries; M9B2 is a compatibility/end-to-end proof slice, not a new runtime authority redesign.
+Preserve M6–M8 boundaries. M9B2 is a compatibility/end-to-end proof slice, not a runtime authority redesign. Do not reopen flattened `props`, Attribute binding, hidden installation or standalone authoring state.
 
 ---
 

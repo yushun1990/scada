@@ -68,6 +68,27 @@ try {
       type: componentType,
       title: componentTitle,
       category: 'Portable smoke',
+      attributes: {
+        ...source.document.definition.attributes,
+        accentColor: {
+          title: 'Accent color',
+          kind: 'color',
+          defaultValue: '#7c3aed',
+        },
+      },
+      properties: {
+        ...source.document.definition.properties,
+        state: {
+          title: 'State',
+          kind: 'select',
+          defaultValue: 'idle',
+          bindable: true,
+          options: [
+            { label: 'Idle', value: 'idle' },
+            { label: 'Active', value: 'active' },
+          ],
+        },
+      },
     },
     status: 'ready',
   }
@@ -97,9 +118,14 @@ try {
     ['definition', 'implementationDraft', 'packageVersion', 'visual'],
     'browser export contains only the transport-neutral artifact fields',
   )
-  assert.equal(exportedPackage.packageVersion, 1)
+  assert.equal(exportedPackage.packageVersion, 2)
   assert.equal(exportedPackage.definition.type, componentType)
   assert.equal(exportedPackage.definition.title, componentTitle)
+  assert.equal(exportedPackage.definition.attributes.accentColor.defaultValue, '#7c3aed')
+  assert.equal(exportedPackage.definition.properties.state.defaultValue, 'idle')
+  assert.equal(exportedPackage.definition.properties.state.bindable, true)
+  assert.equal('state' in exportedPackage.definition.attributes, false)
+  assert.equal('accentColor' in exportedPackage.definition.properties, false)
   assert.equal('id' in exportedPackage, false)
   assert.equal('status' in exportedPackage, false)
   assert.equal('updatedAt' in exportedPackage, false)
@@ -135,6 +161,11 @@ try {
   assert.equal(imported.document.id, imported.id)
   assert.equal(imported.document.definition.type, componentType)
   assert.equal(imported.document.definition.title, componentTitle)
+  assert.equal(imported.document.definition.attributes.accentColor.defaultValue, '#7c3aed')
+  assert.equal(imported.document.definition.properties.state.defaultValue, 'idle')
+  assert.equal(imported.document.definition.properties.state.bindable, true)
+  assert.equal('state' in imported.document.definition.attributes, false)
+  assert.equal('accentColor' in imported.document.definition.properties, false)
   assert.equal(imported.document.status, 'ready')
   assert.equal(imported.document.builtIn, false)
   assert.equal(await countPersistedComponents(importPage), 1)
@@ -181,7 +212,7 @@ try {
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages portable component transfer smoke passed: a ready local component exports as a transport-neutral file, imports into a fresh browser only after explicit confirmation, persists with a new local identity, activates through the normal SCADA palette, and rejects repeat local-type collisions without mutation.')
+  console.log('Pages portable component transfer smoke passed: a ready local component exports as a v2 Attribute/Property-aware transport-neutral file, imports into a fresh browser only after explicit confirmation, preserves separated public authority with a new local identity, activates through the normal SCADA palette, and rejects repeat local-type collisions without mutation.')
 } finally {
   await exportContext.close()
   await importContext.close()
