@@ -64,7 +64,30 @@ function StudioWorkspaceExit({ module }: { module: WorkspaceModule }) {
   const [toolbar, setToolbar] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
-    setToolbar(document.querySelector<HTMLElement>('.editor-header .document-toolbar'))
+    const resolveToolbar = () => {
+      const nextToolbar = document.querySelector<HTMLElement>(
+        '.editor-header .document-toolbar',
+      )
+      setToolbar((current) => current === nextToolbar ? current : nextToolbar)
+      return nextToolbar !== null
+    }
+
+    if (resolveToolbar()) {
+      return
+    }
+
+    const observer = new MutationObserver(() => {
+      if (resolveToolbar()) {
+        observer.disconnect()
+      }
+    })
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    })
+
+    return () => observer.disconnect()
   }, [module])
 
   if (!toolbar) {
