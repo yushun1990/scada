@@ -9,6 +9,7 @@ const page = await context.newPage()
 const pageErrors = []
 const SELF_CONTAINED_SVG_DATA_URL =
   'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22480%22%20height%3D%22360%22%3E%3Crect%20width%3D%22480%22%20height%3D%22360%22%20fill%3D%22%23ff00ff%22%2F%3E%3C%2Fsvg%3E'
+const AUTHORED_OPEN_COLOR = '#7c3aed'
 
 page.on('pageerror', (error) => pageErrors.push(error.message))
 
@@ -24,11 +25,9 @@ async function localDatabaseNames() {
 async function canvasHasColor(matches) {
   return page.waitForFunction((matcher) => {
     const canvases = [...document.querySelectorAll('.standalone-runtime-canvas canvas')]
-
     return canvases.some((canvas) => {
       const context = canvas.getContext('2d')
       if (!context || canvas.width <= 0 || canvas.height <= 0) return false
-
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
       for (let index = 0; index < pixels.length; index += 4 * 8) {
         const red = pixels[index]
@@ -40,11 +39,8 @@ async function canvasHasColor(matches) {
           red >= matcher.redMin && red <= matcher.redMax &&
           green >= matcher.greenMin && green <= matcher.greenMax &&
           blue >= matcher.blueMin && blue <= matcher.blueMax
-        ) {
-          return true
-        }
+        ) return true
       }
-
       return false
     })
   }, matches)
@@ -60,17 +56,15 @@ try {
   assert.equal(await page.locator('.workspace-shell').count(), 0)
   assert.equal(await page.locator('.editor-shell').count(), 0)
   assert.equal(await page.getByRole('button', { name: '保存', exact: true }).count(), 0)
-  assert.equal(
-    (await localDatabaseNames()).includes('scada-editor-lab'),
-    false,
-    'opening the standalone route must not initialize Studio IndexedDB',
-  )
+  assert.equal((await localDatabaseNames()).includes('scada-editor-lab'), false)
 
   const packageResponse = await page.request.get(
     `${baseUrl}component-packages/process-valve.scada-component.json`,
   )
   assert.equal(packageResponse.ok(), true, 'portable dependency fixture is deployed')
   const dependency = await packageResponse.json()
+  assert.equal(dependency.packageVersion, 2)
+  assert.equal(dependency.definition.attributes.openColor.defaultValue, '#22c55e')
   dependency.visual = {
     ...dependency.visual,
     layers: [
@@ -80,15 +74,7 @@ try {
         name: 'Standalone portable asset smoke',
         kind: 'image',
         parentId: null,
-        transform: {
-          x: 0,
-          y: 0,
-          width: 24,
-          height: 24,
-          rotation: 0,
-          scaleX: 1,
-          scaleY: 1,
-        },
+        transform: { x: 0, y: 0, width: 24, height: 24, rotation: 0, scaleX: 1, scaleY: 1 },
         visible: true,
         opacity: 1,
         assetRef: SELF_CONTAINED_SVG_DATA_URL,
@@ -100,7 +86,7 @@ try {
   const workPackage = {
     packageVersion: 1,
     scene: {
-      version: 7,
+      version: 8,
       id: 'standalone-pages-smoke-scene',
       name: 'Standalone Pages Smoke',
       width: 640,
@@ -114,14 +100,9 @@ try {
           parentId: null,
           visible: true,
           locked: false,
-          transform: {
-            x: 260,
-            y: 140,
-            width: 120,
-            height: 80,
-            rotation: 0,
-          },
-          props: { state: 'closed' },
+          transform: { x: 260, y: 140, width: 120, height: 80, rotation: 0 },
+          attributes: { openColor: AUTHORED_OPEN_COLOR },
+          propertyFallbacks: { state: 'closed' },
           bindings: [],
           behaviors: [],
           scadaSemantics: {
@@ -152,10 +133,6 @@ try {
   await page.getByText('Standalone Pages Smoke', { exact: true }).waitFor()
   await page.getByText(/640 × 360 · 1 节点 · 1 可移植依赖/).waitFor()
   await page.locator('.standalone-runtime-canvas canvas').first().waitFor({ state: 'visible' })
-  assert.ok(
-    await page.locator('.standalone-runtime-canvas canvas').count() >= 1,
-    'standalone route renders the work artifact through a Konva runtime surface',
-  )
 
   await canvasHasColor({
     alphaMin: 200,
@@ -168,12 +145,12 @@ try {
   })
   await canvasHasColor({
     alphaMin: 200,
-    redMin: 20,
-    redMax: 70,
-    greenMin: 160,
-    greenMax: 220,
-    blueMin: 60,
-    blueMax: 130,
+    redMin: 110,
+    redMax: 140,
+    greenMin: 40,
+    greenMax: 80,
+    blueMin: 220,
+    blueMax: 255,
   })
 
   assert.equal(await page.locator('.workspace-shell').count(), 0)
@@ -182,12 +159,11 @@ try {
   assert.equal(
     (await localDatabaseNames()).includes('scada-editor-lab'),
     false,
-    'direct work-package load must not persist the Scene or bundled component dependency',
+    'direct work-package load must not persist the Scene or bundled dependency',
   )
-
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'Pages standalone runtime smoke passed: a fresh browser directly loads the dependency-complete work artifact, renders its self-contained SVG/Image resource, restores canonical Scene v7 semantics so authored valve state=closed becomes effective runtime state=open (green), exposes no authoring chrome, and never initializes Studio IndexedDB.',
+    'Pages standalone runtime smoke passed: a fresh browser directly loads a canonical Scene v8 dependency-complete work artifact, preserves instance-authored Attribute.openColor, derives Property.state from closed to open, renders the authored purple presentation through the portable component Visual Rule, preserves self-contained asset closure, exposes no authoring chrome, and never initializes Studio IndexedDB.',
   )
 } finally {
   await context.close()
