@@ -1,6 +1,6 @@
 # M9B2 — Package / Scene compatibility + end-to-end acceptance
 
-Status: **implemented; acceptance candidate in PR #121; deployed Pages smoke pending after merge**.
+Status: **accepted · 2026-09-03**.
 
 Architecture authority: `docs/architecture/component-attributes-properties.md`.
 
@@ -12,9 +12,7 @@ Prove that the accepted Attribute / Property authority split survives every acce
 
 ## Representative portable component
 
-`starter.process-valve` is the M9B2 representative generic industrial component.
-
-Public contract:
+`starter.process-valve` is the representative generic industrial component:
 
 ```text
 Attributes
@@ -26,99 +24,14 @@ Property
 └─ state = closed | open | fault
 ```
 
-`state` remains the bindable runtime semantic Property.
-Presentation colors are authored Attributes.
+`state` remains the bindable runtime semantic Property. Presentation colors are authored Attributes. Private Visual Rules select authored color through an explicit Attribute `valueSource` while rule activation remains Property-driven.
 
-Private Visual Rules select the authored color through an explicit Attribute `valueSource` while rule activation remains Property-driven.
+## Deterministic package / Scene / runtime proof
 
-No state/color-specific component types are introduced.
-
-## Distribution boundary proof
-
-The portable component package remains v2 and canonical round-trip serialization preserves:
-
-- Attribute definitions and defaults;
-- bindable Property definitions;
-- Attribute-backed Visual Rule source metadata;
-- existing Anchors and declarative animations.
-
-The generic reusable-component activation path still accepts and runs the package without component-specific runtime code.
-
-## Canonical Scene v8 proof
-
-The M9B2 fixture authors an instance override:
+`scripts/check-m9b2-package-scene-e2e.ts` proves:
 
 ```text
-Attribute.openColor = #7c3aed
-Property fallback state = closed
-```
-
-Canonical Scene v8 normalization resolves the other Attribute defaults while preserving the instance override:
-
-```text
-closedColor = #64748b
-openColor   = #7c3aed
-faultColor  = #ef4444
-```
-
-The canonical node contains `attributes` and `propertyFallbacks` separately and does not regain legacy `props` authority.
-
-## SCADA work package proof
-
-SCADA Work Package v1 serialization / parsing preserves:
-
-- the resolved authored Attribute snapshot;
-- the authored Property fallback independently;
-- the exact portable dependency closure;
-- canonical persisted SCADA semantics.
-
-No Studio installation or registry mutation is required merely to make the artifact runnable.
-
-## Browser transfer proof
-
-The deployed browser transfer smoke paths are now explicitly Attribute / Property-aware instead of merely reusing the pre-M9 M7/M8 transfer assertions.
-
-`pages-component-package-transfer-smoke.mjs` now proves:
-
-- browser component export emits current distributable component package v2 rather than the legacy v1 migration input;
-- a non-default authored Attribute definition and a bindable Property definition survive explicit file export;
-- fresh-browser import preserves the two public namespaces independently;
-- the imported ready component activates through the normal component registry/palette without flattening Attribute and Property authority.
-
-`pages-scada-work-package-transfer-smoke.mjs` now proves:
-
-- `starter.process-valve` enters the work artifact as a v2 Attribute / Property-aware dependency;
-- the persisted Scene v8 instance carries `Attribute.openColor = #7c3aed` separately from `propertyFallbacks.state = open`;
-- explicit browser work export preserves both Scene instance namespaces and the dependency contract;
-- fresh-browser work import persists the Scene and missing dependency with the same separation;
-- same-type dependency collision rejection still fails closed without repository mutation.
-
-These checks close the browser-transfer coverage gap found during PR #121 audit while keeping the final deployed standalone proof as the M9 closeout gate.
-
-## Standalone runtime proof
-
-Persisted Scene semantics derive:
-
-```text
-Property.state: closed → open
-```
-
-Standalone runtime then exposes:
-
-- immutable authored Attribute snapshot with `openColor = #7c3aed`;
-- immutable effective Property snapshot with `state = open`;
-- unchanged persisted authored Property fallback `state = closed`.
-
-Private Visual Rule evaluation receives those explicit namespaces and renders the valve body using the authored purple `openColor` while rotating the open-state handle.
-
-This proves runtime Property derivation does not mutate authored Attributes and that authored presentation survives package/work/standalone boundaries.
-
-## Deterministic gate
-
-`scripts/check-m9b2-package-scene-e2e.ts` proves the complete in-memory artifact/runtime chain:
-
-```text
-component package
+component package v2
     ↓ serialize / parse
 canonical Scene v8
     ↓
@@ -133,21 +46,30 @@ private Visual Rule
 authored presentation color
 ```
 
-Existing reusable-component checks were also strengthened so `starter.process-valve` proves non-default authored color values drive its Visual Rules.
+The deterministic path verifies:
 
-Final PR CI #888 (`33727739029`) passed on head `c8ad50119869c260cafbaa1df1bde89e72c10287` before this evidence-only documentation update:
+- distributable package v2 preserves Attribute / Property contract authority;
+- Scene v8 resolves Attribute defaults while preserving an instance-authored non-default override;
+- Scene stores `attributes` independently from `propertyFallbacks` and does not regain legacy `props` authority;
+- SCADA Work Package round-trip preserves both authored namespaces and exact portable dependency closure;
+- standalone runtime exposes immutable authored Attributes separately from effective Properties;
+- persisted semantics derive Property state without mutating authored Attributes or persisted Property fallback state;
+- private visual evaluation combines derived runtime state with authored static presentation.
 
-- Build ✅
-- Runtime/model checks ✅
-- M9B2 package/Scene end-to-end gate ✅
-- reusable portable component regression ✅
-- browser work-transfer script syntax check ✅
-- Lint ✅
-- publication-api ✅
+## Browser transfer proof
 
-## Fresh-browser / Pages proof
+`pages-component-package-transfer-smoke.mjs` proves a ready local component can explicitly export/import through a fresh browser as current package v2 while preserving a non-default Attribute definition and a bindable Property definition in separate namespaces.
 
-`pages-standalone-runtime-smoke.mjs` now uses a canonical Scene v8 work artifact and authors:
+`pages-scada-work-package-transfer-smoke.mjs` proves:
+
+- `starter.process-valve` enters the work artifact as a v2 Attribute / Property-aware dependency;
+- the persisted Scene v8 instance carries `Attribute.openColor = #7c3aed` separately from `propertyFallbacks.state`;
+- explicit browser work export and fresh-browser import preserve both namespaces and dependency authority;
+- same-type dependency collision rejection remains fail-closed without repository mutation.
+
+## Standalone deployed proof
+
+The final deployed fixture authors:
 
 ```text
 Attribute.openColor = #7c3aed
@@ -155,16 +77,42 @@ Property fallback state = closed
 Persisted semantic state = open
 ```
 
-The browser smoke requires the deployed canvas to contain the authored purple valve body rather than the package default green. Therefore the deployed proof cannot pass through the previous Property-only / hard-coded-color behavior.
+The standalone runtime restores canonical semantics and derives effective `Property.state = open` while leaving the authored Attribute and Property fallback unchanged. The process-valve private Visual Rule then reads authored `Attribute.openColor` and renders the valve body purple.
 
-It still verifies:
+The same smoke also verifies:
 
 - dependency-complete direct work-package load;
-- self-contained portable SVG/Image resource closure;
+- self-contained portable visual resource closure;
 - no Studio authoring chrome;
-- no Studio IndexedDB initialization or hidden install.
+- no Studio IndexedDB initialization or hidden dependency install.
 
-The Pages script is syntax-checked in PR CI. Actual fresh-browser execution against deployed `main` remains the final post-merge acceptance evidence before M9 closeout.
+## Acceptance history
+
+PR #121 implemented M9B2. Its deterministic and PR-CI gates passed before merge.
+
+The first deployed Pages Browser Smoke #208 passed the three M9-critical fresh-browser paths — component transfer, work transfer and standalone purple proof — then failed only in the final pre-M9 reusable starter-package smoke because that older script still asserted component package v1.
+
+PR #122 repaired that stale acceptance-harness assertion to package v2 and strengthened it to verify explicit Attribute / Property namespaces. No runtime or package implementation changed in PR #122.
+
+## Final acceptance evidence
+
+Final accepted revision:
+
+`main@1584337ab620bed4a611b22257c85c1774548d60`
+
+Final exact-main evidence:
+
+- main CI #892 (`33733268754`) passed
+- Deploy GitHub Pages #258 (`33733268872`) passed
+- Pages Browser Smoke #209 (`33733329792`) passed
+
+Pages Browser Smoke #209 explicitly passed:
+
+- v2 component browser export/import with separated Attribute / Property authority;
+- Scene v8 SCADA work browser export/import with `attributes` / `propertyFallbacks` separation;
+- fresh-browser standalone canonical semantics deriving `Property.state: closed → open` while preserving authored purple `Attribute.openColor`;
+- purple Visual Rule rendering from the explicit Attribute namespace;
+- reusable starter package deployment/import/persistence/palette activation using v2 packages with explicit Attribute / Property namespaces.
 
 ## Boundary not reopened
 
@@ -177,4 +125,6 @@ M9B2 does not add:
 - standalone authoring persistence;
 - new runtime authority layers.
 
-The slice is compatibility proof only.
+The slice is compatibility/end-to-end proof only.
+
+Closeout record: `docs/progress/m9-closeout.md`.
