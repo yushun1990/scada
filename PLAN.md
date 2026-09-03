@@ -268,6 +268,7 @@ M9A2 Workbench + Inspector authority separation                 accepted · 2026
 M9B1 Runtime Attribute / Property authority split               accepted · 2026-09-03
 M9B2 Package / Scene compatibility + end-to-end acceptance      accepted · 2026-09-03
 M9 Component Attribute / Property Authority Split               accepted · 2026-09-03
+M6.3P1 Component Visual Asset Authoring Patch                   authorized corrective patch · 2026-09-03
 ```
 
 Detailed evidence: `docs/progress/`.
@@ -527,7 +528,43 @@ Do not create M9B3 merely to continue numbering.
 
 ---
 
-## 9. Immediate execution sequence
+## 9. M6.3P1 Component Visual Asset Authoring Patch — authorized corrective patch · 2026-09-03
+
+M6 already accepted the Component Workbench layered visual model, including SVG / Image internals, and M8 later accepted portable visual-resource closure. The missing file-ingest and SVG internal-element authoring flow is therefore treated as an **M6.3 completeness defect**, not new M10 product scope.
+
+Detailed execution authority:
+
+`docs/progress/m6.3p1-component-visual-asset-authoring-patch.md`
+
+Authorized gates:
+
+```text
+M6.3P1.0 SVG asset/tag authority freeze
+M6.3P1.1 local asset ingest + replace
+M6.3P1.2 SVG structure/tag authoring
+M6.3P1.3 SVG target + Visual Rule integration
+M6.3P1.4 portability + deployed acceptance
+```
+
+Patch boundaries:
+
+- Component Workbench local SVG/Image authoring only; do not turn this into a global media library;
+- preserve the existing Component Visual Runtime boundary and do not expose arbitrary DOM / React / Konva authored access;
+- imported distributable assets remain self-contained and compatible with M8 resource closure;
+- SVG executable content, arbitrary script/event handlers and hidden network dependencies fail closed;
+- do not build a full vector/path-point editor;
+- Attribute / Property authority remains exactly as accepted by M9;
+- normal SCADA Workbench complexity must not increase merely because Component Workbench gains richer private visual authoring.
+
+**Start with M6.3P1.0.** Current `SvgVisualLayer` is consumed as one image resource, so internal SVG target identity/persistence/runtime representation must be frozen before implementing upload UI. If the authority decision would introduce a second renderer/runtime authority or weaken M8/M9 boundaries, stop for review.
+
+M6.3P1 closes only when a user can import their own SVG/Image through the normal Component Workbench UI, edit safe SVG internal targets, save/reload, preview, and carry the result through component/work package and standalone runtime boundaries without manual JSON editing.
+
+After M6.3P1 closeout, return to the deliberate post-M9 roadmap review before authorizing M10.
+
+---
+
+## 10. Immediate execution sequence
 
 ```text
 M6 browser-first authoring/runtime foundation                   accepted · 2026-08-30
@@ -538,15 +575,18 @@ M9A2 Workbench + Inspector separation                          accepted · 2026-
 M9B1 runtime Attribute / Property authority split              accepted · 2026-09-03
 M9B2 package / Scene compatibility + acceptance                accepted · 2026-09-03
 M9 Component Attribute / Property Authority Split              accepted · 2026-09-03
+M6.3P1 Component Visual Asset Authoring Patch                  authorized · NEXT
 ```
 
-**Current implementation gate: M9 is closed. No M10 architecture/product scope is accepted yet. The next step is a deliberate roadmap review against the current product direction and accepted M6–M9 boundaries before authorizing another implementation milestone.**
+**Current implementation gate: M6.3P1 is the authorized next execution patch. Begin at M6.3P1.0 SVG asset/tag authority freeze. No M10 architecture/product scope is accepted yet.**
 
-Preserve M6–M9 boundaries during that review. In particular, do not reopen flattened `props`, Attribute binding, hidden package installation or standalone authoring state without a concrete requirement and an explicit architecture decision.
+Preserve M6–M9 boundaries during the patch. In particular, do not reopen flattened `props`, Attribute binding, hidden package installation or standalone authoring state. Do not implement the upload UI ahead of P1.0 if SVG internal target authority is still unresolved.
+
+After M6.3P1 closeout, resume the deliberate roadmap review against current product direction and accepted M6–M9 boundaries before authorizing another implementation milestone.
 
 ---
 
-## 10. Verification policy
+## 11. Verification policy
 
 A milestone is not accepted merely because TypeScript compiles.
 
@@ -576,11 +616,20 @@ The accepted M9 verification baseline includes:
 - component/work package compatibility fixtures;
 - fresh-browser standalone proof that authored Attributes survive while runtime Properties drive visual state.
 
+M6.3P1 additionally requires:
+
+- deterministic SVG sanitization/target-identity fixtures;
+- malformed/unsafe SVG fail-closed fixtures;
+- import/replace + undo/redo + save/reload browser proof;
+- component/work package resource-closure proof with no persisted `blob:` or hidden remote dependency;
+- fresh-browser/standalone proof that authored SVG target state survives distribution;
+- deployed Pages smoke that performs a real local-file SVG import and verifies an internal target edit in preview.
+
 Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
 ---
 
-## 11. Current non-goals / reopening conditions
+## 12. Current non-goals / reopening conditions
 
 Do not reopen accepted M6–M9 boundaries through unrelated expansion:
 
@@ -594,12 +643,12 @@ Do not reopen accepted M6–M9 boundaries through unrelated expansion:
 - hidden local installation of bundled runtime dependencies;
 - runtime authoring/persistence in standalone mode;
 - editor mock telemetry in standalone mode;
-- broad asset-manager/media-library UX without a demonstrated product requirement;
+- broad asset-manager/media-library UX beyond M6.3P1's local component asset import/replace flow;
 - component marketplace/catalog expansion;
 - large starter component catalogs without a concrete product requirement;
 - unrestricted JavaScript;
 - arbitrary DOM / React / Konva authored access;
-- full vector illustration/path tooling;
+- full vector illustration/path-point tooling beyond M6.3P1's narrow safe SVG tag presentation editing;
 - collaborative editing.
 
 These are deferred or separate concerns, not rejected forever.
