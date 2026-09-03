@@ -33,6 +33,11 @@ assert.deepEqual(
 )
 
 const authoredOpenColor = '#7c3aed'
+const canonicalAttributes = {
+  closedColor: '#64748b',
+  openColor: authoredOpenColor,
+  faultColor: '#ef4444',
+}
 const scene: SceneDocument = {
   version: 8,
   id: 'm9b2-authority-e2e',
@@ -48,19 +53,9 @@ const scene: SceneDocument = {
       parentId: null,
       visible: true,
       locked: false,
-      transform: {
-        x: 240,
-        y: 140,
-        width: 120,
-        height: 80,
-        rotation: 0,
-      },
-      attributes: {
-        openColor: authoredOpenColor,
-      },
-      propertyFallbacks: {
-        state: 'closed',
-      },
+      transform: { x: 240, y: 140, width: 120, height: 80, rotation: 0 },
+      attributes: { openColor: authoredOpenColor },
+      propertyFallbacks: { state: 'closed' },
       bindings: [],
       behaviors: [],
       scadaSemantics: {
@@ -85,7 +80,11 @@ const workPackage = createScadaWorkPackage(scene, [dependency], hostCapabilities
 assert.equal(workPackage.scene.version, 8)
 const packagedNode = workPackage.scene.nodes[0]
 assert.ok(packagedNode && !isGroupNode(packagedNode))
-assert.deepEqual(packagedNode.attributes, { openColor: authoredOpenColor })
+assert.deepEqual(
+  packagedNode.attributes,
+  canonicalAttributes,
+  'canonical Scene v8 resolves Attribute defaults while preserving the authored instance override',
+)
 assert.deepEqual(packagedNode.propertyFallbacks, { state: 'closed' })
 assert.equal(Object.hasOwn(packagedNode, 'props'), false)
 
@@ -96,8 +95,8 @@ const parsedNode = parsedWork.scene.nodes[0]
 assert.ok(parsedNode && !isGroupNode(parsedNode))
 assert.deepEqual(
   parsedNode.attributes,
-  { openColor: authoredOpenColor },
-  'work package export/import must preserve authored Attributes independently',
+  canonicalAttributes,
+  'work package export/import must preserve resolved authored Attributes independently',
 )
 assert.deepEqual(
   parsedNode.propertyFallbacks,
@@ -111,9 +110,9 @@ const attributeSnapshot = standalone.runtime.componentAttributes.getNodeSnapshot
 const propertySnapshot = standalone.runtime.componentProps.getNodeSnapshot('valve-node')
 assert.equal(Object.isFrozen(attributeSnapshot), true)
 assert.equal(Object.isFrozen(propertySnapshot), true)
-assert.equal(attributeSnapshot.openColor, authoredOpenColor)
+assert.deepEqual(attributeSnapshot, canonicalAttributes)
 assert.equal(propertySnapshot.state, 'open')
-assert.equal(parsedNode.attributes.openColor, authoredOpenColor)
+assert.deepEqual(parsedNode.attributes, canonicalAttributes)
 assert.equal(parsedNode.propertyFallbacks.state, 'closed')
 
 const resolvedVisual = resolveComponentVisualRules(dependency.visual, {
@@ -128,5 +127,5 @@ assert.equal(handle?.transform.rotation, 90)
 release()
 
 console.log(
-  'M9B2 package/Scene end-to-end checks passed: component package export/import preserves Attribute/Property contract authority, canonical Scene v8 and SCADA work transfer preserve authored Attributes separately from Property fallbacks, standalone runtime derives semantic Property state without mutating authored state, and private visual evaluation renders the instance-authored Attribute color.',
+  'M9B2 package/Scene end-to-end checks passed: component package export/import preserves Attribute/Property contract authority, canonical Scene v8 resolves Attribute defaults while preserving authored overrides, SCADA work transfer keeps authored Attributes separate from Property fallbacks, standalone runtime derives semantic Property state without mutating authored state, and private visual evaluation renders the instance-authored Attribute color.',
 )
