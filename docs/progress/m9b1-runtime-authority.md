@@ -1,8 +1,10 @@
 # M9B1 — Runtime Attribute / Property authority split
 
-Status: **implemented; acceptance candidate in PR #120**.
+Status: **accepted · 2026-09-03**.
 
 Architecture authority: `docs/architecture/component-attributes-properties.md`.
+
+Accepted merge: PR #120 → `main@9afa0f7fa543e00aa39c88c75b82a5beab4fe964`.
 
 ## Goal
 
@@ -111,7 +113,7 @@ Existing Preview/SCADA and typed Action/Event integration fixtures also verify t
 
 ## Verification
 
-PR #120 head `e30355047b8b4b66606410872fb3ceb56914456b` passed CI #878 (`33712378784`):
+PR #120 final head `4451cd4a4d80288c4040de5536485f70dd9158c8` passed final CI #880 (`33712587674`):
 
 - Build ✅
 - Runtime/model checks ✅
@@ -122,6 +124,8 @@ PR #120 head `e30355047b8b4b66606410872fb3ceb56914456b` passed CI #878 (`3371237
 - Reusable portable component regression ✅
 - Lint ✅
 - publication-api ✅
+
+PR #120 merged into main as `9afa0f7fa543e00aa39c88c75b82a5beab4fe964` on 2026-09-03.
 
 ## Boundary not claimed by M9B1
 
