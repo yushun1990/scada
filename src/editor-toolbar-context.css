@@ -33,12 +33,12 @@
   background:
     linear-gradient(
       to right,
-      transparent calc(50% - 1.25px),
-      rgba(148, 163, 184, 0.14) calc(50% - 1.25px),
+      transparent calc(50% - 1px),
+      rgba(148, 163, 184, 0.14) calc(50% - 1px),
       rgba(148, 163, 184, 0.5) calc(50% - 0.5px),
       rgba(148, 163, 184, 0.5) calc(50% + 0.5px),
-      rgba(148, 163, 184, 0.14) calc(50% + 1.25px),
-      transparent calc(50% + 1.25px)
+      rgba(148, 163, 184, 0.14) calc(50% + 1px),
+      transparent calc(50% + 1px)
     );
 }
 
