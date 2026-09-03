@@ -110,6 +110,12 @@ async function assertSingleRowLayout(label) {
   return measured
 }
 
+async function geometryButtonWidths(geometryGroup) {
+  return geometryGroup.locator('button').evaluateAll((buttons) =>
+    buttons.map((button) => button.getBoundingClientRect().width),
+  )
+}
+
 try {
   console.log(`Opening deployed Component Editor toolbar layout regression: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
@@ -132,9 +138,15 @@ try {
   const distributeVertical = page.getByRole('button', { name: '垂直等距分布' })
   const leftAlignBox = await leftAlign.boundingBox()
   const distributeVerticalBox = await distributeVertical.boundingBox()
+  const desktopButtonWidths = await geometryButtonWidths(desktop.geometryGroup)
 
+  console.log(`1200px geometry button widths: ${JSON.stringify(desktopButtonWidths)}`)
   assert.ok(leftAlignBox, 'left align command must be measurable')
   assert.ok(distributeVerticalBox, 'vertical distribute command must be measurable')
+  assert.ok(
+    desktopButtonWidths.every((width) => width >= 29),
+    `1200px desktop: geometry buttons must keep their normal hit target, got ${desktopButtonWidths.join(', ')}`,
+  )
   assert.ok(
     contains(desktop.toolbarBox, leftAlignBox) && contains(desktop.toolbarBox, distributeVerticalBox),
     '1200px desktop: all geometry commands must be visibly present without toolbar scrolling',
@@ -145,27 +157,36 @@ try {
   await page.screenshot({ path: 'artifacts/component-toolbar-1000.png', fullPage: true })
 
   const compact = await assertSingleRowLayout('1000px compact desktop')
+  const compactButtonWidths = await geometryButtonWidths(compact.geometryGroup)
   const geometryMetrics = await compact.geometryGroup.evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,
   }))
+  console.log(`1000px geometry button widths: ${JSON.stringify(compactButtonWidths)}`)
   console.log(`1000px geometry overflow: ${JSON.stringify(geometryMetrics)}`)
 
-  if (geometryMetrics.scrollWidth > geometryMetrics.clientWidth + 1) {
-    await compact.geometryGroup.evaluate((element) => {
-      element.scrollLeft = element.scrollWidth
-    })
-    await page.waitForTimeout(50)
-    const lastGeometryBox = await distributeVertical.boundingBox()
-    const currentGeometryBox = await compact.geometryGroup.boundingBox()
+  assert.ok(
+    compactButtonWidths.every((width) => width >= 29),
+    `1000px compact desktop: geometry buttons must not collapse, got ${compactButtonWidths.join(', ')}`,
+  )
+  assert.ok(
+    geometryMetrics.scrollWidth > geometryMetrics.clientWidth + 1,
+    `1000px compact desktop: geometry strip should scroll instead of shrinking buttons (${geometryMetrics.clientWidth}/${geometryMetrics.scrollWidth})`,
+  )
 
-    assert.ok(lastGeometryBox, 'last geometry command must remain measurable after middle-strip scroll')
-    assert.ok(currentGeometryBox, 'geometry group must remain measurable after middle-strip scroll')
-    assert.ok(
-      contains(currentGeometryBox, lastGeometryBox),
-      '1000px compact desktop: overflowed geometry commands must remain reachable by scrolling only the middle strip',
-    )
-  }
+  await compact.geometryGroup.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth
+  })
+  await page.waitForTimeout(50)
+  const lastGeometryBox = await distributeVertical.boundingBox()
+  const currentGeometryBox = await compact.geometryGroup.boundingBox()
+
+  assert.ok(lastGeometryBox, 'last geometry command must remain measurable after middle-strip scroll')
+  assert.ok(currentGeometryBox, 'geometry group must remain measurable after middle-strip scroll')
+  assert.ok(
+    contains(currentGeometryBox, lastGeometryBox),
+    '1000px compact desktop: overflowed geometry commands must remain reachable by scrolling only the middle strip',
+  )
 
   assert.equal(
     await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
@@ -174,7 +195,7 @@ try {
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages component toolbar smoke passed: toolbar remains single-row and constrained geometry commands stay reachable.')
+  console.log('Pages component toolbar smoke passed: toolbar remains single-row and geometry buttons keep stable hit targets with middle-strip overflow when compact.')
 } finally {
   await browser.close()
 }
