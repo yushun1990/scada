@@ -50,3 +50,13 @@ jobs:
           node scripts/pages-scada-work-package-transfer-smoke.mjs
           node scripts/pages-standalone-runtime-smoke.mjs
           node scripts/pages-reusable-component-packages-smoke.mjs
+
+      - name: Upload Component toolbar audit captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-toolbar-pages-audit
+          path: |
+            artifacts/component-toolbar-1200.png
+            artifacts/component-toolbar-1000.png
+          if-no-files-found: warn
