@@ -74,6 +74,27 @@ SCADA Work Package v1 serialization / parsing preserves:
 
 No Studio installation or registry mutation is required merely to make the artifact runnable.
 
+## Browser transfer proof
+
+The deployed browser transfer smoke paths are now explicitly Attribute / Property-aware instead of merely reusing the pre-M9 M7/M8 transfer assertions.
+
+`pages-component-package-transfer-smoke.mjs` now proves:
+
+- browser component export emits current distributable component package v2 rather than the legacy v1 migration input;
+- a non-default authored Attribute definition and a bindable Property definition survive explicit file export;
+- fresh-browser import preserves the two public namespaces independently;
+- the imported ready component activates through the normal component registry/palette without flattening Attribute and Property authority.
+
+`pages-scada-work-package-transfer-smoke.mjs` now proves:
+
+- `starter.process-valve` enters the work artifact as a v2 Attribute / Property-aware dependency;
+- the persisted Scene v8 instance carries `Attribute.openColor = #7c3aed` separately from `propertyFallbacks.state = open`;
+- explicit browser work export preserves both Scene instance namespaces and the dependency contract;
+- fresh-browser work import persists the Scene and missing dependency with the same separation;
+- same-type dependency collision rejection still fails closed without repository mutation.
+
+These checks close the browser-transfer coverage gap found during PR #121 audit while keeping the final deployed standalone proof as the M9 closeout gate.
+
 ## Standalone runtime proof
 
 Persisted Scene semantics derive:
@@ -114,12 +135,13 @@ authored presentation color
 
 Existing reusable-component checks were also strengthened so `starter.process-valve` proves non-default authored color values drive its Visual Rules.
 
-CI #883 (`33724878030`) passed on head `a6649fae6ab06f3cc61293b2466e6bac202cfe1f`:
+Final PR CI #888 (`33727739029`) passed on head `c8ad50119869c260cafbaa1df1bde89e72c10287` before this evidence-only documentation update:
 
 - Build ✅
 - Runtime/model checks ✅
 - M9B2 package/Scene end-to-end gate ✅
 - reusable portable component regression ✅
+- browser work-transfer script syntax check ✅
 - Lint ✅
 - publication-api ✅
 
