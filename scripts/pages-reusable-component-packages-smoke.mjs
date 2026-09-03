@@ -28,9 +28,12 @@ async function loadDeployedPackage(fixture) {
   assert.equal(response.status, 200, `${url} must be deployed`)
   const document = await response.text()
   const value = JSON.parse(document)
-  assert.equal(value.packageVersion, 1)
+  assert.equal(value.packageVersion, 2)
   assert.equal(value.definition?.type, fixture.type)
   assert.equal(value.definition?.title, fixture.title)
+  assert.equal(typeof value.definition?.attributes, 'object')
+  assert.equal(typeof value.definition?.properties, 'object')
+  assert.equal('props' in value.definition, false)
   assert.equal(value.visual?.mode, 'composite')
   return document
 }
@@ -136,7 +139,7 @@ try {
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'Pages reusable starter package smoke passed: all three public distribution artifacts are deployed, explicitly import into a fresh browser, persist locally, and activate through the normal SCADA palette.',
+    'Pages reusable starter package smoke passed: all three v2 public distribution artifacts are deployed with explicit Attribute/Property namespaces, explicitly import into a fresh browser, persist locally, and activate through the normal SCADA palette.',
   )
 } finally {
   await context.close()
