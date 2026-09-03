@@ -145,14 +145,20 @@ for (const { type } of packageFixtures) {
 }
 
 const valve = loaded.find(({ type }) => type === 'starter.process-valve')!.componentPackage
-const valveOpen = resolveComponentVisualRules(valve.visual, { state: 'open' })
+const valveOpen = resolveComponentVisualRules(valve.visual, {
+  attributes: {},
+  properties: { state: 'open' },
+})
 const valveOpenBody = layerById({ ...valve, visual: valveOpen }, 'body')
 const valveOpenHandle = layerById({ ...valve, visual: valveOpen }, 'handle')
 assert.equal(valveOpenBody.kind, 'vector')
 assert.equal(valveOpenBody.style?.fill, '#22c55e')
 assert.equal(valveOpenHandle.transform.rotation, 90)
 
-const valveFault = resolveComponentVisualRules(valve.visual, { state: 'fault' })
+const valveFault = resolveComponentVisualRules(valve.visual, {
+  attributes: {},
+  properties: { state: 'fault' },
+})
 const valveFaultBody = layerById({ ...valve, visual: valveFault }, 'body')
 assert.equal(valveFaultBody.kind, 'vector')
 assert.equal(valveFaultBody.style?.fill, '#ef4444')
@@ -164,8 +170,11 @@ assert.equal(
 
 const motor = loaded.find(({ type }) => type === 'starter.running-motor')!.componentPackage
 const motorRunning = resolveComponentVisualRules(motor.visual, {
-  running: true,
-  fault: false,
+  attributes: {},
+  properties: {
+    running: true,
+    fault: false,
+  },
 })
 const motorHousing = layerById({ ...motor, visual: motorRunning }, 'housing')
 assert.equal(motorHousing.kind, 'vector')
@@ -176,8 +185,11 @@ assert.equal(
   'running motor uses the generic property-gated spin animation',
 )
 const motorFault = resolveComponentVisualRules(motor.visual, {
-  running: false,
-  fault: true,
+  attributes: {},
+  properties: {
+    running: false,
+    fault: true,
+  },
 })
 const motorFaultHousing = layerById({ ...motor, visual: motorFault }, 'housing')
 assert.equal(motorFaultHousing.kind, 'vector')
@@ -189,12 +201,18 @@ assert.equal(
 )
 
 const signal = loaded.find(({ type }) => type === 'starter.signal-quality')!.componentPackage
-const weakSignal = resolveComponentVisualRules(signal.visual, { quality: 10 })
+const weakSignal = resolveComponentVisualRules(signal.visual, {
+  attributes: {},
+  properties: { quality: 10 },
+})
 assert.equal(layerById({ ...signal, visual: weakSignal }, 'bar-2').visible, false)
 assert.equal(layerById({ ...signal, visual: weakSignal }, 'bar-3').visible, false)
 assert.equal(layerById({ ...signal, visual: weakSignal }, 'bar-4').visible, false)
 
-const strongSignal = resolveComponentVisualRules(signal.visual, { quality: 80 })
+const strongSignal = resolveComponentVisualRules(signal.visual, {
+  attributes: {},
+  properties: { quality: 80 },
+})
 assert.equal(layerById({ ...signal, visual: strongSignal }, 'bar-2').visible, true)
 assert.equal(layerById({ ...signal, visual: strongSignal }, 'bar-3').visible, true)
 assert.equal(layerById({ ...signal, visual: strongSignal }, 'bar-4').visible, true)
