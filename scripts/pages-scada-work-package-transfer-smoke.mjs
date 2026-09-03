@@ -72,9 +72,62 @@ async function readSceneRecord(page, workId) {
   }, workId)
 }
 
+async function writeSceneDocument(page, workId, scene) {
+  return page.evaluate(async ({ id, document }) => {
+    const database = await new Promise((resolve, reject) => {
+      const request = window.indexedDB.open('scada-editor-lab', 2)
+      request.addEventListener('success', () => resolve(request.result), { once: true })
+      request.addEventListener(
+        'error',
+        () => reject(request.error ?? new Error('Failed to open IndexedDB')),
+        { once: true },
+      )
+    })
+
+    try {
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction('scenes', 'readwrite')
+        const store = transaction.objectStore('scenes')
+        const getRequest = store.get(id)
+        getRequest.addEventListener('success', () => {
+          const record = getRequest.result
+          if (!record) {
+            reject(new Error(`Scene ${id} is missing`))
+            return
+          }
+          store.put({
+            ...record,
+            document: JSON.stringify(document),
+          })
+        }, { once: true })
+        getRequest.addEventListener(
+          'error',
+          () => reject(getRequest.error ?? new Error('Failed to read Scene before update')),
+          { once: true },
+        )
+        transaction.addEventListener('complete', () => resolve(), { once: true })
+        transaction.addEventListener(
+          'error',
+          () => reject(transaction.error ?? new Error('Failed to update Scene document')),
+          { once: true },
+        )
+        transaction.addEventListener(
+          'abort',
+          () => reject(transaction.error ?? new Error('Scene update aborted')),
+          { once: true },
+        )
+      })
+    } finally {
+      database.close()
+    }
+  }, { id: workId, document: scene })
+}
+
 try {
   const componentType = 'starter.process-valve'
   const componentTitle = '流程阀门'
+  const authoredOpenColor = '#7c3aed'
+  const authoredState = 'open'
 
   console.log(`Preparing dependency in export browser: ${baseUrl}#/components`)
   await exportPage.goto(`${baseUrl}#/components`, { waitUntil: 'networkidle' })
@@ -87,7 +140,13 @@ try {
     return response.text()
   }, `${baseUrl}component-packages/process-valve.scada-component.json`)
   const starterPackage = JSON.parse(starterDocument)
+  assert.equal(starterPackage.packageVersion, 2)
   assert.equal(starterPackage.definition.type, componentType)
+  assert.equal(starterPackage.definition.attributes.openColor.defaultValue, '#22c55e')
+  assert.equal(starterPackage.definition.properties.state.defaultValue, 'closed')
+  assert.equal(starterPackage.definition.properties.state.bindable, true)
+  assert.equal('state' in starterPackage.definition.attributes, false)
+  assert.equal('openColor' in starterPackage.definition.properties, false)
 
   let componentConfirmationSeen = false
   exportPage.once('dialog', async (dialog) => {
@@ -119,12 +178,35 @@ try {
   const sourceRecord = await readSceneRecord(exportPage, exportWorkId)
   assert.ok(sourceRecord, 'export work is persisted before packaging')
   const sourceScene = JSON.parse(sourceRecord.document)
-  const workName = sourceScene.name
-  assert.ok(
-    sourceScene.nodes.some((node) => node.type === componentType),
-    'persisted export Scene references the portable component type',
-  )
+  const sourceComponentNode = sourceScene.nodes.find((node) => node.type === componentType)
+  assert.ok(sourceComponentNode, 'persisted export Scene references the portable component type')
 
+  const authoredScene = {
+    ...sourceScene,
+    nodes: sourceScene.nodes.map((node) => node.type === componentType
+      ? {
+          ...node,
+          attributes: {
+            ...node.attributes,
+            openColor: authoredOpenColor,
+          },
+          propertyFallbacks: {
+            ...node.propertyFallbacks,
+            state: authoredState,
+          },
+        }
+      : node),
+  }
+  await writeSceneDocument(exportPage, exportWorkId, authoredScene)
+
+  const authoredComponentNode = authoredScene.nodes.find((node) => node.type === componentType)
+  assert.ok(authoredComponentNode)
+  assert.equal(authoredComponentNode.attributes.openColor, authoredOpenColor)
+  assert.equal(authoredComponentNode.propertyFallbacks.state, authoredState)
+  assert.equal('state' in authoredComponentNode.attributes, false)
+  assert.equal('openColor' in authoredComponentNode.propertyFallbacks, false)
+
+  const workName = authoredScene.name
   await exportPage.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await exportPage.getByText('SCADA 作品', { exact: true }).first().waitFor()
   const exportButton = exportPage.getByRole('button', {
@@ -153,6 +235,24 @@ try {
     [componentType],
     'work export carries the exact portable dependency closure',
   )
+  assert.equal(exportedPackage.dependencies[0].packageVersion, 2)
+  assert.equal(
+    exportedPackage.dependencies[0].definition.attributes.openColor.defaultValue,
+    '#22c55e',
+  )
+  assert.equal(exportedPackage.dependencies[0].definition.properties.state.defaultValue, 'closed')
+  assert.equal(exportedPackage.dependencies[0].definition.properties.state.bindable, true)
+  assert.equal('state' in exportedPackage.dependencies[0].definition.attributes, false)
+  assert.equal('openColor' in exportedPackage.dependencies[0].definition.properties, false)
+
+  const exportedComponentNode = exportedPackage.scene.nodes.find(
+    (node) => node.type === componentType,
+  )
+  assert.ok(exportedComponentNode)
+  assert.equal(exportedComponentNode.attributes.openColor, authoredOpenColor)
+  assert.equal(exportedComponentNode.propertyFallbacks.state, authoredState)
+  assert.equal('state' in exportedComponentNode.attributes, false)
+  assert.equal('openColor' in exportedComponentNode.propertyFallbacks, false)
 
   console.log(`Importing work artifact in a fresh browser: ${baseUrl}#/works`)
   await importPage.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
@@ -192,7 +292,12 @@ try {
   assert.ok(importedSceneRecord)
   const importedScene = JSON.parse(importedSceneRecord.document)
   assert.equal(importedScene.name, workName)
-  assert.ok(importedScene.nodes.some((node) => node.type === componentType))
+  const importedComponentNode = importedScene.nodes.find((node) => node.type === componentType)
+  assert.ok(importedComponentNode)
+  assert.equal(importedComponentNode.attributes.openColor, authoredOpenColor)
+  assert.equal(importedComponentNode.propertyFallbacks.state, authoredState)
+  assert.equal('state' in importedComponentNode.attributes, false)
+  assert.equal('openColor' in importedComponentNode.propertyFallbacks, false)
 
   const componentsAfter = await readStoreRecords(importPage, 'components')
   const scenesAfter = await readStoreRecords(importPage, 'scenes')
@@ -200,6 +305,11 @@ try {
   assert.equal(scenesAfter.length, scenesBefore.length + 1)
   const importedComponent = JSON.parse(componentsAfter[0].document)
   assert.equal(importedComponent.definition.type, componentType)
+  assert.equal(importedComponent.definition.attributes.openColor.defaultValue, '#22c55e')
+  assert.equal(importedComponent.definition.properties.state.defaultValue, 'closed')
+  assert.equal(importedComponent.definition.properties.state.bindable, true)
+  assert.equal('state' in importedComponent.definition.attributes, false)
+  assert.equal('openColor' in importedComponent.definition.properties, false)
   assert.equal(importedComponent.status, 'ready')
   assert.equal(importedComponent.builtIn, false)
   assert.match(importedComponent.id, /^component-/)
@@ -241,7 +351,7 @@ try {
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages SCADA work package transfer smoke passed: a persisted work exports with exact portable dependencies, imports into a fresh browser only after explicit confirmation, persists work + missing dependencies with fresh local identities, activates the imported component through the normal registry, and rejects conflicting same-type dependencies without mutation.')
+  console.log('Pages SCADA work package transfer smoke passed: a persisted work exports with exact v2 portable dependencies and separated Scene v8 Attribute/Property authored state, imports into a fresh browser only after explicit confirmation, preserves both authority namespaces with fresh local identities, activates the imported component through the normal registry, and rejects conflicting same-type dependencies without mutation.')
 } finally {
   await exportContext.close()
   await importContext.close()
