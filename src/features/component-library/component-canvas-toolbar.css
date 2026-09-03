@@ -51,6 +51,15 @@
   scrollbar-width: thin;
 }
 
+/* Shared icon buttons have a 30px width but are still shrinkable flex items.
+ * In the constrained middle strip that compressed eight geometry commands into
+ * overlapping slivers. Preserve the normal command hit target and let the
+ * geometry strip, rather than its buttons, own compact-width overflow. */
+.component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .component-geometry-tool-group > button {
+  flex: 0 0 30px;
+  min-width: 30px;
+}
+
 .component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .component-geometry-tool-group::-webkit-scrollbar {
   height: 4px;
 }
