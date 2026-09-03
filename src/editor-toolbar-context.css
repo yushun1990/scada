@@ -1,20 +1,95 @@
 /* Shared editor toolbar layout.
- * Keep command groups content-sized, pin view controls to the far right,
- * and let the final group own no trailing separator. */
-.canvas-toolbar {
+ *
+ * Both the Component Workbench and the SCADA Editor use the same three visual
+ * zones: edit/history commands, geometry commands, and view/grid controls.
+ * The separators belong to the SPACE BETWEEN zones rather than to the edge of
+ * either command group. This keeps each vertical line visually centered even
+ * when the toolbar has a large amount of free desktop width.
+ *
+ * At compact widths the two outer groups stay visible and only the geometry
+ * strip is allowed to shrink/scroll. The toolbar itself never wraps and never
+ * hides the right-side controls behind page-level horizontal overflow. */
+.editor-shell .canvas-area > .canvas-toolbar {
   justify-content: flex-start;
+  gap: 0;
+  flex-wrap: nowrap;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
-.canvas-toolbar > .canvas-tool-group {
-  flex: 0 0 auto;
+/* These generated flex items are the two inter-group spacer slots. Each slot
+ * grows equally and draws its separator at exactly 50% of its own width, so
+ * the separator is centered between the adjacent visible command groups. */
+.editor-shell .canvas-area > .canvas-toolbar::before,
+.editor-shell .canvas-area > .canvas-toolbar::after {
+  content: '';
+  flex: 1 1 24px;
+  min-width: 12px;
+  height: 24px;
+  align-self: center;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to right,
+      transparent calc(50% - 0.5px),
+      #dbe3ec calc(50% - 0.5px),
+      #dbe3ec calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    );
+}
+
+.editor-shell .canvas-area > .canvas-toolbar::before {
+  order: 1;
+}
+
+.editor-shell .canvas-area > .canvas-toolbar::after {
+  order: 3;
+}
+
+/* Remove the legacy group-owned border/padding separators. The first and last
+ * zones are fixed; the middle geometry zone owns compact-width overflow. */
+.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group {
   width: max-content;
-}
-
-.canvas-toolbar > .view-tool-group,
-.component-editor-shell .component-canvas-toolbar > .canvas-tool-group:has(.component-snap-toggle) {
-  margin-left: auto;
+  min-width: 0;
   padding-right: 0;
   border-right: 0;
+}
+
+.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(1) {
+  order: 0;
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(2) {
+  order: 2;
+  flex: 0 1 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(3) {
+  order: 4;
+  flex: 0 0 auto;
+  min-width: max-content;
+  margin-left: 0;
+}
+
+/* Geometry icons are stable 30px commands. Never compress them into slivers;
+ * when there is not enough room, scroll only the middle strip. */
+.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(2) > button {
+  flex: 0 0 30px;
+  min-width: 30px;
+}
+
+.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(2)::-webkit-scrollbar {
+  height: 4px;
+}
+
+.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(2)::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
 }
 
 /* Grid visibility and spacing are one segmented control. Keep only the outer

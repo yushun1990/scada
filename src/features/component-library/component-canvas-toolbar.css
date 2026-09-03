@@ -6,55 +6,40 @@
     var(--ui-status-height, 32px);
 }
 
-/* Reuse the SCADA workbench toolbar grammar directly: shared canvas-toolbar
- * spacing, button sizing, group separators, and active/disabled states all
- * come from workbench.css. Component Workbench only owns the constrained
- * three-zone layout here.
- *
- * Keep the toolbar on exactly one row. Edit/history commands stay pinned left,
- * snap/grid controls stay pinned right, and the denser geometry command group
- * consumes the remaining middle space. When the editor becomes too narrow,
- * only that middle strip scrolls; the toolbar must never wrap above the canvas. */
+/* Component Workbench participates in the shared three-zone toolbar grammar
+ * from editor-toolbar-context.css. Keep the toolbar itself single-row and let
+ * only the middle geometry strip own compact-width overflow. */
 .component-editor-shell .component-canvas-toolbar.component-canvas-toolbar {
   grid-area: 1 / 1;
   width: 100%;
   min-width: 0;
   justify-content: flex-start;
   flex-wrap: nowrap;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
-  scrollbar-width: thin;
-}
-
-.component-editor-shell .component-canvas-toolbar.component-canvas-toolbar::-webkit-scrollbar {
-  display: block;
-  height: 4px;
-}
-
-.component-editor-shell .component-canvas-toolbar.component-canvas-toolbar::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: #cbd5e1;
 }
 
 .component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .component-hierarchy-tool-group {
   flex: 0 0 auto;
   width: max-content;
   min-width: max-content;
+  padding-right: 0;
+  border-right: 0;
 }
 
 .component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .component-geometry-tool-group {
-  flex: 1 1 auto;
-  width: auto;
+  flex: 0 1 auto;
+  width: max-content;
   min-width: 0;
+  padding-right: 0;
+  border-right: 0;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
 
 /* Shared icon buttons have a 30px width but are still shrinkable flex items.
- * In the constrained middle strip that compressed eight geometry commands into
- * overlapping slivers. Preserve the normal command hit target and let the
- * geometry strip, rather than its buttons, own compact-width overflow. */
+ * Preserve the normal hit target and let the geometry strip scroll instead. */
 .component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .component-geometry-tool-group > button {
   flex: 0 0 30px;
   min-width: 30px;
@@ -74,15 +59,6 @@
   width: max-content;
   min-width: max-content;
   margin-left: 0;
-  padding-right: 0;
-  border-right: 0;
-}
-
-/* component-canvas-phase remains in the DOM as a hidden compatibility node,
- * so :last-child from the shared toolbar rules cannot identify the final
- * command group. Keep the SCADA behavior by removing the trailing separator
- * from the last toolbar group explicitly. */
-.component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .canvas-tool-group:last-of-type {
   padding-right: 0;
   border-right: 0;
 }
