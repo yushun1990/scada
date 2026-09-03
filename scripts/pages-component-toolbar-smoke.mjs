@@ -34,8 +34,7 @@ async function measureToolbar() {
   const toolbar = page.getByRole('toolbar', { name: '组件画布工具栏' })
   const hierarchyGroup = toolbar.locator('.component-hierarchy-tool-group')
   const geometryGroup = toolbar.locator('.component-geometry-tool-group')
-  const snapButton = toolbar.getByRole('button', { name: '吸附' })
-  const viewGroup = toolbar.locator('.canvas-tool-group').filter({ has: snapButton })
+  const viewGroup = toolbar.locator('.canvas-tool-group:has(.component-snap-toggle)')
   const gridControl = toolbar.locator('.grid-control')
   const stage = page.locator('.component-canvas-stage')
 
@@ -82,6 +81,15 @@ async function assertSingleRowLayout(label) {
   const measured = await measureToolbar()
   const { toolbarBox, hierarchyBox, geometryBox, viewBox, gridBox, stageBox } = measured
 
+  console.log(`${label} geometry: ${JSON.stringify({
+    toolbar: toolbarBox,
+    hierarchy: hierarchyBox,
+    geometry: geometryBox,
+    view: viewBox,
+    grid: gridBox,
+    stage: stageBox,
+  })}`)
+
   assert.ok(
     sameRow([hierarchyBox, geometryBox, viewBox]),
     `${label}: hierarchy, geometry, and view groups must share one toolbar row`,
@@ -108,6 +116,17 @@ try {
   await page.getByText('Component Editor', { exact: true }).waitFor()
   await mkdir('artifacts', { recursive: true })
 
+  const toolbar = page.getByRole('toolbar', { name: '组件画布工具栏' })
+  await toolbar.waitFor()
+  await toolbar.locator('.component-hierarchy-tool-group').waitFor()
+  await toolbar.locator('.component-geometry-tool-group').waitFor()
+  await toolbar.locator('.canvas-tool-group:has(.component-snap-toggle)').waitFor()
+  await toolbar.locator('.grid-control').waitFor()
+
+  // Capture the deployed page before geometry assertions so a failed audit still
+  // leaves visual evidence in the workflow artifact.
+  await page.screenshot({ path: 'artifacts/component-toolbar-1200.png', fullPage: true })
+
   const desktop = await assertSingleRowLayout('1200px desktop')
   const leftAlign = page.getByRole('button', { name: '左对齐' })
   const distributeVertical = page.getByRole('button', { name: '垂直等距分布' })
@@ -120,15 +139,17 @@ try {
     contains(desktop.toolbarBox, leftAlignBox) && contains(desktop.toolbarBox, distributeVerticalBox),
     '1200px desktop: all geometry commands must be visibly present without toolbar scrolling',
   )
-  await page.screenshot({ path: 'artifacts/component-toolbar-1200.png', fullPage: true })
 
   await page.setViewportSize({ width: 1000, height: 900 })
   await page.waitForTimeout(100)
+  await page.screenshot({ path: 'artifacts/component-toolbar-1000.png', fullPage: true })
+
   const compact = await assertSingleRowLayout('1000px compact desktop')
   const geometryMetrics = await compact.geometryGroup.evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,
   }))
+  console.log(`1000px geometry overflow: ${JSON.stringify(geometryMetrics)}`)
 
   if (geometryMetrics.scrollWidth > geometryMetrics.clientWidth + 1) {
     await compact.geometryGroup.evaluate((element) => {
@@ -151,7 +172,6 @@ try {
     true,
     'component toolbar layout must not create page-level horizontal overflow',
   )
-  await page.screenshot({ path: 'artifacts/component-toolbar-1000.png', fullPage: true })
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log('Pages component toolbar smoke passed: toolbar remains single-row and constrained geometry commands stay reachable.')
