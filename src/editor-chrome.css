@@ -63,12 +63,12 @@
 /* Editor header uses the same hierarchy as a desktop design tool:
    product identity on the left, mode switch centered in the viewport, and
    document actions on the right. `header-actions` becomes layout-transparent
-   so its two child groups can occupy independent grid columns. */
-.editor-shell {
-  grid-template-rows: 60px minmax(0, 1fr);
-}
+   so its two child groups can occupy independent grid columns.
 
-.editor-header {
+   Keep the selector structurally stronger than the lazy-loaded workbench.css
+   `.editor-header` fallback. Otherwise that later flex rule turns JSX order
+   into visual order and moves document actions ahead of Design / Preview. */
+.editor-shell > .editor-header {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
   align-items: center;
@@ -353,7 +353,7 @@
 }
 
 @media (max-width: 1120px) {
-  .editor-header {
+  .editor-shell > .editor-header {
     grid-template-columns: minmax(170px, 1fr) auto minmax(170px, 1fr);
     gap: 12px;
     padding: 0 12px;
@@ -378,7 +378,7 @@
 }
 
 @media (max-width: 880px) {
-  .editor-header {
+  .editor-shell > .editor-header {
     grid-template-columns: minmax(130px, 1fr) auto minmax(130px, 1fr);
   }
 
