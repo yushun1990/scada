@@ -204,10 +204,6 @@ export function ComponentManagedSvgEditor({
                 field="opacity"
                 value={getManagedSvgElementAttribute(selectedElement, 'opacity')}
                 disabled={readOnly}
-                type="number"
-                min="0"
-                max="1"
-                step="0.05"
                 onCommit={commitPresentation}
               />
             </div>
