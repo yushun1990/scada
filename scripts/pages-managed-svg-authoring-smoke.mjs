@@ -188,8 +188,8 @@ try {
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(svgSource),
   })
-  await authorPage.getByText('资源已导入，可撤销/重做', { exact: true }).waitFor()
   await authorPage.locator('.component-layer-row', { hasText: 'p14-status' }).waitFor()
+  await waitForGlobalAssetInputReady(authorPage)
   await authorPage.locator('.component-managed-svg-editor').waitFor()
   await authorPage.locator('.component-managed-svg-row', { hasText: 'svg-tag-000003' }).click()
 
@@ -216,8 +216,8 @@ try {
     mimeType: 'image/png',
     buffer: pngBuffer,
   })
-  await authorPage.getByText('资源已导入，可撤销/重做', { exact: true }).waitFor()
   await authorPage.locator('.component-layer-row', { hasText: 'p14-image' }).waitFor()
+  await waitForGlobalAssetInputReady(authorPage)
 
   await authorPage.getByLabel('预览', { exact: true }).click()
   await authorPage.locator('.status-mode', { hasText: '预览' }).waitFor()
