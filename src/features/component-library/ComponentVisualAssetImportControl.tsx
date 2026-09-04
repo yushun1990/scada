@@ -6,6 +6,7 @@ import {
   importLocalVisualAsset,
   LOCAL_VISUAL_ASSET_ACCEPT,
 } from './visual-asset-import'
+import { ComponentManagedSvgEditor } from './ComponentManagedSvgEditor'
 import type { ComponentLayerSelectionChange } from './ComponentVisualTreeEditor'
 import './component-asset-import.css'
 
@@ -30,6 +31,7 @@ export function ComponentVisualAssetImportControl({
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [dragActive, setDragActive] = useState(false)
+  const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
 
   async function ingestFile(file: File | undefined) {
     if (!file || readOnly || busy) return
@@ -105,6 +107,16 @@ export function ComponentVisualAssetImportControl({
         <span className="component-asset-import-message" role="status" aria-live="polite">
           {message}
         </span>
+      )}
+      {requireReplacement && selectedLayer?.kind === 'svg' && selectedLayer.document && (
+        <ComponentManagedSvgEditor
+          layer={selectedLayer}
+          readOnly={readOnly}
+          onChange={(nextLayer) => onChange({
+            ...visual,
+            layers: visual.layers.map((layer) => layer.id === nextLayer.id ? nextLayer : layer),
+          })}
+        />
       )}
     </div>
   )
