@@ -29,6 +29,7 @@ for (const [label, page] of [
 const componentType = 'custom.pages.managed-svg-p1.4'
 const componentTitle = 'Managed SVG P1.4'
 const authoredFill = '#22c55e'
+const runtimeRuleColor = '#7c3aed'
 const svgSource = `
 <svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">
   <g id="status">
@@ -240,6 +241,8 @@ try {
   await waitForManagedFill(authorPage, authoredFill)
 
   const reloaded = await readPersistedComponent(authorPage)
+  const reloadedSvg = findVisualLayer(reloaded.document, 'svg', 'p14-status')
+  assert.ok(reloadedSvg?.document)
   const readyDocument = {
     ...reloaded.document,
     definition: {
@@ -247,6 +250,48 @@ try {
       type: componentType,
       title: componentTitle,
       category: 'P1.4 acceptance',
+      attributes: {
+        ...reloaded.document.definition.attributes,
+        runningColor: {
+          title: 'Running color',
+          kind: 'color',
+          defaultValue: runtimeRuleColor,
+        },
+      },
+      properties: {
+        ...reloaded.document.definition.properties,
+        state: {
+          title: 'State',
+          kind: 'select',
+          defaultValue: 'running',
+          bindable: true,
+          options: [
+            { label: 'Stopped', value: 'stopped' },
+            { label: 'Running', value: 'running' },
+          ],
+        },
+      },
+    },
+    visual: {
+      ...reloaded.document.visual,
+      rules: [
+        ...(reloaded.document.visual.rules ?? []),
+        {
+          id: 'p1.4-running-indicator',
+          enabled: true,
+          propertyKey: 'state',
+          operator: 'equals',
+          compareValue: 'running',
+          layerId: reloadedSvg.id,
+          svgTagId: 'svg-tag-000003',
+          target: 'style.fill',
+          value: '#000000',
+          valueSource: {
+            namespace: 'attribute',
+            key: 'runningColor',
+          },
+        },
+      ],
     },
     status: 'ready',
   }
@@ -270,7 +315,15 @@ try {
   const exportedComponent = JSON.parse(exportedComponentDocument)
   assert.equal(exportedComponent.packageVersion, 2)
   assert.equal(exportedComponent.definition.type, componentType)
+  assert.equal(exportedComponent.definition.attributes.runningColor.defaultValue, runtimeRuleColor)
+  assert.equal(exportedComponent.definition.properties.state.defaultValue, 'running')
   assert.equal(exportedComponent.visual.version, 4)
+  assert.equal(exportedComponent.visual.rules.length, 1)
+  assert.equal(exportedComponent.visual.rules[0].svgTagId, 'svg-tag-000003')
+  assert.deepEqual(exportedComponent.visual.rules[0].valueSource, {
+    namespace: 'attribute',
+    key: 'runningColor',
+  })
   const exportedSvg = findVisualLayer(exportedComponent, 'svg', 'p14-status')
   const exportedImage = findVisualLayer(exportedComponent, 'image', 'p14-image')
   assert.ok(exportedSvg?.document)
@@ -278,6 +331,7 @@ try {
   assert.equal(
     attributeValue(findManagedTag(exportedSvg.document, 'svg-tag-000003'), 'fill'),
     authoredFill,
+    'component package retains the authored base fill independently from the runtime rule',
   )
   assert.match(exportedSvg.assetRef, /^data:image\/svg\+xml;charset=utf-8,/)
   assert.match(exportedImage.assetRef, /^data:image\/png;base64,/)
@@ -311,6 +365,11 @@ try {
     attributeValue(findManagedTag(importedSvg.document, 'svg-tag-000003'), 'fill'),
     authoredFill,
   )
+  assert.equal(importedComponent.document.visual.rules[0].svgTagId, 'svg-tag-000003')
+  assert.deepEqual(importedComponent.document.visual.rules[0].valueSource, {
+    namespace: 'attribute',
+    key: 'runningColor',
+  })
   assert.match(importedImage.assetRef, /^data:image\/png;base64,/)
 
   console.log('Activating the imported component inside a normal SCADA Workbench')
@@ -323,12 +382,12 @@ try {
   await paletteItem.click()
   await canvasHasColor(importPage, 'canvas', {
     alphaMin: 200,
-    redMin: 24,
-    redMax: 45,
-    greenMin: 185,
-    greenMax: 210,
-    blueMin: 80,
-    blueMax: 110,
+    redMin: 110,
+    redMax: 140,
+    greenMin: 40,
+    greenMax: 80,
+    blueMin: 220,
+    blueMax: 255,
   })
   await importPage.getByRole('button', { name: '保存', exact: true }).click()
   await importPage.getByText('场景已保存', { exact: true }).waitFor()
@@ -340,6 +399,8 @@ try {
   const sceneDocument = JSON.parse(sceneRecord.document)
   const componentNode = sceneDocument.nodes.find((node) => node.type === componentType)
   assert.ok(componentNode, 'SCADA Scene persists an instance of the imported managed-SVG component')
+  assert.equal(componentNode.attributes.runningColor, runtimeRuleColor)
+  assert.equal(componentNode.propertyFallbacks.state, 'running')
   const workName = sceneDocument.name
 
   console.log('Exporting the SCADA work with exact managed-SVG dependency closure')
@@ -362,6 +423,11 @@ try {
     exportedWork.dependencies.map((dependency) => dependency.definition.type),
     [componentType],
   )
+  assert.equal(exportedWork.dependencies[0].visual.rules[0].svgTagId, 'svg-tag-000003')
+  assert.deepEqual(exportedWork.dependencies[0].visual.rules[0].valueSource, {
+    namespace: 'attribute',
+    key: 'runningColor',
+  })
   const workDependencySvg = findVisualLayer(exportedWork.dependencies[0], 'svg', 'p14-status')
   const workDependencyImage = findVisualLayer(exportedWork.dependencies[0], 'image', 'p14-image')
   assert.ok(workDependencySvg?.document)
@@ -372,6 +438,11 @@ try {
   )
   assert.match(workDependencySvg.assetRef, /^data:image\/svg\+xml;charset=utf-8,/)
   assert.match(workDependencyImage.assetRef, /^data:image\/png;base64,/)
+
+  const exportedWorkNode = exportedWork.scene.nodes.find((node) => node.type === componentType)
+  assert.ok(exportedWorkNode)
+  assert.equal(exportedWorkNode.attributes.runningColor, runtimeRuleColor)
+  assert.equal(exportedWorkNode.propertyFallbacks.state, 'running')
 
   console.log('Loading the exact exported work directly in a fresh standalone runtime')
   await runtimePage.goto(`${baseUrl}#/runtime`, { waitUntil: 'networkidle' })
@@ -386,12 +457,12 @@ try {
   await runtimePage.locator('.standalone-runtime-canvas canvas').first().waitFor({ state: 'visible' })
   await canvasHasColor(runtimePage, '.standalone-runtime-canvas canvas', {
     alphaMin: 200,
-    redMin: 24,
-    redMax: 45,
-    greenMin: 185,
-    greenMax: 210,
-    blueMin: 80,
-    blueMax: 110,
+    redMin: 110,
+    redMax: 140,
+    greenMin: 40,
+    greenMax: 80,
+    blueMin: 220,
+    blueMax: 255,
   })
   assert.equal(await runtimePage.locator('.workspace-shell').count(), 0)
   assert.equal(await runtimePage.locator('.editor-shell').count(), 0)
@@ -403,7 +474,7 @@ try {
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'Pages managed SVG authoring acceptance passed: unsafe SVG input fails visibly without mutation; a real local SVG imports, exposes stable internal tags, survives static tag editing plus undo/redo, previews the authored fill, saves/reloads, coexists with a real PNG import, exports/imports as a self-contained component package in a fresh browser, activates and renders inside SCADA Workbench, closes exactly into a SCADA work package, and the exact exported artifact renders in a fresh standalone runtime without Studio persistence.',
+    'Pages managed SVG authoring acceptance passed: unsafe SVG input fails visibly without mutation; a real local SVG imports, exposes stable internal tags, survives static tag editing plus undo/redo, previews the authored fill, saves/reloads, coexists with a real PNG import, exports/imports as a self-contained component package in a fresh browser, preserves a Property-driven internal svgTagId rule with explicit Attribute value source, renders that rule inside SCADA Workbench, closes exactly into a SCADA work package, and the exact exported artifact renders the rule result in a fresh standalone runtime without Studio persistence.',
   )
 } finally {
   await authorContext.close()
