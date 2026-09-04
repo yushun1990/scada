@@ -1,0 +1,75 @@
+.component-managed-svg-editor {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.component-managed-svg-summary,
+.component-managed-svg-selected {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.component-managed-svg-summary span,
+.component-managed-svg-selected span,
+.component-managed-svg-row small {
+  color: var(--text-muted, #667085);
+  font-size: 11px;
+}
+
+.component-managed-svg-tree {
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border-subtle, #d0d5dd);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.component-managed-svg-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  width: 100%;
+  min-height: 28px;
+  align-items: center;
+  gap: 8px;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.component-managed-svg-row:hover,
+.component-managed-svg-row.active {
+  background: var(--surface-hover, rgba(15, 23, 42, 0.06));
+}
+
+.component-managed-svg-tag {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+.component-managed-svg-id {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-muted, #667085);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.component-managed-svg-properties {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--border-subtle, #d0d5dd);
+  padding-top: 10px;
+}
+
+.component-managed-svg-property-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.component-managed-svg-message {
+  color: var(--text-muted, #667085);
+  font-size: 11px;
+}
