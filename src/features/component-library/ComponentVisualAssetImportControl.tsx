@@ -88,6 +88,7 @@ export function ComponentVisualAssetImportControl({
         ref={inputRef}
         className="component-asset-file-input"
         type="file"
+        hidden
         tabIndex={-1}
         accept={LOCAL_VISUAL_ASSET_ACCEPT}
         disabled={readOnly || busy}
