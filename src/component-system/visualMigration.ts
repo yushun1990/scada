@@ -35,5 +35,12 @@ export function normalizeStoredComponentVisual(
     }
   }
 
+  if (value.version === 3) {
+    return {
+      ...value,
+      version: COMPONENT_VISUAL_VERSION,
+    }
+  }
+
   return value
 }
