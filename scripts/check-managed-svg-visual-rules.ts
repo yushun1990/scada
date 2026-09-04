@@ -190,7 +190,17 @@ const stopped = resolveComponentVisualRules(visual, {
   attributes: { runningColor: '#16a34a' },
   properties: { state: 'stopped' },
 })
-assert.strictEqual(stopped, visual, 'no matching rule keeps the authored visual reference')
+const stoppedLayer = stopped.layers[0]
+assert.equal(stoppedLayer?.kind, 'svg')
+if (!stoppedLayer || stoppedLayer.kind !== 'svg' || !stoppedLayer.document) {
+  throw new Error('expected stopped managed SVG layer')
+}
+assert.equal(
+  getManagedSvgElementAttribute(findManagedSvgElement(stoppedLayer.document, 'svg-tag-000005')!, 'fill'),
+  '#ef4444',
+  'unmatched SVG tag rule preserves the authored target value',
+)
+assert.equal(stoppedLayer.opacity, 1, 'unmatched whole-layer rule preserves authored opacity')
 
 const resolved = resolveComponentVisualRules(visual, {
   attributes: { runningColor: '#16a34a' },
