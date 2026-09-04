@@ -4,6 +4,11 @@ import type {
   ComponentScalarValue,
 } from '../../component-system/definition'
 import {
+  findManagedSvgElement,
+  getManagedSvgElementAttribute,
+  isManagedSvgPresentationEditableElement,
+} from '../../component-system/managedSvgAuthoring'
+import {
   resolveVisualAssetStyle,
   resolveVisualTextStyle,
   resolveVisualVectorStyle,
@@ -11,10 +16,13 @@ import {
   type ComponentVisualLayer,
 } from '../../component-system/visual'
 import {
+  visualRuleTargetAcceptsValue,
   visualRuleTargetsForLayer,
+  visualRuleTargetsForSvgTag,
   type VisualRule,
   type VisualRuleOperator,
   type VisualRuleTargetField,
+  type VisualRuleValueSource,
 } from '../../component-system/visualRules'
 import { Button, Checkbox, Input, NumberInput, Select } from '../../ui'
 
@@ -89,10 +97,48 @@ function operatorOptions(property: ComponentPropertyDefinition) {
   return operators.map((value) => ({ value, label: OPERATOR_LABELS[value] }))
 }
 
+function editableManagedSvgTags(layer: ComponentVisualLayer) {
+  if (layer.kind !== 'svg' || !layer.document) return []
+  const result: Array<{ tagId: string; label: string }> = []
+
+  const visit = (element: typeof layer.document.root) => {
+    if (isManagedSvgPresentationEditableElement(element)) {
+      const sourceId = getManagedSvgElementAttribute(element, 'id')
+      result.push({
+        tagId: element.tagId,
+        label: `<${element.tagName}> · ${element.tagId}${sourceId ? ` · #${sourceId}` : ''}`,
+      })
+    }
+    for (const child of element.children) {
+      if (child.kind === 'element') visit(child)
+    }
+  }
+
+  visit(layer.document.root)
+  return result
+}
+
 function defaultTargetValue(
   layer: ComponentVisualLayer,
   target: VisualRuleTargetField,
+  svgTagId?: string,
 ): ComponentScalarValue {
+  if (svgTagId !== undefined && layer.kind === 'svg' && layer.document) {
+    const element = findManagedSvgElement(layer.document, svgTagId)
+    if (element) {
+      if (target === 'style.fill') return getManagedSvgElementAttribute(element, 'fill') ?? ''
+      if (target === 'style.stroke') return getManagedSvgElementAttribute(element, 'stroke') ?? ''
+      if (target === 'style.strokeWidth') {
+        const parsed = Number.parseFloat(getManagedSvgElementAttribute(element, 'stroke-width') ?? '0')
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
+      }
+      if (target === 'opacity') {
+        const parsed = Number(getManagedSvgElementAttribute(element, 'opacity') ?? '1')
+        return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1 ? parsed : 1
+      }
+    }
+  }
+
   if (target === 'visible') return layer.visible
   if (target === 'opacity') return layer.opacity
 
@@ -304,10 +350,7 @@ export function ComponentVisualRuleEditor({
   const properties = Object.entries(definition.properties)
   const allRules = visual.rules ?? []
   const layerRules = allRules.filter((rule) => rule.layerId === layerId)
-  const targetOptions = visualRuleTargetsForLayer(layer).map((value) => ({
-    value,
-    label: TARGET_LABELS[value],
-  }))
+  const svgTags = editableManagedSvgTags(layer)
 
   function updateRule(ruleId: string, patch: Partial<VisualRule>) {
     onChange({
@@ -347,7 +390,7 @@ export function ComponentVisualRuleEditor({
         </p>
       ) : (
         <p className="component-inspector-help">
-          规则仅在预览/运行时计算，不修改基础 Layer。多条规则同时命中时，后面的规则覆盖前面的同一目标。
+          条件始终由 Property 驱动；目标值可使用字面量，或显式读取 Attribute / Property。受管 SVG 可把作用对象切到稳定的内部 svg-tag-*，规则只修改运行时 resolved document，不改基础 SVG。
         </p>
       )}
 
@@ -355,12 +398,49 @@ export function ComponentVisualRuleEditor({
         const property = definition.properties[rule.propertyKey]
         if (!property) return null
 
+        const targets = rule.svgTagId
+          ? visualRuleTargetsForSvgTag()
+          : visualRuleTargetsForLayer(layer)
+        const targetOptions = targets.map((value) => ({
+          value,
+          label: TARGET_LABELS[value],
+        }))
+        const compatibleAttributes = Object.entries(definition.attributes).filter(([, attribute]) =>
+          visualRuleTargetAcceptsValue(layer, rule.target, attribute.defaultValue, rule.svgTagId),
+        )
+        const compatibleProperties = Object.entries(definition.properties).filter(([, candidate]) =>
+          visualRuleTargetAcceptsValue(layer, rule.target, candidate.defaultValue, rule.svgTagId),
+        )
+        const sourceNamespace = rule.valueSource?.namespace ?? 'literal'
+        const sourceNamespaceOptions = [
+          { value: 'literal', label: '字面量' },
+          ...(compatibleAttributes.length > 0 ? [{ value: 'attribute', label: 'Attribute' }] : []),
+          ...(compatibleProperties.length > 0 ? [{ value: 'property', label: 'Property' }] : []),
+        ]
+
+        const setSourceNamespace = (namespace: string) => {
+          if (namespace === 'literal') {
+            updateRule(rule.id, { valueSource: undefined })
+            return
+          }
+          const candidates = namespace === 'attribute'
+            ? compatibleAttributes
+            : compatibleProperties
+          const [key] = candidates[0] ?? []
+          if (!key) return
+          updateRule(rule.id, {
+            valueSource: { namespace, key } as VisualRuleValueSource,
+          })
+        }
+
         return (
           <article className="component-rule-item" key={rule.id}>
             <div className="component-layer-inspector-title">
               <div>
                 <strong>{rule.id}</strong>
-                <span>{rule.propertyKey} → {TARGET_LABELS[rule.target]}</span>
+                <span>
+                  {rule.propertyKey} → {rule.svgTagId ? `${rule.svgTagId} · ` : ''}{TARGET_LABELS[rule.target]}
+                </span>
               </div>
               {!readOnly && (
                 <Button variant="danger" size="small" onClick={() => removeRule(rule.id)}>
@@ -424,6 +504,43 @@ export function ComponentVisualRuleEditor({
                 />
               </label>
 
+              {svgTags.length > 0 && (
+                <label className="property-field compact">
+                  <span>作用对象</span>
+                  <Select
+                    value={rule.svgTagId ? `tag:${rule.svgTagId}` : 'layer'}
+                    disabled={readOnly}
+                    ariaLabel={`${rule.id} 作用对象`}
+                    options={[
+                      { value: 'layer', label: `整个 Layer · ${layer.id}` },
+                      ...svgTags.map((tag) => ({ value: `tag:${tag.tagId}`, label: tag.label })),
+                    ]}
+                    onValueChange={(scope) => {
+                      if (scope === 'layer') {
+                        const nextTarget = visualRuleTargetsForLayer(layer)[0]
+                        if (!nextTarget) return
+                        updateRule(rule.id, {
+                          svgTagId: undefined,
+                          target: nextTarget,
+                          value: defaultTargetValue(layer, nextTarget),
+                          valueSource: undefined,
+                        })
+                        return
+                      }
+                      const svgTagId = scope.slice('tag:'.length)
+                      const nextTarget = visualRuleTargetsForSvgTag()[0]
+                      if (!svgTagId || !nextTarget) return
+                      updateRule(rule.id, {
+                        svgTagId,
+                        target: nextTarget,
+                        value: defaultTargetValue(layer, nextTarget, svgTagId),
+                        valueSource: undefined,
+                      })
+                    }}
+                  />
+                </label>
+              )}
+
               <label className="property-field compact">
                 <span>目标</span>
                 <Select
@@ -435,21 +552,55 @@ export function ComponentVisualRuleEditor({
                     const nextTarget = target as VisualRuleTargetField
                     updateRule(rule.id, {
                       target: nextTarget,
-                      value: defaultTargetValue(layer, nextTarget),
+                      value: defaultTargetValue(layer, nextTarget, rule.svgTagId),
+                      valueSource: undefined,
                     })
                   }}
                 />
               </label>
 
               <label className="property-field compact">
-                <span>目标值</span>
-                <RuleTargetValueEditor
-                  target={rule.target}
-                  value={rule.value}
+                <span>目标值来源</span>
+                <Select
+                  value={sourceNamespace}
                   disabled={readOnly}
-                  onChange={(value) => updateRule(rule.id, { value })}
+                  ariaLabel={`${rule.id} 目标值来源`}
+                  options={sourceNamespaceOptions}
+                  onValueChange={setSourceNamespace}
                 />
               </label>
+
+              {sourceNamespace === 'literal' ? (
+                <label className="property-field compact">
+                  <span>目标值</span>
+                  <RuleTargetValueEditor
+                    target={rule.target}
+                    value={rule.value}
+                    disabled={readOnly}
+                    onChange={(value) => updateRule(rule.id, { value })}
+                  />
+                </label>
+              ) : (
+                <label className="property-field compact">
+                  <span>{sourceNamespace === 'attribute' ? 'Attribute' : 'Property'} 来源</span>
+                  <Select
+                    value={rule.valueSource?.key ?? ''}
+                    disabled={readOnly}
+                    ariaLabel={`${rule.id} ${sourceNamespace} 来源`}
+                    options={(sourceNamespace === 'attribute' ? compatibleAttributes : compatibleProperties)
+                      .map(([key, candidate]) => ({
+                        value: key,
+                        label: `${candidate.title || key} · ${key}`,
+                      }))}
+                    onValueChange={(key) => updateRule(rule.id, {
+                      valueSource: {
+                        namespace: sourceNamespace,
+                        key,
+                      } as VisualRuleValueSource,
+                    })}
+                  />
+                </label>
+              )}
             </div>
           </article>
         )

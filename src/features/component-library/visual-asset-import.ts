@@ -251,6 +251,13 @@ export function applyImportedVisualAsset(
 
   if (selectedLayer && (selectedLayer.kind === 'svg' || selectedLayer.kind === 'image')) {
     if (selectedLayer.kind === asset.kind) {
+      if (
+        selectedLayer.kind === 'svg' &&
+        (visual.rules ?? []).some((rule) => rule.layerId === selectedLayer.id && rule.svgTagId !== undefined)
+      ) {
+        throw new Error('该 SVG 已有内部标签 Visual Rule；请先删除或改为 Layer 目标后再替换文件')
+      }
+
       const replacement = replaceCompatibleLayer(selectedLayer, asset)
       return {
         visual: {
