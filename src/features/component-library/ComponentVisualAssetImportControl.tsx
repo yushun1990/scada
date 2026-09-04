@@ -7,6 +7,7 @@ import {
   LOCAL_VISUAL_ASSET_ACCEPT,
 } from './visual-asset-import'
 import type { ComponentLayerSelectionChange } from './ComponentVisualTreeEditor'
+import './component-asset-import.css'
 
 type ComponentVisualAssetImportControlProps = {
   visual: ComponentVisualDefinition
