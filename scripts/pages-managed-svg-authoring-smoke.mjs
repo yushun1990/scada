@@ -75,6 +75,15 @@ function globalAssetImportControl(page) {
     .first()
 }
 
+async function waitForGlobalAssetInputReady(page) {
+  await page.waitForFunction(() => {
+    const control = [...document.querySelectorAll('.component-asset-import-control')]
+      .find((candidate) => candidate.textContent?.includes('导入 SVG / 图片'))
+    const input = control?.querySelector('input[type="file"]')
+    return input instanceof HTMLInputElement && !input.disabled && input.value === ''
+  })
+}
+
 async function waitForManagedFill(page, expected) {
   await page.waitForFunction((value) => {
     const properties = document.querySelector('.component-managed-svg-properties')
@@ -157,6 +166,7 @@ try {
   const importControl = globalAssetImportControl(authorPage)
   const importInput = importControl.locator('input[type="file"]')
   await importInput.waitFor({ state: 'attached' })
+  await waitForGlobalAssetInputReady(authorPage)
 
   await importInput.setInputFiles({
     name: 'unsafe-p1.4.svg',
@@ -171,8 +181,9 @@ try {
     0,
     'unsafe SVG rejection does not mutate the visual tree',
   )
+  await waitForGlobalAssetInputReady(authorPage)
 
-  await importInput.setInputFiles({
+  await globalAssetImportControl(authorPage).locator('input[type="file"]').setInputFiles({
     name: 'p14-status.svg',
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(svgSource),
@@ -199,6 +210,7 @@ try {
   await authorPage.keyboard.press('Control+y')
   await waitForManagedFill(authorPage, authoredFill)
 
+  await waitForGlobalAssetInputReady(authorPage)
   await globalAssetImportControl(authorPage).locator('input[type="file"]').setInputFiles({
     name: 'p14-image.png',
     mimeType: 'image/png',
