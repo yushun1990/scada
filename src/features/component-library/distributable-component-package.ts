@@ -10,6 +10,7 @@ import {
   cloneComponentVisual,
   type ComponentVisualDefinition,
 } from '../../component-system/visual'
+import { normalizeStoredComponentVisual } from '../../component-system/visualMigration'
 import { assertComponentVisualRules } from '../../component-system/visualRules'
 import {
   COMPONENT_PACKAGE_VERSION,
@@ -101,9 +102,13 @@ function validatePortablePackageContent(
 ): DistributableComponentPackage | null {
   try {
     assertComponentDefinition(definition)
-    assertComponentVisualDefinition(visualValue)
     const normalizedDefinition = cloneComponentDefinition(definition)
-    const visual = cloneComponentVisual(visualValue)
+    const normalizedVisualValue = normalizeStoredComponentVisual(visualValue, {
+      width: normalizedDefinition.size.defaultWidth,
+      height: normalizedDefinition.size.defaultHeight,
+    })
+    assertComponentVisualDefinition(normalizedVisualValue)
+    const visual = cloneComponentVisual(normalizedVisualValue)
     assertComponentVisualRules(normalizedDefinition, visual)
     assertComponentVisualAnimations(normalizedDefinition, visual)
     assertPortableVisualResources(visual)
