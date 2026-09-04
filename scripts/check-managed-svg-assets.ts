@@ -120,8 +120,8 @@ if (!createdLayer || createdLayer.kind !== 'svg') throw new Error('expected crea
 assert.deepEqual(createdLayer.document, document)
 assert.equal(createdLayer.assetRef, managedAssetRef)
 assert.equal(createdLayer.transform.width / createdLayer.transform.height, 120 / 80)
-assert.equal(createdLayer.transform.x, 24)
-assert.equal(createdLayer.transform.y, 16)
+assert.equal(createdLayer.transform.x, 60)
+assert.equal(createdLayer.transform.y, 40)
 assertComponentVisualDefinition(created.visual)
 
 const movedVisual: ComponentVisualDefinition = {
