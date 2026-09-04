@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
-import { Button } from '../../ui'
+import { Button, Input } from '../../ui'
 import {
   applyImportedVisualAsset,
   importLocalVisualAsset,
@@ -81,7 +81,7 @@ export function ComponentVisualAssetImportControl({
         void ingestFile(files[0])
       }}
     >
-      <input
+      <Input
         ref={inputRef}
         className="component-asset-file-input"
         type="file"
