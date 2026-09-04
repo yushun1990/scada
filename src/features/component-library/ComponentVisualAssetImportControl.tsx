@@ -28,6 +28,7 @@ export function ComponentVisualAssetImportControl({
   const inputRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
 
   async function ingestFile(file: File | undefined) {
     if (!file || readOnly || busy) return
@@ -47,12 +48,42 @@ export function ComponentVisualAssetImportControl({
       setMessage(error instanceof Error ? error.message : '资源导入失败')
     } finally {
       setBusy(false)
+      setDragActive(false)
       if (inputRef.current) inputRef.current.value = ''
     }
   }
 
   return (
-    <div className="component-asset-import-control">
+    <div
+      className={`component-asset-import-control${dragActive ? ' drag-active' : ''}`}
+      onDragEnter={(event) => {
+        if (readOnly || busy) return
+        event.preventDefault()
+        setDragActive(true)
+      }}
+      onDragOver={(event) => {
+        if (readOnly || busy) return
+        event.preventDefault()
+        event.dataTransfer.dropEffect = 'copy'
+        setDragActive(true)
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setDragActive(false)
+        }
+      }}
+      onDrop={(event) => {
+        if (readOnly || busy) return
+        event.preventDefault()
+        setDragActive(false)
+        const files = event.dataTransfer.files
+        if (files.length !== 1) {
+          setMessage('一次只能导入一个 SVG 或图片文件')
+          return
+        }
+        void ingestFile(files[0])
+      }}
+    >
       <input
         ref={inputRef}
         className="component-asset-file-input"
@@ -69,6 +100,9 @@ export function ComponentVisualAssetImportControl({
       >
         {busy ? '处理中…' : requireReplacement ? '替换文件' : '导入 SVG / 图片'}
       </Button>
+      {!requireReplacement && !message && (
+        <span className="component-asset-import-hint">或拖放文件到这里</span>
+      )}
       {message && (
         <span className="component-asset-import-message" role="status" aria-live="polite">
           {message}
