@@ -7,6 +7,12 @@ import {
   type ComponentScalarValue,
 } from './definition'
 import {
+  findManagedSvgElement,
+  isManagedSvgPresentationEditableElement,
+  updateManagedSvgElementPresentation,
+  type ManagedSvgPresentationField,
+} from './managedSvgAuthoring'
+import {
   cloneComponentVisual,
   resolveVisualAssetStyle,
   resolveVisualTextStyle,
@@ -66,6 +72,8 @@ export type VisualRule = {
   operator: VisualRuleOperator
   compareValue: ComponentScalarValue
   layerId: string
+  /** Optional private managed-SVG target identity. Omit for existing whole-layer semantics. */
+  svgTagId?: string
   target: VisualRuleTargetField
   /** Literal target value used when valueSource is absent. */
   value: ComponentScalarValue
@@ -106,6 +114,12 @@ const TEXT_VERTICAL_ALIGNS = new Set<VisualTextVerticalAlign>([
   'middle',
   'bottom',
 ])
+const SVG_TAG_RULE_TARGETS: readonly VisualRuleTargetField[] = [
+  'style.fill',
+  'style.stroke',
+  'style.strokeWidth',
+  'opacity',
+]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -120,11 +134,45 @@ function isScalar(value: unknown): value is ComponentScalarValue {
   )
 }
 
+function svgTagPresentationField(target: VisualRuleTargetField): ManagedSvgPresentationField | null {
+  if (target === 'style.fill') return 'fill'
+  if (target === 'style.stroke') return 'stroke'
+  if (target === 'style.strokeWidth') return 'stroke-width'
+  if (target === 'opacity') return 'opacity'
+  return null
+}
+
 function targetAcceptsValue(
   layer: ComponentVisualLayer,
   target: VisualRuleTargetField,
   value: ComponentScalarValue,
+  svgTagId?: string,
 ) {
+  if (svgTagId !== undefined) {
+    if (layer.kind !== 'svg' || !layer.document) return false
+    const element = findManagedSvgElement(layer.document, svgTagId)
+    if (!element || !isManagedSvgPresentationEditableElement(element)) return false
+    const field = svgTagPresentationField(target)
+    if (!field) return false
+
+    if ((target === 'style.fill' || target === 'style.stroke') && typeof value !== 'string') {
+      return false
+    }
+    if (target === 'style.strokeWidth' && (typeof value !== 'number' || value < 0)) {
+      return false
+    }
+    if (target === 'opacity' && (typeof value !== 'number' || value < 0 || value > 1)) {
+      return false
+    }
+
+    try {
+      updateManagedSvgElementPresentation(layer.document, svgTagId, field, String(value))
+      return true
+    } catch {
+      return false
+    }
+  }
+
   if (target === 'visible') return typeof value === 'boolean'
   if (target === 'opacity') {
     return typeof value === 'number' && value >= 0 && value <= 1
@@ -165,12 +213,22 @@ function targetAcceptsValue(
   return false
 }
 
+export function visualRuleTargetAcceptsValue(
+  layer: ComponentVisualLayer,
+  target: VisualRuleTargetField,
+  value: ComponentScalarValue,
+  svgTagId?: string,
+) {
+  return targetAcceptsValue(layer, target, value, svgTagId)
+}
+
 function assertValueSource(
   definition: ComponentDefinition,
   layer: ComponentVisualLayer,
   target: VisualRuleTargetField,
   source: unknown,
   ruleId: string,
+  svgTagId?: string,
 ): asserts source is VisualRuleValueSource {
   if (!isRecord(source)) {
     throw new Error(`Visual Rule ${ruleId} valueSource 无效`)
@@ -189,7 +247,7 @@ function assertValueSource(
     }
     if (
       !isComponentAttributeValue(attribute, attribute.defaultValue) ||
-      !targetAcceptsValue(layer, target, attribute.defaultValue)
+      !targetAcceptsValue(layer, target, attribute.defaultValue, svgTagId)
     ) {
       throw new Error(`Visual Rule ${ruleId} Attribute 与视觉目标类型不匹配`)
     }
@@ -202,7 +260,7 @@ function assertValueSource(
   }
   if (
     !isComponentPropertyValue(property, property.defaultValue) ||
-    !targetAcceptsValue(layer, target, property.defaultValue)
+    !targetAcceptsValue(layer, target, property.defaultValue, svgTagId)
   ) {
     throw new Error(`Visual Rule ${ruleId} Property 与视觉目标类型不匹配`)
   }
@@ -240,6 +298,10 @@ export function visualRuleTargetsForLayer(layer: ComponentVisualLayer): VisualRu
     return [...common, 'style.fit']
   }
   return common
+}
+
+export function visualRuleTargetsForSvgTag(): VisualRuleTargetField[] {
+  return [...SVG_TAG_RULE_TARGETS]
 }
 
 export function assertComponentVisualRules(
@@ -298,14 +360,32 @@ export function assertComponentVisualRules(
       throw new Error(`Visual Rule ${rule.id} 引用了不存在的 Layer：${rule.layerId}`)
     }
 
-    if (typeof rule.target !== 'string' || !visualRuleTargetsForLayer(layer).includes(rule.target)) {
-      throw new Error(`Visual Rule ${rule.id} target 与 Layer 类型不匹配`)
+    let allowedTargets = visualRuleTargetsForLayer(layer)
+    if (rule.svgTagId !== undefined) {
+      if (typeof rule.svgTagId !== 'string' || !rule.svgTagId.trim()) {
+        throw new Error(`Visual Rule ${rule.id} svgTagId 无效`)
+      }
+      if (layer.kind !== 'svg' || !layer.document) {
+        throw new Error(`Visual Rule ${rule.id} 的 svgTagId 只能用于受管 SVG Layer`)
+      }
+      const element = findManagedSvgElement(layer.document, rule.svgTagId)
+      if (!element) {
+        throw new Error(`Visual Rule ${rule.id} 引用了不存在的 SVG Tag：${rule.svgTagId}`)
+      }
+      if (!isManagedSvgPresentationEditableElement(element)) {
+        throw new Error(`Visual Rule ${rule.id} 引用了不可编辑的 SVG Tag：${rule.svgTagId}`)
+      }
+      allowedTargets = visualRuleTargetsForSvgTag()
     }
-    if (!isScalar(rule.value) || !targetAcceptsValue(layer, rule.target, rule.value)) {
+
+    if (typeof rule.target !== 'string' || !allowedTargets.includes(rule.target)) {
+      throw new Error(`Visual Rule ${rule.id} target 与视觉目标类型不匹配`)
+    }
+    if (!isScalar(rule.value) || !targetAcceptsValue(layer, rule.target, rule.value, rule.svgTagId)) {
       throw new Error(`Visual Rule ${rule.id} target value 无效`)
     }
     if (rule.valueSource !== undefined) {
-      assertValueSource(definition, layer, rule.target, rule.valueSource, rule.id)
+      assertValueSource(definition, layer, rule.target, rule.valueSource, rule.id, rule.svgTagId)
     }
   }
 }
@@ -342,8 +422,25 @@ function applyRuleTarget(
   layer: ComponentVisualLayer,
   target: VisualRuleTargetField,
   value: ComponentScalarValue,
+  svgTagId?: string,
 ): ComponentVisualLayer {
-  if (!targetAcceptsValue(layer, target, value)) return layer
+  if (!targetAcceptsValue(layer, target, value, svgTagId)) return layer
+
+  if (svgTagId !== undefined) {
+    if (layer.kind !== 'svg' || !layer.document) return layer
+    const field = svgTagPresentationField(target)
+    if (!field) return layer
+    const document = updateManagedSvgElementPresentation(
+      layer.document,
+      svgTagId,
+      field,
+      String(value),
+    )
+    return {
+      ...layer,
+      document,
+    }
+  }
 
   if (target === 'visible') return { ...layer, visible: value as boolean }
   if (target === 'opacity') return { ...layer, opacity: value as number }
@@ -393,7 +490,7 @@ export function resolveComponentVisualRules(
     if (index === undefined) continue
     const value = readRuleTargetValue(rule, context)
     if (value === undefined) continue
-    layers[index] = applyRuleTarget(layers[index], rule.target, value)
+    layers[index] = applyRuleTarget(layers[index], rule.target, value, rule.svgTagId)
   }
 
   return { ...resolved, layers }
