@@ -68,11 +68,7 @@ export function ComponentVisualAssetImportControl({
         event.dataTransfer.dropEffect = 'copy'
         setDragActive(true)
       }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setDragActive(false)
-        }
-      }}
+      onDragLeave={() => setDragActive(false)}
       onDrop={(event) => {
         if (readOnly || busy) return
         event.preventDefault()
