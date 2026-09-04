@@ -5,6 +5,7 @@ import {
   evaluateVisualAnimationProgress,
   evaluateVisualAnimations,
 } from '../src/component-system/animations'
+import { COMPONENT_VISUAL_VERSION } from '../src/component-system/visual'
 import { normalizeStoredComponentVisual } from '../src/component-system/visualMigration'
 import { resolveComponentVisualRules } from '../src/component-system/visualRules'
 
@@ -54,7 +55,7 @@ const migratedV1 = normalizeStoredComponentVisual(
   { width: 96, height: 72 },
 )
 assert.deepEqual(migratedV1, {
-  version: 3,
+  version: COMPONENT_VISUAL_VERSION,
   mode: 'composite',
   designSize: { width: 96, height: 72 },
   layers: [],
@@ -73,7 +74,7 @@ const migratedV2 = normalizeStoredComponentVisual(
   { width: 96, height: 72 },
 )
 assert.deepEqual(migratedV2, {
-  version: 3,
+  version: COMPONENT_VISUAL_VERSION,
   mode: 'composite',
   designSize: { width: 480, height: 360 },
   layers: [],
@@ -105,7 +106,7 @@ const definition = {
 } as const
 
 const visual = {
-  version: 3,
+  version: COMPONENT_VISUAL_VERSION,
   mode: 'composite',
   designSize: { width: 100, height: 100 },
   layers: [

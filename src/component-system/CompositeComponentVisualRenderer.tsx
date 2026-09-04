@@ -10,6 +10,7 @@ import {
   Rect,
   Text,
 } from 'react-konva'
+import { serializeManagedSvgDataUrl } from './managedSvg'
 import {
   resolveVisualAssetStyle,
   resolveVisualTextStyle,
@@ -107,7 +108,10 @@ function VisualAssetLayer({
   layer: SvgVisualLayer | ImageVisualLayer
   listening: boolean
 }) {
-  const image = useVisualAsset(layer.assetRef)
+  const assetRef = layer.kind === 'svg' && layer.document
+    ? serializeManagedSvgDataUrl(layer.document)
+    : layer.assetRef
+  const image = useVisualAsset(assetRef)
 
   if (!image) {
     return null

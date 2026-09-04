@@ -1,0 +1,33 @@
+.component-asset-import-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  margin: 6px 10px;
+  padding: 6px 8px;
+  border: 1px dashed var(--border-subtle, #cbd5e1);
+  border-radius: 6px;
+  background: var(--surface-subtle, rgba(148, 163, 184, 0.08));
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.component-asset-import-control.drag-active {
+  border-color: var(--accent, #2563eb);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.component-asset-import-hint,
+.component-asset-import-message {
+  min-width: 0;
+  color: var(--text-muted, #64748b);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.component-asset-import-message {
+  overflow-wrap: anywhere;
+}
+
+.component-layer-inspector .component-asset-import-control {
+  margin: 0 0 8px;
+}

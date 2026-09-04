@@ -16,6 +16,7 @@ import {
   Select,
   Textarea,
 } from '../../ui'
+import { ComponentVisualAssetImportControl } from './ComponentVisualAssetImportControl'
 
 export type ComponentWorkbenchMode = 'editor' | 'preview'
 export type ComponentLayerSelectionChange = (
@@ -233,23 +234,32 @@ export function ComponentVisualTreeEditor({
       </div>
 
       {visual.mode === 'composite' && (
-        <div className="component-layer-add-row">
-          <Select
-            ariaLabel="新增图层类型"
-            value={addKind}
-            disabled={readOnly}
-            options={LAYER_KIND_OPTIONS}
-            onValueChange={(value) => setAddKind(value as VisualLayerKind)}
+        <>
+          <div className="component-layer-add-row">
+            <Select
+              ariaLabel="新增图层类型"
+              value={addKind}
+              disabled={readOnly}
+              options={LAYER_KIND_OPTIONS}
+              onValueChange={(value) => setAddKind(value as VisualLayerKind)}
+            />
+            <IconButton
+              aria-label="添加图层"
+              title="添加图层"
+              disabled={readOnly}
+              onClick={addLayer}
+            >
+              ＋
+            </IconButton>
+          </div>
+          <ComponentVisualAssetImportControl
+            visual={visual}
+            readOnly={readOnly}
+            selectedLayerId={primaryLayerId}
+            onSelectionChange={onSelectionChange}
+            onChange={onChange}
           />
-          <IconButton
-            aria-label="添加图层"
-            title="添加图层"
-            disabled={readOnly}
-            onClick={addLayer}
-          >
-            ＋
-          </IconButton>
-        </div>
+        </>
       )}
 
       <div className="component-layer-tree">
@@ -283,7 +293,7 @@ export function ComponentVisualTreeEditor({
 
         {visual.mode === 'composite' && flattened.length === 0 && (
           <div className="component-layer-empty">
-            选择组件根查看基础信息，或添加 Group / SVG / 位图 / 矢量图形 / 文本开始构建视觉。
+            选择组件根查看基础信息，或导入 SVG / 图片、添加内部图层开始构建视觉。
           </div>
         )}
 
@@ -296,7 +306,7 @@ export function ComponentVisualTreeEditor({
 
       {visual.mode === 'composite' && (
         <p className="component-layer-help">
-          选中 Group 后新增图层会成为它的子层；Shift / Ctrl / ⌘ 点击可多选，同一父级的顺序即 z-order。
+          可直接导入本地 SVG / PNG / JPEG / WebP；选中同类型资源层后导入会替换资源并保留图层几何。也可将文件拖到画布。
         </p>
       )}
     </div>
@@ -540,16 +550,32 @@ function LayerInspectorContent({
 
       {(layer.kind === 'svg' || layer.kind === 'image') && (
         <CollapsibleInspectorGroup title="资源">
+          <ComponentVisualAssetImportControl
+            visual={visual}
+            readOnly={readOnly}
+            selectedLayerId={layer.id}
+            requireReplacement
+            onSelectionChange={onSelectionChange}
+            onChange={onChange}
+          />
           <label className="property-field">
             <span>资源引用</span>
             <Input
               value={layer.assetRef}
-              disabled={readOnly}
+              disabled={readOnly || (layer.kind === 'svg' && Boolean(layer.document))}
               placeholder={layer.kind === 'svg' ? 'assets/pump-body.svg' : 'assets/vendor-logo.png'}
               onChange={(event) => updateLayer({ ...layer, assetRef: event.target.value })}
             />
           </label>
-          <p className="component-inspector-help">当前只保存 assetRef；资源上传/管理将在后续切片接入。</p>
+          {layer.kind === 'svg' && layer.document ? (
+            <p className="component-inspector-help">
+              托管 SVG 的 document 是唯一内部结构 authority；assetRef 由 canonical serializer 确定性生成，不可独立编辑。
+            </p>
+          ) : (
+            <p className="component-inspector-help">
+              旧资源引用保持兼容；通过“替换文件”可转换为自包含的正常本地资源。
+            </p>
+          )}
         </CollapsibleInspectorGroup>
       )}
 

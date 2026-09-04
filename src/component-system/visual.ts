@@ -1,7 +1,13 @@
 import type { VisualAnimation } from './animations'
+import {
+  assertManagedSvgDocument,
+  cloneManagedSvgDocument,
+  serializeManagedSvgDataUrl,
+  type ManagedSvgDocument,
+} from './managedSvg'
 import type { VisualRule } from './visualRules'
 
-export const COMPONENT_VISUAL_VERSION = 3 as const
+export const COMPONENT_VISUAL_VERSION = 4 as const
 
 export const DEFAULT_COMPONENT_VISUAL_DESIGN_SIZE = {
   width: 480,
@@ -67,6 +73,11 @@ export type GroupVisualLayer = VisualLayerBase & {
 export type SvgVisualLayer = VisualLayerBase & {
   kind: 'svg'
   assetRef: string
+  /**
+   * Canonical private SVG authority for explicitly managed imports. Legacy SVG
+   * layers may remain opaque and therefore omit this document.
+   */
+  document?: ManagedSvgDocument
   style?: VisualAssetStyle
 }
 
@@ -265,6 +276,17 @@ function assertLayer(value: unknown, index: number): asserts value is ComponentV
     assertAssetStyle(value.style, value.id as string)
   }
 
+  if (value.kind === 'svg' && value.document !== undefined) {
+    assertManagedSvgDocument(value.document)
+    if (value.assetRef !== serializeManagedSvgDataUrl(value.document)) {
+      throw new Error(`Visual Layer ${String(value.id)} 的 managed SVG assetRef 与 document 不一致`)
+    }
+  }
+
+  if (value.kind === 'image' && value.document !== undefined) {
+    throw new Error(`Visual Layer ${String(value.id)} 的 image 不能保存 SVG document`)
+  }
+
   if (value.kind === 'vector') {
     if (
       typeof value.primitive !== 'string' ||
@@ -424,6 +446,14 @@ function cloneVisualLayer(layer: ComponentVisualLayer): ComponentVisualLayer {
     return {
       ...layer,
       transform,
+      style: layer.style ? { ...layer.style } : undefined,
+    }
+  }
+  if (layer.kind === 'svg') {
+    return {
+      ...layer,
+      transform,
+      document: layer.document ? cloneManagedSvgDocument(layer.document) : undefined,
       style: layer.style ? { ...layer.style } : undefined,
     }
   }
