@@ -32,7 +32,12 @@ export type ApplyImportedVisualAssetResult = {
   replaced: boolean
 }
 
-const RASTER_MEDIA_TYPES = new Set([
+type RasterMediaType = 'image/png' | 'image/jpeg' | 'image/webp'
+type LocalFileClassification =
+  | { kind: 'svg'; mediaType: 'image/svg+xml' }
+  | { kind: 'image'; mediaType: RasterMediaType }
+
+const RASTER_MEDIA_TYPES = new Set<RasterMediaType>([
   'image/png',
   'image/jpeg',
   'image/webp',
@@ -50,7 +55,7 @@ function visualNameFromFile(fileName: string) {
   return withoutExtension.trim() || 'Imported asset'
 }
 
-function classifyFile(file: Pick<File, 'name' | 'type'>) {
+function classifyFile(file: Pick<File, 'name' | 'type'>): LocalFileClassification {
   const extension = extensionOf(file.name)
   const mediaType = file.type.toLowerCase().trim()
 
@@ -61,40 +66,55 @@ function classifyFile(file: Pick<File, 'name' | 'type'>) {
     if (mediaType && mediaType !== 'image/svg+xml') {
       throw new Error('SVG 文件的 MIME 类型不受支持')
     }
-    return 'svg' as const
+    return { kind: 'svg', mediaType: 'image/svg+xml' }
   }
 
-  const extensionMediaType = extension === '.png'
+  const extensionMediaType: RasterMediaType | null = extension === '.png'
     ? 'image/png'
     : extension === '.jpg' || extension === '.jpeg'
       ? 'image/jpeg'
       : extension === '.webp'
         ? 'image/webp'
         : null
+  const declaredMediaType = RASTER_MEDIA_TYPES.has(mediaType as RasterMediaType)
+    ? mediaType as RasterMediaType
+    : null
 
-  if (!extensionMediaType || (mediaType && !RASTER_MEDIA_TYPES.has(mediaType))) {
+  if (extension && !extensionMediaType) {
     throw new Error('仅支持 SVG、PNG、JPEG、WebP 本地资源')
   }
-
-  if (mediaType && mediaType !== extensionMediaType) {
+  if (mediaType && !declaredMediaType) {
+    throw new Error('图片 MIME 类型不受支持')
+  }
+  if (!extensionMediaType && !declaredMediaType) {
+    throw new Error('无法识别图片类型；请使用 SVG、PNG、JPEG 或 WebP')
+  }
+  if (extensionMediaType && declaredMediaType && declaredMediaType !== extensionMediaType) {
     throw new Error('文件扩展名与图片 MIME 类型不一致')
   }
 
-  return 'image' as const
+  return {
+    kind: 'image',
+    mediaType: extensionMediaType ?? declaredMediaType!,
+  }
 }
 
-function readFileAsDataUrl(file: File) {
+function readFileAsDataUrl(file: File, mediaType: RasterMediaType) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.addEventListener('load', () => {
-      if (typeof reader.result !== 'string' || !reader.result.startsWith('data:image/')) {
+      const expectedPrefix = `data:${mediaType}`
+      if (typeof reader.result !== 'string' || !reader.result.startsWith(expectedPrefix)) {
         reject(new Error('无法读取图片资源'))
         return
       }
       resolve(reader.result)
     })
     reader.addEventListener('error', () => reject(new Error('读取图片文件失败')))
-    reader.readAsDataURL(file)
+    const source = file.type.toLowerCase().trim() === mediaType
+      ? file
+      : new Blob([file], { type: mediaType })
+    reader.readAsDataURL(source)
   })
 }
 
@@ -120,16 +140,16 @@ export async function importLocalVisualAsset(file: File): Promise<ImportedVisual
     throw new Error('资源文件为空')
   }
 
-  const kind = classifyFile(file)
+  const classification = classifyFile(file)
   const name = visualNameFromFile(file.name)
 
-  if (kind === 'svg') {
+  if (classification.kind === 'svg') {
     const source = await file.text()
     const imported = parseManagedSvgSource(source)
     const assetRef = serializeManagedSvgDataUrl(imported.document)
 
     return {
-      kind,
+      kind: 'svg',
       name,
       assetRef,
       document: imported.document,
@@ -138,14 +158,11 @@ export async function importLocalVisualAsset(file: File): Promise<ImportedVisual
     }
   }
 
-  const assetRef = await readFileAsDataUrl(file)
-  if (/^blob:/i.test(assetRef)) {
-    throw new Error('不允许持久化 blob: 资源')
-  }
+  const assetRef = await readFileAsDataUrl(file, classification.mediaType)
   const dimensions = await loadImageDimensions(assetRef)
 
   return {
-    kind,
+    kind: 'image',
     name,
     assetRef,
     intrinsicWidth: dimensions.width,
