@@ -115,16 +115,17 @@ export function ComponentManagedSvgEditor({
     : false
 
   function commitPresentation(field: ManagedSvgPresentationField, value: string) {
-    if (readOnly || !selectedTagId) return
+    const currentDocument = layer.document
+    if (readOnly || !selectedTagId || !currentDocument) return
 
     try {
       const nextDocument = updateManagedSvgElementPresentation(
-        document,
+        currentDocument,
         selectedTagId,
         field,
         value,
       )
-      if (nextDocument === document) {
+      if (nextDocument === currentDocument) {
         setMessage('值未改变')
         return
       }
