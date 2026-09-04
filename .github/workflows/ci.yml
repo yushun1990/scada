@@ -28,6 +28,7 @@ jobs:
         run: |
           npx --yes tsx scripts/check-visual-runtime.ts
           npx --yes tsx scripts/check-managed-svg-assets.ts
+          npx --yes tsx scripts/check-managed-svg-authoring.ts
           npx --yes tsx scripts/check-animation-runtime-adapters.ts
           npx --yes tsx scripts/check-animation-model.ts
           npx --yes tsx scripts/check-animation-fade-model.ts
