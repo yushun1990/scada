@@ -7,42 +7,11 @@ const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
 const INKSCAPE_NAMESPACE = 'http://www.inkscape.org/namespaces/inkscape'
 const SODIPODI_NAMESPACE = 'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd'
 const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace'
+const SAFE_CSS_PROPERTY_NAME_PATTERN = /^-?[A-Za-z][A-Za-z0-9-]*$/
 
 const EDITOR_METADATA_NAMESPACES = new Set([
   INKSCAPE_NAMESPACE,
   SODIPODI_NAMESPACE,
-])
-
-// This must remain a strict subset of the presentation properties accepted by
-// managedSvg.ts. The compatibility pass only expands static stylesheet rules;
-// parseManagedSvgSource remains the final sanitizer/authority.
-const COMPATIBLE_STYLESHEET_PROPERTIES = new Set([
-  'fill',
-  'stroke',
-  'stroke-width',
-  'opacity',
-  'fill-opacity',
-  'stroke-opacity',
-  'fill-rule',
-  'clip-rule',
-  'stroke-linecap',
-  'stroke-linejoin',
-  'stroke-miterlimit',
-  'stroke-dasharray',
-  'stroke-dashoffset',
-  'clip-path',
-  'display',
-  'visibility',
-  'vector-effect',
-  'color',
-  'font-family',
-  'font-size',
-  'font-weight',
-  'font-style',
-  'text-anchor',
-  'dominant-baseline',
-  'stop-color',
-  'stop-opacity',
 ])
 
 type CompatibleStyleDeclaration = {
@@ -64,7 +33,7 @@ type CompatibleStyleRule = {
 }
 
 function assertSafeStylesheetValue(value: string, label: string) {
-  if (/javascript\s*:/i.test(value)) {
+  if (/javascript\s*:/i.test(value) || /expression\s*\(/i.test(value)) {
     throw new Error(`${label} 包含不安全脚本引用`)
   }
   if (/\b(?:https?|file|blob):/i.test(value)) {
@@ -91,8 +60,13 @@ function parseStylesheetDeclarations(source: string, label: string) {
 
     const name = declaration.slice(0, separator).trim().toLowerCase()
     const value = declaration.slice(separator + 1).trim()
-    if (!COMPATIBLE_STYLESHEET_PROPERTIES.has(name) || !value || /!important/i.test(value)) {
-      throw new Error(`${label} 包含不支持的 CSS 声明：${name || declaration}`)
+    if (
+      !SAFE_CSS_PROPERTY_NAME_PATTERN.test(name) ||
+      name.startsWith('--') ||
+      !value ||
+      /!important/i.test(value)
+    ) {
+      throw new Error(`${label} 包含不安全或无法静态规范化的 CSS 声明：${name || declaration}`)
     }
 
     assertSafeStylesheetValue(value, `${label}.${name}`)
@@ -100,7 +74,7 @@ function parseStylesheetDeclarations(source: string, label: string) {
   }
 
   if (declarations.length === 0) {
-    throw new Error(`${label} 不包含可用的 presentation 声明`)
+    throw new Error(`${label} 不包含可用的静态声明`)
   }
 
   return declarations

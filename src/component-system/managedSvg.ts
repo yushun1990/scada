@@ -33,6 +33,28 @@ export type ManagedSvgImportResult = {
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
 const MANAGED_TAG_ID_PATTERN = /^svg-tag-\d{6,}$/
+const SAFE_SVG_TAG_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9]*$/
+const SAFE_SVG_ATTRIBUTE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_.-]*$/
+const SAFE_CSS_PROPERTY_NAME_PATTERN = /^-?[A-Za-z][A-Za-z0-9-]*$/
+const SAFE_RASTER_DATA_HREF_PATTERN = /^data:image\/(?:png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=\r\n]+$/i
+
+const BLOCKED_SVG_TAG_NAMES = new Set([
+  'script',
+  'foreignobject',
+  'style',
+  'animate',
+  'animatemotion',
+  'animatetransform',
+  'set',
+  'discard',
+  'handler',
+  'iframe',
+  'object',
+  'embed',
+  'audio',
+  'video',
+  'canvas',
+])
 
 const CANONICAL_TAG_NAMES = new Map<string, string>([
   ['svg', 'svg'],
@@ -53,39 +75,48 @@ const CANONICAL_TAG_NAMES = new Map<string, string>([
   ['use', 'use'],
   ['text', 'text'],
   ['tspan', 'tspan'],
+  ['textpath', 'textPath'],
   ['title', 'title'],
   ['desc', 'desc'],
+  ['mask', 'mask'],
+  ['pattern', 'pattern'],
+  ['marker', 'marker'],
+  ['filter', 'filter'],
+  ['feblend', 'feBlend'],
+  ['fecolormatrix', 'feColorMatrix'],
+  ['fecomponenttransfer', 'feComponentTransfer'],
+  ['fecomposite', 'feComposite'],
+  ['feconvolvematrix', 'feConvolveMatrix'],
+  ['fediffuselighting', 'feDiffuseLighting'],
+  ['fedisplacementmap', 'feDisplacementMap'],
+  ['fedistantlight', 'feDistantLight'],
+  ['fedropshadow', 'feDropShadow'],
+  ['feflood', 'feFlood'],
+  ['fefunca', 'feFuncA'],
+  ['fefuncb', 'feFuncB'],
+  ['fefuncg', 'feFuncG'],
+  ['fefuncr', 'feFuncR'],
+  ['fegaussianblur', 'feGaussianBlur'],
+  ['feimage', 'feImage'],
+  ['femerge', 'feMerge'],
+  ['femergenode', 'feMergeNode'],
+  ['femorphology', 'feMorphology'],
+  ['feoffset', 'feOffset'],
+  ['fepointlight', 'fePointLight'],
+  ['fespecularlighting', 'feSpecularLighting'],
+  ['fespotlight', 'feSpotLight'],
+  ['fetile', 'feTile'],
+  ['feturbulence', 'feTurbulence'],
+  ['image', 'image'],
+  ['switch', 'switch'],
+  ['view', 'view'],
 ])
 
-const GLOBAL_ATTRIBUTES = new Set([
-  'id',
-  'fill',
-  'stroke',
-  'stroke-width',
-  'opacity',
-  'fill-opacity',
-  'stroke-opacity',
-  'fill-rule',
-  'clip-rule',
-  'stroke-linecap',
-  'stroke-linejoin',
-  'stroke-miterlimit',
-  'stroke-dasharray',
-  'stroke-dashoffset',
-  'transform',
-  'clip-path',
-  'display',
-  'visibility',
-  'vector-effect',
-  'color',
-  'font-family',
-  'font-size',
-  'font-weight',
-  'font-style',
-  'text-anchor',
-  'dominant-baseline',
-])
-
+// These properties are normalized into first-class managed attributes because
+// the current authoring/rule surface can already reason about them. Other safe
+// static CSS declarations remain inside one sanitized residual style attribute
+// on the same ManagedSvgDocument; they are preserved, but are not editable or
+// targetable authority.
 const STYLE_PRESENTATION_ATTRIBUTES = new Set([
   'fill',
   'stroke',
@@ -115,31 +146,9 @@ const STYLE_PRESENTATION_ATTRIBUTES = new Set([
   'stop-opacity',
 ])
 
-const TAG_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> = {
-  svg: new Set(['x', 'y', 'width', 'height', 'viewBox', 'preserveAspectRatio', 'version']),
-  g: new Set(),
-  path: new Set(['d', 'pathLength']),
-  rect: new Set(['x', 'y', 'width', 'height', 'rx', 'ry', 'pathLength']),
-  circle: new Set(['cx', 'cy', 'r', 'pathLength']),
-  ellipse: new Set(['cx', 'cy', 'rx', 'ry', 'pathLength']),
-  line: new Set(['x1', 'y1', 'x2', 'y2', 'pathLength']),
-  polyline: new Set(['points', 'pathLength']),
-  polygon: new Set(['points', 'pathLength']),
-  defs: new Set(),
-  linearGradient: new Set([
-    'x1', 'y1', 'x2', 'y2', 'gradientUnits', 'gradientTransform', 'spreadMethod', 'href',
-  ]),
-  radialGradient: new Set([
-    'cx', 'cy', 'r', 'fx', 'fy', 'fr', 'gradientUnits', 'gradientTransform', 'spreadMethod', 'href',
-  ]),
-  stop: new Set(['offset', 'stop-color', 'stop-opacity']),
-  clipPath: new Set(['clipPathUnits']),
-  symbol: new Set(['viewBox', 'preserveAspectRatio']),
-  use: new Set(['x', 'y', 'width', 'height', 'href']),
-  text: new Set(['x', 'y', 'dx', 'dy', 'rotate', 'textLength', 'lengthAdjust']),
-  tspan: new Set(['x', 'y', 'dx', 'dy', 'rotate', 'textLength', 'lengthAdjust']),
-  title: new Set(),
-  desc: new Set(),
+type NormalizedInlineStyle = {
+  presentation: Map<string, string>
+  passthrough: Map<string, string>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -147,15 +156,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function canonicalTagName(value: string) {
-  return CANONICAL_TAG_NAMES.get(value.toLowerCase()) ?? null
+  const normalized = value.trim()
+  const lowerName = normalized.toLowerCase()
+  if (!SAFE_SVG_TAG_NAME_PATTERN.test(normalized) || BLOCKED_SVG_TAG_NAMES.has(lowerName)) {
+    return null
+  }
+  return CANONICAL_TAG_NAMES.get(lowerName) ?? normalized
 }
 
-function isAllowedAttribute(tagName: string, name: string) {
-  return GLOBAL_ATTRIBUTES.has(name) || TAG_ATTRIBUTES[tagName]?.has(name) === true
+function isSafeManagedAttributeName(name: string) {
+  const lowerName = name.toLowerCase()
+  return (
+    SAFE_SVG_ATTRIBUTE_NAME_PATTERN.test(name) &&
+    lowerName !== 'style' &&
+    lowerName !== 'data-scada-tag' &&
+    lowerName !== 'xmlns' &&
+    !lowerName.startsWith('on')
+  )
 }
 
 function assertSafeReferenceValue(value: string, label: string) {
-  if (/javascript\s*:/i.test(value)) {
+  if (/javascript\s*:/i.test(value) || /expression\s*\(/i.test(value)) {
     throw new Error(`${label} 包含不安全脚本引用`)
   }
 
@@ -169,8 +190,17 @@ function assertSafeReferenceValue(value: string, label: string) {
   }
 }
 
-function normalizeInlineStyle(value: string, label: string) {
-  const result = new Map<string, string>()
+function assertSafeHrefValue(tagName: string, value: string, label: string) {
+  if (value.startsWith('#')) return
+  if ((tagName === 'image' || tagName === 'feImage') && SAFE_RASTER_DATA_HREF_PATTERN.test(value)) {
+    return
+  }
+  throw new Error(`${label} 只允许文档内部 #... 引用或内嵌 raster data:image`)
+}
+
+function normalizeInlineStyle(value: string, label: string): NormalizedInlineStyle {
+  const presentation = new Map<string, string>()
+  const passthrough = new Map<string, string>()
 
   for (const rawDeclaration of value.split(';')) {
     const declaration = rawDeclaration.trim()
@@ -184,15 +214,42 @@ function normalizeInlineStyle(value: string, label: string) {
     const name = declaration.slice(0, separator).trim().toLowerCase()
     const styleValue = declaration.slice(separator + 1).trim()
 
-    if (!STYLE_PRESENTATION_ATTRIBUTES.has(name) || !styleValue || /!important/i.test(styleValue)) {
-      throw new Error(`${label} 包含不支持的 style 声明：${name || declaration}`)
+    if (
+      !SAFE_CSS_PROPERTY_NAME_PATTERN.test(name) ||
+      name.startsWith('--') ||
+      !styleValue ||
+      /!important/i.test(styleValue)
+    ) {
+      throw new Error(`${label} 包含不安全或无法静态规范化的 style 声明：${name || declaration}`)
     }
 
     assertSafeReferenceValue(styleValue, `${label} style.${name}`)
-    result.set(name, styleValue)
+    if (STYLE_PRESENTATION_ATTRIBUTES.has(name)) {
+      presentation.set(name, styleValue)
+    } else {
+      passthrough.set(name, styleValue)
+    }
   }
 
-  return result
+  return { presentation, passthrough }
+}
+
+function serializePassthroughStyle(style: ReadonlyMap<string, string>) {
+  return [...style.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => `${name}:${value}`)
+    .join(';')
+}
+
+function assertCanonicalPassthroughStyle(value: string, label: string) {
+  const normalized = normalizeInlineStyle(value, label)
+  if (normalized.presentation.size > 0) {
+    throw new Error(`${label} style 不能持久化受控 presentation 属性`)
+  }
+  const canonical = serializePassthroughStyle(normalized.passthrough)
+  if (!canonical || canonical !== value) {
+    throw new Error(`${label} style 必须是规范化的静态 passthrough 声明`)
+  }
 }
 
 function normalizeElementAttributes(element: Element, tagName: string) {
@@ -228,17 +285,13 @@ function normalizeElementAttributes(element: Element, tagName: string) {
       throw new Error(`<${tagName}> 包含不支持的命名空间属性 ${rawName}`)
     }
 
-    if (!isAllowedAttribute(tagName, name)) {
-      throw new Error(`<${tagName}> 包含不支持的属性 ${name}`)
+    if (!isSafeManagedAttributeName(name)) {
+      throw new Error(`<${tagName}> 包含不安全或无法持久化的属性 ${name}`)
     }
 
     const normalizedValue = attribute.value.trim()
-    if (!normalizedValue && name !== 'd' && name !== 'points') {
-      throw new Error(`<${tagName}> 属性 ${name} 不能为空`)
-    }
-
-    if (name === 'href' && !normalizedValue.startsWith('#')) {
-      throw new Error(`<${tagName}> href 只允许文档内部 #... 引用`)
+    if (name === 'href') {
+      assertSafeHrefValue(tagName, normalizedValue, `<${tagName}>.href`)
     }
 
     assertSafeReferenceValue(normalizedValue, `<${tagName}>.${name}`)
@@ -246,11 +299,13 @@ function normalizeElementAttributes(element: Element, tagName: string) {
   }
 
   if (inlineStyle !== null) {
-    for (const [name, value] of normalizeInlineStyle(inlineStyle, `<${tagName}>`)) {
-      if (!isAllowedAttribute(tagName, name)) {
-        throw new Error(`<${tagName}> 不支持 style.${name}`)
-      }
+    const normalizedStyle = normalizeInlineStyle(inlineStyle, `<${tagName}>`)
+    for (const [name, value] of normalizedStyle.presentation) {
       result.set(name, value)
+    }
+    const passthroughStyle = serializePassthroughStyle(normalizedStyle.passthrough)
+    if (passthroughStyle) {
+      result.set('style', passthroughStyle)
     }
   }
 
@@ -264,7 +319,13 @@ function nextManagedTagId(index: number) {
 }
 
 function isTextContainer(tagName: string) {
-  return tagName === 'text' || tagName === 'tspan' || tagName === 'title' || tagName === 'desc'
+  return (
+    tagName === 'text' ||
+    tagName === 'tspan' ||
+    tagName === 'textPath' ||
+    tagName === 'title' ||
+    tagName === 'desc'
+  )
 }
 
 function collectSourceIdsAndReferences(root: ManagedSvgElement) {
@@ -280,7 +341,7 @@ function collectSourceIdsAndReferences(root: ManagedSvgElement) {
         ids.add(attribute.value)
       }
 
-      if (attribute.name === 'href') {
+      if (attribute.name === 'href' && attribute.value.startsWith('#')) {
         references.push({
           target: attribute.value.slice(1),
           label: `${element.tagId}.href`,
@@ -375,8 +436,8 @@ export function parseManagedSvgSource(source: string): ManagedSvgImportResult {
 
   const rootElement = parsed.documentElement
   const rootTagName = canonicalTagName(rootElement.localName)
-  if (rootTagName !== 'svg') {
-    throw new Error('文件根节点必须是 <svg>')
+  if (rootTagName !== 'svg' || rootElement.namespaceURI !== SVG_NAMESPACE) {
+    throw new Error('文件根节点必须是 SVG namespace 的 <svg>')
   }
 
   let tagIndex = 0
@@ -384,10 +445,10 @@ export function parseManagedSvgSource(source: string): ManagedSvgImportResult {
   const convertElement = (element: Element): ManagedSvgElement => {
     const tagName = canonicalTagName(element.localName)
     if (!tagName) {
-      throw new Error(`SVG 包含不支持的元素 <${element.tagName}>`)
+      throw new Error(`SVG 包含不允许的动态/可执行元素 <${element.tagName}>`)
     }
 
-    if (element.namespaceURI && element.namespaceURI !== SVG_NAMESPACE) {
+    if (element.namespaceURI !== SVG_NAMESPACE) {
       throw new Error(`SVG 包含不支持的命名空间元素 <${element.tagName}>`)
     }
 
@@ -450,20 +511,26 @@ function assertManagedSvgAttribute(
     throw new Error(`${label} SVG 属性无效`)
   }
 
-  if (value.name === 'data-scada-tag' || value.name === 'style' || value.name.startsWith('on')) {
-    throw new Error(`${label} SVG 属性 ${value.name} 不允许持久化`)
-  }
-
-  if (!isAllowedAttribute(tagName, value.name)) {
-    throw new Error(`${label} SVG 属性 ${value.name} 不受支持`)
-  }
-
   if (previousName !== null && previousName.localeCompare(value.name) >= 0) {
     throw new Error(`${label} SVG 属性必须按名称唯一排序`)
   }
 
-  if (value.name === 'href' && !value.value.startsWith('#')) {
-    throw new Error(`${label} href 只允许内部引用`)
+  const lowerName = value.name.toLowerCase()
+  if (lowerName === 'data-scada-tag' || lowerName.startsWith('on')) {
+    throw new Error(`${label} SVG 属性 ${value.name} 不允许持久化`)
+  }
+
+  if (value.name === 'style') {
+    assertCanonicalPassthroughStyle(value.value, label)
+    return
+  }
+
+  if (!isSafeManagedAttributeName(value.name)) {
+    throw new Error(`${label} SVG 属性 ${value.name} 不安全或无法持久化`)
+  }
+
+  if (value.name === 'href') {
+    assertSafeHrefValue(tagName, value.value, `${label}.href`)
   }
 
   assertSafeReferenceValue(value.value, `${label}.${value.name}`)
