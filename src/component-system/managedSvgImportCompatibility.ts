@@ -121,7 +121,7 @@ function parseSimpleSelector(source: string, label: string): CompatibleStyleSele
   let id: string | null = null
   const classes: string[] = []
 
-  const tagMatch = /^(\*|[A-Za-z_][A-Za-z0-9_.-]*)/.exec(selector)
+  const tagMatch = /^(\*|[A-Za-z_][A-Za-z0-9_-]*)/.exec(selector)
   if (tagMatch) {
     tagName = tagMatch[1] === '*' ? null : tagMatch[1]!.toLowerCase()
     index = tagMatch[0].length
@@ -237,7 +237,7 @@ function shouldDiscardMetadataElement(element: Element) {
   return element.namespaceURI !== null && EDITOR_METADATA_NAMESPACES.has(element.namespaceURI)
 }
 
-function stripCompatibilityMetadataAttribute(element: Element, attribute: Attr) {
+function stripCompatibilityMetadataAttribute(attribute: Attr) {
   const lowerName = attribute.name.toLowerCase()
   if (lowerName === 'class') return true
   if (lowerName.startsWith('data-')) return true
@@ -283,7 +283,7 @@ function normalizeStylesAndMetadata(document: Document) {
     }
 
     for (const attribute of Array.from(element.attributes)) {
-      if (stripCompatibilityMetadataAttribute(element, attribute)) {
+      if (stripCompatibilityMetadataAttribute(attribute)) {
         element.removeAttributeNode(attribute)
       }
     }
