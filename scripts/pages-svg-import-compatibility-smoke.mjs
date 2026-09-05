@@ -24,15 +24,41 @@ const styledSvg = `
   width="120"
   height="80"
   viewBox="0 0 120 80"
+  style="enable-background:new 0 0 120 80;shape-rendering:geometricPrecision"
 >
   <style type="text/css">
-    .st0 { fill: #22c55e; stroke: #0f172a; stroke-width: 2; }
+    .st0 { fill: #22c55e; stroke: #0f172a; stroke-width: 2; paint-order: stroke fill markers; }
     #lamp { opacity: 0.75; }
   </style>
   <sodipodi:namedview pagecolor="#ffffff"/>
   <g inkscape:label="Layer 1">
     <rect id="lamp" class="st0" x="10" y="10" width="100" height="60" rx="8"/>
   </g>
+</svg>
+`.trim()
+
+const staticStructuralSvg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64" viewBox="0 0 96 64">
+  <defs>
+    <mask id="cutout">
+      <rect width="96" height="64" fill="#fff"/>
+      <circle cx="48" cy="32" r="10" fill="#000"/>
+    </mask>
+    <filter id="soften" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="0.6"/>
+    </filter>
+  </defs>
+  <rect
+    x="8"
+    y="8"
+    width="80"
+    height="48"
+    rx="6"
+    fill="#38bdf8"
+    mask="url(#cutout)"
+    filter="url(#soften)"
+    paint-order="stroke fill markers"
+  />
 </svg>
 `.trim()
 
@@ -91,9 +117,17 @@ try {
   assert.equal(await managedField('Stroke width').inputValue(), '2')
   assert.equal(await managedField('Opacity').inputValue(), '0.75')
 
+  await waitForAssetInputReady()
+  await globalAssetImportControl().locator('input[type="file"]').setInputFiles({
+    name: 'static-mask-filter.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(staticStructuralSvg),
+  })
+  await page.locator('.component-layer-row', { hasText: 'static-mask-filter' }).waitFor()
+
   assert.deepEqual(pageErrors, [])
   console.log(
-    'SVG import compatibility smoke passed: safe <style> + class/id selectors are flattened into managed presentation attributes, editor metadata is discarded, and external CSS resources remain blocked.',
+    'SVG import compatibility smoke passed: controlled presentation stays editable, safe residual style/attributes and static mask/filter structures are preserved, and external CSS resources remain blocked.',
   )
 } finally {
   await context.close()
