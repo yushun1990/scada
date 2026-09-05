@@ -123,11 +123,23 @@ try {
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(staticStructuralSvg),
   })
-  await page.locator('.component-layer-row', { hasText: 'static-mask-filter' }).waitFor()
+
+  // The first imported SVG remains selected, so a second SVG import intentionally
+  // replaces that layer instead of creating a second row. Verify replacement
+  // semantics and inspect the new managed tree rather than waiting for a new name.
+  await globalAssetImportControl()
+    .locator('.component-asset-import-message', { hasText: '资源已替换' })
+    .waitFor()
+  assert.equal(await page.locator('.component-layer-row').count(), 1)
+  await page.locator('.component-managed-svg-row', { hasText: '<mask>' }).waitFor()
+  await page.locator('.component-managed-svg-row', { hasText: '#cutout' }).waitFor()
+  await page.locator('.component-managed-svg-row', { hasText: '<filter>' }).waitFor()
+  await page.locator('.component-managed-svg-row', { hasText: '#soften' }).waitFor()
+  await page.locator('.component-managed-svg-row', { hasText: '<feGaussianBlur>' }).waitFor()
 
   assert.deepEqual(pageErrors, [])
   console.log(
-    'SVG import compatibility smoke passed: controlled presentation stays editable, safe residual style/attributes and static mask/filter structures are preserved, and external CSS resources remain blocked.',
+    'SVG import compatibility smoke passed: controlled presentation stays editable, safe residual style/attributes and static mask/filter structures survive managed replacement, and external CSS resources remain blocked.',
   )
 } finally {
   await context.close()
