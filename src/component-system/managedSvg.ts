@@ -392,6 +392,7 @@ export function parseManagedSvgSource(source: string): ManagedSvgImportResult {
     }
 
     tagIndex += 1
+    const tagId = nextManagedTagId(tagIndex)
     const children: ManagedSvgNode[] = []
 
     for (const child of Array.from(element.childNodes)) {
@@ -420,7 +421,7 @@ export function parseManagedSvgSource(source: string): ManagedSvgImportResult {
     return {
       kind: 'element',
       tagName,
-      tagId: nextManagedTagId(tagIndex),
+      tagId,
       attributes: normalizeElementAttributes(element, tagName),
       children,
     }
