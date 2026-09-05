@@ -1,8 +1,8 @@
 import {
-  parseManagedSvgSource,
   serializeManagedSvgDataUrl,
   type ManagedSvgDocument,
 } from '../../component-system/managedSvg'
+import { parseManagedSvgSourceWithCompatibility } from '../../component-system/managedSvgImportCompatibility'
 import {
   type ComponentVisualDefinition,
   type ComponentVisualLayer,
@@ -145,7 +145,7 @@ export async function importLocalVisualAsset(file: File): Promise<ImportedVisual
 
   if (classification.kind === 'svg') {
     const source = await file.text()
-    const imported = parseManagedSvgSource(source)
+    const imported = parseManagedSvgSourceWithCompatibility(source)
     const assetRef = serializeManagedSvgDataUrl(imported.document)
 
     return {
