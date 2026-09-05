@@ -28,14 +28,16 @@ export function ComponentVisualAssetImportControl({
   onChange,
 }: ComponentVisualAssetImportControlProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const busyRef = useRef(false)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const selectedLayer = visual.layers.find((layer) => layer.id === selectedLayerId) ?? null
 
   async function ingestFile(file: File | undefined) {
-    if (!file || readOnly || busy) return
+    if (!file || readOnly || busyRef.current) return
 
+    busyRef.current = true
     setBusy(true)
     setMessage('')
     try {
@@ -50,9 +52,9 @@ export function ComponentVisualAssetImportControl({
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '资源导入失败')
     } finally {
+      busyRef.current = false
       setBusy(false)
       setDragActive(false)
-      if (inputRef.current) inputRef.current.value = ''
     }
   }
 
@@ -61,19 +63,19 @@ export function ComponentVisualAssetImportControl({
       <div
         className={`component-asset-import-control${dragActive ? ' drag-active' : ''}`}
         onDragEnter={(event) => {
-          if (readOnly || busy) return
+          if (readOnly || busyRef.current) return
           event.preventDefault()
           setDragActive(true)
         }}
         onDragOver={(event) => {
-          if (readOnly || busy) return
+          if (readOnly || busyRef.current) return
           event.preventDefault()
           event.dataTransfer.dropEffect = 'copy'
           setDragActive(true)
         }}
         onDragLeave={() => setDragActive(false)}
         onDrop={(event) => {
-          if (readOnly || busy) return
+          if (readOnly || busyRef.current) return
           event.preventDefault()
           setDragActive(false)
           const files = event.dataTransfer.files
@@ -92,7 +94,11 @@ export function ComponentVisualAssetImportControl({
           tabIndex={-1}
           accept={LOCAL_VISUAL_ASSET_ACCEPT}
           disabled={readOnly || busy}
-          onChange={(event) => void ingestFile(event.currentTarget.files?.[0])}
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0]
+            event.currentTarget.value = ''
+            void ingestFile(file)
+          }}
         />
         <Button
           size="small"
