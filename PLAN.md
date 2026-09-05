@@ -268,7 +268,7 @@ M9A2 Workbench + Inspector authority separation                 accepted · 2026
 M9B1 Runtime Attribute / Property authority split               accepted · 2026-09-03
 M9B2 Package / Scene compatibility + end-to-end acceptance      accepted · 2026-09-03
 M9 Component Attribute / Property Authority Split               accepted · 2026-09-03
-M6.3P1 Component Visual Asset Authoring Patch                   authorized corrective patch · 2026-09-03
+M6.3P1 Component Visual Asset Authoring Patch                   accepted · 2026-09-05
 ```
 
 Detailed evidence: `docs/progress/`.
@@ -528,25 +528,29 @@ Do not create M9B3 merely to continue numbering.
 
 ---
 
-## 9. M6.3P1 Component Visual Asset Authoring Patch — authorized corrective patch · 2026-09-03
+## 9. M6.3P1 Component Visual Asset Authoring Patch — accepted · 2026-09-05
 
-M6 already accepted the Component Workbench layered visual model, including SVG / Image internals, and M8 later accepted portable visual-resource closure. The missing file-ingest and SVG internal-element authoring flow is therefore treated as an **M6.3 completeness defect**, not new M10 product scope.
+M6 already accepted the Component Workbench layered visual model, including SVG / Image internals, and M8 later accepted portable visual-resource closure. The missing file-ingest and SVG internal-element authoring flow was therefore treated as an **M6.3 completeness defect**, not a new numbered product milestone.
 
 Detailed execution authority:
 
 `docs/progress/m6.3p1-component-visual-asset-authoring-patch.md`
 
-Authorized gates:
+Closeout record:
+
+`docs/progress/m6.3p1-closeout.md`
+
+Accepted gates:
 
 ```text
-M6.3P1.0 SVG asset/tag authority freeze
-M6.3P1.1 local asset ingest + replace
-M6.3P1.2 SVG structure/tag authoring
-M6.3P1.3 SVG target + Visual Rule integration
-M6.3P1.4 portability + deployed acceptance
+M6.3P1.0 SVG asset/tag authority freeze                accepted
+M6.3P1.1 local asset ingest + replace                  accepted
+M6.3P1.2 SVG structure/tag authoring                   accepted
+M6.3P1.3 SVG target + Visual Rule integration          accepted
+M6.3P1.4 portability + deployed acceptance             accepted
 ```
 
-Patch boundaries:
+Patch boundaries remain authoritative:
 
 - Component Workbench local SVG/Image authoring only; do not turn this into a global media library;
 - preserve the existing Component Visual Runtime boundary and do not expose arbitrary DOM / React / Konva authored access;
@@ -556,11 +560,23 @@ Patch boundaries:
 - Attribute / Property authority remains exactly as accepted by M9;
 - normal SCADA Workbench complexity must not increase merely because Component Workbench gains richer private visual authoring.
 
-**Start with M6.3P1.0.** Current `SvgVisualLayer` is consumed as one image resource, so internal SVG target identity/persistence/runtime representation must be frozen before implementing upload UI. If the authority decision would introduce a second renderer/runtime authority or weaken M8/M9 boundaries, stop for review.
+Final accepted revision:
 
-M6.3P1 closes only when a user can import their own SVG/Image through the normal Component Workbench UI, edit safe SVG internal targets, save/reload, preview, and carry the result through component/work package and standalone runtime boundaries without manual JSON editing.
+`main@ae5ae5253a00067b9ad27ade0c227b0b39ea7650`
 
-After M6.3P1 closeout, return to the deliberate post-M9 roadmap review before authorizing M10.
+Final exact-main evidence:
+
+- main CI #947 (`33951665312`) passed;
+- Deploy GitHub Pages #284 (`33951665307`) passed;
+- Pages Browser Smoke #235 (`33951693075`) passed.
+
+The deployed browser proof completed the normal local SVG/Image authoring path, stable internal tag editing, undo/redo, save/reload, explicit component-package transfer, normal SCADA placement, exact work-package dependency closure and fresh standalone rendering without manual JSON editing or Studio persistence.
+
+Detailed P1.4 audit trail:
+
+`docs/progress/m6.3p1.4-portability-deployed-acceptance.md`
+
+No additional M6.3P1 sub-gate is authorized merely to continue numbering.
 
 ---
 
@@ -575,14 +591,16 @@ M9A2 Workbench + Inspector separation                          accepted · 2026-
 M9B1 runtime Attribute / Property authority split              accepted · 2026-09-03
 M9B2 package / Scene compatibility + acceptance                accepted · 2026-09-03
 M9 Component Attribute / Property Authority Split              accepted · 2026-09-03
-M6.3P1 Component Visual Asset Authoring Patch                  authorized · NEXT
+M6.3P1 Component Visual Asset Authoring Patch                  accepted · 2026-09-05
 ```
 
-**Current implementation gate: M6.3P1 is the authorized next execution patch. Begin at M6.3P1.0 SVG asset/tag authority freeze. No M10 architecture/product scope is accepted yet.**
+**Current execution gate: post-M9 product/roadmap review / dogfooding and product-polish review. No new numbered implementation milestone is currently authorized.**
 
-Preserve M6–M9 boundaries during the patch. In particular, do not reopen flattened `props`, Attribute binding, hidden package installation or standalone authoring state. Do not implement the upload UI ahead of P1.0 if SVG internal target authority is still unresolved.
+The current product phase is hands-on use and polishing of the editor, components and interactions. Component design does not require real-system data integration, and the product is not yet being advanced into speculative protocol/backend/real-device work merely because the runtime foundations exist.
 
-After M6.3P1 closeout, resume the deliberate roadmap review against current product direction and accepted M6–M9 boundaries before authorizing another implementation milestone.
+Preserve accepted M6–M9 and M6.3P1 boundaries while fixing defects exposed by dogfooding. In particular, do not reopen flattened `props`, Attribute binding, hidden package installation, standalone authoring state, a second renderer/runtime authority or broad media-library scope through incidental polish work.
+
+Before authorizing another implementation milestone, review the current product condition and the defects/priorities found during real editor use against the accepted architecture boundaries.
 
 ---
 
@@ -616,7 +634,7 @@ The accepted M9 verification baseline includes:
 - component/work package compatibility fixtures;
 - fresh-browser standalone proof that authored Attributes survive while runtime Properties drive visual state.
 
-M6.3P1 additionally requires:
+The accepted M6.3P1 verification baseline includes:
 
 - deterministic SVG sanitization/target-identity fixtures;
 - malformed/unsafe SVG fail-closed fixtures;
