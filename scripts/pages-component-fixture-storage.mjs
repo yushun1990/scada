@@ -114,6 +114,43 @@ export async function writePersistedComponent(page, document) {
 }
 
 export async function saveAndWait(page) {
+  const beforeHash = await page.evaluate(() => window.location.hash)
+  let beforeUpdatedAt = null
+
+  if (beforeHash !== '#/components/new') {
+    try {
+      const before = await readPersistedComponent(page)
+      beforeUpdatedAt = before.document?.updatedAt ?? null
+    } catch {
+      // The save result itself is the authority; a missing pre-save record is not.
+    }
+  }
+
   await page.getByRole('button', { name: '保存' }).click()
-  await page.getByText('组件已保存', { exact: true }).waitFor()
+
+  const deadline = Date.now() + 30_000
+  let lastError = null
+  while (Date.now() < deadline) {
+    const currentHash = await page.evaluate(() => window.location.hash)
+    const hasPersistedRoute = /^#\/components\/[^/]+$/.test(currentHash)
+      && currentHash !== '#/components/new'
+
+    if (hasPersistedRoute) {
+      try {
+        const persisted = await readPersistedComponent(page)
+        const updatedAt = persisted.document?.updatedAt ?? null
+        if (beforeHash === '#/components/new' || updatedAt !== beforeUpdatedAt) {
+          await page.getByText('Component Editor', { exact: true }).waitFor()
+          return persisted
+        }
+      } catch (error) {
+        lastError = error
+      }
+    }
+
+    await page.waitForTimeout(50)
+  }
+
+  const detail = lastError instanceof Error ? `: ${lastError.message}` : ''
+  throw new Error(`Timed out waiting for persisted component save${detail}`)
 }
