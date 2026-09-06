@@ -38,6 +38,7 @@ jobs:
           SCADA_PAGES_URL: https://yushun1990.github.io/scada/
         run: |
           node scripts/pages-smoke.mjs
+          node scripts/pages-component-arrange-smoke.mjs
           node scripts/pages-animation-move-smoke.mjs
           node scripts/pages-animation-scale-smoke.mjs
           node scripts/pages-animation-fade-smoke.mjs
