@@ -28,6 +28,7 @@ for (const [label, page] of [
 
 const componentType = 'custom.pages.managed-svg-p1.4'
 const componentTitle = 'Managed SVG P1.4'
+const authoredPrimitiveName = '主背景'
 const authoredFill = '#22c55e'
 const runtimeRuleColor = '#7c3aed'
 const svgSource = `
@@ -159,9 +160,30 @@ async function localDatabaseNames(page) {
 }
 
 try {
-  console.log(`Authoring managed SVG from a real local file: ${baseUrl}#/components/new`)
+  console.log(`Authoring UX1.6 dogfood component from Palette through standalone: ${baseUrl}#/components/new`)
   await authorPage.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await authorPage.getByText('Component Editor', { exact: true }).waitFor()
+
+  // UX1.6 discoverability proof: Palette creates, Canvas places, Navigator locates,
+  // Inspector configures. None of these steps require knowing VisualLayerKind or assetRef.
+  await authorPage.getByRole('button', { name: '矩形', exact: true }).click()
+  await authorPage.locator('.component-create-mode-hint', { hasText: '绘制矩形' }).waitFor()
+  await authorPage.locator('.component-artboard').click({ position: { x: 80, y: 60 } })
+
+  const createdPrimitiveRow = authorPage.locator('.component-layer-row', { hasText: '矩形 1' }).first()
+  await createdPrimitiveRow.waitFor()
+  assert.equal(await createdPrimitiveRow.getAttribute('class').then((value) => value?.includes('active')), true)
+
+  await authorPage.locator('.component-layer-root').click()
+  await authorPage.locator('.component-layer-root.active').waitFor()
+  await createdPrimitiveRow.click()
+  await authorPage.locator('.component-layer-row.active', { hasText: '矩形 1' }).waitFor()
+
+  const primitiveNameField = authorPage.locator('.component-layer-inspector .property-field')
+    .filter({ hasText: '名称' })
+    .first()
+  await primitiveNameField.locator('input').fill(authoredPrimitiveName)
+  await authorPage.locator('.component-layer-row', { hasText: authoredPrimitiveName }).waitFor()
 
   const importControl = globalAssetImportControl(authorPage)
   const importInput = importControl.locator('input[type="file"]')
@@ -178,8 +200,8 @@ try {
   assert.ok((await unsafeMessage.textContent())?.trim(), 'unsafe SVG import exposes a visible failure')
   assert.equal(
     await authorPage.locator('.component-layer-row').count(),
-    0,
-    'unsafe SVG rejection does not mutate the visual tree',
+    1,
+    'unsafe SVG rejection does not mutate the existing visual tree',
   )
   await waitForGlobalAssetInputReady(authorPage)
 
@@ -235,8 +257,10 @@ try {
   await saveAndWait(authorPage)
   const savedUrl = authorPage.url()
   const firstSaved = await readPersistedComponent(authorPage)
+  const firstSavedPrimitive = findVisualLayer(firstSaved.document, 'vector', authoredPrimitiveName)
   const firstSavedSvg = findVisualLayer(firstSaved.document, 'svg', 'p14-status')
   const firstSavedImage = findVisualLayer(firstSaved.document, 'image', 'p14-image')
+  assert.ok(firstSavedPrimitive, 'Palette/Canvas primitive survives normal component persistence')
   assert.ok(firstSavedSvg?.document)
   assert.ok(firstSavedImage)
   assert.equal(
@@ -248,12 +272,14 @@ try {
 
   await authorPage.goto(savedUrl, { waitUntil: 'networkidle' })
   await authorPage.getByText('Component Editor', { exact: true }).waitFor()
+  await authorPage.locator('.component-layer-row', { hasText: authoredPrimitiveName }).waitFor()
   await authorPage.locator('.component-layer-row', { hasText: 'p14-status' }).click()
   await authorPage.locator('.component-managed-svg-row', { hasText: 'svg-tag-000003' }).click()
   await waitForManagedFill(authorPage, authoredFill)
 
   const reloaded = await readPersistedComponent(authorPage)
   const reloadedSvg = findVisualLayer(reloaded.document, 'svg', 'p14-status')
+  assert.ok(findVisualLayer(reloaded.document, 'vector', authoredPrimitiveName))
   assert.ok(reloadedSvg?.document)
   const readyDocument = {
     ...reloaded.document,
@@ -336,8 +362,10 @@ try {
     namespace: 'attribute',
     key: 'runningColor',
   })
+  const exportedPrimitive = findVisualLayer(exportedComponent, 'vector', authoredPrimitiveName)
   const exportedSvg = findVisualLayer(exportedComponent, 'svg', 'p14-status')
   const exportedImage = findVisualLayer(exportedComponent, 'image', 'p14-image')
+  assert.ok(exportedPrimitive, 'component package preserves the Palette-authored primitive')
   assert.ok(exportedSvg?.document)
   assert.ok(exportedImage)
   assert.equal(
@@ -369,8 +397,10 @@ try {
   assert.equal(componentConfirmationSeen, true)
 
   const importedComponent = await readPersistedComponent(importPage)
+  const importedPrimitive = findVisualLayer(importedComponent.document, 'vector', authoredPrimitiveName)
   const importedSvg = findVisualLayer(importedComponent.document, 'svg', 'p14-status')
   const importedImage = findVisualLayer(importedComponent.document, 'image', 'p14-image')
+  assert.ok(importedPrimitive, 'fresh component import preserves the Palette-authored primitive')
   assert.ok(importedSvg?.document)
   assert.ok(importedImage)
   assert.equal(
@@ -440,8 +470,14 @@ try {
     namespace: 'attribute',
     key: 'runningColor',
   })
+  const workDependencyPrimitive = findVisualLayer(
+    exportedWork.dependencies[0],
+    'vector',
+    authoredPrimitiveName,
+  )
   const workDependencySvg = findVisualLayer(exportedWork.dependencies[0], 'svg', 'p14-status')
   const workDependencyImage = findVisualLayer(exportedWork.dependencies[0], 'image', 'p14-image')
+  assert.ok(workDependencyPrimitive, 'work dependency preserves the Palette-authored primitive')
   assert.ok(workDependencySvg?.document)
   assert.ok(workDependencyImage)
   assert.equal(
@@ -486,7 +522,7 @@ try {
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'Pages managed SVG authoring acceptance passed: unsafe SVG input fails visibly without mutation; a real local SVG imports, exposes stable internal tags, survives static tag editing plus undo/redo, previews the authored fill, saves/reloads, coexists with a real PNG import, exports/imports as a self-contained component package in a fresh browser, preserves a Property-driven internal svgTagId rule with explicit Attribute value source, renders that rule inside SCADA Workbench, closes exactly into a SCADA work package, and the exact exported artifact renders the rule result in a fresh standalone runtime without Studio persistence.',
+    'UX1.6 dogfood acceptance passed: a new user starts from the Palette, places a primitive on Canvas, relocates it through Navigator, configures it in Inspector, imports and customizes managed SVG plus PNG, previews, saves/reopens, exports/imports the component package in a fresh browser, places it in SCADA Workbench, exports exact work-package dependency closure, and renders the exact artifact in a fresh standalone runtime without learning VisualLayerKind, assetRef or renderer internals.',
   )
 } finally {
   await authorContext.close()
