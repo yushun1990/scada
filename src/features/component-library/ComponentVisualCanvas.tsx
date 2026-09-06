@@ -42,6 +42,11 @@ import {
   type ComponentSnapResult,
 } from './component-canvas-snap'
 import {
+  mapManagedSvgViewportBoundsToLayer,
+  measureManagedSvgElementViewportBounds,
+  useComponentManagedSvgSelection,
+} from './component-managed-svg-selection'
+import {
   cloneComponentLayerSubtrees,
   deleteComponentLayers,
 } from './component-layer-hierarchy'
@@ -217,6 +222,7 @@ export function ComponentVisualCanvas({
   onChange,
 }: ComponentVisualCanvasProps) {
   const createTool = useComponentCreateTool()
+  const managedSvgSelection = useComponentManagedSvgSelection()
   const canvasHostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -236,6 +242,7 @@ export function ComponentVisualCanvas({
   const [animationTimeMs, setAnimationTimeMs] = useState(0)
   const [createStart, setCreateStart] = useState<ComponentDesignPoint | null>(null)
   const [createCurrent, setCreateCurrent] = useState<ComponentDesignPoint | null>(null)
+  const [managedSvgHighlightPoints, setManagedSvgHighlightPoints] = useState<number[]>([])
   const selectedLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
   const selectedVisibleLayerIds = useMemo(
     () => selectedLayerIds.filter((layerId) =>
@@ -243,6 +250,12 @@ export function ComponentVisualCanvas({
     ),
     [selectedLayerIds, visual.layers],
   )
+  const activeManagedSvgSelection =
+    selectedLayerIds.length === 1 &&
+    primaryLayerId !== null &&
+    managedSvgSelection?.layerId === primaryLayerId
+      ? managedSvgSelection
+      : null
   const ruleResolvedVisual = mode === 'preview'
     ? resolveComponentVisualRules(visual, {
         attributes: attributeValues,
@@ -388,6 +401,61 @@ export function ComponentVisualCanvas({
     transformer.nodes(selectedNodes)
     transformer.getLayer()?.batchDraw()
   }, [activeCreateTool, artboardScale, isEditable, selectedVisibleLayerIds, visual.layers])
+
+  useLayoutEffect(() => {
+    const clearHighlight = () => {
+      setManagedSvgHighlightPoints((current) => current.length === 0 ? current : [])
+    }
+    const stage = stageRef.current
+
+    if (!stage || !isEditable || !activeManagedSvgSelection) {
+      clearHighlight()
+      return
+    }
+
+    const layer = visual.layers.find(
+      (candidate) => candidate.id === activeManagedSvgSelection.layerId,
+    )
+    if (layer?.kind !== 'svg' || !layer.document || !layer.visible) {
+      clearHighlight()
+      return
+    }
+
+    const viewportBounds = measureManagedSvgElementViewportBounds(
+      layer.document,
+      activeManagedSvgSelection.tagId,
+    )
+    if (!viewportBounds) {
+      clearHighlight()
+      return
+    }
+
+    const localBounds = mapManagedSvgViewportBoundsToLayer(layer, viewportBounds)
+    const layerNode = findLayerNode(stage, layer.id)
+    if (!localBounds || !layerNode) {
+      clearHighlight()
+      return
+    }
+
+    const transform = layerNode.getAbsoluteTransform().copy()
+    const corners = [
+      transform.point({ x: localBounds.x, y: localBounds.y }),
+      transform.point({ x: localBounds.x + localBounds.width, y: localBounds.y }),
+      transform.point({
+        x: localBounds.x + localBounds.width,
+        y: localBounds.y + localBounds.height,
+      }),
+      transform.point({ x: localBounds.x, y: localBounds.y + localBounds.height }),
+    ]
+
+    setManagedSvgHighlightPoints(corners.flatMap((point) => [point.x, point.y]))
+  }, [
+    activeManagedSvgSelection?.layerId,
+    activeManagedSvgSelection?.tagId,
+    artboardScale,
+    isEditable,
+    visual.layers,
+  ])
 
   useEffect(() => {
     if (!isEditable || !snapEnabled) {
@@ -890,6 +958,17 @@ export function ComponentVisualCanvas({
                 />
               </Layer>
               <Layer listening={false}>
+                {managedSvgHighlightPoints.length === 8 && (
+                  <Line
+                    points={managedSvgHighlightPoints}
+                    closed
+                    stroke="#7c3aed"
+                    strokeWidth={1.5}
+                    dash={[5, 3]}
+                    listening={false}
+                    perfectDrawEnabled={false}
+                  />
+                )}
                 <Line
                   ref={verticalGuideRef}
                   visible={false}
@@ -944,6 +1023,11 @@ export function ComponentVisualCanvas({
               <>
                 <strong>{selectedLayer.name}</strong>
                 <code>{layerKindLabel(selectedLayer.kind)}</code>
+                {activeManagedSvgSelection && (
+                  <span className="status-hint">
+                    SVG {activeManagedSvgSelection.tagId}
+                  </span>
+                )}
                 <span>
                   {Math.round(selectedLayer.transform.width)} ×{' '}
                   {Math.round(selectedLayer.transform.height)}
