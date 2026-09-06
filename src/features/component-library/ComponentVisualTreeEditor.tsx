@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import {
   type ComponentVisualDefinition,
@@ -17,6 +17,7 @@ import {
   Textarea,
 } from '../../ui'
 import { ComponentVisualAssetImportControl } from './ComponentVisualAssetImportControl'
+import './component-visual-palette.css'
 
 export type ComponentWorkbenchMode = 'editor' | 'preview'
 export type ComponentLayerSelectionChange = (
@@ -60,6 +61,15 @@ type FlatLayer = {
   depth: number
 }
 
+type PalettePrimitive = {
+  primitive: VisualVectorPrimitive
+  label: string
+  symbol: string
+  width: number
+  height: number
+  pathData?: string
+}
+
 const LAYER_KIND_LABELS: Array<[VisualLayerKind, string]> = [
   ['group', 'Group'],
   ['svg', 'SVG'],
@@ -67,8 +77,6 @@ const LAYER_KIND_LABELS: Array<[VisualLayerKind, string]> = [
   ['vector', '矢量图形'],
   ['text', '文本'],
 ]
-
-const LAYER_KIND_OPTIONS = LAYER_KIND_LABELS.map(([value, label]) => ({ value, label }))
 
 const VECTOR_PRIMITIVES: Array<[VisualVectorPrimitive, string]> = [
   ['rect', '矩形'],
@@ -79,6 +87,21 @@ const VECTOR_PRIMITIVES: Array<[VisualVectorPrimitive, string]> = [
 ]
 
 const VECTOR_PRIMITIVE_OPTIONS = VECTOR_PRIMITIVES.map(([value, label]) => ({ value, label }))
+
+const PALETTE_PRIMITIVES: readonly PalettePrimitive[] = [
+  { primitive: 'rect', label: '矩形', symbol: '□', width: 96, height: 64 },
+  { primitive: 'circle', label: '圆形', symbol: '○', width: 72, height: 72 },
+  { primitive: 'ellipse', label: '椭圆', symbol: '⬭', width: 100, height: 64 },
+  { primitive: 'line', label: '线段', symbol: '╱', width: 120, height: 20 },
+  {
+    primitive: 'path',
+    label: 'Path',
+    symbol: '⌁',
+    width: 96,
+    height: 64,
+    pathData: 'M 8 56 L 48 8 L 88 56 Z',
+  },
+]
 
 export function layerKindLabel(kind: VisualLayerKind) {
   return LAYER_KIND_LABELS.find(([candidate]) => candidate === kind)?.[1] ?? kind
@@ -120,6 +143,24 @@ function createLayer(
   if (kind === 'vector') return { ...base, kind, primitive: 'rect' }
   if (kind === 'text') return { ...base, kind, text: 'Text' }
   return { ...base, kind: 'group' }
+}
+
+function centerLayer(
+  visual: ComponentVisualDefinition,
+  layer: ComponentVisualLayer,
+  width = layer.transform.width,
+  height = layer.transform.height,
+): ComponentVisualLayer {
+  return {
+    ...layer,
+    transform: {
+      ...layer.transform,
+      x: Math.max(0, (visual.designSize.width - width) / 2),
+      y: Math.max(0, (visual.designSize.height - height) / 2),
+      width,
+      height,
+    },
+  } as ComponentVisualLayer
 }
 
 function flattenLayers(layers: readonly ComponentVisualLayer[]) {
@@ -202,7 +243,6 @@ export function ComponentVisualTreeEditor({
   onSelectionChange,
   onChange,
 }: ComponentVisualTreeEditorProps) {
-  const [addKind, setAddKind] = useState<VisualLayerKind>('group')
   const flattened = useMemo(() => flattenLayers(visual.layers), [visual.layers])
   const selectedLayerIdSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds])
   const primaryLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
@@ -211,56 +251,134 @@ export function ComponentVisualTreeEditor({
     if (primaryLayerId && !primaryLayer) onSelectionChange(null)
   }, [onSelectionChange, primaryLayer, primaryLayerId])
 
-  function addLayer() {
+  function appendLayer(layer: ComponentVisualLayer) {
     if (readOnly || visual.mode !== 'composite') return
 
-    const id = nextLayerId(addKind, visual.layers)
-    const parentId = primaryLayer?.kind === 'group'
-      ? primaryLayer.id
-      : primaryLayer?.parentId ?? null
-    const layer = createLayer(addKind, id, parentId)
-
     onChange({ ...visual, layers: [...visual.layers, layer] })
-    onSelectionChange(id)
+    onSelectionChange(layer.id)
+  }
+
+  function addPrimitive(item: PalettePrimitive) {
+    const id = nextLayerId('vector', visual.layers)
+    const created = createLayer('vector', id, null)
+    if (created.kind !== 'vector') return
+
+    const layer = centerLayer(
+      visual,
+      {
+        ...created,
+        name: `${item.label} ${id.replace(/\D+/g, '') || ''}`.trim(),
+        primitive: item.primitive,
+        pathData: item.primitive === 'path' ? item.pathData ?? '' : undefined,
+      },
+      item.width,
+      item.height,
+    )
+    appendLayer(layer)
+  }
+
+  function addText() {
+    const id = nextLayerId('text', visual.layers)
+    const created = createLayer('text', id, null)
+    if (created.kind !== 'text') return
+
+    appendLayer(centerLayer(
+      visual,
+      { ...created, name: `文本 ${id.replace(/\D+/g, '') || ''}`.trim(), text: 'Text' },
+      120,
+      36,
+    ))
+  }
+
+  function addGroup() {
+    const id = nextLayerId('group', visual.layers)
+    const created = createLayer('group', id, null)
+    if (created.kind !== 'group') return
+
+    appendLayer(centerLayer(
+      visual,
+      { ...created, name: `组 ${id.replace(/\D+/g, '') || ''}`.trim() },
+      120,
+      80,
+    ))
   }
 
   return (
     <div className="component-layer-dock">
+      <section className="component-authoring-palette" aria-label="添加视觉元素">
+        <div className="component-layer-dock-heading">
+          <div>
+            <strong>添加</strong>
+            <span>选择图元或导入资源，直接创建到组件画布</span>
+          </div>
+        </div>
+
+        {visual.mode === 'composite' ? (
+          <>
+            <div className="component-palette-section">
+              <span className="component-palette-label">基础图元</span>
+              <div className="component-palette-grid">
+                {PALETTE_PRIMITIVES.map((item) => (
+                  <Button
+                    key={item.primitive}
+                    size="small"
+                    className="component-palette-item"
+                    disabled={readOnly}
+                    onClick={() => addPrimitive(item)}
+                  >
+                    <span className="component-palette-item-symbol" aria-hidden="true">{item.symbol}</span>
+                    <span className="component-palette-item-label">{item.label}</span>
+                  </Button>
+                ))}
+                <Button
+                  size="small"
+                  className="component-palette-item"
+                  disabled={readOnly}
+                  onClick={addText}
+                >
+                  <span className="component-palette-item-symbol" aria-hidden="true">T</span>
+                  <span className="component-palette-item-label">文本</span>
+                </Button>
+                <Button
+                  size="small"
+                  className="component-palette-item"
+                  disabled={readOnly}
+                  onClick={addGroup}
+                >
+                  <span className="component-palette-item-symbol" aria-hidden="true">▣</span>
+                  <span className="component-palette-item-label">组</span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="component-palette-section component-palette-resource">
+              <span className="component-palette-label">资源</span>
+              <ComponentVisualAssetImportControl
+                visual={visual}
+                readOnly={readOnly}
+                selectedLayerId={null}
+                onSelectionChange={onSelectionChange}
+                onChange={onChange}
+              />
+            </div>
+
+            <p className="component-palette-help">
+              当前点击会把默认尺寸对象放到设计画布中央；拖拽绘制手势将在 UX1.2 接入。资源导入始终创建新图层，替换已有资源请在右侧 Inspector 中操作。
+            </p>
+          </>
+        ) : (
+          <div className="component-layer-empty">
+            Native Renderer 组件为只读实现，不开放视觉元素创建。
+          </div>
+        )}
+      </section>
+
       <div className="component-layer-dock-heading">
         <div>
           <strong>图层</strong>
-          <span>{visual.mode === 'native' ? 'Native Renderer' : `${visual.layers.length} 个内部图层`}</span>
+          <span>{visual.mode === 'native' ? 'Native Renderer' : `${visual.layers.length} 个内部图层 · Navigator`}</span>
         </div>
       </div>
-
-      {visual.mode === 'composite' && (
-        <>
-          <div className="component-layer-add-row">
-            <Select
-              ariaLabel="新增图层类型"
-              value={addKind}
-              disabled={readOnly}
-              options={LAYER_KIND_OPTIONS}
-              onValueChange={(value) => setAddKind(value as VisualLayerKind)}
-            />
-            <IconButton
-              aria-label="添加图层"
-              title="添加图层"
-              disabled={readOnly}
-              onClick={addLayer}
-            >
-              ＋
-            </IconButton>
-          </div>
-          <ComponentVisualAssetImportControl
-            visual={visual}
-            readOnly={readOnly}
-            selectedLayerId={primaryLayerId}
-            onSelectionChange={onSelectionChange}
-            onChange={onChange}
-          />
-        </>
-      )}
 
       <div className="component-layer-tree">
         <Pressable
@@ -293,7 +411,7 @@ export function ComponentVisualTreeEditor({
 
         {visual.mode === 'composite' && flattened.length === 0 && (
           <div className="component-layer-empty">
-            选择组件根查看基础信息，或导入 SVG / 图片、添加内部图层开始构建视觉。
+            从上方“添加”选择基础图元，或导入 SVG / 图片开始构建组件。创建后的结构会显示在这里。
           </div>
         )}
 
@@ -305,8 +423,8 @@ export function ComponentVisualTreeEditor({
       </div>
 
       {visual.mode === 'composite' && (
-        <p className="component-layer-help">
-          可直接导入本地 SVG / PNG / JPEG / WebP；选中同类型资源层后导入会替换资源并保留图层几何。也可将文件拖到画布。
+        <p className="component-layer-navigator-help">
+          图层区只用于定位和选择当前结构；创建入口已迁移到“添加”，画布负责主要直接操作。
         </p>
       )}
     </div>
