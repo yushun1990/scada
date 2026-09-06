@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {
   assertManagedSvgDocument,
+  cloneManagedSvgDocument,
   serializeManagedSvgDataUrl,
   serializeManagedSvgDocument,
   type ManagedSvgAttribute,
@@ -8,7 +9,9 @@ import {
 } from '../src/component-system/managedSvg'
 import {
   findManagedSvgElement,
+  findManagedSvgElementByAuthorRef,
   getManagedSvgElementAttribute,
+  updateManagedSvgElementAuthorRef,
   updateManagedSvgElementPresentation,
 } from '../src/component-system/managedSvgAuthoring'
 
@@ -69,6 +72,108 @@ const baseDocument: ManagedSvgDocument = {
 
 assertManagedSvgDocument(baseDocument)
 const baseSerialized = serializeManagedSvgDocument(baseDocument)
+const baseAssetRef = serializeManagedSvgDataUrl(baseDocument)
+
+const referenced = updateManagedSvgElementAuthorRef(
+  baseDocument,
+  'svg-tag-000005',
+  ' rotor ',
+)
+assert.equal(
+  findManagedSvgElement(referenced, 'svg-tag-000005')?.authorRef,
+  'rotor',
+  'authoring helper normalizes surrounding whitespace',
+)
+assert.equal(
+  findManagedSvgElementByAuthorRef(referenced, 'rotor')?.tagId,
+  'svg-tag-000005',
+  'author reference reverse lookup resolves back to the canonical tagId',
+)
+assert.equal(
+  serializeManagedSvgDocument(referenced),
+  baseSerialized,
+  'authorRef metadata must not enter canonical SVG/XML serialization',
+)
+assert.equal(
+  serializeManagedSvgDataUrl(referenced),
+  baseAssetRef,
+  'authorRef-only edits must not change the renderer assetRef bytes',
+)
+
+const renamedReference = updateManagedSvgElementAuthorRef(
+  referenced,
+  'svg-tag-000005',
+  'rotorMain',
+)
+assert.equal(findManagedSvgElementByAuthorRef(renamedReference, 'rotor'), null)
+assert.equal(
+  findManagedSvgElementByAuthorRef(renamedReference, 'rotorMain')?.tagId,
+  'svg-tag-000005',
+  'renaming authorRef preserves canonical element identity',
+)
+assert.equal(
+  findManagedSvgElement(renamedReference, 'svg-tag-000005')?.tagId,
+  'svg-tag-000005',
+)
+
+const clonedReference = cloneManagedSvgDocument(renamedReference)
+assert.equal(
+  findManagedSvgElement(clonedReference, 'svg-tag-000005')?.authorRef,
+  'rotorMain',
+  'managed document clone preserves authorRef metadata',
+)
+const restoredReference = JSON.parse(JSON.stringify(clonedReference)) as ManagedSvgDocument
+assertManagedSvgDocument(restoredReference)
+assert.equal(
+  findManagedSvgElementByAuthorRef(restoredReference, 'rotorMain')?.tagId,
+  'svg-tag-000005',
+  'save/reload preserves authorRef metadata and canonical tag identity',
+)
+
+const removedReference = updateManagedSvgElementAuthorRef(
+  restoredReference,
+  'svg-tag-000005',
+  '',
+)
+assert.equal(findManagedSvgElement(removedReference, 'svg-tag-000005')?.authorRef, undefined)
+assert.equal(
+  findManagedSvgElement(removedReference, 'svg-tag-000005')?.tagId,
+  'svg-tag-000005',
+  'removing a friendly reference does not change canonical tag identity',
+)
+assert.equal(serializeManagedSvgDocument(removedReference), baseSerialized)
+
+const oneOccupiedReference = updateManagedSvgElementAuthorRef(
+  baseDocument,
+  'svg-tag-000003',
+  'housingBody',
+)
+assert.throws(
+  () => updateManagedSvgElementAuthorRef(oneOccupiedReference, 'svg-tag-000005', 'housingBody'),
+  /已被占用|重复/,
+  'duplicate author references fail closed within one managed document',
+)
+assert.throws(
+  () => updateManagedSvgElementAuthorRef(baseDocument, 'svg-tag-000005', 'svg-tag-friendly'),
+  /authorRef|保留/,
+  'canonical svg-tag- identity prefix is reserved from author references',
+)
+assert.throws(
+  () => updateManagedSvgElementAuthorRef(baseDocument, 'svg-tag-000005', 'bad ref'),
+  /authorRef|标识符/,
+  'invalid author reference grammar fails closed',
+)
+
+const invalidDuplicate = structuredClone(baseDocument)
+invalidDuplicate.root.children = invalidDuplicate.root.children.map((child, index) => {
+  if (child.kind !== 'element') return child
+  return { ...child, authorRef: index === 0 ? 'duplicate' : 'duplicate' }
+})
+assert.throws(
+  () => assertManagedSvgDocument(invalidDuplicate),
+  /authorRef 重复/,
+  'core persisted-document validation rejects duplicate author references even outside helpers',
+)
 
 const lampAuthored = updateManagedSvgElementPresentation(
   baseDocument,
@@ -169,5 +274,5 @@ assert.throws(
 )
 
 console.log(
-  'Managed SVG authoring checks passed: two nested targets accept independent controlled presentation edits, retained tag ids stay stable, previous snapshots remain immutable, save/reload preserves values and identities, canonical assetRef follows the authored document, empty values restore inheritance, and invalid/unsafe edits fail closed.',
+  'Managed SVG authoring checks passed: stable author references are optional unique metadata over canonical tagId identity, alias-only edits leave serialized SVG/assetRef bytes unchanged, clone/save/reload preserve aliases, rename/remove preserve tag identity, invalid/duplicate/reserved aliases fail closed, and existing controlled presentation authoring remains deterministic and immutable.',
 )
