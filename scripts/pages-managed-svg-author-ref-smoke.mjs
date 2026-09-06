@@ -3,7 +3,6 @@ import { chromium } from 'playwright'
 import {
   readPersistedComponent,
   saveAndWait,
-  writePersistedComponent,
 } from './pages-component-fixture-storage.mjs'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/')
@@ -92,6 +91,11 @@ try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
+  const publicProperties = page.locator('.component-root-public-properties')
+  await publicProperties.waitFor()
+  await publicProperties.getByRole('button', { name: '+ 添加属性', exact: true }).click()
+  await publicProperties.locator('.property-contract-item').waitFor()
+
   const importControl = globalAssetImportControl(page)
   const input = importControl.locator('input[type="file"]')
   await input.waitFor({ state: 'attached' })
@@ -130,6 +134,10 @@ try {
   await saveAndWait(page)
   const savedUrl = page.url()
   const persisted = await readPersistedComponent(page)
+  assert.ok(
+    persisted.document.definition.properties.property1,
+    'the real root Property authoring flow persists a Rule-driving Property',
+  )
   const svgLayer = findVisualLayer(persisted.document, 'svg', 'ux1.3-author-ref')
   assert.ok(svgLayer?.document)
   const persistedRect = findManagedTag(svgLayer.document, 'svg-tag-000003')
@@ -141,27 +149,6 @@ try {
     new RegExp(authorRef),
     'authoring alias must not become serialized SVG/runtime resource identity',
   )
-
-  const ruleReadyDocument = {
-    ...persisted.document,
-    definition: {
-      ...persisted.document.definition,
-      properties: {
-        ...persisted.document.definition.properties,
-        state: {
-          title: 'State',
-          kind: 'select',
-          defaultValue: 'off',
-          bindable: true,
-          options: [
-            { label: 'Off', value: 'off' },
-            { label: 'On', value: 'on' },
-          ],
-        },
-      },
-    },
-  }
-  await writePersistedComponent(page, ruleReadyDocument)
 
   await page.goto(savedUrl, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
@@ -244,7 +231,7 @@ try {
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'Managed SVG author-reference and UX1.5 target-convergence browser proof passed: current SVG selection defaults new Visual Rules to canonical tagId, Rule target changes drive the same Canvas/Inspector selection, authorRef labels rename without rewriting svgTagId, save/reopen preserves both authorities, and Preview remains read-only.',
+    'Managed SVG author-reference and UX1.5 target-convergence browser proof passed: a real root Property authoring flow drives Rule creation; current SVG selection defaults new Visual Rules to canonical tagId; Rule target changes drive the same Canvas/Inspector selection; authorRef labels rename without rewriting svgTagId; save/reopen preserves both authorities; and Preview remains read-only.',
   )
 } finally {
   await browser.close()
