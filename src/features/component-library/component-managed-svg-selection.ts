@@ -181,7 +181,10 @@ export function measureManagedSvgElementViewportBounds(
   )
   if (parsed.querySelector('parsererror')) return null
 
-  const importedRoot = document.importNode(parsed.documentElement, true) as SVGSVGElement
+  const importedRoot = document.importNode(
+    parsed.documentElement,
+    true,
+  ) as unknown as SVGSVGElement
   const intrinsic = getManagedSvgIntrinsicSize(managedDocument)
   importedRoot.style.display = 'block'
   importedRoot.style.width = `${intrinsic.width}px`
