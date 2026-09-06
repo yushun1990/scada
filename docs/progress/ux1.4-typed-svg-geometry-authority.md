@@ -24,7 +24,7 @@ UX1.4 is a Component Workbench authoring slice. It does **not** reopen the manag
 ManagedSvgDocument
   -> canonical serializer
   -> self-contained SVG assetRef
-  -> existing Composite renderer / Image-Kanva path
+  -> existing Composite renderer / Image/Konva path
 ```
 
 Typed geometry authoring therefore does not need a geometry sidecar model, DOM node state, a second renderer, or a new runtime target address.
