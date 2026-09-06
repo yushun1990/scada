@@ -14,6 +14,7 @@ export type ManagedSvgElement = {
   kind: 'element'
   tagName: string
   tagId: string
+  authorRef?: string
   attributes: readonly ManagedSvgAttribute[]
   children: readonly ManagedSvgNode[]
 }
@@ -33,6 +34,8 @@ export type ManagedSvgImportResult = {
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
 const MANAGED_TAG_ID_PATTERN = /^svg-tag-\d{6,}$/
+export const MANAGED_SVG_AUTHOR_REF_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/
+const RESERVED_MANAGED_SVG_AUTHOR_REF_PREFIX = 'svg-tag-'
 const SAFE_SVG_TAG_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9]*$/
 const SAFE_SVG_ATTRIBUTE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_.-]*$/
 const SAFE_CSS_PROPERTY_NAME_PATTERN = /^-?[A-Za-z][A-Za-z0-9-]*$/
@@ -153,6 +156,13 @@ type NormalizedInlineStyle = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export function isManagedSvgAuthorRef(value: string) {
+  return (
+    MANAGED_SVG_AUTHOR_REF_PATTERN.test(value) &&
+    !value.toLowerCase().startsWith(RESERVED_MANAGED_SVG_AUTHOR_REF_PREFIX)
+  )
 }
 
 function canonicalTagName(value: string) {
@@ -539,6 +549,7 @@ function assertManagedSvgAttribute(
 function assertManagedSvgElement(
   value: unknown,
   seenTagIds: Set<string>,
+  seenAuthorRefs: Set<string>,
   label: string,
 ): asserts value is ManagedSvgElement {
   if (
@@ -559,6 +570,16 @@ function assertManagedSvgElement(
   }
   seenTagIds.add(value.tagId)
 
+  if (value.authorRef !== undefined) {
+    if (typeof value.authorRef !== 'string' || !isManagedSvgAuthorRef(value.authorRef)) {
+      throw new Error(`${label} authorRef 无效：${String(value.authorRef)}`)
+    }
+    if (seenAuthorRefs.has(value.authorRef)) {
+      throw new Error(`Managed SVG authorRef 重复：${value.authorRef}`)
+    }
+    seenAuthorRefs.add(value.authorRef)
+  }
+
   let previousName: string | null = null
   for (const [index, attribute] of value.attributes.entries()) {
     assertManagedSvgAttribute(attribute, value.tagName, previousName, `${label}.attributes[${index}]`)
@@ -572,7 +593,7 @@ function assertManagedSvgElement(
       }
       continue
     }
-    assertManagedSvgElement(child, seenTagIds, `${label}.children[${index}]`)
+    assertManagedSvgElement(child, seenTagIds, seenAuthorRefs, `${label}.children[${index}]`)
   }
 }
 
@@ -582,7 +603,8 @@ export function assertManagedSvgDocument(value: unknown): asserts value is Manag
   }
 
   const seenTagIds = new Set<string>()
-  assertManagedSvgElement(value.root, seenTagIds, 'ManagedSvg.root')
+  const seenAuthorRefs = new Set<string>()
+  assertManagedSvgElement(value.root, seenTagIds, seenAuthorRefs, 'ManagedSvg.root')
 
   if (value.root.tagName !== 'svg') {
     throw new Error('Managed SVG root 必须是 svg')
