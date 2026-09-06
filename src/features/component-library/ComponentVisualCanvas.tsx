@@ -824,6 +824,7 @@ export function ComponentVisualCanvas({
               height={artboardHeight}
               listening={isEditable}
               onMouseDown={(event) => {
+                if (activeCreateTool && event.evt.button !== 0) return
                 if (beginCreate()) return
                 handlePointerTarget(
                   event.target,
@@ -853,7 +854,7 @@ export function ComponentVisualCanvas({
                   visible
                   opacity={1}
                   listening={isEditable}
-                  draggableLayerId={isEditable && !activeCreateTool ? primaryLayerId : null}
+                  draggableLayerId={isEditable && !activeCreateTool ? primaryLayerId : undefined}
                   frontLayerId={isEditable && !activeCreateTool ? primaryLayerId : null}
                 />
                 {activeCreateTool && createGeometry && (
