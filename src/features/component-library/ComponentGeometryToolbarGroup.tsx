@@ -5,9 +5,13 @@ import {
   AlignLeftIcon,
   AlignRightIcon,
   AlignTopIcon,
+  BringForwardIcon,
+  BringToFrontIcon,
   DistributeHorizontalIcon,
   DistributeVerticalIcon,
   GroupIcon,
+  SendBackwardIcon,
+  SendToBackIcon,
   UngroupIcon,
 } from '../../components/toolbar-icons'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
@@ -34,6 +38,11 @@ import {
   groupComponentLayers,
   ungroupComponentLayer,
 } from './component-layer-hierarchy'
+import {
+  canReorderComponentLayers,
+  reorderComponentLayers,
+  type ComponentLayerOrderCommand,
+} from './component-layer-order'
 
 type GeometryCommand = (items: readonly GeometryItem[]) => GeometryDeltas
 
@@ -42,6 +51,40 @@ type GeometryCommandItem = {
   command: GeometryCommand
   icon: typeof AlignLeftIcon
 }
+
+type LayerOrderCommandItem = {
+  title: string
+  message: string
+  command: ComponentLayerOrderCommand
+  icon: typeof BringToFrontIcon
+}
+
+const ORDER_COMMANDS: LayerOrderCommandItem[] = [
+  {
+    title: '置于顶层',
+    message: '已将选中图层置于同级最前',
+    command: 'bring-to-front',
+    icon: BringToFrontIcon,
+  },
+  {
+    title: '上移一层',
+    message: '已将选中图层上移一层',
+    command: 'bring-forward',
+    icon: BringForwardIcon,
+  },
+  {
+    title: '下移一层',
+    message: '已将选中图层下移一层',
+    command: 'send-backward',
+    icon: SendBackwardIcon,
+  },
+  {
+    title: '置于底层',
+    message: '已将选中图层置于同级最后',
+    command: 'send-to-back',
+    icon: SendToBackIcon,
+  },
+]
 
 const ALIGN_COMMANDS: GeometryCommandItem[] = [
   { title: '左对齐', command: alignLeft, icon: AlignLeftIcon },
@@ -89,6 +132,21 @@ export function ComponentGeometryToolbarGroup({
     }
 
     onChange(applyComponentLayerGeometryDeltas(visual, deltas))
+    onApplied(message)
+  }
+
+  function applyLayerOrder(command: ComponentLayerOrderCommand, message: string) {
+    if (disabled) {
+      return
+    }
+
+    const result = reorderComponentLayers(visual, selectedLayerIds, command)
+
+    if (!result.changed) {
+      return
+    }
+
+    onChange(result.visual)
     onApplied(message)
   }
 
@@ -156,6 +214,29 @@ export function ComponentGeometryToolbarGroup({
       </ToolbarGroup>
 
       <ToolbarGroup className="canvas-tool-group component-geometry-tool-group">
+        {ORDER_COMMANDS.map((item) => {
+          const Icon = item.icon
+          const enabled = !disabled && canReorderComponentLayers(
+            visual,
+            selectedLayerIds,
+            item.command,
+          )
+
+          return (
+            <ToolbarButton
+              key={item.command}
+              iconOnly
+              className="icon-button component-layer-order-command"
+              title={item.title}
+              aria-label={item.title}
+              disabled={!enabled}
+              onClick={() => applyLayerOrder(item.command, item.message)}
+            >
+              <Icon />
+            </ToolbarButton>
+          )
+        })}
+
         {ALIGN_COMMANDS.map((item) => {
           const Icon = item.icon
 
