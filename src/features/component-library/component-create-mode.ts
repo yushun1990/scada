@@ -45,7 +45,10 @@ export function useComponentCreateTool() {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
-      return () => listeners.delete(listener)
+      return () => {
+        listeners.delete(listener)
+        if (listeners.size === 0) activeTool = null
+      }
     },
     () => activeTool,
     () => null,
