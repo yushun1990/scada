@@ -1,5 +1,6 @@
 import {
   assertManagedSvgDocument,
+  isManagedSvgAuthorRef,
   type ManagedSvgAttribute,
   type ManagedSvgDocument,
   type ManagedSvgElement,
@@ -65,6 +66,15 @@ function normalizePresentationValue(
   return normalized
 }
 
+function normalizeAuthorRefValue(value: string | null) {
+  const normalized = value?.trim() ?? ''
+  if (!normalized) return null
+  if (!isManagedSvgAuthorRef(normalized)) {
+    throw new Error('SVG authorRef 必须是 1-64 位 ASCII 标识符，且不能使用保留的 svg-tag- 前缀')
+  }
+  return normalized
+}
+
 export function getManagedSvgElementAttribute(
   element: ManagedSvgElement,
   name: string,
@@ -91,6 +101,27 @@ export function findManagedSvgElement(
   return visit(document.root)
 }
 
+export function findManagedSvgElementByAuthorRef(
+  document: ManagedSvgDocument,
+  authorRef: string,
+): ManagedSvgElement | null {
+  assertManagedSvgDocument(document)
+  const normalized = authorRef.trim()
+  if (!isManagedSvgAuthorRef(normalized)) return null
+
+  const visit = (element: ManagedSvgElement): ManagedSvgElement | null => {
+    if (element.authorRef === normalized) return element
+    for (const child of element.children) {
+      if (child.kind !== 'element') continue
+      const found = visit(child)
+      if (found) return found
+    }
+    return null
+  }
+
+  return visit(document.root)
+}
+
 export function isManagedSvgPresentationEditableElement(element: ManagedSvgElement) {
   return PRESENTATION_EDITABLE_TAGS.has(element.tagName)
 }
@@ -104,6 +135,60 @@ function replacePresentationAttribute(
   if (value !== null) next.push({ name: field, value })
   next.sort((left, right) => left.name.localeCompare(right.name))
   return next
+}
+
+export function updateManagedSvgElementAuthorRef(
+  document: ManagedSvgDocument,
+  tagId: string,
+  value: string | null,
+): ManagedSvgDocument {
+  assertManagedSvgDocument(document)
+  const current = findManagedSvgElement(document, tagId)
+  if (!current) {
+    throw new Error(`SVG 标签不存在：${tagId}`)
+  }
+
+  const normalizedValue = normalizeAuthorRefValue(value)
+  if ((current.authorRef ?? null) === normalizedValue) return document
+
+  if (normalizedValue !== null) {
+    const occupied = findManagedSvgElementByAuthorRef(document, normalizedValue)
+    if (occupied && occupied.tagId !== tagId) {
+      throw new Error(`SVG authorRef 已被占用：${normalizedValue}`)
+    }
+  }
+
+  let replaced = false
+  const visit = (node: ManagedSvgNode): ManagedSvgNode => {
+    if (node.kind === 'text') return node
+    if (node.tagId === tagId) {
+      replaced = true
+      if (normalizedValue === null) {
+        const { authorRef: _authorRef, ...withoutAuthorRef } = node
+        return withoutAuthorRef
+      }
+      return {
+        ...node,
+        authorRef: normalizedValue,
+      }
+    }
+    return {
+      ...node,
+      children: node.children.map(visit),
+    }
+  }
+
+  const nextDocument: ManagedSvgDocument = {
+    ...document,
+    root: visit(document.root) as ManagedSvgElement,
+  }
+
+  if (!replaced) {
+    throw new Error(`SVG 标签不存在：${tagId}`)
+  }
+
+  assertManagedSvgDocument(nextDocument)
+  return nextDocument
 }
 
 export function updateManagedSvgElementPresentation(
