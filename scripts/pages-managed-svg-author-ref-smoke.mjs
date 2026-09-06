@@ -174,7 +174,9 @@ try {
     'svg-tag-000003',
     'new rule defaults to the current canonical managed-SVG selection',
   )
-  await ruleItem.getByText(`@${authorRef}`, { exact: false }).waitFor()
+  const ruleTarget = ruleItem.getByLabel('rule1 作用对象', { exact: true })
+  await ruleTarget.waitFor()
+  assert.match(await ruleTarget.textContent() ?? '', new RegExp(`@${authorRef}`))
 
   await chooseSelectOption(page, 'rule1 作用对象', 'svg-tag-000002')
   await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000002' }).waitFor()
@@ -191,7 +193,7 @@ try {
   await currentAliasInput.fill(renamedAuthorRef)
   await currentAliasInput.blur()
   await page.locator('.component-managed-svg-message', { hasText: '引用名称已更新' }).waitFor()
-  await ruleItem.getByText(`@${renamedAuthorRef}`, { exact: false }).waitFor()
+  assert.match(await ruleTarget.textContent() ?? '', new RegExp(`@${renamedAuthorRef}`))
   assert.equal(await ruleItem.getAttribute('data-svg-tag-id'), 'svg-tag-000003')
 
   await saveAndWait(page)
@@ -218,13 +220,15 @@ try {
   const reopenedRuleGroup = await openInspectorGroup(page, '视觉规则')
   const reopenedRule = reopenedRuleGroup.locator('.component-rule-item[data-svg-tag-id="svg-tag-000003"]')
   await reopenedRule.waitFor()
-  await reopenedRule.getByText(`@${renamedAuthorRef}`, { exact: false }).waitFor()
+  const reopenedRuleTarget = reopenedRule.getByLabel('rule1 作用对象', { exact: true })
+  await reopenedRuleTarget.waitFor()
+  assert.match(await reopenedRuleTarget.textContent() ?? '', new RegExp(`@${renamedAuthorRef}`))
   await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000003' }).waitFor()
 
   await page.getByLabel('预览', { exact: true }).click()
   await page.locator('.status-mode', { hasText: '预览' }).waitFor()
   assert.equal(
-    await reopenedRule.getByLabel('rule1 作用对象', { exact: true }).isDisabled(),
+    await reopenedRuleTarget.isDisabled(),
     true,
     'Preview keeps Visual Rule target authoring read-only',
   )
