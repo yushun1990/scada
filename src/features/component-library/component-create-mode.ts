@@ -37,20 +37,27 @@ function emitToolChange() {
   for (const listener of listeners) listener()
 }
 
+function getComponentCreateTool() {
+  return activeTool
+}
+
+function subscribeComponentCreateTool(listener: () => void) {
+  listeners.add(listener)
+
+  return () => {
+    listeners.delete(listener)
+    if (listeners.size === 0) activeTool = null
+  }
+}
+
 function sameTool(left: ComponentCreateTool | null, right: ComponentCreateTool) {
   return left?.kind === right.kind && left.primitive === right.primitive
 }
 
 export function useComponentCreateTool() {
   return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-      return () => {
-        listeners.delete(listener)
-        if (listeners.size === 0) activeTool = null
-      }
-    },
-    () => activeTool,
+    subscribeComponentCreateTool,
+    getComponentCreateTool,
     () => null,
   )
 }
