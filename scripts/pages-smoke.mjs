@@ -50,9 +50,9 @@ function assertClose(actual, expected, message) {
 }
 
 async function resetGeometry() {
-  await setGeometry('Group 1', 8, 8)
-  await setGeometry('Group 2', 32, 20)
-  await setGeometry('Group 3', 80, 56)
+  await setGeometry('组 1', 8, 8)
+  await setGeometry('组 2', 32, 20)
+  await setGeometry('组 3', 80, 56)
 }
 
 async function assertAxis(names, axis, expected, commandName) {
@@ -233,7 +233,7 @@ async function saveAndWait() {
   await page.getByText('组件已保存', { exact: true }).waitFor()
 }
 
-const layerNames = ['Group 1', 'Group 2', 'Group 3']
+const layerNames = ['组 1', '组 2', '组 3']
 const alignCases = [
   ['左对齐', 'x', 8],
   ['水平居中', 'x', 44],
@@ -263,13 +263,13 @@ try {
   const addGroup = page.getByRole('button', { name: '组', exact: true })
   for (let index = 1; index <= 3; index += 1) {
     await addGroup.click()
-    await layerRow(`Group ${index}`).waitFor()
+    await layerRow(`组 ${index}`).waitFor()
   }
   assert.equal(await page.locator('.component-layer-row').count(), 3, 'three sibling layers created from Palette')
 
   await resetGeometry()
 
-  await selectLayers(['Group 1', 'Group 2'])
+  await selectLayers(['组 1', '组 2'])
   assert.equal(await page.locator('.component-layer-row.active').count(), 2, 'tree multi-selection selects two layers')
   assert.equal(await page.getByRole('button', { name: '左对齐' }).isEnabled(), true, 'align enabled for 2 layers')
   assert.equal(await page.getByRole('button', { name: '水平等距分布' }).isDisabled(), true, 'distribute disabled for 2 layers')
@@ -292,13 +292,13 @@ try {
   await resetGeometry()
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '水平等距分布' }).click()
-  let middle = await readGeometry('Group 2')
+  let middle = await readGeometry('组 2')
   assertClose(middle.x, 44, 'horizontal distribution middle x')
 
   await resetGeometry()
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '垂直等距分布' }).click()
-  middle = await readGeometry('Group 2')
+  middle = await readGeometry('组 2')
   assertClose(middle.y, 32, 'vertical distribution middle y')
 
   await resetGeometry()
@@ -335,13 +335,13 @@ try {
     assertClose(actual.height, expected.height, `ungroup preserves ${name} height`)
   }
 
-  await selectLayers(['Group 1', 'Group 2'])
+  await selectLayers(['组 1', '组 2'])
   await page.getByRole('button', { name: '预览' }).click()
   assert.equal(await page.getByRole('button', { name: '左对齐' }).isDisabled(), true, 'preview disables align')
   assert.equal(await page.getByRole('button', { name: '组合选中图层' }).isDisabled(), true, 'preview disables group')
   assert.equal(await page.getByRole('button', { name: '吸附' }).isDisabled(), true, 'preview disables snap')
 
-  await layerRow('Group 3').click({ modifiers: ['Control'] })
+  await layerRow('组 3').click({ modifiers: ['Control'] })
   assert.equal(await page.locator('.component-layer-row.active').count(), 3, 'preview keeps Layer Tree selection navigation')
 
   await page.getByRole('button', { name: '设计' }).click()
