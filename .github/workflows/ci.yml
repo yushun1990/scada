@@ -76,6 +76,7 @@ jobs:
           node scripts/check-server-publication-contract.mjs
           node --check scripts/pages-component-fixture-storage.mjs
           node --check scripts/pages-managed-svg-authoring-smoke.mjs
+          node --check scripts/pages-managed-svg-author-ref-smoke.mjs
           node --check scripts/pages-scada-work-package-transfer-smoke.mjs
           node --check scripts/pages-standalone-runtime-smoke.mjs
           node --check server/src/publication-auth.js
