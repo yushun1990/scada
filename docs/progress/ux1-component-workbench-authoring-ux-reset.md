@@ -4,9 +4,9 @@
 
 Active · authorized by product dogfooding review on 2026-09-06.
 
-Current proven base revision: `main@afc65b83b538b42b04d49ec99656cfae68b74ba5` (UX1.3 implementation merged in PR #158; dedicated authorRef + Canvas-highlight browser closeout merged in PR #159).
+Current proven base revision: `main@bb6cdd2a471105e2fb5c3a2748206a3d4848900c` (UX1.4 typed managed-SVG geometry merged in PR #160 and exact-main browser-proven).
 
-UX1.1, UX1.2 and UX1.3 are implementation-complete and browser-proven. UX1.4 is the active execution gate. Its typed-geometry authority is frozen in `docs/progress/ux1.4-typed-svg-geometry-authority.md`; implementation is proceeding without reopening renderer/runtime/package authority.
+UX1.1 through UX1.4 are implementation-complete and browser-proven. UX1.5 is the active execution gate. Its internal-target convergence authority is frozen in `docs/progress/ux1.5-internal-target-convergence-authority.md`; implementation is restricted to authoring convergence over the existing canonical `tagId` / `svgTagId` authority.
 
 This is a product-polish track, not a new runtime architecture milestone. It exists because normal hands-on component authoring exposed a structural usability defect: the editor exposed private implementation concepts as the primary creation workflow, so users had to understand Layer kinds and tree operations before they could draw a simple component.
 
@@ -185,7 +185,7 @@ Acceptance proven:
 
 ### UX1.4 Typed SVG geometry authoring
 
-**Status:** active · authority frozen · implementation in PR #160; deployed browser proof remains the closure gate.
+**Status:** implementation complete and browser-proven on `main@bb6cdd2a471105e2fb5c3a2748206a3d4848900c`.
 
 **Goal:** extend SVG customization beyond presentation-only fields without becoming a general XML/vector editor.
 
@@ -216,32 +216,54 @@ Explicitly deferred from this first slice:
 - `g transform`, until a bounded transform grammar and composition semantics are frozen;
 - `path d`, until a dedicated path command/arity/flag validator is available;
 - any path-point handles, internal SVG drag handles or general vector illustration editor;
-- any Visual Rule/Animation target expansion (UX1.5 review remains separate).
+- any Visual Rule/Animation target expansion outside the separately reviewed UX1.5 gate.
 
-Current implementation evidence in PR #160:
+Acceptance proven:
 
-- deterministic typed-geometry helper/tests are wired through the existing managed-SVG authoring model gate;
-- model-phase CI #992 passed;
-- tag-scoped Geometry Inspector controls are implemented for the authorized fields;
-- dedicated Pages geometry smoke is wired to verify Canvas highlight remeasurement, save/reopen, stable authorRef/tag identity, canonical asset bytes and Preview read-only behavior;
-- full head CI #996 passed before this governance update.
-
-UX1.4 must not be marked closed until the merged revision passes main CI, Pages deployment and the deployed Pages Browser Smoke containing the dedicated typed-geometry scenario.
+- PR #160 merged the authority/model/UI implementation at `main@bb6cdd2a471105e2fb5c3a2748206a3d4848900c`;
+- deterministic typed-geometry helper/tests pass through the managed-SVG authoring model gate;
+- tag-scoped Geometry Inspector controls update canonical SVG while preserving tagId/authorRef;
+- main CI #999 passed;
+- Deploy GitHub Pages #300 passed;
+- Pages Browser Smoke #251 passed, including the dedicated geometry UI, Canvas-highlight remeasurement, save/reopen and Preview read-only scenario;
+- existing managed-SVG, package/work-package, standalone and reusable-package browser regressions remain green.
 
 ### UX1.5 Internal target convergence
 
-**Status:** not started; requires a fresh authority re-audit after UX1.4 closes.
+**Status:** active · authority frozen · implementation in PR #161; exact merged-revision deployed browser proof remains the closure gate.
 
 **Goal:** make authored SVG references first-class targets for existing private visual behavior where architecture permits.
 
-Review before implementation:
+Normative authority: `docs/progress/ux1.5-internal-target-convergence-authority.md`.
 
-- current Visual Rule SVG target authority from M6.3P1.3;
-- current animation target contract;
-- package/standalone closure;
-- whether alias is authoring sugar over existing stable tag identity or requires canonical persistence.
+Fresh re-audit result:
 
-Do not create a second SVG runtime target system. UX1.4 does not authorize SVG-tag Animation or runtime alias resolution.
+- `tagId` remains the sole canonical persisted managed-SVG element identity;
+- `authorRef` remains optional human authoring metadata, never a runtime address;
+- Visual Rule internal SVG authority already persists `layerId + svgTagId? + typed target`, so authoring UX can converge without changing runtime or schema;
+- editor SVG tree, Canvas highlight and Visual Rule authoring share the existing transient `(layerId, tagId)` selection;
+- component package v2, work-package closure and standalone runtime already transport/use the same validated visual definition and need no alias resolver;
+- Animation remains intentionally layer-only because its accepted `VisualRuntimeOverlay` is keyed by `layerId` and composes layer transform/opacity/visibility. Adding SVG-tag Animation would reopen runtime composition authority and is not authorized by UX1.5.
+
+Authorized implementation:
+
+- Visual Rule internal target choices prefer `@authorRef` as the author-facing label while keeping canonical `tagId` as diagnostic context;
+- selecting an internal Rule target writes only canonical `svgTagId` and also updates the shared transient `(layerId, tagId)` selection;
+- adding a Visual Rule while a presentation-editable internal SVG element of the same layer is selected defaults the new rule to that canonical `tagId`;
+- authorRef rename/remove updates labels only and cannot rewrite or retarget existing Visual Rules;
+- whole-layer Rule scope remains unchanged;
+- Animation UI/runtime remains layer-scoped; no internal SVG animation target is introduced.
+
+Current PR #161 browser acceptance is required to prove:
+
+- SVG internal selection defaults a new Visual Rule to the same canonical tag;
+- Rule target switching drives the same Canvas/Inspector internal selection;
+- friendly alias rename updates Rule labels while persisted `svgTagId` remains unchanged and no `authorRef` field is added to the rule;
+- save/reopen preserves both authorities;
+- Preview remains read-only;
+- existing package/work-package/standalone/runtime regressions remain green.
+
+UX1.5 must not be marked closed until PR #161 is merged and the exact merged revision passes main CI, Pages deployment and Pages Browser Smoke containing the extended managed-SVG authorRef/Rule-target scenario.
 
 ### UX1.6 Dogfood closeout
 
@@ -279,6 +301,6 @@ A new user should be able to discover how to start without understanding `Visual
 
 ## Current execution gate
 
-**UX1.4 Typed SVG geometry authoring — finish the already-frozen first slice and obtain exact merged-revision deployed browser proof.**
+**UX1.5 Internal target convergence — finish the already-frozen authoring-only convergence and obtain exact merged-revision deployed browser proof.**
 
-UX1.3 is closed on `main@afc65b83b538b42b04d49ec99656cfae68b74ba5`. Continue UX1.4 only within `docs/progress/ux1.4-typed-svg-geometry-authority.md`: existing `ManagedSvgElement.attributes` are the sole geometry persistence authority; `tagId` remains canonical identity; `authorRef` remains authoring metadata; Visual Rule and Animation target authorities remain unchanged; M8/M9 boundaries remain intact. Do not start UX1.5, `g transform`, `path d`, SVG-tag animation or runtime alias resolution until UX1.4 closes and the relevant later authority review is performed.
+UX1.4 is closed on `main@bb6cdd2a471105e2fb5c3a2748206a3d4848900c`. Continue UX1.5 only within `docs/progress/ux1.5-internal-target-convergence-authority.md`: `tagId`/`svgTagId` remain canonical persisted target identity; `authorRef` remains authoring metadata; shared `(layerId, tagId)` selection remains transient UI state; Visual Rule runtime/package authority remains unchanged; Animation remains layer-only; M8/M9 boundaries remain intact. Do not introduce SVG-tag Animation, runtime alias resolution, DOM/Konva target identity, package schema changes, `g transform` or `path d` through this gate.
