@@ -2,11 +2,11 @@
 
 ## Status
 
-Active · authorized by product dogfooding review on 2026-09-06.
+Closed · accepted by product dogfooding review on 2026-09-06.
 
-Current proven base revision: `main@d229138f584970f3252d9c34e10086b35acb7e3c` (UX1.5 Internal target convergence exact-main closed by CI #1006, Deploy #303 and Pages Browser Smoke #254).
+Final proven base revision: `main@83bf3529d9f55cb28d11fed8e63b4f053451888d` (UX1.6 exact-main closed by CI #1010, Deploy #305 and Pages Browser Smoke #256).
 
-UX1.1 through UX1.5 are implementation-complete and browser-proven. UX1.6 Dogfood closeout is the active execution gate. Its acceptance authority and coverage audit are recorded in `docs/progress/ux1.6-dogfood-closeout.md`.
+UX1.0 through UX1.6 are implementation/acceptance complete and browser-proven. Final dogfood evidence and the create-mode defect discovered during closeout are recorded in `docs/progress/ux1.6-dogfood-closeout.md`.
 
 This is a product-polish track, not a new runtime architecture milestone. It exists because normal hands-on component authoring exposed a structural usability defect: the editor exposed private implementation concepts as the primary creation workflow, so users had to understand Layer kinds and tree operations before they could draw a simple component.
 
@@ -35,7 +35,7 @@ Normative interaction rule:
 
 ## Architecture boundaries
 
-UX1 must preserve the accepted M6-M9 and M6.3P1 authorities:
+UX1 preserves the accepted M6-M9 and M6.3P1 authorities:
 
 - no second renderer or runtime authority;
 - no raw DOM / React / Konva authored API;
@@ -47,13 +47,13 @@ UX1 must preserve the accepted M6-M9 and M6.3P1 authorities:
 - portable user Actions / Events remain unchanged;
 - full vector illustration/path-point tooling remains out of scope.
 
-A narrow typed edit of safe SVG geometry attributes or raw `path d` may be considered later in UX1 only if it preserves the existing managed-SVG parser/sanitizer/serializer authority. That is not authorization for a free-form XML editor or node-point vector editor.
+A narrow typed edit of safe SVG geometry was accepted only through the existing managed-SVG parser/sanitizer/serializer authority. Raw `path d`, free-form XML editing and node-point vector editing remain deferred unless separately reviewed after UX1.
 
 ## Execution gates
 
 ### UX1.0 Authoring interaction authority freeze
 
-**Status:** frozen.
+**Status:** frozen and accepted.
 
 **Goal:** replace the old "Layer Tree is the creation surface" rule with the Palette/Canvas/Navigator/Inspector model before deeper implementation.
 
@@ -65,7 +65,7 @@ Acceptance:
 
 ### UX1.1 Palette + Navigator split
 
-**Status:** implementation merged in PR #149 at `main@c7d8b366d223fa397077b785972372283050080a`; product dogfood continues through UX1 closeout.
+**Status:** implementation merged in PR #149 at `main@c7d8b366d223fa397077b785972372283050080a`; accepted as part of UX1 closeout.
 
 **Goal:** make the first authoring action discoverable without changing the visual schema.
 
@@ -269,7 +269,7 @@ UX1.5 is closed without SVG-tag Animation, runtime alias resolution, DOM/Konva t
 
 ### UX1.6 Dogfood closeout
 
-**Status:** active · acceptance authority in `docs/progress/ux1.6-dogfood-closeout.md`.
+**Status:** closed and accepted on `main@83bf3529d9f55cb28d11fed8e63b4f053451888d`; final record in `docs/progress/ux1.6-dogfood-closeout.md`.
 
 **Goal:** prove the reset authoring model and accepted portability/runtime path as one discoverable end-to-end user journey rather than only as separate regression slices.
 
@@ -305,10 +305,25 @@ fresh standalone rendering
 
 A new user should be able to discover how to start without understanding `VisualLayerKind`, `assetRef`, Layer parent semantics or renderer internals.
 
-The coverage audit found no missing runtime/product authority. The remaining acceptance gap is that the existing strongest end-to-end managed-SVG browser scenario starts at resource import rather than proving Palette → Canvas → Navigator → Inspector first. UX1.6 therefore extends that existing smoke with the missing first-use path and carries the same Palette-authored primitive through save/reopen, component package transfer and work dependency closure. Product code changes are not authorized unless the deployed journey exposes a real interaction defect.
+PR #164 extended the existing managed-SVG end-to-end smoke with the missing Palette → Canvas → Navigator → Inspector first-use path and carried the same authored component through the existing package/work/standalone closure.
+
+The first exact-main dogfood run on `main@b0a0f8954ba1c87251955d0c55daa8e8459e347d` passed CI #1008 and Deploy #304 but Browser Smoke #255 exposed a real product defect: clicking `矩形` could immediately lose transient create mode because `useSyncExternalStore` was given render-local subscribe functions whose unsubscribe cleanup could temporarily reduce the listener set to zero and clear the active tool.
+
+PR #165 fixed only that authoring session-state lifecycle by using stable module-scope subscribe/getSnapshot functions. No Component Visual / Scene / package schema, renderer, Visual Rule, Animation or standalone authority changed.
+
+Final exact-main acceptance:
+
+- PR #165 PR CI #1009 passed;
+- main CI #1010 passed Build, Runtime model checks, Lint and publication-api;
+- Deploy GitHub Pages #305 passed;
+- Pages Browser Smoke #256 passed against exact `main@83bf3529d9f55cb28d11fed8e63b4f053451888d`;
+- the deployed UX1.6 journey completed Palette → Canvas → Navigator → Inspector → managed SVG/PNG → Preview → save/reopen → component package fresh-browser import → SCADA Workbench → work package → fresh standalone runtime;
+- UX1.4/UX1.5, SVG compatibility, package/work-package, standalone and reusable-package regressions remained green in the same run.
 
 ## Current execution gate
 
-**UX1.6 Dogfood closeout — obtain a continuous deployed-browser proof of Palette → Canvas → Navigator → Inspector → SVG/PNG authoring → component package → SCADA Workbench → work package → fresh standalone runtime.**
+**UX1 Component Workbench Authoring UX Reset is closed. Return to the `PLAN.md` product dogfooding / product-polish gate; no new numbered implementation milestone is authorized by this closeout.**
 
-UX1.5 is closed on `main@d229138f584970f3252d9c34e10086b35acb7e3c`. Continue UX1.6 within `docs/progress/ux1.6-dogfood-closeout.md`. Preserve all existing M6–M9/M6.3P1 authorities: no new renderer/runtime target authority, no schema changes for acceptance convenience, no alias runtime address, Animation remains layer-only, M8 dependency/resource closure remains mandatory and M9 Attribute/Property separation remains intact.
+Final accepted UX1 revision: `main@83bf3529d9f55cb28d11fed8e63b4f053451888d`.
+
+Preserve all existing M6–M9/M6.3P1/UX1 authorities during further product polish: no new renderer/runtime target authority, no schema changes for convenience, no alias runtime address, Animation remains layer-only, M8 dependency/resource closure remains mandatory and M9 Attribute/Property separation remains intact.
