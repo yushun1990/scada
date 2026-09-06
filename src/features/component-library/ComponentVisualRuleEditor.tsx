@@ -6,7 +6,6 @@ import type {
 import {
   findManagedSvgElement,
   getManagedSvgElementAttribute,
-  isManagedSvgPresentationEditableElement,
 } from '../../component-system/managedSvgAuthoring'
 import {
   resolveVisualAssetStyle,
@@ -25,6 +24,15 @@ import {
   type VisualRuleValueSource,
 } from '../../component-system/visualRules'
 import { Button, Checkbox, Input, NumberInput, Select } from '../../ui'
+import {
+  setComponentManagedSvgSelection,
+  useComponentManagedSvgSelection,
+} from './component-managed-svg-selection'
+import {
+  listManagedSvgRuleTargets,
+  managedSvgRuleTargetLabel,
+  selectedManagedSvgRuleTagId,
+} from './component-managed-svg-rule-target'
 
 const OPERATOR_LABELS: Record<VisualRuleOperator, string> = {
   equals: '等于',
@@ -95,27 +103,6 @@ function operatorOptions(property: ComponentPropertyDefinition) {
     : ['equals', 'notEquals']
 
   return operators.map((value) => ({ value, label: OPERATOR_LABELS[value] }))
-}
-
-function editableManagedSvgTags(layer: ComponentVisualLayer) {
-  if (layer.kind !== 'svg' || !layer.document) return []
-  const result: Array<{ tagId: string; label: string }> = []
-
-  const visit = (element: typeof layer.document.root) => {
-    if (isManagedSvgPresentationEditableElement(element)) {
-      const sourceId = getManagedSvgElementAttribute(element, 'id')
-      result.push({
-        tagId: element.tagId,
-        label: `<${element.tagName}> · ${element.tagId}${sourceId ? ` · #${sourceId}` : ''}`,
-      })
-    }
-    for (const child of element.children) {
-      if (child.kind === 'element') visit(child)
-    }
-  }
-
-  visit(layer.document.root)
-  return result
 }
 
 function defaultTargetValue(
@@ -343,6 +330,7 @@ export function ComponentVisualRuleEditor({
   readOnly: boolean
   onChange: (visual: ComponentVisualDefinition) => void
 }) {
+  const managedSvgSelection = useComponentManagedSvgSelection()
   const selectedLayer = visual.layers.find((candidate) => candidate.id === layerId)
   if (!selectedLayer) return null
   const layer: ComponentVisualLayer = selectedLayer
@@ -350,7 +338,8 @@ export function ComponentVisualRuleEditor({
   const properties = Object.entries(definition.properties)
   const allRules = visual.rules ?? []
   const layerRules = allRules.filter((rule) => rule.layerId === layerId)
-  const svgTags = editableManagedSvgTags(layer)
+  const svgTags = listManagedSvgRuleTargets(layer)
+  const selectedSvgTagId = selectedManagedSvgRuleTagId(layer, managedSvgSelection)
 
   function updateRule(ruleId: string, patch: Partial<VisualRule>) {
     onChange({
@@ -365,7 +354,8 @@ export function ComponentVisualRuleEditor({
 
   function addRule() {
     const [propertyKey, property] = properties[0] ?? []
-    const target = visualRuleTargetsForLayer(layer)[0]
+    const internalTarget = selectedSvgTagId ? visualRuleTargetsForSvgTag()[0] : undefined
+    const target = internalTarget ?? visualRuleTargetsForLayer(layer)[0]
     if (!propertyKey || !property || !target) return
 
     const rule: VisualRule = {
@@ -375,8 +365,9 @@ export function ComponentVisualRuleEditor({
       operator: 'equals',
       compareValue: property.defaultValue,
       layerId,
+      ...(selectedSvgTagId ? { svgTagId: selectedSvgTagId } : {}),
       target,
-      value: defaultTargetValue(layer, target),
+      value: defaultTargetValue(layer, target, selectedSvgTagId ?? undefined),
     }
 
     onChange({ ...visual, rules: [...allRules, rule] })
@@ -390,7 +381,7 @@ export function ComponentVisualRuleEditor({
         </p>
       ) : (
         <p className="component-inspector-help">
-          条件始终由 Property 驱动；目标值可使用字面量，或显式读取 Attribute / Property。受管 SVG 可把作用对象切到稳定的内部 svg-tag-*，规则只修改运行时 resolved document，不改基础 SVG。
+          条件始终由 Property 驱动；目标值可使用字面量，或显式读取 Attribute / Property。受管 SVG 与 SVG 元素 Inspector / Canvas 共用当前内部选择，authorRef 只用于作者可读标签；保存和 runtime 仍使用稳定 svgTagId。
         </p>
       )}
 
@@ -417,6 +408,9 @@ export function ComponentVisualRuleEditor({
           ...(compatibleAttributes.length > 0 ? [{ value: 'attribute', label: 'Attribute' }] : []),
           ...(compatibleProperties.length > 0 ? [{ value: 'property', label: 'Property' }] : []),
         ]
+        const targetLabel = rule.svgTagId
+          ? managedSvgRuleTargetLabel(layer, rule.svgTagId)
+          : null
 
         const setSourceNamespace = (namespace: string) => {
           if (namespace === 'literal') {
@@ -434,12 +428,16 @@ export function ComponentVisualRuleEditor({
         }
 
         return (
-          <article className="component-rule-item" key={rule.id}>
+          <article
+            className="component-rule-item"
+            key={rule.id}
+            data-svg-tag-id={rule.svgTagId ?? undefined}
+          >
             <div className="component-layer-inspector-title">
               <div>
                 <strong>{rule.id}</strong>
                 <span>
-                  {rule.propertyKey} → {rule.svgTagId ? `${rule.svgTagId} · ` : ''}{TARGET_LABELS[rule.target]}
+                  {rule.propertyKey} → {targetLabel ? `${targetLabel} · ` : ''}{TARGET_LABELS[rule.target]}
                 </span>
               </div>
               {!readOnly && (
@@ -527,9 +525,11 @@ export function ComponentVisualRuleEditor({
                         })
                         return
                       }
+
                       const svgTagId = scope.slice('tag:'.length)
                       const nextTarget = visualRuleTargetsForSvgTag()[0]
                       if (!svgTagId || !nextTarget) return
+                      setComponentManagedSvgSelection({ layerId: layer.id, tagId: svgTagId })
                       updateRule(rule.id, {
                         svgTagId,
                         target: nextTarget,
