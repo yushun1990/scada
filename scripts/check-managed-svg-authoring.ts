@@ -164,11 +164,17 @@ assert.throws(
   'invalid author reference grammar fails closed',
 )
 
-const invalidDuplicate = structuredClone(baseDocument)
-invalidDuplicate.root.children = invalidDuplicate.root.children.map((child, index) => {
-  if (child.kind !== 'element') return child
-  return { ...child, authorRef: index === 0 ? 'duplicate' : 'duplicate' }
-})
+const invalidDuplicate: ManagedSvgDocument = {
+  ...baseDocument,
+  root: {
+    ...baseDocument.root,
+    children: baseDocument.root.children.map((child) =>
+      child.kind === 'element'
+        ? { ...child, authorRef: 'duplicate' }
+        : child,
+    ),
+  },
+}
 assert.throws(
   () => assertManagedSvgDocument(invalidDuplicate),
   /authorRef 重复/,
