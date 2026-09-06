@@ -68,6 +68,12 @@ function globalAssetImportControl() {
     .first()
 }
 
+function selectedAssetReplacementControl() {
+  return page.locator('.component-layer-inspector .component-asset-import-control')
+    .filter({ hasText: '替换文件' })
+    .first()
+}
+
 async function waitForAssetInputReady() {
   await page.waitForFunction(() => {
     const control = [...document.querySelectorAll('.component-asset-import-control')]
@@ -117,17 +123,19 @@ try {
   assert.equal(await managedField('Stroke width').inputValue(), '2')
   assert.equal(await managedField('Opacity').inputValue(), '0.75')
 
-  await waitForAssetInputReady()
-  await globalAssetImportControl().locator('input[type="file"]').setInputFiles({
+  // Palette import is creation-only under UX1. Replace the selected managed SVG
+  // through the Inspector resource control so this smoke exercises the accepted
+  // Palette -> Navigator/Canvas -> Inspector authoring authority.
+  const replacementControl = selectedAssetReplacementControl()
+  const replacementInput = replacementControl.locator('input[type="file"]')
+  await replacementInput.waitFor({ state: 'attached' })
+  await replacementInput.setInputFiles({
     name: 'static-mask-filter.svg',
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(staticStructuralSvg),
   })
 
-  // The first imported SVG remains selected, so a second SVG import intentionally
-  // replaces that layer instead of creating a second row. Verify replacement
-  // semantics and inspect the new managed tree rather than waiting for a new name.
-  await globalAssetImportControl()
+  await replacementControl
     .locator('.component-asset-import-message', { hasText: '资源已替换' })
     .waitFor()
   assert.equal(await page.locator('.component-layer-row').count(), 1)
@@ -139,7 +147,7 @@ try {
 
   assert.deepEqual(pageErrors, [])
   console.log(
-    'SVG import compatibility smoke passed: controlled presentation stays editable, safe residual style/attributes and static mask/filter structures survive managed replacement, and external CSS resources remain blocked.',
+    'SVG import compatibility smoke passed: controlled presentation stays editable, safe residual style/attributes and static mask/filter structures survive managed Inspector replacement, and external CSS resources remain blocked.',
   )
 } finally {
   await context.close()
