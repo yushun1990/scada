@@ -105,6 +105,13 @@ Acceptance:
 - created shape immediately supports select/transform/undo/redo;
 - save/reopen preserves only normal visual-layer state, never create-mode state.
 
+Smoke contract migration:
+
+- the Pages Browser Smoke triggered after PR #149 failed because `scripts/pages-smoke.mjs` still searched for the removed `添加图层` Layer-Tree action;
+- this is a stale test-contract failure, not a renderer/runtime failure;
+- UX1 browser smoke now creates its fixture Groups through the Palette `组` action and uses the Layer Tree only for navigation/selection;
+- PR #150 carries this smoke migration together with UX1.2A so the automated test enforces the new authoring authority.
+
 #### UX1.2B Arrange authority
 
 Next slice after UX1.2A passes CI/browser dogfood:
