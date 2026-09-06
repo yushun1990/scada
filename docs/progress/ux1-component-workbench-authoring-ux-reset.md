@@ -4,7 +4,7 @@
 
 Active · authorized by product dogfooding review on 2026-09-06.
 
-Current base revision: `main@c7d8b366d223fa397077b785972372283050080a` (PR #149 merged).
+Current base revision: `main@a80926974471066a30461c62858d35e508579e6a` (UX1.2A smoke-contract closeout through PR #154).
 
 This is a product-polish track, not a new runtime architecture milestone. It exists because normal hands-on component authoring exposed a structural usability defect: the editor exposed private implementation concepts as the primary creation workflow, so users had to understand Layer kinds and tree operations before they could draw a simple component.
 
@@ -85,6 +85,8 @@ Merged surface:
 
 #### UX1.2A Create mode + draw
 
+**Status:** implementation merged in PR #150 and browser-proven by Pages Browser Smoke #245 on `main@a80926974471066a30461c62858d35e508579e6a`.
+
 Implementation slice:
 
 - selecting 矩形 / 圆形 / 椭圆 / 线段 enters an explicit transient create mode;
@@ -95,31 +97,51 @@ Implementation slice:
 - create preview uses editor-only Konva overlay while committed geometry is still an existing `VectorVisualLayer` rendered by `CompositeComponentVisualRenderer`;
 - newly created layer is selected immediately and enters the existing Inspector / history flow;
 - create coordinates use the existing component grid when snapping is enabled;
-- Path, text and empty Group remain default-size creation actions in this slice because UX1 does not authorize a general path-point or group drawing model.
+- Path, text and Group remain default-size creation actions in this slice because UX1 does not authorize a general path-point or group drawing model.
 
-Acceptance:
+Acceptance proven by browser smoke:
 
-- drag-create rect/circle/ellipse/line;
-- click-default create;
-- cancel with Esc;
-- created shape immediately supports select/transform/undo/redo;
-- save/reopen preserves only normal visual-layer state, never create-mode state.
+- drag/click creation and normal Canvas manipulation;
+- Group/Ungroup, align and distribute regression;
+- save/reopen;
+- animation authoring and preview;
+- Chromium/Firefox pointer semantics;
+- managed SVG authoring and SVG compatibility replacement;
+- component/work package closure;
+- standalone runtime and reusable package activation.
 
-Smoke contract migration:
-
-- the Pages Browser Smoke triggered after PR #149 failed because `scripts/pages-smoke.mjs` still searched for the removed `添加图层` Layer-Tree action;
-- this is a stale test-contract failure, not a renderer/runtime failure;
-- UX1 browser smoke now creates its fixture Groups through the Palette `组` action and uses the Layer Tree only for navigation/selection;
-- PR #150 carries this smoke migration together with UX1.2A so the automated test enforces the new authoring authority.
+The stale Pages smoke contracts exposed by UX1.1 were migrated through PRs #151-#154. Pages Browser Smoke #245 is the first full green run after that migration and closes UX1.2A's automated browser gate.
 
 #### UX1.2B Arrange authority
 
-Next slice after UX1.2A passes CI/browser dogfood:
+**Status:** active implementation.
 
-- Group/Ungroup from canvas/contextual arrange controls;
-- Bring to Front / Bring Forward / Send Backward / Send to Back;
-- hierarchy operations no longer require parent/z-order editing as the primary workflow;
-- Canvas drop remains the primary SVG/PNG/JPEG/WebP drag/drop affordance.
+Authority freeze:
+
+- `ComponentVisualDefinition.layers` remains the only persisted layer-order authority; no `zIndex`, alternate tree or renderer-side order state is introduced;
+- among layers with the same `parentId`, later sibling order renders in front of earlier sibling order;
+- arrange commands only reorder sibling slots and never reparent layers;
+- same-parent multi-selection moves as a block while preserving the selected layers' existing relative order;
+- mixed-parent selection fails closed for z-order commands;
+- Group/Ungroup continues to use the existing `component-layer-hierarchy` authority;
+- Canvas toolbar is the primary common-workflow Arrange surface; Navigator remains structural navigation and Inspector remains precise configuration.
+
+Implementation slice:
+
+- Bring to Front / Bring Forward / Send Backward / Send to Back are exposed as `置于顶层 / 上移一层 / 下移一层 / 置于底层` on the Canvas toolbar;
+- deterministic `component-layer-order` helper owns sibling reordering semantics without schema/runtime changes;
+- deterministic checks cover single selection, multi-selection, nested siblings, boundary no-op and mixed-parent fail-closed behavior;
+- Pages arrange smoke covers Canvas toolbar commands, multi-selection ordering, save/reload persistence and Preview read-only behavior;
+- the existing Palette `组` entry remains during this slice because current accepted pointer/empty-layer regression intentionally uses an empty Group fixture. Whether empty Group remains a user-facing creation affordance is a product dogfood decision after Arrange proves stable, not part of the z-order authority migration.
+
+Acceptance before UX1.3:
+
+- four z-order commands work from the Canvas toolbar with correct disabled states;
+- same-parent multi-selection preserves relative ordering;
+- grouping/ungrouping remains lossless under its existing transform constraints;
+- save/reopen persists the resulting sibling order using only normal Component Visual state;
+- Preview and built-in read-only modes cannot mutate order;
+- Pages browser smoke stays green.
 
 ### UX1.3 SVG element selection + stable author references
 
@@ -209,6 +231,6 @@ A new user should be able to discover how to start without understanding `Visual
 
 ## Current execution gate
 
-**UX1.2A Create mode + draw.**
+**UX1.2B Arrange authority.**
 
-Do not start UX1.3/UX1.4 schema work before UX1.2A/UX1.2B prove the basic authoring flow in browser dogfooding.
+Do not start UX1.3/UX1.4 persistence or target-authority work before UX1.2B passes CI and browser dogfood. Before UX1.3, start a fresh conversation and re-audit ManagedSvgDocument/tagId, Visual Rule SVG target authority, animation target authority and M8 package closure.
