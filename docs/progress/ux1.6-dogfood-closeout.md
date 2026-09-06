@@ -2,37 +2,26 @@
 
 ## Status
 
-Active · 2026-09-06.
+Closed · accepted · 2026-09-06.
 
-Execution base: `main@d229138f584970f3252d9c34e10086b35acb7e3c`.
+Final accepted revision: `main@83bf3529d9f55cb28d11fed8e63b4f053451888d`.
 
-UX1.1 through UX1.5 are implementation-complete and deployed-browser proven. UX1.6 is an acceptance/dogfood closeout gate, not a new runtime or schema milestone.
+UX1.6 is the final acceptance/dogfood closeout gate for the UX1 Component Workbench Authoring UX Reset. It does not create a new runtime, schema or numbered architecture milestone.
 
-## UX1.5 closure
+## UX1.5 closure inherited by UX1.6
 
-UX1.5 Internal target convergence is closed on `main@d229138f584970f3252d9c34e10086b35acb7e3c`.
+UX1.5 Internal target convergence closed on `main@d229138f584970f3252d9c34e10086b35acb7e3c`.
 
 Final exact-main evidence:
 
 - PR #161 delivered the authoring-only convergence over existing canonical `tagId` / `svgTagId` authority;
 - PR #162 repaired the browser acceptance setup so the Rule-driving Property is created through the real root Property authoring surface;
-- PR #163 removed an ambiguous generic alias text locator and anchored the browser assertion to the unique `rule1 作用对象` combobox;
+- PR #163 anchored the final browser assertion to the unique `rule1 作用对象` combobox;
 - main CI #1006 passed Build, Runtime model checks, Lint and publication-api;
 - Deploy GitHub Pages #303 passed;
 - Pages Browser Smoke #254 passed against the exact deployed revision.
 
-The final deployed UX1.5 proof demonstrated:
-
-- a real root Property authoring flow can drive Visual Rule creation;
-- current managed-SVG internal selection defaults a new Visual Rule to the same canonical `tagId`;
-- switching Rule targets drives the same transient Canvas/Inspector `(layerId, tagId)` selection;
-- `@authorRef` is the friendly authoring label while persisted Rule authority remains `svgTagId`;
-- alias rename updates labels without rewriting or retargeting `svgTagId`;
-- save/reopen preserves both the alias metadata and canonical target identity;
-- Preview keeps Rule target authoring read-only;
-- existing managed-SVG, package, work-package and standalone regressions remain green.
-
-No second SVG renderer/runtime target authority was introduced. Animation remains layer-only. M8/M9 boundaries are unchanged.
+The deployed UX1.5 proof demonstrated that SVG selection, Visual Rule target authoring and Canvas/Inspector selection converge on the existing canonical `tagId` / `svgTagId` authority while `@authorRef` remains friendly authoring metadata only. No second renderer/runtime target authority was introduced. Animation remains layer-only. M8/M9 boundaries are unchanged.
 
 ## UX1.6 goal
 
@@ -80,7 +69,7 @@ The user-facing acceptance criterion is that this path is discoverable without u
 
 ## Coverage audit
 
-The existing deployed browser suite already proves most of the second half:
+The existing deployed browser suite already proved most of the second half:
 
 - `pages-managed-svg-authoring-smoke.mjs`: real SVG/PNG import, managed SVG editing, Preview, save/reopen, component package transfer, normal SCADA activation, work-package closure and fresh standalone rendering;
 - `pages-managed-svg-author-ref-smoke.mjs`: authorRef and Visual Rule target convergence through real Property authoring;
@@ -89,26 +78,73 @@ The existing deployed browser suite already proves most of the second half:
 
 The uncovered UX1.6 gap was that no single end-to-end journey began with normal Palette primitive creation and carried that same authored component through the existing package/work/standalone closure.
 
-## Authorized closeout change
+PR #164 extended the existing `pages-managed-svg-authoring-smoke.mjs` rather than creating a second runtime or duplicate acceptance harness. It added the missing Palette → Canvas → Navigator → Inspector first-use path and carried the Palette-authored primitive through persistence and distribution closure.
 
-Extend the existing `pages-managed-svg-authoring-smoke.mjs` rather than creating a second runtime or duplicate acceptance harness:
+## Dogfood defect exposed by the first exact-main run
 
-1. select `矩形` from the visible Palette;
-2. place it on Canvas using the existing create mode;
-3. return to component root and re-select the primitive through Navigator;
-4. rename/configure it through the normal layer Inspector;
-5. continue the existing SVG/PNG authoring and portability scenario unchanged;
-6. assert the Palette-authored primitive survives save/reopen, component package export/import and work dependency closure.
+The first exact-main UX1.6 attempt on `main@b0a0f8954ba1c87251955d0c55daa8e8459e347d` passed main CI #1008 and Deploy GitHub Pages #304, but Pages Browser Smoke #255 failed immediately after clicking the visible `矩形` Palette button: the expected Canvas create-mode status never appeared.
 
-This is test/acceptance work only unless the deployed journey exposes an actual product usability defect. Do not add runtime/schema authority merely to make the smoke pass.
+This was a real product interaction defect, not a locator-only failure.
 
-## Closure gate
+Root cause:
 
-UX1.6 and the UX1 authoring reset close only when the exact merged revision passes:
+- `useComponentCreateTool()` passed a new inline `subscribe` function to `useSyncExternalStore` on every render;
+- unsubscribe cleanup cleared `activeTool` whenever the listener set became empty;
+- selecting a Palette tool emitted a store change and caused Tree/Canvas subscribers to re-render;
+- React could tear down the render-specific subscriptions before recreating them, temporarily reaching zero listeners and clearing the just-selected create tool.
 
-- PR CI;
-- main CI;
-- GitHub Pages deployment;
-- Pages Browser Smoke containing the continuous Palette → Canvas → Navigator → Inspector → SVG/PNG → package → SCADA → work package → standalone journey.
+PR #165 repaired the existing authoring session-state store by moving `subscribe` and `getSnapshot` to stable module scope while preserving cleanup when the editor genuinely has no subscribers.
 
-If the deployed journey exposes a real product interaction defect, repair it narrowly in the existing authoring authority and repeat the exact-main closure. If it exposes only an acceptance-locator defect, repair the test without changing product/runtime authority.
+Authority remained unchanged:
+
+- create mode is transient authoring UI state only;
+- no Component Visual / Scene / package schema change;
+- no renderer/runtime change;
+- no Visual Rule or Animation authority change;
+- no M8/M9 boundary change.
+
+## Final exact-main acceptance
+
+PR #165 passed PR CI #1009 and was squash merged as:
+
+`main@83bf3529d9f55cb28d11fed8e63b4f053451888d`
+
+Final exact-main evidence:
+
+- main CI #1010 passed Build, Runtime model checks, Lint and publication-api;
+- Deploy GitHub Pages #305 passed on the same revision;
+- Pages Browser Smoke #256 checked out the exact deployed revision and passed.
+
+The #256 deployed log explicitly completed the UX1.6 dogfood journey:
+
+```text
+Palette
+→ Canvas primitive creation
+→ Navigator re-selection
+→ Inspector configuration
+→ managed SVG + PNG authoring
+→ Preview
+→ save/reopen
+→ component package export/import in a fresh browser
+→ normal SCADA Workbench placement
+→ exact work-package dependency closure
+→ fresh standalone runtime
+```
+
+The same run also kept the dedicated UX1.5 authorRef/Rule-target convergence proof, UX1.4 typed SVG geometry proof, SVG compatibility proof, component/work-package transfer proof, standalone runtime proof and reusable package regressions green.
+
+## Closure decision
+
+UX1.6 is closed and the entire UX1 Component Workbench Authoring UX Reset is accepted on `main@83bf3529d9f55cb28d11fed8e63b4f053451888d`.
+
+The accepted product interaction authority is:
+
+```text
+Palette
+   ↓ create
+Canvas
+   ↔ Navigator
+   ↔ Inspector
+```
+
+The closeout does not authorize a new runtime/schema milestone. Continue normal product dogfooding and polish under `PLAN.md` while preserving accepted M6–M9, M6.3P1 and UX1 boundaries.
