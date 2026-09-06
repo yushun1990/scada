@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import type { ComponentDefinition } from '../src/component-system/definition'
 import { serializeManagedSvgDataUrl, type ManagedSvgDocument } from '../src/component-system/managedSvg'
-import { findManagedSvgElement, getManagedSvgElementAttribute } from '../src/component-system/managedSvgAuthoring'
+import {
+  findManagedSvgElement,
+  findManagedSvgElementByAuthorRef,
+  getManagedSvgElementAttribute,
+} from '../src/component-system/managedSvgAuthoring'
 import { ComponentRegistry } from '../src/component-system/registry'
 import { COMPONENT_VISUAL_VERSION, type ComponentVisualDefinition } from '../src/component-system/visual'
 import { resolveComponentVisualRules } from '../src/component-system/visualRules'
@@ -42,6 +46,7 @@ const managedDocument: ManagedSvgDocument = {
             kind: 'element',
             tagName: 'rect',
             tagId: 'svg-tag-000003',
+            authorRef: 'indicator',
             attributes: [
               { name: 'fill', value: '#ef4444' },
               { name: 'height', value: '60' },
@@ -184,6 +189,16 @@ if (!roundTripSvg || roundTripSvg.kind !== 'svg' || !roundTripSvg.document) {
 assert.equal(roundTripSvg.assetRef, serializeManagedSvgDataUrl(roundTripSvg.document))
 assert.equal(componentRoundTrip.visual.rules?.[0]?.svgTagId, 'svg-tag-000003')
 assert.equal(
+  Object.prototype.hasOwnProperty.call(componentRoundTrip.visual.rules?.[0] ?? {}, 'authorRef'),
+  false,
+  'Visual Rule persistence remains canonical layerId + svgTagId and does not gain alias runtime authority',
+)
+assert.equal(
+  findManagedSvgElementByAuthorRef(roundTripSvg.document, 'indicator')?.tagId,
+  'svg-tag-000003',
+  'component package v2 preserves optional authorRef metadata without a package-version change',
+)
+assert.equal(
   getManagedSvgElementAttribute(
     findManagedSvgElement(roundTripSvg.document, 'svg-tag-000003')!,
     'fill',
@@ -235,6 +250,7 @@ const workDocument = serializeScadaWorkPackage(workPackage, hostCapabilities)
 assert.doesNotMatch(workDocument, /\"assetRef\"\s*:\s*\"(?:blob:|https?:|\/(?!\/)|\.\.?\/)/)
 const workRoundTrip = parseScadaWorkPackageDocument(workDocument, hostCapabilities)
 assert.ok(workRoundTrip)
+assert.equal(workRoundTrip.packageVersion, 1)
 assert.equal(workRoundTrip.dependencies.length, 1)
 const portableVisual = workRoundTrip.dependencies[0]!.visual
 const portableSvg = portableVisual.layers.find((layer) => layer.id === 'svg1')
@@ -244,6 +260,11 @@ if (!portableSvg || portableSvg.kind !== 'svg' || !portableSvg.document) {
 }
 assert.equal(portableVisual.rules?.[0]?.svgTagId, 'svg-tag-000003')
 assert.equal(portableSvg.assetRef, serializeManagedSvgDataUrl(portableSvg.document))
+assert.equal(
+  findManagedSvgElementByAuthorRef(portableSvg.document, 'indicator')?.tagId,
+  'svg-tag-000003',
+  'SCADA work package v1 preserves authorRef through the existing nested component dependency closure',
+)
 
 const resolvedPortableVisual = resolveComponentVisualRules(portableVisual, {
   attributes: { runningColor: '#16a34a' },
@@ -261,6 +282,11 @@ assert.equal(
   ),
   '#16a34a',
   'work-package dependency preserves the Attribute-driven internal SVG rule',
+)
+assert.equal(
+  findManagedSvgElementByAuthorRef(resolvedSvg.document, 'indicator')?.tagId,
+  'svg-tag-000003',
+  'runtime rule resolution preserves author metadata while still targeting canonical svgTagId',
 )
 assert.equal(
   getManagedSvgElementAttribute(
@@ -319,6 +345,32 @@ assert.equal(
   'missing private SVG tag targets fail closed across package import',
 )
 
+const tamperedAuthorRef = structuredClone(componentPackage) as unknown as Record<string, unknown>
+const tamperedAuthorRefVisual = tamperedAuthorRef.visual as ComponentVisualDefinition
+tamperedAuthorRefVisual.layers = tamperedAuthorRefVisual.layers.map((layer) => {
+  if (layer.id !== 'svg1' || layer.kind !== 'svg' || !layer.document) return layer
+  return {
+    ...layer,
+    document: {
+      ...layer.document,
+      root: {
+        ...layer.document.root,
+        authorRef: 'duplicate',
+        children: layer.document.root.children.map((child) =>
+          child.kind === 'element'
+            ? { ...child, authorRef: 'duplicate' }
+            : child,
+        ),
+      },
+    },
+  }
+})
+assert.equal(
+  parseDistributableComponentPackage(tamperedAuthorRef),
+  null,
+  'duplicate authorRef metadata fails closed at the existing component package boundary',
+)
+
 const tamperedDocument = structuredClone(componentPackage) as unknown as Record<string, unknown>
 const tamperedDocumentVisual = tamperedDocument.visual as ComponentVisualDefinition
 tamperedDocumentVisual.layers = tamperedDocumentVisual.layers.map((layer) => {
@@ -349,5 +401,5 @@ assert.equal(
 )
 
 console.log(
-  'Managed SVG portability checks passed: component package v2 and SCADA work package v1 preserve canonical managed SVG document/tag identity, self-contained raster closure and internal Visual Rules; work-package round-trip remains exact, standalone registry activation succeeds, runtime rule resolution preserves base document authority, and blob/remote/missing-tag/unsafe SVG tampering fails closed.',
+  'Managed SVG portability checks passed: component package v2 and SCADA work package v1 preserve canonical managed SVG document/tag identity plus optional authorRef metadata through standalone registration without changing Visual Rule runtime authority; self-contained resource closure and internal rules remain exact, and blob/remote/missing-tag/duplicate-authorRef/unsafe SVG tampering fails closed.',
 )
