@@ -1,3 +1,4 @@
+import type { ManagedSvgElement } from '../../component-system/managedSvg'
 import {
   findManagedSvgElement,
   getManagedSvgElementAttribute,
@@ -13,7 +14,7 @@ export type ManagedSvgRuleTargetOption = Readonly<{
 }>
 
 function describeManagedSvgRuleElement(
-  element: NonNullable<Extract<ComponentVisualLayer, { kind: 'svg' }>['document']>['root'],
+  element: ManagedSvgElement,
 ): ManagedSvgRuleTargetOption {
   const sourceId = getManagedSvgElementAttribute(element, 'id')
   const shortLabel = element.authorRef ? `@${element.authorRef}` : element.tagId
@@ -36,7 +37,7 @@ export function listManagedSvgRuleTargets(
   if (layer.kind !== 'svg' || !layer.document) return []
   const result: ManagedSvgRuleTargetOption[] = []
 
-  const visit = (element: typeof layer.document.root) => {
+  const visit = (element: ManagedSvgElement) => {
     if (isManagedSvgPresentationEditableElement(element)) {
       result.push(describeManagedSvgRuleElement(element))
     }
