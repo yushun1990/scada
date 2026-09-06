@@ -1,3 +1,4 @@
+import './check-managed-svg-geometry-authoring'
 import assert from 'node:assert/strict'
 import {
   assertManagedSvgDocument,
