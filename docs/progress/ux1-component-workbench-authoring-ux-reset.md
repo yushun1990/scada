@@ -4,7 +4,9 @@
 
 Active · authorized by product dogfooding review on 2026-09-06.
 
-Current base revision: `main@a80926974471066a30461c62858d35e508579e6a` (UX1.2A smoke-contract closeout through PR #154).
+Current base revision: `main@65ce6bd76a67e8f1b1f412ef80fb91da77bba824` (UX1.2B Arrange authority merged in PR #155, browser-smoke timing closeout in PR #156).
+
+UX1.1 and UX1.2 are implementation-complete and browser-proven. The next execution boundary is UX1.3, which requires a fresh-conversation authority re-audit before any persistence or target-model implementation begins.
 
 This is a product-polish track, not a new runtime architecture milestone. It exists because normal hands-on component authoring exposed a structural usability defect: the editor exposed private implementation concepts as the primary creation workflow, so users had to understand Layer kinds and tree operations before they could draw a simple component.
 
@@ -79,7 +81,7 @@ Merged surface:
 
 ### UX1.2 Canvas-native creation + arrange
 
-**Status:** active.
+**Status:** implementation complete and browser-proven on `main@65ce6bd76a67e8f1b1f412ef80fb91da77bba824`.
 
 **Goal:** make Canvas the primary manipulation surface.
 
@@ -114,7 +116,7 @@ The stale Pages smoke contracts exposed by UX1.1 were migrated through PRs #151-
 
 #### UX1.2B Arrange authority
 
-**Status:** active implementation.
+**Status:** implementation merged in PR #155; browser acceptance timing fixed in PR #156; browser-proven by Pages Browser Smoke #247 on `main@65ce6bd76a67e8f1b1f412ef80fb91da77bba824`.
 
 Authority freeze:
 
@@ -126,28 +128,39 @@ Authority freeze:
 - Group/Ungroup continues to use the existing `component-layer-hierarchy` authority;
 - Canvas toolbar is the primary common-workflow Arrange surface; Navigator remains structural navigation and Inspector remains precise configuration.
 
-Implementation slice:
+Implemented surface:
 
 - Bring to Front / Bring Forward / Send Backward / Send to Back are exposed as `置于顶层 / 上移一层 / 下移一层 / 置于底层` on the Canvas toolbar;
 - deterministic `component-layer-order` helper owns sibling reordering semantics without schema/runtime changes;
 - deterministic checks cover single selection, multi-selection, nested siblings, boundary no-op and mixed-parent fail-closed behavior;
 - Pages arrange smoke covers Canvas toolbar commands, multi-selection ordering, save/reload persistence and Preview read-only behavior;
-- the existing Palette `组` entry remains during this slice because current accepted pointer/empty-layer regression intentionally uses an empty Group fixture. Whether empty Group remains a user-facing creation affordance is a product dogfood decision after Arrange proves stable, not part of the z-order authority migration.
+- the existing Palette `组` entry remains because current accepted pointer/empty-layer regression intentionally uses an empty Group fixture. Whether empty Group remains a user-facing creation affordance is a later product-dogfood decision, not part of the z-order authority migration.
 
-Acceptance before UX1.3:
+Acceptance proven:
 
 - four z-order commands work from the Canvas toolbar with correct disabled states;
 - same-parent multi-selection preserves relative ordering;
-- grouping/ungrouping remains lossless under its existing transform constraints;
-- save/reopen persists the resulting sibling order using only normal Component Visual state;
-- Preview and built-in read-only modes cannot mutate order;
-- Pages browser smoke stays green.
+- grouping/ungrouping remains under the existing hierarchy/transform authority;
+- save/reopen persists resulting sibling order using only normal Component Visual state;
+- Preview cannot mutate order;
+- main CI #977 is fully green;
+- Pages Browser Smoke #247 is fully green, including the new Arrange smoke and all existing toolbar, animation, Chromium/Firefox pointer, Managed SVG, SVG compatibility, component/work package, standalone runtime and reusable-package regressions.
 
 ### UX1.3 SVG element selection + stable author references
 
+**Status:** next authority-review gate; implementation not yet authorized.
+
 **Goal:** make managed SVG useful as component internals instead of an opaque image with a hidden tag tree.
 
-Surface:
+Before implementation, re-audit and freeze the relationship between:
+
+- `ManagedSvgDocument` / stable `tagId` identity;
+- current Visual Rule internal SVG target authority;
+- animation target authority;
+- M8 component/work package resource closure and standalone runtime;
+- any proposed author-facing alias/reference representation.
+
+Surface candidate after authority freeze:
 
 - SVG layer selection exposes an explicit internal-structure editing mode;
 - SVG tree selection and Canvas highlight are linked;
@@ -162,7 +175,7 @@ layer: pumpSvg
 element: rotor
 ```
 
-The exact persisted representation must be frozen before implementation if it requires a schema version change.
+The exact persisted representation must be frozen before implementation if it requires a schema version change. Do not introduce a second DOM, renderer or runtime target authority.
 
 ### UX1.4 Typed SVG geometry authoring
 
@@ -231,6 +244,6 @@ A new user should be able to discover how to start without understanding `Visual
 
 ## Current execution gate
 
-**UX1.2B Arrange authority.**
+**UX1.3 SVG element selection + stable author references — fresh-conversation authority re-audit required before implementation.**
 
-Do not start UX1.3/UX1.4 persistence or target-authority work before UX1.2B passes CI and browser dogfood. Before UX1.3, start a fresh conversation and re-audit ManagedSvgDocument/tagId, Visual Rule SVG target authority, animation target authority and M8 package closure.
+UX1.2 is closed and browser-proven. Do not start UX1.3/UX1.4 persistence or target-authority implementation from inherited assumptions in this conversation. In a fresh conversation, pull latest `main`, reread `PLAN.md` and this document, then re-audit `ManagedSvgDocument`/`tagId`, Visual Rule internal SVG target authority, animation target authority and M8 package/standalone closure. If a proposed design requires a second DOM/renderer/runtime target authority or breaks M8/M9 boundaries, stop and report instead of implementing it.
