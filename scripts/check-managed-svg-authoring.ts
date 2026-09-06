@@ -14,6 +14,8 @@ import {
   updateManagedSvgElementAuthorRef,
   updateManagedSvgElementPresentation,
 } from '../src/component-system/managedSvgAuthoring'
+import type { SvgVisualLayer } from '../src/component-system/visual'
+import { mapManagedSvgViewportBoundsToLayer } from '../src/features/component-library/component-managed-svg-selection'
 
 function attributes(values: Record<string, string>): ManagedSvgAttribute[] {
   return Object.entries(values)
@@ -279,6 +281,54 @@ assert.throws(
   /不存在/,
 )
 
+const selectionLayerBase: SvgVisualLayer = {
+  id: 'svg-selection',
+  name: 'Selection mapping fixture',
+  kind: 'svg',
+  parentId: null,
+  transform: {
+    x: 0,
+    y: 0,
+    width: 240,
+    height: 240,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+  },
+  visible: true,
+  opacity: 1,
+  assetRef: baseAssetRef,
+  document: baseDocument,
+  style: { fit: 'contain' },
+}
+const middleHalf = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 }
+
+assert.deepEqual(
+  mapManagedSvgViewportBoundsToLayer(selectionLayerBase, middleHalf),
+  { x: 60, y: 80, width: 120, height: 80 },
+  'contain selection mapping reuses the same intrinsic aspect ratio and centered draw box as VisualAssetLayer',
+)
+assert.deepEqual(
+  mapManagedSvgViewportBoundsToLayer(
+    { ...selectionLayerBase, style: { fit: 'stretch' } },
+    middleHalf,
+  ),
+  { x: 60, y: 60, width: 120, height: 120 },
+  'stretch selection mapping covers the full layer viewport',
+)
+assert.deepEqual(
+  mapManagedSvgViewportBoundsToLayer(
+    {
+      ...selectionLayerBase,
+      transform: { ...selectionLayerBase.transform, width: 120, height: 120 },
+      style: { fit: 'cover' },
+    },
+    middleHalf,
+  ),
+  { x: 15, y: 30, width: 90, height: 60 },
+  'cover selection mapping applies the same source crop semantics as VisualAssetLayer',
+)
+
 console.log(
-  'Managed SVG authoring checks passed: stable author references are optional unique metadata over canonical tagId identity, alias-only edits leave serialized SVG/assetRef bytes unchanged, clone/save/reload preserve aliases, rename/remove preserve tag identity, invalid/duplicate/reserved aliases fail closed, and existing controlled presentation authoring remains deterministic and immutable.',
+  'Managed SVG authoring checks passed: stable author references are optional unique metadata over canonical tagId identity, alias-only edits leave serialized SVG/assetRef bytes unchanged, clone/save/reload preserve aliases, rename/remove preserve tag identity, invalid/duplicate/reserved aliases fail closed, controlled presentation authoring remains deterministic and immutable, and Canvas selection bounds reuse the existing asset fit mapping without creating a second renderer target.',
 )
