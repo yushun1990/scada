@@ -4,9 +4,9 @@
 
 Active · authorized by product dogfooding review on 2026-09-06.
 
-Current proven base revision: `main@bb6cdd2a471105e2fb5c3a2748206a3d4848900c` (UX1.4 typed managed-SVG geometry merged in PR #160 and exact-main browser-proven).
+Current proven base revision: `main@d229138f584970f3252d9c34e10086b35acb7e3c` (UX1.5 Internal target convergence exact-main closed by CI #1006, Deploy #303 and Pages Browser Smoke #254).
 
-UX1.1 through UX1.4 are implementation-complete and browser-proven. UX1.5 is the active execution gate. Its internal-target convergence authority is frozen in `docs/progress/ux1.5-internal-target-convergence-authority.md`; implementation is restricted to authoring convergence over the existing canonical `tagId` / `svgTagId` authority.
+UX1.1 through UX1.5 are implementation-complete and browser-proven. UX1.6 Dogfood closeout is the active execution gate. Its acceptance authority and coverage audit are recorded in `docs/progress/ux1.6-dogfood-closeout.md`.
 
 This is a product-polish track, not a new runtime architecture milestone. It exists because normal hands-on component authoring exposed a structural usability defect: the editor exposed private implementation concepts as the primary creation workflow, so users had to understand Layer kinds and tree operations before they could draw a simple component.
 
@@ -230,7 +230,7 @@ Acceptance proven:
 
 ### UX1.5 Internal target convergence
 
-**Status:** active · authority frozen · implementation in PR #161; exact merged-revision deployed browser proof remains the closure gate.
+**Status:** implementation complete and browser-proven on `main@d229138f584970f3252d9c34e10086b35acb7e3c`.
 
 **Goal:** make authored SVG references first-class targets for existing private visual behavior where architecture permits.
 
@@ -254,18 +254,24 @@ Authorized implementation:
 - whole-layer Rule scope remains unchanged;
 - Animation UI/runtime remains layer-scoped; no internal SVG animation target is introduced.
 
-Current PR #161 browser acceptance is required to prove:
+Acceptance proven:
 
-- SVG internal selection defaults a new Visual Rule to the same canonical tag;
-- Rule target switching drives the same Canvas/Inspector internal selection;
-- friendly alias rename updates Rule labels while persisted `svgTagId` remains unchanged and no `authorRef` field is added to the rule;
-- save/reopen preserves both authorities;
-- Preview remains read-only;
-- existing package/work-package/standalone/runtime regressions remain green.
+- PR #161 delivered the authoring-only convergence without changing Visual Rule runtime/schema authority;
+- PR #162 changed the deployed acceptance setup to create its Rule-driving Property through the real root Property authoring UI;
+- PR #163 disambiguated the final browser target assertion using the unique `rule1 作用对象` combobox;
+- main CI #1006 passed Build, Runtime model checks, Lint and publication-api on the exact merge revision;
+- Deploy GitHub Pages #303 passed on the same revision;
+- Pages Browser Smoke #254 passed against the exact deployed `main@d229138f584970f3252d9c34e10086b35acb7e3c`;
+- the deployed proof confirmed SVG selection → new Rule canonical tag defaulting, Rule target → shared Canvas/Inspector selection, alias rename without `svgTagId` rewrite, save/reopen authority preservation and Preview read-only behavior;
+- existing managed-SVG, package/work-package, standalone/runtime and reusable-package regressions remained green.
 
-UX1.5 must not be marked closed until PR #161 is merged and the exact merged revision passes main CI, Pages deployment and Pages Browser Smoke containing the extended managed-SVG authorRef/Rule-target scenario.
+UX1.5 is closed without SVG-tag Animation, runtime alias resolution, DOM/Konva target identity, package schema changes or a second renderer/runtime authority.
 
 ### UX1.6 Dogfood closeout
+
+**Status:** active · acceptance authority in `docs/progress/ux1.6-dogfood-closeout.md`.
+
+**Goal:** prove the reset authoring model and accepted portability/runtime path as one discoverable end-to-end user journey rather than only as separate regression slices.
 
 Acceptance scenario:
 
@@ -276,11 +282,11 @@ choose primitive from Palette
   ↓
 draw / place on Canvas
   ↓
-import SVG and PNG from normal authoring surface
-  ↓
-use Navigator only to locate/select hierarchy
+use Navigator only to relocate/select hierarchy
   ↓
 configure selection in Inspector
+  ↓
+import SVG and PNG from normal authoring surface
   ↓
 customize managed SVG internal element
   ↓
@@ -299,8 +305,10 @@ fresh standalone rendering
 
 A new user should be able to discover how to start without understanding `VisualLayerKind`, `assetRef`, Layer parent semantics or renderer internals.
 
+The coverage audit found no missing runtime/product authority. The remaining acceptance gap is that the existing strongest end-to-end managed-SVG browser scenario starts at resource import rather than proving Palette → Canvas → Navigator → Inspector first. UX1.6 therefore extends that existing smoke with the missing first-use path and carries the same Palette-authored primitive through save/reopen, component package transfer and work dependency closure. Product code changes are not authorized unless the deployed journey exposes a real interaction defect.
+
 ## Current execution gate
 
-**UX1.5 Internal target convergence — finish the already-frozen authoring-only convergence and obtain exact merged-revision deployed browser proof.**
+**UX1.6 Dogfood closeout — obtain a continuous deployed-browser proof of Palette → Canvas → Navigator → Inspector → SVG/PNG authoring → component package → SCADA Workbench → work package → fresh standalone runtime.**
 
-UX1.4 is closed on `main@bb6cdd2a471105e2fb5c3a2748206a3d4848900c`. Continue UX1.5 only within `docs/progress/ux1.5-internal-target-convergence-authority.md`: `tagId`/`svgTagId` remain canonical persisted target identity; `authorRef` remains authoring metadata; shared `(layerId, tagId)` selection remains transient UI state; Visual Rule runtime/package authority remains unchanged; Animation remains layer-only; M8/M9 boundaries remain intact. Do not introduce SVG-tag Animation, runtime alias resolution, DOM/Konva target identity, package schema changes, `g transform` or `path d` through this gate.
+UX1.5 is closed on `main@d229138f584970f3252d9c34e10086b35acb7e3c`. Continue UX1.6 within `docs/progress/ux1.6-dogfood-closeout.md`. Preserve all existing M6–M9/M6.3P1 authorities: no new renderer/runtime target authority, no schema changes for acceptance convenience, no alias runtime address, Animation remains layer-only, M8 dependency/resource closure remains mandatory and M9 Attribute/Property separation remains intact.
