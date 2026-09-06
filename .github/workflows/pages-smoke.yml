@@ -51,6 +51,7 @@ jobs:
           node scripts/pages-scada-geometry-smoke.mjs
           node scripts/pages-managed-svg-authoring-smoke.mjs
           node scripts/pages-managed-svg-author-ref-smoke.mjs
+          node scripts/pages-managed-svg-geometry-smoke.mjs
           node scripts/pages-svg-import-compatibility-smoke.mjs
           node scripts/pages-component-package-transfer-smoke.mjs
           node scripts/pages-scada-work-package-transfer-smoke.mjs

@@ -6,9 +6,12 @@ import {
 import {
   findManagedSvgElement,
   getManagedSvgElementAttribute,
+  getManagedSvgGeometryFields,
   isManagedSvgPresentationEditableElement,
   updateManagedSvgElementAuthorRef,
+  updateManagedSvgElementGeometry,
   updateManagedSvgElementPresentation,
+  type ManagedSvgGeometryField,
   type ManagedSvgPresentationField,
 } from '../../component-system/managedSvgAuthoring'
 import type { SvgVisualLayer } from '../../component-system/visual'
@@ -29,6 +32,31 @@ type SvgTreeEntry = {
   element: ManagedSvgElement
   depth: number
 }
+
+const GEOMETRY_FIELD_LABELS: Record<ManagedSvgGeometryField, string> = {
+  x: 'X',
+  y: 'Y',
+  width: 'Width',
+  height: 'Height',
+  rx: 'Radius X',
+  ry: 'Radius Y',
+  cx: 'Center X',
+  cy: 'Center Y',
+  r: 'Radius',
+  x1: 'X1',
+  y1: 'Y1',
+  x2: 'X2',
+  y2: 'Y2',
+  points: 'Points',
+}
+
+const NON_NEGATIVE_GEOMETRY_FIELDS = new Set<ManagedSvgGeometryField>([
+  'width',
+  'height',
+  'r',
+  'rx',
+  'ry',
+])
 
 function flattenSvgTree(root: ManagedSvgElement) {
   const result: SvgTreeEntry[] = []
@@ -84,6 +112,38 @@ function PresentationInput({
   )
 }
 
+function GeometryInput({
+  field,
+  value,
+  disabled,
+  onCommit,
+}: {
+  field: ManagedSvgGeometryField
+  value: string | null
+  disabled: boolean
+  onCommit: (field: ManagedSvgGeometryField, value: string) => void
+}) {
+  const points = field === 'points'
+  return (
+    <label className={`property-field compact${points ? ' component-managed-svg-points-field' : ''}`}>
+      <span>{GEOMETRY_FIELD_LABELS[field]}</span>
+      <Input
+        key={`geometry:${field}:${value ?? ''}`}
+        type={points ? 'text' : 'number'}
+        defaultValue={value ?? ''}
+        disabled={disabled}
+        min={!points && NON_NEGATIVE_GEOMETRY_FIELDS.has(field) ? '0' : undefined}
+        step={points ? undefined : 'any'}
+        placeholder={points ? '例如 0,0 20,10 40,0' : '未设置 / SVG 默认值'}
+        onBlur={(event) => onCommit(field, event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur()
+        }}
+      />
+    </label>
+  )
+}
+
 export function ComponentManagedSvgEditor({
   layer,
   readOnly,
@@ -102,6 +162,10 @@ export function ComponentManagedSvgEditor({
       ? findManagedSvgElement(document, selectedTagId)
       : null,
     [document, selectedTagId],
+  )
+  const geometryFields = useMemo(
+    () => selectedElement ? getManagedSvgGeometryFields(selectedElement) : [],
+    [selectedElement],
   )
 
   useEffect(() => {
@@ -152,6 +216,32 @@ export function ComponentManagedSvgEditor({
       )
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'SVG 引用名称编辑失败')
+    }
+  }
+
+  function commitGeometry(field: ManagedSvgGeometryField, value: string) {
+    const currentDocument = layer.document
+    if (readOnly || !selectedTagId || !currentDocument) return
+
+    try {
+      const nextDocument = updateManagedSvgElementGeometry(
+        currentDocument,
+        selectedTagId,
+        field,
+        value,
+      )
+      if (nextDocument === currentDocument) {
+        setMessage('几何值未改变')
+        return
+      }
+      onChange({
+        ...layer,
+        document: nextDocument,
+        assetRef: serializeManagedSvgDataUrl(nextDocument),
+      })
+      setMessage(`${selectedTagId} · ${field} 已更新`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'SVG 几何编辑失败')
     }
   }
 
@@ -248,6 +338,29 @@ export function ComponentManagedSvgEditor({
             引用名称是组件私有的 authoring alias；真正的结构/runtime identity 仍是 {selectedElement.tagId}。重命名或移除引用不会改写现有 Visual Rule target。
           </p>
 
+          {geometryFields.length > 0 && (
+            <div className="component-managed-svg-geometry-section">
+              <div className="component-managed-svg-selected">
+                <strong>Geometry</strong>
+                <span>&lt;{selectedElement.tagName}&gt; 的受控 SVG 几何属性</span>
+              </div>
+              <div className="property-grid component-managed-svg-property-grid">
+                {geometryFields.map((field) => (
+                  <GeometryInput
+                    key={field}
+                    field={field}
+                    value={getManagedSvgElementAttribute(selectedElement, field)}
+                    disabled={readOnly}
+                    onCommit={commitGeometry}
+                  />
+                ))}
+              </div>
+              <p className="component-inspector-help">
+                数值字段只接受有限的无单位 SVG user-space 数字；尺寸/半径不可为负。Points 会规范化为 x,y 坐标对。留空恢复 SVG 默认值。
+              </p>
+            </div>
+          )}
+
           {editable ? (
             <div className="property-grid component-managed-svg-property-grid">
               <PresentationInput
@@ -288,7 +401,7 @@ export function ComponentManagedSvgEditor({
       )}
 
       <p className="component-inspector-help">
-        这里只开放 authoring reference 与 fill / stroke / stroke-width / opacity；留空 presentation 值会恢复 SVG 继承。不会开放任意 XML 属性、DOM selector 或 Path 点编辑。
+        这里只开放稳定 authoring reference、受控 typed geometry 与 fill / stroke / stroke-width / opacity；不会开放任意 XML 属性、DOM selector、Transform 字符串、Path d 或 Path 点编辑。
       </p>
       {message && (
         <span className="component-managed-svg-message" role="status" aria-live="polite">
