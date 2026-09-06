@@ -11,6 +11,7 @@ import {
   type VisualTextVerticalAlign,
 } from '../../component-system/visual'
 import { Input, NumberInput, Select } from '../../ui'
+import { ComponentManagedSvgEditor } from './ComponentManagedSvgEditor'
 
 type ComponentVisualStyleInspectorProps = {
   visual: ComponentVisualDefinition
@@ -242,9 +243,19 @@ export function ComponentVisualStyleInspector({
           />
         </label>
         <p className="component-inspector-help">
-          样式属于组件私有视觉实现；后续 Visual Rules 会以这些 typed style 字段作为稳定目标。
+          样式属于组件私有视觉实现；Visual Rules 继续只使用已冻结的 typed target authority。
         </p>
       </CollapsibleInspectorGroup>
+
+      {layer.kind === 'svg' && layer.document && (
+        <CollapsibleInspectorGroup title="SVG 元素">
+          <ComponentManagedSvgEditor
+            layer={layer}
+            readOnly={readOnly}
+            onChange={updateLayer}
+          />
+        </CollapsibleInspectorGroup>
+      )}
     </div>
   )
 }
