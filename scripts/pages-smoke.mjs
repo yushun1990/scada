@@ -260,13 +260,12 @@ try {
   assert.equal(await snapButton.getAttribute('aria-pressed'), 'true', 'snap toggle turns back on')
 
   const root = page.locator('.component-layer-root')
-  const addLayer = page.getByRole('button', { name: '添加图层' })
+  const addGroup = page.getByRole('button', { name: '组', exact: true })
   for (let index = 1; index <= 3; index += 1) {
-    await root.click()
-    await addLayer.click()
+    await addGroup.click()
     await layerRow(`Group ${index}`).waitFor()
   }
-  assert.equal(await page.locator('.component-layer-row').count(), 3, 'three sibling layers created')
+  assert.equal(await page.locator('.component-layer-row').count(), 3, 'three sibling layers created from Palette')
 
   await resetGeometry()
 

@@ -4,18 +4,18 @@
 
 Active · authorized by product dogfooding review on 2026-09-06.
 
-Base revision: `main@65eb8540ec71c9ee111338e4918f69e20b4e058c`.
+Current base revision: `main@c7d8b366d223fa397077b785972372283050080a` (PR #149 merged).
 
-This is a product-polish track, not a new runtime architecture milestone. It exists because normal hands-on component authoring exposed a structural usability defect: the editor currently exposes private implementation concepts as the primary creation workflow, so users must understand Layer kinds and tree operations before they can draw a simple component.
+This is a product-polish track, not a new runtime architecture milestone. It exists because normal hands-on component authoring exposed a structural usability defect: the editor exposed private implementation concepts as the primary creation workflow, so users had to understand Layer kinds and tree operations before they could draw a simple component.
 
 ## Problem statement
 
-The accepted M6.2 shell established `Layers -> Canvas -> Inspector`, but the current interaction model incorrectly gives the Layer Tree two incompatible jobs:
+The accepted M6.2 shell established `Layers -> Canvas -> Inspector`, but hands-on use proved that the Layer Tree had two incompatible jobs:
 
 1. navigation / structure inspection;
 2. object and asset creation.
 
-That makes the first-use path implementation-oriented rather than task-oriented. A user who wants a rectangle, text label or imported SVG should not have to create an abstract Vector/SVG Layer through a tree editor first.
+That made the first-use path implementation-oriented rather than task-oriented. A user who wants a rectangle, text label or imported SVG should not have to create an abstract Vector/SVG Layer through a tree editor first.
 
 The product-level authoring model is reset to:
 
@@ -51,45 +51,75 @@ A narrow typed edit of safe SVG geometry attributes or raw `path d` may be consi
 
 ### UX1.0 Authoring interaction authority freeze
 
+**Status:** frozen.
+
 **Goal:** replace the old "Layer Tree is the creation surface" rule with the Palette/Canvas/Navigator/Inspector model before deeper implementation.
 
 Acceptance:
 
 - this document is the execution authority for UX1;
-- M6.2.2's historical statement that layer creation stays exclusively in the left Layer Tree is treated as superseded interaction guidance, not as a runtime/schema rollback;
+- M6.2.2's historical statement that layer creation stays exclusively in the left Layer Tree is superseded interaction guidance, not a runtime/schema rollback;
 - no persistence/runtime/renderer authority changes are introduced.
 
 ### UX1.1 Palette + Navigator split
 
+**Status:** implementation merged in PR #149 at `main@c7d8b366d223fa397077b785972372283050080a`; product dogfood continues through UX1 closeout.
+
 **Goal:** make the first authoring action discoverable without changing the visual schema.
 
-Surface:
+Merged surface:
 
-- left dock gains an explicit `添加` Palette;
+- left dock has an explicit `添加` Palette;
 - primitives are shown directly as user concepts rather than through a generic Layer-kind selector;
-- first supported palette entries: 矩形、圆形、椭圆、线段、Path、文本、组;
-- SVG / 图片 import moves into the `添加` section;
-- the `图层` section becomes a navigation view: component root + current hierarchy + selection state;
-- empty state tells the user to choose a primitive or import an asset;
+- palette entries include 矩形、圆形、椭圆、线段、Path、文本、组;
+- SVG / 图片 import lives in the `添加` section;
+- the `图层` section is a navigation view: component root + current hierarchy + selection state;
 - created objects continue to persist as the existing Vector/Text/Group/SVG/Image layers;
 - import/replace semantics and managed SVG authority remain unchanged.
 
-Initial interaction may create a sensible default-size object on the component design surface. UX1.2 owns pointer-drag drawing gestures.
-
 ### UX1.2 Canvas-native creation + arrange
+
+**Status:** active.
 
 **Goal:** make Canvas the primary manipulation surface.
 
-Surface:
+#### UX1.2A Create mode + draw
 
-- primitive tool selection enters a clear create mode;
-- pointer drag draws rect/circle/ellipse/line bounds; click creates a default-size object;
+Implementation slice:
+
+- selecting 矩形 / 圆形 / 椭圆 / 线段 enters an explicit transient create mode;
+- create-mode state is authoring UI state only and is never persisted into Component Visual / Scene / package/runtime schemas;
+- Canvas pointer drag creates geometry in the existing component design coordinate space;
+- click creates a sensible default-size object at the pointer;
 - `Esc` exits create mode;
-- group/ungroup and z-order operations are available from Canvas/contextual arrange controls rather than requiring hierarchy editing fields;
-- import by dropping SVG/PNG/JPEG/WebP on the Canvas remains supported and becomes the primary drag/drop affordance;
-- selection immediately drives the right Inspector.
+- create preview uses editor-only Konva overlay while committed geometry is still an existing `VectorVisualLayer` rendered by `CompositeComponentVisualRenderer`;
+- newly created layer is selected immediately and enters the existing Inspector / history flow;
+- create coordinates use the existing component grid when snapping is enabled;
+- Path, text and empty Group remain default-size creation actions in this slice because UX1 does not authorize a general path-point or group drawing model.
 
-Acceptance must include create -> select -> transform -> undo/redo -> save/reopen.
+Acceptance:
+
+- drag-create rect/circle/ellipse/line;
+- click-default create;
+- cancel with Esc;
+- created shape immediately supports select/transform/undo/redo;
+- save/reopen preserves only normal visual-layer state, never create-mode state.
+
+Smoke contract migration:
+
+- the Pages Browser Smoke triggered after PR #149 failed because `scripts/pages-smoke.mjs` still searched for the removed `添加图层` Layer-Tree action;
+- this is a stale test-contract failure, not a renderer/runtime failure;
+- UX1 browser smoke now creates its fixture Groups through the Palette `组` action and uses the Layer Tree only for navigation/selection;
+- PR #150 carries this smoke migration together with UX1.2A so the automated test enforces the new authoring authority.
+
+#### UX1.2B Arrange authority
+
+Next slice after UX1.2A passes CI/browser dogfood:
+
+- Group/Ungroup from canvas/contextual arrange controls;
+- Bring to Front / Bring Forward / Send Backward / Send to Back;
+- hierarchy operations no longer require parent/z-order editing as the primary workflow;
+- Canvas drop remains the primary SVG/PNG/JPEG/WebP drag/drop affordance.
 
 ### UX1.3 SVG element selection + stable author references
 
@@ -179,6 +209,6 @@ A new user should be able to discover how to start without understanding `Visual
 
 ## Current execution gate
 
-**UX1.1 Palette + Navigator split.**
+**UX1.2A Create mode + draw.**
 
-Do not start UX1.3/UX1.4 schema work before UX1.1/UX1.2 prove the basic authoring flow in browser dogfooding.
+Do not start UX1.3/UX1.4 schema work before UX1.2A/UX1.2B prove the basic authoring flow in browser dogfooding.
