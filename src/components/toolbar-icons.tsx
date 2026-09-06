@@ -58,6 +58,52 @@ export function UngroupIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function BringToFrontIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="4" y="9" width="10" height="10" rx="1.5" opacity="0.55" />
+      <rect x="8" y="5" width="10" height="10" rx="1.5" />
+      <path d="M20 14V4" />
+      <path d="m17.5 6.5 2.5-2.5 2.5 2.5" />
+      <path d="M17 2h6" opacity="0.7" />
+    </svg>
+  )
+}
+
+export function BringForwardIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="4" y="9" width="10" height="10" rx="1.5" opacity="0.55" />
+      <rect x="8" y="5" width="10" height="10" rx="1.5" />
+      <path d="M20 16V6" />
+      <path d="m17.5 8.5 2.5-2.5 2.5 2.5" />
+    </svg>
+  )
+}
+
+export function SendBackwardIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="4" y="9" width="10" height="10" rx="1.5" />
+      <rect x="8" y="5" width="10" height="10" rx="1.5" opacity="0.55" />
+      <path d="M20 4v10" />
+      <path d="m17.5 11.5 2.5 2.5 2.5-2.5" />
+    </svg>
+  )
+}
+
+export function SendToBackIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="4" y="9" width="10" height="10" rx="1.5" />
+      <rect x="8" y="5" width="10" height="10" rx="1.5" opacity="0.55" />
+      <path d="M20 4v10" />
+      <path d="m17.5 11.5 2.5 2.5 2.5-2.5" />
+      <path d="M17 17h6" opacity="0.7" />
+    </svg>
+  )
+}
+
 export function AlignLeftIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
