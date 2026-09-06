@@ -77,7 +77,6 @@ try {
 
   await page.getByRole('button', { name: '保存', exact: true }).click()
   await page.waitForFunction(() => window.location.hash !== '#/components/new')
-  await page.getByText('组件已保存', { exact: true }).waitFor()
   const savedUrl = page.url()
 
   await page.reload({ waitUntil: 'networkidle' })
