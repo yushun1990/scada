@@ -101,9 +101,8 @@ try {
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
   const root = page.locator('.component-layer-root')
-  await root.click()
-  await page.getByRole('button', { name: '添加图层' }).click()
-  await layerRow('Group 1').waitFor()
+  await page.getByRole('button', { name: '组', exact: true }).click()
+  await layerRow('组 1').waitFor()
 
   await page.getByRole('button', { name: '保存' }).click()
   await page.waitForFunction(() => window.location.hash !== '#/components/new')

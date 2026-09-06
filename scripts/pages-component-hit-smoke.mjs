@@ -36,6 +36,11 @@ async function readGeometry(name) {
   }
 }
 
+async function chooseSelectOption(ariaLabel, optionName) {
+  await page.getByRole('combobox', { name: ariaLabel }).click()
+  await page.getByRole('option', { name: optionName, exact: true }).click()
+}
+
 function assertClose(actual, expected, message, tolerance = 0.001) {
   assert.ok(
     Math.abs(actual - expected) < tolerance,
@@ -49,35 +54,30 @@ try {
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
   const root = page.locator('.component-layer-root')
-  const addLayer = page.getByRole('button', { name: '添加图层' })
-  const kindSelect = page.locator('[aria-label="新增图层类型"]')
+  const addGroup = page.getByRole('button', { name: '组', exact: true })
+  const addPath = page.getByRole('button', { name: 'Path', exact: true })
 
-  // Bottom Group with a visible vector child.
-  await root.click()
-  await addLayer.click()
-  await layerRow('Group 1').waitFor()
-  await setGeometry('Group 1', 48, 48, 128, 128)
+  // Bottom Group with a visible vector child. Palette owns creation; Inspector
+  // owns the child's parent assignment.
+  await addGroup.click()
+  await layerRow('组 1').waitFor()
+  await setGeometry('组 1', 48, 48, 128, 128)
 
-  await kindSelect.click()
-  await page.getByRole('option', { name: '矢量图形', exact: true }).click()
-  await addLayer.click()
-  await layerRow('矢量图形 1').waitFor()
-  await setGeometry('矢量图形 1', 0, 0, 128, 128)
+  await addPath.click()
+  await layerRow('Path 1').waitFor()
+  await setGeometry('Path 1', 0, 0, 128, 128)
+  await chooseSelectOption('Path 1 父级', '组 1')
 
   // Empty sibling Group placed exactly over the visible bottom Group.
-  await root.click()
-  await kindSelect.click()
-  await page.getByRole('option', { name: 'Group', exact: true }).click()
-  await addLayer.click()
-  await layerRow('Group 2').waitFor()
-  await setGeometry('Group 2', 48, 48, 128, 128)
+  await addGroup.click()
+  await layerRow('组 2').waitFor()
+  await setGeometry('组 2', 48, 48, 128, 128)
 
   // A separate empty Group gives the modifier-click and snap lifecycle tests a
   // non-overlapping target while still exercising empty-layer canvas hit areas.
-  await root.click()
-  await addLayer.click()
-  await layerRow('Group 3').waitFor()
-  await setGeometry('Group 3', 240, 48, 96, 96)
+  await addGroup.click()
+  await layerRow('组 3').waitFor()
+  await setGeometry('组 3', 240, 48, 96, 96)
 
   const stage = page.locator('.component-artboard .konvajs-content').first()
   const box = await stage.boundingBox()
@@ -96,7 +96,7 @@ try {
   // must be discoverable by its geometry even though it draws no pixels.
   await root.click()
   assert.equal(
-    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    await layerRow('组 2').evaluate((node) => node.classList.contains('active')),
     false,
     'empty overlay must start unselected',
   )
@@ -104,12 +104,12 @@ try {
   await page.mouse.click(overlayCenter.x, overlayCenter.y)
 
   assert.equal(
-    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    await layerRow('组 2').evaluate((node) => node.classList.contains('active')),
     true,
     'clicking an unselected empty overlay Group on canvas must select that Group',
   )
   assert.equal(
-    await layerRow('Group 1').evaluate((node) => node.classList.contains('active')),
+    await layerRow('组 1').evaluate((node) => node.classList.contains('active')),
     false,
     'bottom Group must not steal the first canvas click through the empty overlay Group',
   )
@@ -122,7 +122,7 @@ try {
   // A second click while selected must still stay on the empty Group.
   await page.mouse.click(overlayCenter.x, overlayCenter.y)
   assert.equal(
-    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    await layerRow('组 2').evaluate((node) => node.classList.contains('active')),
     true,
     'clicking inside the selected empty overlay Group must keep that Group selected',
   )
@@ -130,9 +130,9 @@ try {
   // Drag from the same blank area with snapping disabled. This verifies the
   // Konva hit target itself, not only React selection state: only the empty
   // overlay Group may move.
-  const bottomBefore = await readGeometry('Group 1')
-  const overlayBefore = await readGeometry('Group 2')
-  await layerRow('Group 2').click()
+  const bottomBefore = await readGeometry('组 1')
+  const overlayBefore = await readGeometry('组 2')
+  await layerRow('组 2').click()
   const snapButton = page.getByRole('button', { name: '吸附' })
   if ((await snapButton.getAttribute('aria-pressed')) === 'true') {
     await snapButton.click()
@@ -143,8 +143,8 @@ try {
   await page.mouse.move(overlayCenter.x + 24 * scaleX, overlayCenter.y + 16 * scaleY, { steps: 4 })
   await page.mouse.up()
 
-  const bottomAfter = await readGeometry('Group 1')
-  const overlayAfter = await readGeometry('Group 2')
+  const bottomAfter = await readGeometry('组 1')
+  const overlayAfter = await readGeometry('组 2')
   assert.equal(bottomAfter.x, bottomBefore.x, 'dragging selected empty overlay must not move bottom Group x')
   assert.equal(bottomAfter.y, bottomBefore.y, 'dragging selected empty overlay must not move bottom Group y')
   assert.ok(
@@ -156,7 +156,7 @@ try {
   // selection state. Start with no internal selection, click Group 2, then
   // Ctrl-click Group 3 directly on the canvas.
   const group2Center = canvasPoint(overlayAfter.x + 64, overlayAfter.y + 64)
-  const group3Before = await readGeometry('Group 3')
+  const group3Before = await readGeometry('组 3')
   const group3Center = canvasPoint(group3Before.x + 48, group3Before.y + 48)
   await root.click()
   await page.mouse.click(group2Center.x, group2Center.y)
@@ -170,12 +170,12 @@ try {
     'canvas Ctrl-click must create a two-layer shared selection',
   )
   assert.equal(
-    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    await layerRow('组 2').evaluate((node) => node.classList.contains('active')),
     true,
     'canvas selection must be reflected by Group 2 in the Layer Tree',
   )
   assert.equal(
-    await layerRow('Group 3').evaluate((node) => node.classList.contains('active')),
+    await layerRow('组 3').evaluate((node) => node.classList.contains('active')),
     true,
     'canvas modifier selection must be reflected by Group 3 in the Layer Tree',
   )
@@ -187,7 +187,7 @@ try {
   // 24-unit grid, so dragend must persist on the (264, 192) grid point. Browser
   // pointer coordinates are pixel-quantized, so the persisted design-space
   // coordinate may differ from that grid point by a small fraction of a unit.
-  await layerRow('Group 3').click()
+  await layerRow('组 3').click()
   if ((await snapButton.getAttribute('aria-pressed')) !== 'true') {
     await snapButton.click()
   }
