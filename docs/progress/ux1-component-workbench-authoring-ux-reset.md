@@ -4,9 +4,9 @@
 
 Active · authorized by product dogfooding review on 2026-09-06.
 
-Current base revision: `main@65ce6bd76a67e8f1b1f412ef80fb91da77bba824` (UX1.2B Arrange authority merged in PR #155, browser-smoke timing closeout in PR #156).
+Current proven base revision: `main@afc65b83b538b42b04d49ec99656cfae68b74ba5` (UX1.3 implementation merged in PR #158; dedicated authorRef + Canvas-highlight browser closeout merged in PR #159).
 
-UX1.1 and UX1.2 are implementation-complete and browser-proven. The next execution boundary is UX1.3, which requires a fresh-conversation authority re-audit before any persistence or target-model implementation begins.
+UX1.1, UX1.2 and UX1.3 are implementation-complete and browser-proven. UX1.4 is the active execution gate. Its typed-geometry authority is frozen in `docs/progress/ux1.4-typed-svg-geometry-authority.md`; implementation is proceeding without reopening renderer/runtime/package authority.
 
 This is a product-polish track, not a new runtime architecture milestone. It exists because normal hands-on component authoring exposed a structural usability defect: the editor exposed private implementation concepts as the primary creation workflow, so users had to understand Layer kinds and tree operations before they could draw a simple component.
 
@@ -148,54 +148,89 @@ Acceptance proven:
 
 ### UX1.3 SVG element selection + stable author references
 
-**Status:** next authority-review gate; implementation not yet authorized.
+**Status:** implementation complete and browser-proven on `main@afc65b83b538b42b04d49ec99656cfae68b74ba5`.
 
 **Goal:** make managed SVG useful as component internals instead of an opaque image with a hidden tag tree.
 
-Before implementation, re-audit and freeze the relationship between:
+Authority was frozen before implementation in `docs/progress/ux1.3-svg-author-reference-authority.md`:
 
-- `ManagedSvgDocument` / stable `tagId` identity;
-- current Visual Rule internal SVG target authority;
-- animation target authority;
-- M8 component/work package resource closure and standalone runtime;
-- any proposed author-facing alias/reference representation.
+- `ManagedSvgElement.tagId` remains the sole canonical persisted structural identity and runtime internal-SVG target identity;
+- optional `authorRef` is component-private human authoring metadata attached to that same element, not a second identity;
+- source SVG `id`, DOM nodes and Konva nodes are not persisted/runtime target authority;
+- Visual Rules continue to persist `layerId + svgTagId?` and do not persist or resolve aliases at runtime;
+- Animation remains layer-scoped by `layerId`;
+- editor internal selection is transient `(layerId, tagId)` state;
+- no alias sidecar table, schema-version bump, package target resolver or second SVG renderer was introduced;
+- M8 component/work package and standalone closure and M9 Attribute/Property boundaries remain unchanged.
 
-Surface candidate after authority freeze:
+Implemented surface:
 
-- SVG layer selection exposes an explicit internal-structure editing mode;
-- SVG tree selection and Canvas highlight are linked;
-- safe managed elements can receive a stable author-facing alias/reference without exposing live DOM nodes;
-- references remain component-private and deterministic across save/reopen and package transfer;
-- reference identity must not depend on fragile renderer node identity.
+- a managed SVG layer exposes its internal safe structure from the normal Inspector rather than hiding it under resource replacement;
+- tree selection and Canvas internal-element highlight share the same canonical `tagId` selection;
+- safe elements can receive a stable author-facing `authorRef`;
+- alias-only edits do not change serialized SVG bytes or `assetRef`;
+- rename/remove alias preserves the canonical `tagId` and existing Visual Rule targets;
+- full SVG replacement clears transient internal selection rather than trying to reconcile a new structural identity domain by alias/source id/geometry;
+- Canvas highlight uses editor-only transient measurement of the canonical serialized managed document, then reuses the existing layer fit/transform path; no persistent/mounted SVG DOM renderer exists.
 
-Example author-facing target shape:
+Acceptance proven:
 
-```text
-layer: pumpSvg
-element: rotor
-```
-
-The exact persisted representation must be frozen before implementation if it requires a schema version change. Do not introduce a second DOM, renderer or runtime target authority.
+- PR #158 merged the authority/model/UI implementation at `main@ed5445045d7a2cca5f9d23b8cfbcc20edf62db47`;
+- PR #159 added a dedicated deployed-browser acceptance proof and merged at `main@afc65b83b538b42b04d49ec99656cfae68b74ba5`;
+- main CI #991 passed;
+- Deploy GitHub Pages #299 passed;
+- Pages Browser Smoke #250 passed, including the dedicated authorRef + canonical tree-selection + Canvas-highlight proof;
+- save/reopen preserves authorRef on the same tagId while serialized SVG remains alias-free;
+- existing managed-SVG, package/work-package, standalone and reusable-package browser regressions remain green.
 
 ### UX1.4 Typed SVG geometry authoring
 
+**Status:** active · authority frozen · implementation in PR #160; deployed browser proof remains the closure gate.
+
 **Goal:** extend SVG customization beyond presentation-only fields without becoming a general XML/vector editor.
 
-Candidate safe typed fields:
+Normative authority: `docs/progress/ux1.4-typed-svg-geometry-authority.md`.
+
+Authorized first slice:
 
 - `rect`: x/y/width/height/rx/ry;
 - `circle`: cx/cy/r;
 - `ellipse`: cx/cy/rx/ry;
 - `line`: x1/y1/x2/y2;
-- `polyline` / `polygon`: points, if already accepted by the managed parser authority;
-- `g`: safe transform subset;
-- `path`: raw `d` text only if validated and serialized through the managed SVG authority.
+- `polyline` / `polygon`: bounded points.
 
-Keep the accepted presentation fields: fill/stroke/stroke-width/opacity.
+Geometry persistence continues to use only the existing `ManagedSvgElement.attributes` of the canonical `tagId` element. There is no geometry sidecar model, DOM target, renderer path, runtime target or package schema.
 
-No arbitrary XML attribute editor, scripts, event handlers, external resources or path-point handles.
+Typed authoring rules:
+
+- scalar geometry accepts finite unitless SVG user-space numbers only;
+- width/height/r/rx/ry are non-negative;
+- empty input removes the controlled attribute and returns to SVG default semantics;
+- points accept bounded numeric coordinate pairs and persist as canonical `x,y x,y` text;
+- wrong tag/field combinations and malformed/non-finite/unit-bearing input fail closed;
+- existing fill/stroke/stroke-width/opacity presentation editing remains unchanged;
+- geometry edits preserve `tagId` and `authorRef` while regenerating canonical SVG `assetRef` only from the managed document.
+
+Explicitly deferred from this first slice:
+
+- `g transform`, until a bounded transform grammar and composition semantics are frozen;
+- `path d`, until a dedicated path command/arity/flag validator is available;
+- any path-point handles, internal SVG drag handles or general vector illustration editor;
+- any Visual Rule/Animation target expansion (UX1.5 review remains separate).
+
+Current implementation evidence in PR #160:
+
+- deterministic typed-geometry helper/tests are wired through the existing managed-SVG authoring model gate;
+- model-phase CI #992 passed;
+- tag-scoped Geometry Inspector controls are implemented for the authorized fields;
+- dedicated Pages geometry smoke is wired to verify Canvas highlight remeasurement, save/reopen, stable authorRef/tag identity, canonical asset bytes and Preview read-only behavior;
+- full head CI #996 passed before this governance update.
+
+UX1.4 must not be marked closed until the merged revision passes main CI, Pages deployment and the deployed Pages Browser Smoke containing the dedicated typed-geometry scenario.
 
 ### UX1.5 Internal target convergence
+
+**Status:** not started; requires a fresh authority re-audit after UX1.4 closes.
 
 **Goal:** make authored SVG references first-class targets for existing private visual behavior where architecture permits.
 
@@ -206,7 +241,7 @@ Review before implementation:
 - package/standalone closure;
 - whether alias is authoring sugar over existing stable tag identity or requires canonical persistence.
 
-Do not create a second SVG runtime target system.
+Do not create a second SVG runtime target system. UX1.4 does not authorize SVG-tag Animation or runtime alias resolution.
 
 ### UX1.6 Dogfood closeout
 
@@ -244,6 +279,6 @@ A new user should be able to discover how to start without understanding `Visual
 
 ## Current execution gate
 
-**UX1.3 SVG element selection + stable author references — fresh-conversation authority re-audit required before implementation.**
+**UX1.4 Typed SVG geometry authoring — finish the already-frozen first slice and obtain exact merged-revision deployed browser proof.**
 
-UX1.2 is closed and browser-proven. Do not start UX1.3/UX1.4 persistence or target-authority implementation from inherited assumptions in this conversation. In a fresh conversation, pull latest `main`, reread `PLAN.md` and this document, then re-audit `ManagedSvgDocument`/`tagId`, Visual Rule internal SVG target authority, animation target authority and M8 package/standalone closure. If a proposed design requires a second DOM/renderer/runtime target authority or breaks M8/M9 boundaries, stop and report instead of implementing it.
+UX1.3 is closed on `main@afc65b83b538b42b04d49ec99656cfae68b74ba5`. Continue UX1.4 only within `docs/progress/ux1.4-typed-svg-geometry-authority.md`: existing `ManagedSvgElement.attributes` are the sole geometry persistence authority; `tagId` remains canonical identity; `authorRef` remains authoring metadata; Visual Rule and Animation target authorities remain unchanged; M8/M9 boundaries remain intact. Do not start UX1.5, `g transform`, `path d`, SVG-tag animation or runtime alias resolution until UX1.4 closes and the relevant later authority review is performed.
