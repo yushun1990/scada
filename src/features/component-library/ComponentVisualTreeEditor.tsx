@@ -17,7 +17,14 @@ import {
   Textarea,
 } from '../../ui'
 import { ComponentVisualAssetImportControl } from './ComponentVisualAssetImportControl'
+import {
+  clearComponentCreateTool,
+  isDrawableVisualPrimitive,
+  selectComponentCreateTool,
+  useComponentCreateTool,
+} from './component-create-mode'
 import './component-visual-palette.css'
+import './component-create-mode.css'
 
 export type ComponentWorkbenchMode = 'editor' | 'preview'
 export type ComponentLayerSelectionChange = (
@@ -92,7 +99,7 @@ const PALETTE_PRIMITIVES: readonly PalettePrimitive[] = [
   { primitive: 'rect', label: '矩形', symbol: '□', width: 96, height: 64 },
   { primitive: 'circle', label: '圆形', symbol: '○', width: 72, height: 72 },
   { primitive: 'ellipse', label: '椭圆', symbol: '⬭', width: 100, height: 64 },
-  { primitive: 'line', label: '线段', symbol: '╱', width: 120, height: 20 },
+  { primitive: 'line', label: '线段', symbol: '╱', width: 120, height: 8 },
   {
     primitive: 'path',
     label: 'Path',
@@ -243,6 +250,7 @@ export function ComponentVisualTreeEditor({
   onSelectionChange,
   onChange,
 }: ComponentVisualTreeEditorProps) {
+  const createTool = useComponentCreateTool()
   const flattened = useMemo(() => flattenLayers(visual.layers), [visual.layers])
   const selectedLayerIdSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds])
   const primaryLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
@@ -250,6 +258,10 @@ export function ComponentVisualTreeEditor({
   useEffect(() => {
     if (primaryLayerId && !primaryLayer) onSelectionChange(null)
   }, [onSelectionChange, primaryLayer, primaryLayerId])
+
+  useEffect(() => {
+    if (readOnly || visual.mode !== 'composite') clearComponentCreateTool()
+  }, [readOnly, visual.mode])
 
   function appendLayer(layer: ComponentVisualLayer) {
     if (readOnly || visual.mode !== 'composite') return
@@ -259,6 +271,18 @@ export function ComponentVisualTreeEditor({
   }
 
   function addPrimitive(item: PalettePrimitive) {
+    if (isDrawableVisualPrimitive(item.primitive)) {
+      selectComponentCreateTool({
+        kind: 'vector',
+        primitive: item.primitive,
+        label: item.label,
+        defaultWidth: item.width,
+        defaultHeight: item.height,
+      })
+      return
+    }
+
+    clearComponentCreateTool()
     const id = nextLayerId('vector', visual.layers)
     const created = createLayer('vector', id, null)
     if (created.kind !== 'vector') return
@@ -278,6 +302,7 @@ export function ComponentVisualTreeEditor({
   }
 
   function addText() {
+    clearComponentCreateTool()
     const id = nextLayerId('text', visual.layers)
     const created = createLayer('text', id, null)
     if (created.kind !== 'text') return
@@ -291,6 +316,7 @@ export function ComponentVisualTreeEditor({
   }
 
   function addGroup() {
+    clearComponentCreateTool()
     const id = nextLayerId('group', visual.layers)
     const created = createLayer('group', id, null)
     if (created.kind !== 'group') return
@@ -301,6 +327,11 @@ export function ComponentVisualTreeEditor({
       120,
       80,
     ))
+  }
+
+  function selectNavigatorLayer(layerId: string | null, toggle = false) {
+    clearComponentCreateTool()
+    onSelectionChange(layerId, toggle)
   }
 
   return (
@@ -318,18 +349,24 @@ export function ComponentVisualTreeEditor({
             <div className="component-palette-section">
               <span className="component-palette-label">基础图元</span>
               <div className="component-palette-grid">
-                {PALETTE_PRIMITIVES.map((item) => (
-                  <Button
-                    key={item.primitive}
-                    size="small"
-                    className="component-palette-item"
-                    disabled={readOnly}
-                    onClick={() => addPrimitive(item)}
-                  >
-                    <span className="component-palette-item-symbol" aria-hidden="true">{item.symbol}</span>
-                    <span className="component-palette-item-label">{item.label}</span>
-                  </Button>
-                ))}
+                {PALETTE_PRIMITIVES.map((item) => {
+                  const active = createTool?.kind === 'vector'
+                    && createTool.primitive === item.primitive
+
+                  return (
+                    <Button
+                      key={item.primitive}
+                      size="small"
+                      className={`component-palette-item${active ? ' create-tool-active' : ''}`}
+                      disabled={readOnly}
+                      aria-pressed={active}
+                      onClick={() => addPrimitive(item)}
+                    >
+                      <span className="component-palette-item-symbol" aria-hidden="true">{item.symbol}</span>
+                      <span className="component-palette-item-label">{item.label}</span>
+                    </Button>
+                  )
+                })}
                 <Button
                   size="small"
                   className="component-palette-item"
@@ -363,7 +400,7 @@ export function ComponentVisualTreeEditor({
             </div>
 
             <p className="component-palette-help">
-              当前点击会把默认尺寸对象放到设计画布中央；拖拽绘制手势将在 UX1.2 接入。资源导入始终创建新图层，替换已有资源请在右侧 Inspector 中操作。
+              矩形、圆形、椭圆和线段会进入画布绘制模式：拖拽创建，单击按默认尺寸创建，Esc 取消。Path、文本和组暂按默认尺寸创建；资源导入始终创建新图层。
             </p>
           </>
         ) : (
@@ -383,7 +420,7 @@ export function ComponentVisualTreeEditor({
       <div className="component-layer-tree">
         <Pressable
           className={`component-layer-root${selectedLayerIds.length === 0 ? ' active' : ''}`}
-          onClick={() => onSelectionChange(null)}
+          onClick={() => selectNavigatorLayer(null)}
         >
           <span className="component-layer-root-icon">◆</span>
           <span>
@@ -397,7 +434,7 @@ export function ComponentVisualTreeEditor({
             key={layer.id}
             className={`component-layer-row${selectedLayerIdSet.has(layer.id) ? ' active' : ''}`}
             style={{ paddingLeft: `${12 + depth * 15}px` }}
-            onClick={(event) => onSelectionChange(
+            onClick={(event) => selectNavigatorLayer(
               layer.id,
               event.shiftKey || event.ctrlKey || event.metaKey,
             )}

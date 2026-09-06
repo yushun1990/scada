@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type Konva from 'konva'
-import { Layer, Line, Stage, Transformer } from 'react-konva'
+import { Ellipse, Group, Layer, Line, Rect, Stage, Transformer } from 'react-konva'
 import {
   COMPOSITE_VISUAL_LAYER_NODE_NAME,
   CompositeComponentVisualRenderer,
@@ -27,6 +27,15 @@ import {
 } from '../../components/toolbar-icons'
 import { NumberInput, ToolbarButton } from '../../ui'
 import {
+  appendCreatedVectorLayer,
+  clearComponentCreateTool,
+  resolveComponentCreateGeometry,
+  type ComponentCreateGeometry,
+  type ComponentCreateTool,
+  type ComponentDesignPoint,
+  useComponentCreateTool,
+} from './component-create-mode'
+import {
   applyComponentLayerSnap,
   COMPONENT_SNAP_GRID_SIZE,
   computeComponentLayerSnap,
@@ -42,6 +51,7 @@ import {
   type ComponentWorkbenchMode,
 } from './ComponentVisualTreeEditor'
 import './component-canvas-snap.css'
+import './component-create-mode.css'
 
 type ComponentVisualCanvasProps = {
   visual: ComponentVisualDefinition
@@ -132,6 +142,65 @@ function isTextEditingTarget(target: EventTarget | null) {
   )
 }
 
+function CreateGeometryPreview({
+  tool,
+  geometry,
+  artboardScale,
+}: {
+  tool: ComponentCreateTool
+  geometry: ComponentCreateGeometry
+  artboardScale: number
+}) {
+  const strokeWidth = 1 / artboardScale
+  const dash = [5 / artboardScale, 4 / artboardScale]
+
+  if (tool.primitive === 'line') {
+    return (
+      <Line
+        x={geometry.x}
+        y={geometry.y}
+        rotation={geometry.rotation}
+        points={[0, geometry.height / 2, geometry.width, geometry.height / 2]}
+        stroke="#2563eb"
+        strokeWidth={strokeWidth}
+        dash={dash}
+        listening={false}
+        perfectDrawEnabled={false}
+      />
+    )
+  }
+
+  if (tool.primitive === 'circle' || tool.primitive === 'ellipse') {
+    return (
+      <Ellipse
+        x={geometry.x + geometry.width / 2}
+        y={geometry.y + geometry.height / 2}
+        radiusX={geometry.width / 2}
+        radiusY={geometry.height / 2}
+        stroke="#2563eb"
+        strokeWidth={strokeWidth}
+        dash={dash}
+        listening={false}
+        perfectDrawEnabled={false}
+      />
+    )
+  }
+
+  return (
+    <Rect
+      x={geometry.x}
+      y={geometry.y}
+      width={geometry.width}
+      height={geometry.height}
+      stroke="#2563eb"
+      strokeWidth={strokeWidth}
+      dash={dash}
+      listening={false}
+      perfectDrawEnabled={false}
+    />
+  )
+}
+
 export function ComponentVisualCanvas({
   visual,
   attributeValues = {},
@@ -147,6 +216,7 @@ export function ComponentVisualCanvas({
   onSelectionChange,
   onChange,
 }: ComponentVisualCanvasProps) {
+  const createTool = useComponentCreateTool()
   const canvasHostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -164,6 +234,8 @@ export function ComponentVisualCanvas({
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const [animationTimeMs, setAnimationTimeMs] = useState(0)
+  const [createStart, setCreateStart] = useState<ComponentDesignPoint | null>(null)
+  const [createCurrent, setCreateCurrent] = useState<ComponentDesignPoint | null>(null)
   const selectedLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
   const selectedVisibleLayerIds = useMemo(
     () => selectedLayerIds.filter((layerId) =>
@@ -203,8 +275,18 @@ export function ComponentVisualCanvas({
   const artboardHeight = visualDesignHeight * artboardScale
   const isComposite = visual.mode === 'composite'
   const isEditable = isComposite && mode === 'editor' && !readOnly
+  const activeCreateTool = isEditable ? createTool : null
   const showDesignGrid = isComposite && mode === 'editor' && gridVisible
-  const canTransformSelection = selectedLayerIds.length === 1
+  const canTransformSelection = selectedLayerIds.length === 1 && !activeCreateTool
+  const createGeometry = activeCreateTool && createStart && createCurrent
+    ? resolveComponentCreateGeometry(
+        activeCreateTool,
+        createStart,
+        createCurrent,
+        visualDesignWidth,
+        visualDesignHeight,
+      )
+    : null
 
   function syncHistoryAvailability() {
     setCanUndo(undoStackRef.current.length > 0)
@@ -296,7 +378,7 @@ export function ComponentVisualCanvas({
       return
     }
 
-    const selectedNodes = isEditable
+    const selectedNodes = isEditable && !activeCreateTool
       ? selectedVisibleLayerIds.flatMap((layerId) => {
           const node = findLayerNode(stage, layerId)
           return node ? [node] : []
@@ -305,7 +387,7 @@ export function ComponentVisualCanvas({
 
     transformer.nodes(selectedNodes)
     transformer.getLayer()?.batchDraw()
-  }, [artboardScale, isEditable, selectedVisibleLayerIds, visual.layers])
+  }, [activeCreateTool, artboardScale, isEditable, selectedVisibleLayerIds, visual.layers])
 
   useEffect(() => {
     if (!isEditable || !snapEnabled) {
@@ -314,8 +396,23 @@ export function ComponentVisualCanvas({
   }, [isEditable, snapEnabled])
 
   useEffect(() => {
+    if (isEditable) return
+    setCreateStart(null)
+    setCreateCurrent(null)
+    clearComponentCreateTool()
+  }, [isEditable])
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (isTextEditingTarget(event.target)) {
+        return
+      }
+
+      if (event.key === 'Escape' && createTool) {
+        event.preventDefault()
+        setCreateStart(null)
+        setCreateCurrent(null)
+        clearComponentCreateTool()
         return
       }
 
@@ -540,7 +637,7 @@ export function ComponentVisualCanvas({
   }
 
   function handlePointerTarget(target: Konva.Node, toggle = false) {
-    if (!isEditable || isInsideTransformer(target, transformerRef.current)) {
+    if (!isEditable || activeCreateTool || isInsideTransformer(target, transformerRef.current)) {
       return
     }
 
@@ -558,6 +655,72 @@ export function ComponentVisualCanvas({
     if (node) {
       commitLayerTransform(node)
     }
+  }
+
+  function pointerDesignPoint() {
+    const stage = stageRef.current
+    const pointer = stage?.getPointerPosition()
+
+    if (!pointer) return null
+
+    const clamp = (value: number, max: number) => Math.min(max, Math.max(0, value))
+    const point = {
+      x: clamp(pointer.x / artboardScale, visualDesignWidth),
+      y: clamp(pointer.y / artboardScale, visualDesignHeight),
+    }
+
+    if (!snapEnabled) return point
+
+    return {
+      x: clamp(Math.round(point.x / gridSize) * gridSize, visualDesignWidth),
+      y: clamp(Math.round(point.y / gridSize) * gridSize, visualDesignHeight),
+    }
+  }
+
+  function beginCreate() {
+    if (!activeCreateTool) return false
+
+    const point = pointerDesignPoint()
+    if (!point) return true
+
+    clearSnapGuides()
+    onSelectionChange(null)
+    setCreateStart(point)
+    setCreateCurrent(point)
+    return true
+  }
+
+  function updateCreate() {
+    if (!activeCreateTool || !createStart) return false
+
+    const point = pointerDesignPoint()
+    if (point) setCreateCurrent(point)
+    return true
+  }
+
+  function finishCreate() {
+    if (!activeCreateTool || !createStart) return false
+
+    const end = pointerDesignPoint() ?? createCurrent ?? createStart
+    const geometry = resolveComponentCreateGeometry(
+      activeCreateTool,
+      createStart,
+      end,
+      visualDesignWidth,
+      visualDesignHeight,
+    )
+    const result = appendCreatedVectorLayer(visual, activeCreateTool, geometry)
+
+    setCreateStart(null)
+    setCreateCurrent(null)
+    clearComponentCreateTool()
+
+    if (result.layerId) {
+      onChange(result.visual)
+      onSelectionChange(result.layerId)
+    }
+
+    return true
   }
 
   return (
@@ -645,7 +808,7 @@ export function ComponentVisualCanvas({
 
       <div ref={canvasHostRef} className={`component-canvas-stage ${mode}`}>
         <div
-          className={`component-artboard${showDesignGrid ? ' component-artboard-grid' : ''}`}
+          className={`component-artboard${showDesignGrid ? ' component-artboard-grid' : ''}${activeCreateTool ? ' component-create-mode' : ''}`}
           style={{
             width: `${artboardWidth}px`,
             height: `${artboardHeight}px`,
@@ -660,11 +823,21 @@ export function ComponentVisualCanvas({
               width={artboardWidth}
               height={artboardHeight}
               listening={isEditable}
-              onMouseDown={(event) => handlePointerTarget(
-                event.target,
-                event.evt.shiftKey || event.evt.ctrlKey || event.evt.metaKey,
-              )}
-              onTouchStart={(event) => handlePointerTarget(event.target)}
+              onMouseDown={(event) => {
+                if (beginCreate()) return
+                handlePointerTarget(
+                  event.target,
+                  event.evt.shiftKey || event.evt.ctrlKey || event.evt.metaKey,
+                )
+              }}
+              onMouseMove={() => updateCreate()}
+              onMouseUp={() => finishCreate()}
+              onTouchStart={(event) => {
+                if (beginCreate()) return
+                handlePointerTarget(event.target)
+              }}
+              onTouchMove={() => updateCreate()}
+              onTouchEnd={() => finishCreate()}
               onDragStart={clearSnapGuides}
               onDragMove={(event) => previewLayerSnap(event.target)}
               onDragEnd={(event) => finishLayerDrag(event.target)}
@@ -680,12 +853,21 @@ export function ComponentVisualCanvas({
                   visible
                   opacity={1}
                   listening={isEditable}
-                  draggableLayerId={isEditable ? primaryLayerId : null}
-                  frontLayerId={isEditable ? primaryLayerId : null}
+                  draggableLayerId={isEditable && !activeCreateTool ? primaryLayerId : null}
+                  frontLayerId={isEditable && !activeCreateTool ? primaryLayerId : null}
                 />
+                {activeCreateTool && createGeometry && (
+                  <Group scaleX={artboardScale} scaleY={artboardScale} listening={false}>
+                    <CreateGeometryPreview
+                      tool={activeCreateTool}
+                      geometry={createGeometry}
+                      artboardScale={artboardScale}
+                    />
+                  </Group>
+                )}
                 <Transformer
                   ref={transformerRef}
-                  visible={isEditable && selectedVisibleLayerIds.length > 0}
+                  visible={isEditable && !activeCreateTool && selectedVisibleLayerIds.length > 0}
                   enabledAnchors={canTransformSelection ? TRANSFORMER_ANCHORS : []}
                   resizeEnabled={canTransformSelection}
                   rotateEnabled={canTransformSelection}
@@ -743,7 +925,13 @@ export function ComponentVisualCanvas({
         <span className="canvas-status-group">
           <span className="status-mode">{mode === 'preview' ? '预览' : '设计'}</span>
           <span className="status-selection">
-            {selectedLayerIds.length > 1 ? (
+            {activeCreateTool ? (
+              <>
+                <strong className="component-create-mode-hint">绘制{activeCreateTool.label}</strong>
+                <code>创建模式</code>
+                <span className="status-hint">拖拽创建 · 单击默认尺寸 · Esc 取消</span>
+              </>
+            ) : selectedLayerIds.length > 1 ? (
               <>
                 <strong>{selectedLayerIds.length} 个图层</strong>
                 <code>多选</code>

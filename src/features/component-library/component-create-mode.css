@@ -1,0 +1,16 @@
+.component-palette-item.create-tool-active {
+  border-color: #2563eb;
+  color: #1d4ed8;
+  background: #dbeafe;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.14);
+}
+
+.component-artboard.component-create-mode,
+.component-artboard.component-create-mode canvas {
+  cursor: crosshair;
+}
+
+.component-create-mode-hint {
+  color: #1d4ed8;
+  font-weight: 700;
+}
