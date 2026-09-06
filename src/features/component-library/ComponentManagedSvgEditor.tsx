@@ -7,11 +7,16 @@ import {
   findManagedSvgElement,
   getManagedSvgElementAttribute,
   isManagedSvgPresentationEditableElement,
+  updateManagedSvgElementAuthorRef,
   updateManagedSvgElementPresentation,
   type ManagedSvgPresentationField,
 } from '../../component-system/managedSvgAuthoring'
 import type { SvgVisualLayer } from '../../component-system/visual'
 import { Input, Pressable } from '../../ui'
+import {
+  setComponentManagedSvgSelection,
+  useComponentManagedSvgSelection,
+} from './component-managed-svg-selection'
 import './component-managed-svg-editor.css'
 
 type ComponentManagedSvgEditorProps = {
@@ -85,7 +90,8 @@ export function ComponentManagedSvgEditor({
   onChange,
 }: ComponentManagedSvgEditorProps) {
   const document = layer.document
-  const [selectedTagId, setSelectedTagId] = useState(document?.root.tagId ?? null)
+  const selection = useComponentManagedSvgSelection()
+  const selectedTagId = selection?.layerId === layer.id ? selection.tagId : null
   const [message, setMessage] = useState('')
   const entries = useMemo(
     () => document ? flattenSvgTree(document.root) : [],
@@ -100,19 +106,54 @@ export function ComponentManagedSvgEditor({
 
   useEffect(() => {
     if (!document) {
-      setSelectedTagId(null)
+      if (selection?.layerId === layer.id) {
+        setComponentManagedSvgSelection(null)
+      }
       return
     }
+
     if (!selectedTagId || !findManagedSvgElement(document, selectedTagId)) {
-      setSelectedTagId(document.root.tagId)
+      setComponentManagedSvgSelection({
+        layerId: layer.id,
+        tagId: document.root.tagId,
+      })
     }
-  }, [document, selectedTagId])
+  }, [document, layer.id, selectedTagId, selection?.layerId])
 
   if (!document) return null
 
   const editable = selectedElement
     ? isManagedSvgPresentationEditableElement(selectedElement)
     : false
+
+  function commitAuthorRef(value: string) {
+    const currentDocument = layer.document
+    if (readOnly || !selectedTagId || !currentDocument) return
+
+    try {
+      const nextDocument = updateManagedSvgElementAuthorRef(
+        currentDocument,
+        selectedTagId,
+        value,
+      )
+      if (nextDocument === currentDocument) {
+        setMessage('引用名称未改变')
+        return
+      }
+
+      onChange({
+        ...layer,
+        document: nextDocument,
+      })
+      setMessage(
+        value.trim()
+          ? `${selectedTagId} · 引用名称已更新`
+          : `${selectedTagId} · 引用名称已移除`,
+      )
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'SVG 引用名称编辑失败')
+    }
+  }
 
   function commitPresentation(field: ManagedSvgPresentationField, value: string) {
     const currentDocument = layer.document
@@ -144,12 +185,17 @@ export function ComponentManagedSvgEditor({
     <div className="component-managed-svg-editor">
       <div className="component-managed-svg-summary">
         <strong>内部 SVG 结构</strong>
-        <span>{entries.length} 个托管标签 · 选择不会改变外层 SVG 图层选择</span>
+        <span>{entries.length} 个托管标签 · 树选择同步 Canvas 高亮</span>
       </div>
 
       <div className="component-managed-svg-tree" role="tree" aria-label="SVG 内部结构">
         {entries.map(({ element, depth }) => {
           const sourceId = getManagedSvgElementAttribute(element, 'id')
+          const details = [
+            element.authorRef ? element.tagId : null,
+            sourceId ? `#${sourceId}` : null,
+          ].filter(Boolean).join(' · ')
+
           return (
             <Pressable
               key={element.tagId}
@@ -158,13 +204,18 @@ export function ComponentManagedSvgEditor({
               role="treeitem"
               aria-selected={selectedTagId === element.tagId}
               onClick={() => {
-                setSelectedTagId(element.tagId)
+                setComponentManagedSvgSelection({
+                  layerId: layer.id,
+                  tagId: element.tagId,
+                })
                 setMessage('')
               }}
             >
               <span className="component-managed-svg-tag">&lt;{element.tagName}&gt;</span>
-              <span className="component-managed-svg-id">{element.tagId}</span>
-              {sourceId && <small>#{sourceId}</small>}
+              <span className="component-managed-svg-id">
+                {element.authorRef ? `@${element.authorRef}` : element.tagId}
+              </span>
+              {details && <small>{details}</small>}
             </Pressable>
           )
         })}
@@ -174,8 +225,28 @@ export function ComponentManagedSvgEditor({
         <div className="component-managed-svg-properties">
           <div className="component-managed-svg-selected">
             <strong>&lt;{selectedElement.tagName}&gt;</strong>
-            <span>{selectedElement.tagId}</span>
+            <span>
+              {selectedElement.authorRef ? `@${selectedElement.authorRef} · ` : ''}
+              {selectedElement.tagId}
+            </span>
           </div>
+
+          <label className="property-field">
+            <span>引用名称</span>
+            <Input
+              key={`authorRef:${selectedElement.authorRef ?? ''}`}
+              defaultValue={selectedElement.authorRef ?? ''}
+              disabled={readOnly}
+              placeholder="例如 rotor / statusLamp"
+              onBlur={(event) => commitAuthorRef(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur()
+              }}
+            />
+          </label>
+          <p className="component-inspector-help component-managed-svg-reference-help">
+            引用名称是组件私有的 authoring alias；真正的结构/runtime identity 仍是 {selectedElement.tagId}。重命名或移除引用不会改写现有 Visual Rule target。
+          </p>
 
           {editable ? (
             <div className="property-grid component-managed-svg-property-grid">
@@ -210,14 +281,14 @@ export function ComponentManagedSvgEditor({
             </div>
           ) : (
             <p className="component-inspector-help">
-              当前节点保留在安全 SVG 结构中，但不属于 P1.2 的 presentation 编辑子集。
+              当前节点保留在安全 SVG 结构中，但不属于当前 presentation 编辑子集。
             </p>
           )}
         </div>
       )}
 
       <p className="component-inspector-help">
-        P1.2 只编辑 fill / stroke / stroke-width / opacity；留空会移除该属性并恢复 SVG 继承。不会开放任意 XML 属性或 Path 点编辑。
+        这里只开放 authoring reference 与 fill / stroke / stroke-width / opacity；留空 presentation 值会恢复 SVG 继承。不会开放任意 XML 属性、DOM selector 或 Path 点编辑。
       </p>
       {message && (
         <span className="component-managed-svg-message" role="status" aria-live="polite">
