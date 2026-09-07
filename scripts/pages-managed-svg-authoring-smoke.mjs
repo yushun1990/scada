@@ -159,10 +159,30 @@ async function localDatabaseNames(page) {
   })
 }
 
+async function clearAuthorLayerSelectionFromCanvas() {
+  const stage = authorPage.locator('.component-artboard .konvajs-content').first()
+  const box = await stage.boundingBox()
+  assert.ok(box, 'component stage must be measurable for blank-canvas selection clearing')
+  await authorPage.mouse.click(box.x + box.width * 0.95, box.y + box.height * 0.95)
+  assert.equal(
+    await authorPage.locator('.component-layer-row.active').count(),
+    0,
+    'blank canvas click clears Navigator layer selection',
+  )
+  await authorPage.locator('.component-canvas-status .status-selection')
+    .getByText('未选择图层', { exact: true })
+    .waitFor()
+}
+
 try {
   console.log(`Authoring UX1.6 dogfood component from Palette through standalone: ${baseUrl}#/components/new`)
   await authorPage.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await authorPage.getByText('Component Editor', { exact: true }).waitFor()
+  assert.equal(
+    await authorPage.locator('.component-layer-root').count(),
+    0,
+    'Navigator dogfood surface contains only real visual layers',
+  )
 
   // UX1.6 discoverability proof: Palette creates, Canvas places, Navigator locates,
   // Inspector configures. None of these steps require knowing VisualLayerKind or assetRef.
@@ -174,8 +194,12 @@ try {
   await createdPrimitiveRow.waitFor()
   assert.equal(await createdPrimitiveRow.getAttribute('class').then((value) => value?.includes('active')), true)
 
-  await authorPage.locator('.component-layer-root').click()
-  await authorPage.locator('.component-layer-root.active').waitFor()
+  await clearAuthorLayerSelectionFromCanvas()
+  assert.equal(
+    await createdPrimitiveRow.getAttribute('class').then((value) => value?.includes('active')),
+    false,
+    'blank Canvas interaction leaves the created primitive unselected in Navigator',
+  )
   await createdPrimitiveRow.click()
   await authorPage.locator('.component-layer-row.active', { hasText: '矩形 1' }).waitFor()
 
@@ -522,7 +546,7 @@ try {
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'UX1.6 dogfood acceptance passed: a new user starts from the Palette, places a primitive on Canvas, relocates it through Navigator, configures it in Inspector, imports and customizes managed SVG plus PNG, previews, saves/reopens, exports/imports the component package in a fresh browser, places it in SCADA Workbench, exports exact work-package dependency closure, and renders the exact artifact in a fresh standalone runtime without learning VisualLayerKind, assetRef or renderer internals.',
+    'UX1.6 dogfood acceptance passed: a new user starts from the Palette, places a primitive on Canvas, clears selection through blank Canvas space without a pseudo-root, relocates it through Navigator, configures it in Inspector, imports and customizes managed SVG plus PNG, previews, saves/reopens, exports/imports the component package in a fresh browser, places it in SCADA Workbench, exports exact work-package dependency closure, and renders the exact artifact in a fresh standalone runtime without learning VisualLayerKind, assetRef or renderer internals.',
   )
 } finally {
   await authorContext.close()
