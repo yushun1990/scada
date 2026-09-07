@@ -54,8 +54,8 @@ try {
   console.log(`Preparing export browser component: ${baseUrl}#/components/new`)
   await exportPage.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await exportPage.getByText('Component Editor', { exact: true }).waitFor()
-  await exportPage.getByRole('button', { name: '组', exact: true }).click()
-  await exportPage.locator('.component-layer-row', { hasText: '组 1' }).waitFor()
+  await exportPage.getByRole('button', { name: 'Path', exact: true }).click()
+  await exportPage.locator('.component-layer-row', { hasText: 'Path 1' }).waitFor()
   await exportPage.getByRole('button', { name: '保存' }).click()
   await exportPage.waitForFunction(() => window.location.hash !== '#/components/new')
 
