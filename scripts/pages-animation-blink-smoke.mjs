@@ -32,6 +32,15 @@ async function sampleCanvasFrames(count, intervalMs) {
   }
   return frames
 }
+async function clearLayerSelection() {
+  const stage = page.locator('.component-artboard .konvajs-content').first()
+  const box = await stage.boundingBox()
+  assert.ok(box, 'component stage must be measurable for blank-canvas selection clearing')
+  await page.mouse.click(box.x + box.width * 0.95, box.y + box.height * 0.95)
+  await page.locator('.component-canvas-status .status-selection')
+    .getByText('未选择图层', { exact: true })
+    .waitFor()
+}
 
 async function seedBlinkAnimationFixture() {
   const { document: entry } = await readPersistedComponent(page)
@@ -67,7 +76,6 @@ try {
   console.log(`Opening deployed Component Editor blink animation smoke: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
-  const root = page.locator('.component-layer-root')
   await page.getByRole('button', { name: 'Path', exact: true }).click()
   await layerRow('Path 1').waitFor()
   await page.getByRole('button', { name: '保存' }).click()
@@ -93,7 +101,7 @@ try {
   assert.equal(authored.blink?.timing?.iterations, 'infinite'); assert.equal(authored.blink?.timing?.direction, 'normal'); assert.equal(authored.blink?.timing?.easing, 'linear')
   assert.equal(authored.blink?.activation?.kind, 'property'); assert.equal(authored.blink?.activation?.propertyKey, 'alarm'); assert.equal(authored.blink?.activation?.compareValue, true)
 
-  await page.reload({ waitUntil: 'networkidle' }); await page.getByText('Component Editor', { exact: true }).waitFor(); await root.click()
+  await page.reload({ waitUntil: 'networkidle' }); await page.getByText('Component Editor', { exact: true }).waitFor(); await clearLayerSelection()
   const designFrames = await sampleCanvasFrames(3, 180)
   assert.equal(new Set(designFrames).size, 1, 'design mode must remain static with authored blink')
   await page.getByRole('button', { name: '预览' }).click(); await page.waitForTimeout(100)

@@ -1038,9 +1038,9 @@ export function ComponentVisualCanvas({
               </>
             ) : (
               <>
-                <strong>组件根</strong>
+                <strong>未选择图层</strong>
                 <code>{visual.mode === 'native' ? 'Native Visual' : 'Composite Visual'}</code>
-                <span className="status-hint">未选择内部图层</span>
+                <span className="status-hint">点击 Navigator 图层或画布元素进行选择</span>
               </>
             )}
           </span>

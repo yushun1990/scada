@@ -72,7 +72,6 @@ try {
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
-  const root = page.locator('.component-layer-root')
   const addPath = page.getByRole('button', { name: 'Path', exact: true })
 
   async function addPathFixtureLayer() {
@@ -98,6 +97,11 @@ try {
     return createdName
   }
 
+  assert.equal(
+    await page.locator('.component-layer-root').count(),
+    0,
+    'Navigator must not render a synthetic component-root row',
+  )
   assert.equal(
     await page.getByRole('button', { name: '组', exact: true }).count(),
     0,
@@ -149,12 +153,24 @@ try {
     x: box.x + x * scaleX,
     y: box.y + y * scaleY,
   })
+  const clearLayerSelection = async () => {
+    const blankPoint = canvasPoint(440, 320)
+    await page.mouse.click(blankPoint.x, blankPoint.y)
+    assert.equal(
+      await page.locator('.component-layer-row.active').count(),
+      0,
+      'blank canvas click must clear Navigator layer selection',
+    )
+    await page.locator('.component-canvas-status .status-selection')
+      .getByText('未选择图层', { exact: true })
+      .waitFor()
+  }
   const overlayCenter = canvasPoint(48 + 64, 48 + 64)
 
-  // This is the user-reported path: start from the component root / no internal
-  // selection, then click the empty layer directly on canvas. The empty layer
-  // must be discoverable by its geometry even though it draws no pixels.
-  await root.click()
+  // This is the user-reported path: start with no internal layer selection,
+  // then click the empty layer directly on canvas. The empty layer must be
+  // discoverable by its geometry even though it draws no pixels.
+  await clearLayerSelection()
   assert.equal(
     await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
     false,
@@ -174,9 +190,9 @@ try {
     'bottom Group must not steal the first canvas click through the empty overlay Group',
   )
   assert.equal(
-    await page.locator('.component-canvas-status .status-selection').getByText('组件根', { exact: true }).count(),
+    await page.locator('.component-canvas-status .status-selection').getByText('未选择图层', { exact: true }).count(),
     0,
-    'first canvas click on the empty Group must not fall back to component root',
+    'first canvas click on the empty Group must leave the no-layer selection state',
   )
 
   // A second click while selected must still stay on the empty Group.
@@ -218,7 +234,7 @@ try {
   const group2Center = canvasPoint(overlayAfter.x + 64, overlayAfter.y + 64)
   const group3Before = await readGeometry('Group 3')
   const group3Center = canvasPoint(group3Before.x + 48, group3Before.y + 48)
-  await root.click()
+  await clearLayerSelection()
   await page.mouse.click(group2Center.x, group2Center.y)
   await page.keyboard.down('Control')
   await page.mouse.click(group3Center.x, group3Center.y)
@@ -277,7 +293,7 @@ try {
   assertClose(Number(await geometryInputs.nth(1).inputValue()), 192, 'dragend snaps Group 3 y once', 0.25)
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log(`Pages pointer smoke passed in ${browserName}: explicit Group authoring, empty-layer hit, canvas modifier selection and release-only snap are stable.`)
+  console.log(`Pages pointer smoke passed in ${browserName}: visual-forest Navigator, explicit Group authoring, blank-canvas selection clearing, empty-layer hit, canvas modifier selection and release-only snap are stable.`)
 } finally {
   await browser.close()
 }

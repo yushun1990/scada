@@ -228,6 +228,21 @@ async function readSceneCanvasDataUrl() {
   return canvas.evaluate((element) => element.toDataURL())
 }
 
+async function clearLayerSelection() {
+  const stage = page.locator('.component-artboard .konvajs-content').first()
+  const box = await stage.boundingBox()
+  assert.ok(box, 'component stage must be measurable for blank-canvas selection clearing')
+  await page.mouse.click(box.x + box.width * 0.95, box.y + box.height * 0.95)
+  assert.equal(
+    await page.locator('.component-layer-row.active').count(),
+    0,
+    'blank canvas click must clear Navigator layer selection',
+  )
+  await page.locator('.component-canvas-status .status-selection')
+    .getByText('未选择图层', { exact: true })
+    .waitFor()
+}
+
 async function saveAndWait() {
   await page.getByRole('button', { name: '保存' }).click()
   await page.getByText('组件已保存', { exact: true }).waitFor()
@@ -250,6 +265,14 @@ try {
 
   const canvasToolbar = page.locator('.component-canvas-toolbar')
   assert.equal(await canvasToolbar.count(), 1, 'formal component canvas toolbar must exist')
+  assert.equal(
+    await page.locator('.component-layer-root').count(),
+    0,
+    'Navigator must not render a synthetic component-root row',
+  )
+  await page.locator('.component-canvas-status .status-selection')
+    .getByText('未选择图层', { exact: true })
+    .waitFor()
 
   const snapButton = page.getByRole('button', { name: '吸附' })
   assert.equal(await snapButton.isEnabled(), true, 'snap must be available in design mode')
@@ -259,7 +282,6 @@ try {
   await snapButton.click()
   assert.equal(await snapButton.getAttribute('aria-pressed'), 'true', 'snap toggle turns back on')
 
-  const root = page.locator('.component-layer-root')
   assert.equal(
     await page.getByRole('button', { name: '组', exact: true }).count(),
     0,
@@ -386,7 +408,7 @@ try {
 
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
-  await root.click()
+  await clearLayerSelection()
 
   const staticFrameA = await readSceneCanvasDataUrl()
   await page.waitForTimeout(250)
@@ -413,7 +435,7 @@ try {
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages smoke passed: top-level component authoring and explicit grouping remain stable; spin is authored, persisted, property-gated and previewed without geometry mutation.')
+  console.log('Pages smoke passed: Navigator is a real visual-layer forest; top-level component authoring, explicit grouping and blank-canvas selection clearing remain stable; spin is authored, persisted, property-gated and previewed without geometry mutation.')
   console.log(`Persisted test component URL: ${savedUrl}`)
 } finally {
   await browser.close()
