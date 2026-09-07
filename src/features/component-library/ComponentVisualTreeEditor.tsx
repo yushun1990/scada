@@ -315,20 +315,6 @@ export function ComponentVisualTreeEditor({
     ))
   }
 
-  function addGroup() {
-    clearComponentCreateTool()
-    const id = nextLayerId('group', visual.layers)
-    const created = createLayer('group', id, null)
-    if (created.kind !== 'group') return
-
-    appendLayer(centerLayer(
-      visual,
-      { ...created, name: `组 ${id.replace(/\D+/g, '') || ''}`.trim() },
-      120,
-      80,
-    ))
-  }
-
   function selectNavigatorLayer(layerId: string | null, toggle = false) {
     clearComponentCreateTool()
     onSelectionChange(layerId, toggle)
@@ -376,15 +362,6 @@ export function ComponentVisualTreeEditor({
                   <span className="component-palette-item-symbol" aria-hidden="true">T</span>
                   <span className="component-palette-item-label">文本</span>
                 </Button>
-                <Button
-                  size="small"
-                  className="component-palette-item"
-                  disabled={readOnly}
-                  onClick={addGroup}
-                >
-                  <span className="component-palette-item-symbol" aria-hidden="true">▣</span>
-                  <span className="component-palette-item-label">组</span>
-                </Button>
               </div>
             </div>
 
@@ -400,7 +377,7 @@ export function ComponentVisualTreeEditor({
             </div>
 
             <p className="component-palette-help">
-              矩形、圆形、椭圆和线段会进入画布绘制模式：拖拽创建，单击按默认尺寸创建，Esc 取消。Path、文本和组暂按默认尺寸创建；资源导入始终创建新图层。
+              矩形、圆形、椭圆和线段会进入画布绘制模式：拖拽创建，单击按默认尺寸创建，Esc 取消。Path、文本按默认尺寸创建；需要组合时先多选同父级图层，再使用画布工具栏“组合”。资源导入始终创建顶层新图层。
             </p>
           </>
         ) : (
@@ -425,7 +402,7 @@ export function ComponentVisualTreeEditor({
           <span className="component-layer-root-icon">◆</span>
           <span>
             <strong>{componentTitle}</strong>
-            <small>组件根 · Public Contract</small>
+            <small>组件根 · 顶层 / Public Contract</small>
           </span>
         </Pressable>
 
@@ -461,7 +438,7 @@ export function ComponentVisualTreeEditor({
 
       {visual.mode === 'composite' && (
         <p className="component-layer-navigator-help">
-          图层区只用于定位和选择当前结构；创建入口已迁移到“添加”，画布负责主要直接操作。
+          顶层图层直接挂在组件根下；Group 只表示显式组合，不是必需根容器。图层区只用于定位和选择当前结构，画布负责主要直接操作。
         </p>
       )}
     </div>
@@ -647,7 +624,7 @@ function LayerInspectorContent({
             disabled={readOnly}
             ariaLabel={`${layer.name} 父级`}
             options={[
-              { value: '', label: 'Visual Root' },
+              { value: '', label: '组件根（顶层）' },
               ...parentOptions.map((group) => ({ value: group.id, label: group.name })),
             ]}
             onValueChange={(value) => updateLayer({
