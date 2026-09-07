@@ -50,9 +50,9 @@ function assertClose(actual, expected, message) {
 }
 
 async function resetGeometry() {
-  await setGeometry('组 1', 8, 8)
-  await setGeometry('组 2', 32, 20)
-  await setGeometry('组 3', 80, 56)
+  await setGeometry('Path 1', 8, 8)
+  await setGeometry('Path 2', 32, 20)
+  await setGeometry('Path 3', 80, 56)
 }
 
 async function assertAxis(names, axis, expected, commandName) {
@@ -233,7 +233,7 @@ async function saveAndWait() {
   await page.getByText('组件已保存', { exact: true }).waitFor()
 }
 
-const layerNames = ['组 1', '组 2', '组 3']
+const layerNames = ['Path 1', 'Path 2', 'Path 3']
 const alignCases = [
   ['左对齐', 'x', 8],
   ['水平居中', 'x', 44],
@@ -260,23 +260,28 @@ try {
   assert.equal(await snapButton.getAttribute('aria-pressed'), 'true', 'snap toggle turns back on')
 
   const root = page.locator('.component-layer-root')
-  const addGroup = page.getByRole('button', { name: '组', exact: true })
+  assert.equal(
+    await page.getByRole('button', { name: '组', exact: true }).count(),
+    0,
+    'Palette must not expose standalone Group creation',
+  )
+  const addPath = page.getByRole('button', { name: 'Path', exact: true })
   for (let index = 1; index <= 3; index += 1) {
-    await addGroup.click()
-    await layerRow(`组 ${index}`).waitFor()
+    await addPath.click()
+    await layerRow(`Path ${index}`).waitFor()
   }
-  assert.equal(await page.locator('.component-layer-row').count(), 3, 'three sibling layers created from Palette')
+  assert.equal(await page.locator('.component-layer-row').count(), 3, 'three top-level sibling layers created from Palette')
 
   await resetGeometry()
 
-  await selectLayers(['组 1', '组 2'])
-  assert.equal(await page.locator('.component-layer-row.active').count(), 2, 'tree multi-selection selects two layers')
+  await selectLayers(['Path 1', 'Path 2'])
+  assert.equal(await page.locator('.component-layer-row.active').count(), 2, 'Navigator multi-selection selects two layers')
   assert.equal(await page.getByRole('button', { name: '左对齐' }).isEnabled(), true, 'align enabled for 2 layers')
   assert.equal(await page.getByRole('button', { name: '水平等距分布' }).isDisabled(), true, 'distribute disabled for 2 layers')
   assert.equal(await page.getByRole('button', { name: '组合选中图层' }).isEnabled(), true, 'group enabled for sibling layers')
 
   await selectLayers(layerNames)
-  assert.equal(await page.locator('.component-layer-row.active').count(), 3, 'tree multi-selection selects three layers')
+  assert.equal(await page.locator('.component-layer-row.active').count(), 3, 'Navigator multi-selection selects three layers')
   assert.equal(await page.getByRole('button', { name: '水平等距分布' }).isEnabled(), true, 'horizontal distribute enabled for 3 layers')
   assert.equal(await page.getByRole('button', { name: '垂直等距分布' }).isEnabled(), true, 'vertical distribute enabled for 3 layers')
 
@@ -292,13 +297,13 @@ try {
   await resetGeometry()
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '水平等距分布' }).click()
-  let middle = await readGeometry('组 2')
+  let middle = await readGeometry('Path 2')
   assertClose(middle.x, 44, 'horizontal distribution middle x')
 
   await resetGeometry()
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '垂直等距分布' }).click()
-  middle = await readGeometry('组 2')
+  middle = await readGeometry('Path 2')
   assertClose(middle.y, 32, 'vertical distribution middle y')
 
   await resetGeometry()
@@ -309,7 +314,7 @@ try {
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '组合选中图层' }).click()
   assert.equal(await page.locator('.component-layer-row').count(), 4, 'group wrapper added')
-  assert.equal(await layerRow('Group 4').count(), 1, 'deterministic group wrapper created')
+  assert.equal(await layerRow('Group 1').count(), 1, 'deterministic explicit group wrapper created')
   assert.equal(await page.getByRole('button', { name: '拆分组合' }).isEnabled(), true, 'new group becomes selection')
 
   await page.getByRole('button', { name: '保存' }).click()
@@ -320,9 +325,9 @@ try {
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
   assert.equal(await page.locator('.component-layer-row').count(), 4, 'group hierarchy survives reload')
-  assert.equal(await layerRow('Group 4').count(), 1, 'saved group survives reload')
+  assert.equal(await layerRow('Group 1').count(), 1, 'saved explicit group survives reload')
 
-  await layerRow('Group 4').click()
+  await layerRow('Group 1').click()
   await page.getByRole('button', { name: '拆分组合' }).click()
   assert.equal(await page.locator('.component-layer-row').count(), 3, 'ungroup removes wrapper')
 
@@ -335,14 +340,14 @@ try {
     assertClose(actual.height, expected.height, `ungroup preserves ${name} height`)
   }
 
-  await selectLayers(['组 1', '组 2'])
+  await selectLayers(['Path 1', 'Path 2'])
   await page.getByRole('button', { name: '预览' }).click()
   assert.equal(await page.getByRole('button', { name: '左对齐' }).isDisabled(), true, 'preview disables align')
   assert.equal(await page.getByRole('button', { name: '组合选中图层' }).isDisabled(), true, 'preview disables group')
   assert.equal(await page.getByRole('button', { name: '吸附' }).isDisabled(), true, 'preview disables snap')
 
-  await layerRow('组 3').click({ modifiers: ['Control'] })
-  assert.equal(await page.locator('.component-layer-row.active').count(), 3, 'preview keeps Layer Tree selection navigation')
+  await layerRow('Path 3').click({ modifiers: ['Control'] })
+  assert.equal(await page.locator('.component-layer-row.active').count(), 3, 'preview keeps Navigator selection navigation')
 
   await page.getByRole('button', { name: '设计' }).click()
   await saveAndWait()
@@ -408,7 +413,7 @@ try {
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages smoke passed: component authoring regression remains stable; spin is authored, persisted, property-gated and previewed without geometry mutation.')
+  console.log('Pages smoke passed: top-level component authoring and explicit grouping remain stable; spin is authored, persisted, property-gated and previewed without geometry mutation.')
   console.log(`Persisted test component URL: ${savedUrl}`)
 } finally {
   await browser.close()
