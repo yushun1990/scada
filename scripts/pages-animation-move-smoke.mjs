@@ -31,6 +31,16 @@ async function readSceneCanvasDataUrl() {
   return canvas.evaluate((element) => element.toDataURL())
 }
 
+async function clearLayerSelection() {
+  const stage = page.locator('.component-artboard .konvajs-content').first()
+  const box = await stage.boundingBox()
+  assert.ok(box, 'component stage must be measurable for blank-canvas selection clearing')
+  await page.mouse.click(box.x + box.width * 0.95, box.y + box.height * 0.95)
+  await page.locator('.component-canvas-status .status-selection')
+    .getByText('未选择图层', { exact: true })
+    .waitFor()
+}
+
 async function seedMoveAnimationFixture() {
   const { document: entry } = await readPersistedComponent(page)
 
@@ -100,7 +110,6 @@ try {
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
-  const root = page.locator('.component-layer-root')
   await page.getByRole('button', { name: 'Path', exact: true }).click()
   await layerRow('Path 1').waitFor()
 
@@ -153,7 +162,7 @@ try {
 
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
-  await root.click()
+  await clearLayerSelection()
 
   const designFrameA = await readSceneCanvasDataUrl()
   await page.waitForTimeout(250)
