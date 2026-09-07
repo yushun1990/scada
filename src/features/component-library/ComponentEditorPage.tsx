@@ -587,7 +587,6 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
           <ComponentVisualTreeEditor
             visual={component.visual}
             readOnly={editingDisabled}
-            componentTitle={definition.title}
             selectedLayerIds={selectedLayerIds}
             primaryLayerId={primaryLayerId}
             onSelectionChange={selectLayer}
