@@ -35,7 +35,6 @@ export type ComponentLayerSelectionChange = (
 type ComponentVisualTreeEditorProps = {
   visual: ComponentVisualDefinition
   readOnly: boolean
-  componentTitle: string
   selectedLayerIds: readonly string[]
   primaryLayerId: string | null
   onSelectionChange: ComponentLayerSelectionChange
@@ -244,7 +243,6 @@ function LayerIdInput({
 export function ComponentVisualTreeEditor({
   visual,
   readOnly,
-  componentTitle,
   selectedLayerIds,
   primaryLayerId,
   onSelectionChange,
@@ -395,17 +393,6 @@ export function ComponentVisualTreeEditor({
       </div>
 
       <div className="component-layer-tree">
-        <Pressable
-          className={`component-layer-root${selectedLayerIds.length === 0 ? ' active' : ''}`}
-          onClick={() => selectNavigatorLayer(null)}
-        >
-          <span className="component-layer-root-icon">◆</span>
-          <span>
-            <strong>{componentTitle}</strong>
-            <small>组件根 · 顶层 / Public Contract</small>
-          </span>
-        </Pressable>
-
         {visual.mode === 'composite' && flattened.map(({ layer, depth }) => (
           <Pressable
             key={layer.id}
@@ -438,7 +425,7 @@ export function ComponentVisualTreeEditor({
 
       {visual.mode === 'composite' && (
         <p className="component-layer-navigator-help">
-          顶层图层直接挂在组件根下；Group 只表示显式组合，不是必需根容器。图层区只用于定位和选择当前结构，画布负责主要直接操作。
+          Navigator 只展示真实图层；parentId 为空的图层就是顶层。Group 只表示显式组合，不是必需根容器。点击画布空白处可清除图层选择并返回组件级配置。
         </p>
       )}
     </div>
@@ -490,7 +477,7 @@ export function ComponentVisualCanvas({
             ) : selectedLayer ? (
               <small>当前图层：{selectedLayer.name} · {layerKindLabel(selectedLayer.kind)}</small>
             ) : (
-              <small>当前选择：组件根。左侧选择内部图层后可在右侧编辑它。</small>
+              <small>当前未选择图层。左侧选择图层后可在右侧编辑它。</small>
             )}
           </div>
         </div>
@@ -624,7 +611,7 @@ function LayerInspectorContent({
             disabled={readOnly}
             ariaLabel={`${layer.name} 父级`}
             options={[
-              { value: '', label: '组件根（顶层）' },
+              { value: '', label: '顶层' },
               ...parentOptions.map((group) => ({ value: group.id, label: group.name })),
             ]}
             onValueChange={(value) => updateLayer({
