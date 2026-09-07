@@ -35,43 +35,48 @@ try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
-  const addGroup = page.getByRole('button', { name: '组', exact: true })
+  assert.equal(
+    await page.getByRole('button', { name: '组', exact: true }).count(),
+    0,
+    'Palette must not expose standalone Group creation',
+  )
+  const addPath = page.getByRole('button', { name: 'Path', exact: true })
   for (let index = 1; index <= 3; index += 1) {
-    await addGroup.click()
-    await layerRow(`组 ${index}`).waitFor()
+    await addPath.click()
+    await layerRow(`Path ${index}`).waitFor()
   }
 
-  await assertOrder(['组 1', '组 2', '组 3'], 'Palette append order is the initial sibling z-order')
+  await assertOrder(['Path 1', 'Path 2', 'Path 3'], 'Palette append order is the initial top-level sibling z-order')
 
-  await layerRow('组 1').click()
+  await layerRow('Path 1').click()
   assert.equal(await page.getByRole('button', { name: '置于顶层' }).isEnabled(), true)
   assert.equal(await page.getByRole('button', { name: '上移一层' }).isEnabled(), true)
   assert.equal(await page.getByRole('button', { name: '下移一层' }).isDisabled(), true)
   assert.equal(await page.getByRole('button', { name: '置于底层' }).isDisabled(), true)
 
   await page.getByRole('button', { name: '置于顶层' }).click()
-  await assertOrder(['组 2', '组 3', '组 1'], 'bring-to-front moves the selection to the final sibling slot')
+  await assertOrder(['Path 2', 'Path 3', 'Path 1'], 'bring-to-front moves the selection to the final sibling slot')
 
   await page.getByRole('button', { name: '下移一层' }).click()
-  await assertOrder(['组 2', '组 1', '组 3'], 'send-backward moves the selection one sibling step')
+  await assertOrder(['Path 2', 'Path 1', 'Path 3'], 'send-backward moves the selection one sibling step')
 
   await page.getByRole('button', { name: '置于底层' }).click()
-  await assertOrder(['组 1', '组 2', '组 3'], 'send-to-back moves the selection to the first sibling slot')
+  await assertOrder(['Path 1', 'Path 2', 'Path 3'], 'send-to-back moves the selection to the first sibling slot')
 
   await page.getByRole('button', { name: '上移一层' }).click()
-  await assertOrder(['组 2', '组 1', '组 3'], 'bring-forward moves the selection one sibling step')
+  await assertOrder(['Path 2', 'Path 1', 'Path 3'], 'bring-forward moves the selection one sibling step')
 
-  await selectLayers(['组 2', '组 1'])
+  await selectLayers(['Path 2', 'Path 1'])
   assert.equal(await page.locator('.component-layer-row.active').count(), 2)
   await page.getByRole('button', { name: '置于顶层' }).click()
   await assertOrder(
-    ['组 3', '组 2', '组 1'],
+    ['Path 3', 'Path 2', 'Path 1'],
     'multi-selection moves as a block while preserving selected sibling order',
   )
 
   await page.getByRole('button', { name: '置于底层' }).click()
   await assertOrder(
-    ['组 2', '组 1', '组 3'],
+    ['Path 2', 'Path 1', 'Path 3'],
     'multi-selection send-to-back preserves selected sibling order',
   )
 
@@ -81,9 +86,9 @@ try {
 
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
-  await assertOrder(['组 2', '组 1', '组 3'], 'saved sibling z-order survives reload')
+  await assertOrder(['Path 2', 'Path 1', 'Path 3'], 'saved sibling z-order survives reload')
 
-  await layerRow('组 1').click()
+  await layerRow('Path 1').click()
   await page.getByRole('button', { name: '预览', exact: true }).click()
   for (const commandName of ['置于顶层', '上移一层', '下移一层', '置于底层']) {
     assert.equal(
@@ -94,7 +99,7 @@ try {
   }
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages component arrange smoke passed: sibling order is manipulated from the Canvas toolbar, multi-selection preserves relative order, persistence survives reload, and preview remains read-only.')
+  console.log('Pages component arrange smoke passed: top-level sibling order is manipulated from the Canvas toolbar, multi-selection preserves relative order, persistence survives reload, and preview remains read-only.')
   console.log(`Persisted arrange test component URL: ${savedUrl}`)
 } finally {
   await context.close()
