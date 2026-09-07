@@ -75,6 +75,29 @@ try {
   const root = page.locator('.component-layer-root')
   const addPath = page.getByRole('button', { name: 'Path', exact: true })
 
+  async function addPathFixtureLayer() {
+    const beforeNames = new Set(
+      (await page.locator('.component-layer-name').allTextContents())
+        .map((name) => name.trim()),
+    )
+
+    await addPath.click()
+    await page.waitForFunction((existingNames) => {
+      const before = new Set(existingNames)
+      return [...document.querySelectorAll('.component-layer-name')].some((node) => {
+        const name = node.textContent?.trim() ?? ''
+        return name.startsWith('Path ') && !before.has(name)
+      })
+    }, [...beforeNames])
+
+    const createdName = (await page.locator('.component-layer-name').allTextContents())
+      .map((name) => name.trim())
+      .find((name) => name.startsWith('Path ') && !beforeNames.has(name))
+
+    assert.ok(createdName, 'Path creation must expose a new Navigator layer name')
+    return createdName
+  }
+
   assert.equal(
     await page.getByRole('button', { name: '组', exact: true }).count(),
     0,
@@ -83,42 +106,38 @@ try {
 
   // Groups are now explicit hierarchy results rather than Palette primitives.
   // Build the visible bottom Group from two top-level Paths through the real
-  // Canvas group command.
-  await addPath.click()
-  await layerRow('Path 1').waitFor()
-  await setGeometry('Path 1', 48, 48, 128, 128)
-  await addPath.click()
-  await layerRow('Path 2').waitFor()
-  await setGeometry('Path 2', 48, 48, 128, 128)
-  await groupLayers(['Path 1', 'Path 2'], 'Group 1')
+  // Canvas group command. Path names are captured from the Navigator because
+  // vector ids deliberately reuse the first free slot after child deletion.
+  const bottomPathA = await addPathFixtureLayer()
+  await setGeometry(bottomPathA, 48, 48, 128, 128)
+  const bottomPathB = await addPathFixtureLayer()
+  await setGeometry(bottomPathB, 48, 48, 128, 128)
+  await groupLayers([bottomPathA, bottomPathB], 'Group 1')
   await setGeometry('Group 1', 48, 48, 128, 128)
 
   // Empty sibling Group placed exactly over the visible bottom Group. Empty
   // Groups remain a valid persisted/legacy structure, but the fixture reaches
   // that state by explicitly grouping and then deleting the children.
-  await addPath.click()
-  await layerRow('Path 3').waitFor()
-  await setGeometry('Path 3', 48, 48, 128, 128)
-  await addPath.click()
-  await layerRow('Path 4').waitFor()
-  await setGeometry('Path 4', 48, 48, 128, 128)
-  await groupLayers(['Path 3', 'Path 4'], 'Group 2')
+  const overlayPathA = await addPathFixtureLayer()
+  await setGeometry(overlayPathA, 48, 48, 128, 128)
+  const overlayPathB = await addPathFixtureLayer()
+  await setGeometry(overlayPathB, 48, 48, 128, 128)
+  await groupLayers([overlayPathA, overlayPathB], 'Group 2')
   await setGeometry('Group 2', 48, 48, 128, 128)
-  await deleteLayer('Path 3')
-  await deleteLayer('Path 4')
+  await deleteLayer(overlayPathA)
+  await deleteLayer(overlayPathB)
 
   // A separate empty Group gives the modifier-click and snap lifecycle tests a
   // non-overlapping target while still exercising empty-layer canvas hit areas.
-  await addPath.click()
-  await layerRow('Path 5').waitFor()
-  await setGeometry('Path 5', 240, 48, 96, 96)
-  await addPath.click()
-  await layerRow('Path 6').waitFor()
-  await setGeometry('Path 6', 240, 48, 96, 96)
-  await groupLayers(['Path 5', 'Path 6'], 'Group 3')
+  // The just-deleted vector ids may be allocated again, so never assume Path 5/6.
+  const modifierPathA = await addPathFixtureLayer()
+  await setGeometry(modifierPathA, 240, 48, 96, 96)
+  const modifierPathB = await addPathFixtureLayer()
+  await setGeometry(modifierPathB, 240, 48, 96, 96)
+  await groupLayers([modifierPathA, modifierPathB], 'Group 3')
   await setGeometry('Group 3', 240, 48, 96, 96)
-  await deleteLayer('Path 5')
-  await deleteLayer('Path 6')
+  await deleteLayer(modifierPathA)
+  await deleteLayer(modifierPathB)
 
   const stage = page.locator('.component-artboard .konvajs-content').first()
   const box = await stage.boundingBox()
