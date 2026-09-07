@@ -24,6 +24,15 @@ async function readSceneCanvasDataUrl() {
   await canvas.waitFor()
   return canvas.evaluate((element) => element.toDataURL())
 }
+async function clearLayerSelection() {
+  const stage = page.locator('.component-artboard .konvajs-content').first()
+  const box = await stage.boundingBox()
+  assert.ok(box, 'component stage must be measurable for blank-canvas selection clearing')
+  await page.mouse.click(box.x + box.width * 0.95, box.y + box.height * 0.95)
+  await page.locator('.component-canvas-status .status-selection')
+    .getByText('未选择图层', { exact: true })
+    .waitFor()
+}
 
 async function seedScaleAnimationFixture() {
   const { document: entry } = await readPersistedComponent(page)
@@ -58,7 +67,6 @@ try {
   console.log(`Opening deployed Component Editor scale animation smoke: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
-  const root = page.locator('.component-layer-root')
   await page.getByRole('button', { name: 'Path', exact: true }).click()
   await layerRow('Path 1').waitFor()
   await page.getByRole('button', { name: '保存' }).click()
@@ -93,7 +101,7 @@ try {
   assert.equal(authored.scale?.activation?.propertyKey, 'running'); assert.equal(authored.scale?.activation?.compareValue, true)
 
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor(); await root.click()
+  await page.getByText('Component Editor', { exact: true }).waitFor(); await clearLayerSelection()
   const designFrameA = await readSceneCanvasDataUrl(); await page.waitForTimeout(250); const designFrameB = await readSceneCanvasDataUrl()
   assert.equal(designFrameA, designFrameB, 'design mode must remain static with authored scale')
   await page.getByRole('button', { name: '预览' }).click(); await page.waitForTimeout(120)
