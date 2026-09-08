@@ -19,6 +19,13 @@
   overflow-y: hidden;
 }
 
+/* The shared toolbar now draws separators in the flexible spacer slots. Cancel
+ * the older group-owned ::after divider so the first command family does not
+ * show a duplicate vertical rule at its edge. */
+.component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .canvas-tool-group::after {
+  content: none;
+}
+
 .component-editor-shell .component-canvas-toolbar.component-canvas-toolbar > .component-hierarchy-tool-group {
   flex: 0 0 auto;
   width: max-content;
