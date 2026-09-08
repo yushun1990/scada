@@ -39,6 +39,7 @@ jobs:
         run: |
           node scripts/pages-smoke.mjs
           node scripts/pages-component-arrange-smoke.mjs
+          node scripts/pages-component-navigation-smoke.mjs
           node scripts/pages-animation-move-smoke.mjs
           node scripts/pages-animation-scale-smoke.mjs
           node scripts/pages-animation-fade-smoke.mjs
@@ -66,6 +67,7 @@ jobs:
           path: |
             artifacts/component-toolbar-1200.png
             artifacts/component-toolbar-1000.png
+            artifacts/component-navigation-1000.png
             artifacts/scada-toolbar-1200.png
             artifacts/scada-toolbar-1000.png
             artifacts/scada-add-component-toast-1400.png

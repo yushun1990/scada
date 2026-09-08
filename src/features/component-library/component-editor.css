@@ -62,15 +62,18 @@
 .component-layer-panel {
   min-height: 0;
   padding: 12px;
-  overflow: auto;
+  overflow: hidden;
   border-right: 1px solid #cbd5e1;
   background: #f8fafc;
 }
 
 .component-layer-dock {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
+  height: 100%;
+  min-height: 0;
 }
 
 .component-layer-dock-heading {
@@ -128,11 +131,15 @@
 
 .component-layer-tree {
   display: grid;
+  align-content: start;
   gap: 2px;
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
-.component-layer-root,
 .component-layer-row {
   width: 100%;
   min-width: 0;
@@ -144,76 +151,51 @@
   text-align: left;
 }
 
-.component-layer-root:hover,
 .component-layer-row:hover {
   background: #eef2f7;
 }
 
-.component-layer-root.active,
 .component-layer-row.active {
   color: #1d4ed8;
   background: #dbeafe;
 }
 
-.component-layer-root {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  align-items: center;
-  gap: 7px;
-  min-height: 42px;
-  padding: 6px 8px;
-  border-bottom: 1px solid #e2e8f0;
-  border-radius: 5px;
-}
-
-.component-layer-root-icon {
-  color: #2563eb;
-  font-size: 10px;
-}
-
-.component-layer-root > span:last-child {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.component-layer-root strong,
-.component-layer-root small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.component-layer-root strong {
-  color: inherit;
-  font-size: 10px;
-}
-
-.component-layer-root small {
-  color: #94a3b8;
-  font-size: 8px;
-}
-
 .component-layer-row {
   display: grid;
-  grid-template-columns: 12px 48px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 5px;
   min-height: 31px;
   padding-top: 4px;
   padding-right: 7px;
   padding-bottom: 4px;
+  padding-left: 5px;
 }
 
-.component-layer-disclosure {
-  color: #94a3b8;
-  font-size: 9px;
+.component-layer-entry {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.component-layer-entry .component-layer-disclosure,
+.component-layer-disclosure-placeholder {
+  flex: 0 0 24px;
+  width: 24px;
+}
+
+.component-layer-entry .component-layer-disclosure {
+  min-width: 24px;
+  height: 28px;
+  padding: 0;
+  color: #64748b;
+  font-size: 16px;
 }
 
 .component-layer-kind {
   overflow: hidden;
   color: #64748b;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -221,7 +203,7 @@
 
 .component-layer-name {
   overflow: hidden;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -234,8 +216,8 @@
 
 .component-layer-empty {
   padding: 18px 10px;
-  color: #94a3b8;
-  font-size: 10px;
+  color: #64748b;
+  font-size: 12px;
   line-height: 1.55;
   text-align: center;
 }
@@ -336,6 +318,38 @@
 .component-semantic-inspector {
   min-height: 0;
   overflow: auto;
+}
+
+.component-inspector-context {
+  position: sticky;
+  top: -7px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 4px 0;
+  border-bottom: 1px solid #d8dde3;
+  background: #f5f6f7;
+}
+
+.component-inspector-context > button {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.component-inspector-context > button[aria-pressed='true'] {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.component-inspector-context > span {
+  min-width: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .component-semantic-inspector .inspector-tabs {

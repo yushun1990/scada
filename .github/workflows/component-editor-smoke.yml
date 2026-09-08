@@ -1,0 +1,68 @@
+name: Component Editor Browser Checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'scripts/pages-component-*.mjs'
+      - '.github/workflows/component-editor-smoke.yml'
+      - 'package*.json'
+      - 'vite.config.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: component-editor-smoke-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the proposed revision
+        run: |
+          npm ci
+          npm run build
+      - name: Install browser test tools
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+      - name: Verify component interactions against the built revision
+        env:
+          SCADA_PAGES_URL: http://127.0.0.1:4173/
+        run: |
+          set -euo pipefail
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/component-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS "$SCADA_PAGES_URL" >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/component-preview.log
+            exit 1
+          fi
+          node scripts/pages-component-navigation-smoke.mjs
+          node scripts/pages-component-arrange-smoke.mjs
+          node scripts/pages-component-toolbar-smoke.mjs
+      - name: Upload interaction captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-editor-interactions
+          path: artifacts/*.png
+          if-no-files-found: ignore
