@@ -41,6 +41,7 @@ import {
   type ComponentPublicationSession,
 } from './component-publication-client'
 import { COMPONENT_SNAP_GRID_SIZE } from './component-canvas-snap'
+import { clearComponentCreateTool } from './component-create-mode'
 import { HttpRemoteComponentRepository } from './remote-component-repository'
 import { ComponentVisualAnimationEditor } from './ComponentVisualAnimationEditor'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
@@ -308,6 +309,11 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   )
   const singleSelectedLayerId =
     selectedLayerIds.length === 1 ? primaryLayerId : null
+  const inspectorContextLabel = inspectorTab !== 'properties' || selectedLayerIds.length === 0
+    ? definition.title
+    : selectedLayerIds.length > 1
+      ? `已选 ${selectedLayerIds.length} 个图层`
+      : component.visual.layers.find((layer) => layer.id === singleSelectedLayerId)?.name
 
   useEffect(() => {
     setPreviewProps((current) => normalizePreviewProps(definition, current))
@@ -647,6 +653,19 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
 
         <aside className="property-panel component-property-panel">
           <section className="semantic-inspector component-semantic-inspector" aria-label="组件配置">
+            <div className="component-inspector-context">
+              <Button
+                variant="ghost"
+                size="small"
+                aria-pressed={selectedLayerIds.length === 0 && inspectorTab === 'properties'}
+                title="编辑组件名称、尺寸、公开配置和运行属性"
+                onClick={() => {
+                  clearComponentCreateTool()
+                  selectLayer(null)
+                }}
+              >组件设置</Button>
+              <span title={inspectorContextLabel}>{inspectorContextLabel}</span>
+            </div>
             <Tabs
               value={inspectorTab}
               items={INSPECTOR_TABS}
@@ -702,7 +721,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                     已选择 <strong>{selectedLayerIds.length}</strong> 个内部图层。
                   </div>
                   <p className="component-inspector-help">
-                    画布工具栏可对选中图层执行组合、对齐与等距分布；主选图层只保留上下文语义，不在多选状态下开放单层 Inspector 编辑。
+                    使用画布工具栏组合、对齐或等距分布。选择单个图层可编辑它的外观与行为。
                   </p>
                 </CollapsibleInspectorGroup>
               </div>
@@ -742,7 +761,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
                 <CollapsibleInspectorGroup title="基本信息">
                   {builtInReadOnly && (
                     <div className="component-readonly-note">
-                      内置组件是 Registry Definition 的只读视图；Native Renderer / Action Handler 仍由可信应用代码注册。
+                      内置组件可查看配置与预览，不能在这里修改内部图形。
                     </div>
                   )}
                   <label className="property-field">
@@ -813,7 +832,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
 
                 <CollapsibleInspectorGroup title="公开配置 · Attributes" className="component-root-public-attributes">
                   <p className="component-inspector-help">
-                    Attribute 是组态实例的 authored static 配置，例如运行色、报警色、精度或显示参数；它不参与运行时数据绑定。
+                    放入组态画布后可配置的固定参数，例如运行色、报警色和显示精度。
                   </p>
                   <ComponentAttributeContractEditor
                     definition={definition}
@@ -824,7 +843,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
 
                 <CollapsibleInspectorGroup title="运行属性 · Properties" className="component-root-public-properties">
                   <p className="component-inspector-help">
-                    Property 是运行时语义值与数据绑定目标；未绑定时由 Scene 保存 authored fallback，内部 Layer 状态不会直接暴露到这里。
+                    可绑定设备数据的运行值，例如开关状态、温度和液位。未绑定时使用配置的默认值。
                   </p>
                   <ComponentPropertyContractEditor
                     definition={definition}
@@ -835,7 +854,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
 
                 <CollapsibleInspectorGroup title="连接锚点" className="component-anchor-group">
                   <p className="component-inspector-help">
-                    锚点属于组件公开几何接口，用于组态画布连线附着，不承担运行时数据语义。
+                    设置管线或导线可以连接到组件的哪些位置。
                   </p>
                   <div className="component-anchor-editor">
                     <ComponentContractEditor

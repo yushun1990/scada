@@ -600,6 +600,8 @@ The current product phase is hands-on use and polishing of the editor, component
 
 Preserve accepted M6–M9 and M6.3P1 boundaries while fixing defects exposed by dogfooding. In particular, do not reopen flattened `props`, Attribute binding, hidden package installation, standalone authoring state, a second renderer/runtime authority or broad media-library scope through incidental polish work.
 
+Current component-editor polish: searchable/collapsible layer navigation, explicit selection/component-settings entry points, and Preview history locking. Implementation and verification are tracked in `docs/progress/product-polish-component-navigation.md`; this does not open a new architecture milestone.
+
 Before authorizing another implementation milestone, review the current product condition and the defects/priorities found during real editor use against the accepted architecture boundaries.
 
 ---

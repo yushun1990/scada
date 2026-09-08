@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import {
   type ComponentVisualDefinition,
@@ -17,6 +17,7 @@ import {
   Textarea,
 } from '../../ui'
 import { ComponentVisualAssetImportControl } from './ComponentVisualAssetImportControl'
+import { componentLayerAncestorIds, componentNavigatorRows } from './component-layer-navigation'
 import {
   clearComponentCreateTool,
   isDrawableVisualPrimitive,
@@ -60,11 +61,6 @@ type ComponentVisualLayerInspectorProps = {
 
 type LayerInspectorContentProps = Omit<ComponentVisualLayerInspectorProps, 'selectedLayerId'> & {
   layer: ComponentVisualLayer
-}
-
-type FlatLayer = {
-  layer: ComponentVisualLayer
-  depth: number
 }
 
 type PalettePrimitive = {
@@ -169,27 +165,6 @@ function centerLayer(
   } as ComponentVisualLayer
 }
 
-function flattenLayers(layers: readonly ComponentVisualLayer[]) {
-  const byParent = new Map<string | null, ComponentVisualLayer[]>()
-
-  for (const layer of layers) {
-    const siblings = byParent.get(layer.parentId) ?? []
-    siblings.push(layer)
-    byParent.set(layer.parentId, siblings)
-  }
-
-  const result: FlatLayer[] = []
-  const visit = (parentId: string | null, depth: number) => {
-    for (const layer of byParent.get(parentId) ?? []) {
-      result.push({ layer, depth })
-      visit(layer.id, depth + 1)
-    }
-  }
-
-  visit(null, 0)
-  return result
-}
-
 function collectDescendantIds(
   layers: readonly ComponentVisualLayer[],
   rootId: string,
@@ -249,9 +224,33 @@ export function ComponentVisualTreeEditor({
   onChange,
 }: ComponentVisualTreeEditorProps) {
   const createTool = useComponentCreateTool()
-  const flattened = useMemo(() => flattenLayers(visual.layers), [visual.layers])
+  const [search, setSearch] = useState('')
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<ReadonlySet<string>>(() => new Set())
+  const [revealRequest, setRevealRequest] = useState(0)
+  const navigatorRef = useRef<HTMLDivElement>(null)
+  const flattened = useMemo(
+    () => componentNavigatorRows(visual.layers, collapsedGroupIds, search),
+    [visual.layers, collapsedGroupIds, search],
+  )
+  const ancestorKey = JSON.stringify(componentLayerAncestorIds(visual.layers, primaryLayerId))
+  const primaryVisible = flattened.some(({ layer }) => layer.id === primaryLayerId)
   const selectedLayerIdSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds])
   const primaryLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
+
+  // Canvas selection reveals its ancestors without changing persisted hierarchy.
+  useEffect(() => {
+    const ancestors = new Set<string>(JSON.parse(ancestorKey))
+    setCollapsedGroupIds((current) => {
+      if (![...current].some((id) => ancestors.has(id))) return current
+      return new Set([...current].filter((id) => !ancestors.has(id)))
+    })
+  }, [ancestorKey, primaryLayerId, revealRequest])
+
+  useEffect(() => {
+    const row = Array.from(navigatorRef.current?.querySelectorAll<HTMLElement>('[data-layer-id]') ?? [])
+      .find((element) => element.dataset.layerId === primaryLayerId)
+    row?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [primaryLayerId, primaryVisible, revealRequest])
 
   useEffect(() => {
     if (primaryLayerId && !primaryLayer) onSelectionChange(null)
@@ -318,14 +317,36 @@ export function ComponentVisualTreeEditor({
     onSelectionChange(layerId, toggle)
   }
 
+  function revealSelection() {
+    setSearch('')
+    setRevealRequest((current) => current + 1)
+  }
+
+  function toggleGroup(layerId: string) {
+    setCollapsedGroupIds((current) => {
+      const next = new Set(current)
+      if (next.has(layerId)) next.delete(layerId)
+      else next.add(layerId)
+      return next
+    })
+  }
+
   return (
     <div className="component-layer-dock">
       <section className="component-authoring-palette" aria-label="添加视觉元素">
         <div className="component-layer-dock-heading">
           <div>
             <strong>添加</strong>
-            <span>选择图元或导入资源，直接创建到组件画布</span>
+            <span>图元与资源</span>
           </div>
+          <Button
+            size="small"
+            className="component-select-tool"
+            disabled={readOnly || visual.mode !== 'composite'}
+            aria-pressed={!createTool}
+            title="返回选择模式（Esc 取消绘制）"
+            onClick={clearComponentCreateTool}
+          >选择</Button>
         </div>
 
         {visual.mode === 'composite' ? (
@@ -344,6 +365,9 @@ export function ComponentVisualTreeEditor({
                       className={`component-palette-item${active ? ' create-tool-active' : ''}`}
                       disabled={readOnly}
                       aria-pressed={active}
+                      title={isDrawableVisualPrimitive(item.primitive)
+                        ? `在画布拖拽绘制${item.label}，或单击创建`
+                        : '在画布中央添加默认路径'}
                       onClick={() => addPrimitive(item)}
                     >
                       <span className="component-palette-item-symbol" aria-hidden="true">{item.symbol}</span>
@@ -355,6 +379,7 @@ export function ComponentVisualTreeEditor({
                   size="small"
                   className="component-palette-item"
                   disabled={readOnly}
+                  title="在画布中央添加文本，然后在右侧编辑内容"
                   onClick={addText}
                 >
                   <span className="component-palette-item-symbol" aria-hidden="true">T</span>
@@ -375,59 +400,104 @@ export function ComponentVisualTreeEditor({
             </div>
 
             <p className="component-palette-help">
-              矩形、圆形、椭圆和线段会进入画布绘制模式：拖拽创建，单击按默认尺寸创建，Esc 取消。Path、文本按默认尺寸创建；需要组合时先多选同父级图层，再使用画布工具栏“组合”。资源导入始终创建顶层新图层。
+              {createTool
+                ? `绘制${createTool.label}：在画布拖拽或单击，Esc 取消。`
+                : '选择图元后在画布绘制；Path、文本直接添加。'}
             </p>
           </>
         ) : (
           <div className="component-layer-empty">
-            Native Renderer 组件为只读实现，不开放视觉元素创建。
+            内置组件可查看和预览，不能添加内部图元。
           </div>
         )}
       </section>
 
-      <div className="component-layer-dock-heading">
-        <div>
-          <strong>图层</strong>
-          <span>{visual.mode === 'native' ? 'Native Renderer' : `${visual.layers.length} 个内部图层 · Navigator`}</span>
+      <section className="component-layer-navigator" aria-label="图层导航">
+        <div className="component-layer-dock-heading">
+          <div>
+            <strong>图层</strong>
+            <span>{visual.mode === 'native' ? '内置组件' : `${visual.layers.length} 个图层${selectedLayerIds.length ? ` · 已选 ${selectedLayerIds.length}` : ''}`}</span>
+          </div>
+          <Button size="small" variant="ghost" disabled={!primaryLayer} onClick={revealSelection}>
+            定位所选
+          </Button>
         </div>
-      </div>
 
-      <div className="component-layer-tree">
-        {visual.mode === 'composite' && flattened.map(({ layer, depth }) => (
-          <Pressable
-            key={layer.id}
-            className={`component-layer-row${selectedLayerIdSet.has(layer.id) ? ' active' : ''}`}
-            style={{ paddingLeft: `${12 + depth * 15}px` }}
-            onClick={(event) => selectNavigatorLayer(
-              layer.id,
-              event.shiftKey || event.ctrlKey || event.metaKey,
-            )}
-          >
-            <span className="component-layer-disclosure">{layer.kind === 'group' ? '▾' : '·'}</span>
-            <span className="component-layer-kind">{layerKindLabel(layer.kind)}</span>
-            <span className="component-layer-name">{layer.name}</span>
-            {!layer.visible && <small>隐藏</small>}
-          </Pressable>
-        ))}
-
-        {visual.mode === 'composite' && flattened.length === 0 && (
-          <div className="component-layer-empty">
-            从上方“添加”选择基础图元，或导入 SVG / 图片开始构建组件。创建后的结构会显示在这里。
+        {visual.mode === 'composite' && visual.layers.length > 0 && (
+          <div className="component-layer-search">
+            <Input
+              aria-label="查找图层"
+              placeholder="查找名称、类型或 ID"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  setSearch('')
+                }
+              }}
+            />
+            {search && <IconButton aria-label="清除图层查找" size="small" onClick={() => setSearch('')}>×</IconButton>}
           </div>
         )}
 
-        {visual.mode === 'native' && (
-          <div className="component-layer-empty">
-            内置组件使用可信 Native Renderer，不反向解析 React / Konva 内部图层。
-          </div>
-        )}
-      </div>
+        <div className="component-layer-tree" ref={navigatorRef}>
+          {visual.mode === 'composite' && flattened.map(({ layer, depth, hasChildren }) => (
+            <div
+              key={layer.id}
+              className="component-layer-entry"
+              style={{ paddingLeft: `${depth * 14}px` }}
+              data-layer-id={layer.id}
+            >
+              {hasChildren ? (
+                <IconButton
+                  className="component-layer-disclosure"
+                  size="small"
+                  aria-label={`${collapsedGroupIds.has(layer.id) && !search.trim() ? '展开' : '折叠'} ${layer.name}`}
+                  aria-expanded={Boolean(search.trim()) || !collapsedGroupIds.has(layer.id)}
+                  disabled={Boolean(search.trim())}
+                  title={search.trim() ? '查找时展开匹配的图层，清除查找后可折叠' : undefined}
+                  onClick={() => toggleGroup(layer.id)}
+                ><span aria-hidden="true">{collapsedGroupIds.has(layer.id) && !search.trim() ? '›' : '⌄'}</span></IconButton>
+              ) : <span className="component-layer-disclosure-placeholder" />}
+              <Pressable
+                className={`component-layer-row${selectedLayerIdSet.has(layer.id) ? ' active' : ''}`}
+                aria-pressed={selectedLayerIdSet.has(layer.id)}
+                title={`${layer.name} · ${layerKindLabel(layer.kind)} · ${layer.id}`}
+                onClick={(event) => selectNavigatorLayer(
+                  layer.id,
+                  event.shiftKey || event.ctrlKey || event.metaKey,
+                )}
+              >
+                <span className="component-layer-kind">{layerKindLabel(layer.kind)}</span>
+                <span className="component-layer-name">{layer.name}</span>
+                {!layer.visible && <small>隐藏</small>}
+              </Pressable>
+            </div>
+          ))}
 
-      {visual.mode === 'composite' && (
-        <p className="component-layer-navigator-help">
-          Navigator 只展示真实图层；parentId 为空的图层就是顶层。Group 只表示显式组合，不是必需根容器。点击画布空白处可清除图层选择并返回组件级配置。
-        </p>
-      )}
+          {visual.mode === 'composite' && flattened.length === 0 && (
+            <div className="component-layer-empty">
+              {visual.layers.length === 0
+                ? '添加图元或导入 SVG / 图片，开始设计组件。'
+                : '没有匹配的图层。试试其他名称，或清除查找。'}
+            </div>
+          )}
+
+          {visual.mode === 'native' && (
+            <div className="component-layer-empty">
+              内置组件的内部图形不在这里编辑。
+            </div>
+          )}
+        </div>
+
+        {visual.mode === 'composite' && (
+          <p className="component-layer-navigator-help">
+            Shift / Ctrl / ⌘ 点击多选，使用画布工具栏组合。点击空白画布取消选择。
+          </p>
+        )}
+      </section>
     </div>
   )
 }
@@ -688,7 +758,7 @@ function LayerInspectorContent({
           </label>
           {layer.kind === 'svg' && layer.document ? (
             <p className="component-inspector-help">
-              托管 SVG 的 document 是唯一内部结构 authority；assetRef 由 canonical serializer 确定性生成，不可独立编辑。
+              选中 SVG 内部元素可编辑它的外观和几何属性，资源内容会自动更新。更换整张图请使用“替换文件”。
             </p>
           ) : (
             <p className="component-inspector-help">

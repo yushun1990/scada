@@ -5,6 +5,52 @@
   border-bottom: 1px solid #dbe3ec;
 }
 
+.component-layer-dock-heading .component-select-tool {
+  font-size: 12px;
+}
+
+.component-select-tool[aria-pressed='true'] {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.component-layer-navigator {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.component-layer-navigator > .component-layer-tree {
+  flex: 1 1 0;
+}
+
+.component-layer-navigator > .component-layer-dock-heading,
+.component-layer-search,
+.component-layer-navigator-help {
+  flex-shrink: 0;
+}
+
+.component-layer-navigator .component-layer-dock-heading button {
+  font-size: 12px;
+}
+
+.component-layer-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.component-layer-search .ui-input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
 .component-palette-section {
   display: grid;
   gap: 6px;
@@ -47,31 +93,55 @@
 .component-palette-item-label {
   overflow: hidden;
   color: #475569;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .component-palette-resource .component-asset-import-control {
+  flex-direction: column;
   align-items: stretch;
+  margin: 0;
 }
 
 .component-palette-resource .component-asset-import-control button {
   width: 100%;
+  font-size: 12px;
 }
 
 .component-palette-help {
   margin: 0;
-  color: #94a3b8;
-  font-size: 9px;
+  color: #64748b;
+  font-size: 12px;
   line-height: 1.45;
 }
 
 .component-layer-navigator-help {
   margin: 0;
   padding-top: 2px;
-  color: #94a3b8;
-  font-size: 9px;
+  color: #64748b;
+  font-size: 12px;
   line-height: 1.45;
+}
+
+@media (max-height: 700px) {
+  .component-authoring-palette {
+    gap: 6px;
+    padding-bottom: 8px;
+  }
+
+  .component-layer-navigator-help {
+    display: none;
+  }
+}
+
+@media (max-height: 520px) {
+  .component-editor-shell .component-layer-panel {
+    overflow: auto;
+  }
+
+  .component-layer-dock {
+    min-height: 480px;
+  }
 }

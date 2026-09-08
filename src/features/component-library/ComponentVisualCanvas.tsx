@@ -232,6 +232,7 @@ export function ComponentVisualCanvas({
   const undoStackRef = useRef<ComponentVisualDefinition[]>([])
   const redoStackRef = useRef<ComponentVisualDefinition[]>([])
   const applyingHistoryRef = useRef(false)
+  const isEditableRef = useRef(false)
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
   const [editToolbarHost, setEditToolbarHost] = useState<HTMLElement | null>(null)
   const [viewToolbarHost, setViewToolbarHost] = useState<HTMLElement | null>(null)
@@ -300,6 +301,10 @@ export function ComponentVisualCanvas({
         visualDesignHeight,
       )
     : null
+
+  useLayoutEffect(() => {
+    isEditableRef.current = isEditable
+  }, [isEditable])
 
   function syncHistoryAvailability() {
     setCanUndo(undoStackRef.current.length > 0)
@@ -472,7 +477,7 @@ export function ComponentVisualCanvas({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (isTextEditingTarget(event.target)) {
+      if (event.defaultPrevented || isTextEditingTarget(event.target)) {
         return
       }
 
@@ -484,15 +489,21 @@ export function ComponentVisualCanvas({
         return
       }
 
+      if (event.key === 'Escape' && selectedLayerIds.length > 0) {
+        event.preventDefault()
+        onSelectionChange(null)
+        return
+      }
+
       const modifier = event.ctrlKey || event.metaKey
       const key = event.key.toLowerCase()
       const isUndo = modifier && !event.shiftKey && key === 'z'
       const isRedo = modifier && (key === 'y' || (event.shiftKey && key === 'z'))
 
-      if (isUndo && undoStackRef.current.length > 0 && !readOnly) {
+      if (isUndo && undoStackRef.current.length > 0 && isEditableRef.current) {
         event.preventDefault()
         undoVisual()
-      } else if (isRedo && redoStackRef.current.length > 0 && !readOnly) {
+      } else if (isRedo && redoStackRef.current.length > 0 && isEditableRef.current) {
         event.preventDefault()
         redoVisual()
       }
@@ -505,7 +516,7 @@ export function ComponentVisualCanvas({
   function undoVisual() {
     const previous = undoStackRef.current[undoStackRef.current.length - 1]
 
-    if (!previous || readOnly) {
+    if (!previous || !isEditableRef.current) {
       return
     }
 
@@ -522,7 +533,7 @@ export function ComponentVisualCanvas({
   function redoVisual() {
     const next = redoStackRef.current[redoStackRef.current.length - 1]
 
-    if (!next || readOnly) {
+    if (!next || !isEditableRef.current) {
       return
     }
 
@@ -820,7 +831,7 @@ export function ComponentVisualCanvas({
             className="icon-button component-undo-command"
             title="撤销 (Ctrl+Z)"
             aria-label="撤销"
-            disabled={readOnly || !canUndo}
+            disabled={!isEditable || !canUndo}
             onClick={undoVisual}
           >
             <UndoIcon />
@@ -830,7 +841,7 @@ export function ComponentVisualCanvas({
             className="icon-button component-redo-command"
             title="重做 (Ctrl+Shift+Z)"
             aria-label="重做"
-            disabled={readOnly || !canRedo}
+            disabled={!isEditable || !canRedo}
             onClick={redoVisual}
           >
             <RedoIcon />
@@ -1039,8 +1050,7 @@ export function ComponentVisualCanvas({
             ) : (
               <>
                 <strong>未选择图层</strong>
-                <code>{visual.mode === 'native' ? 'Native Visual' : 'Composite Visual'}</code>
-                <span className="status-hint">点击 Navigator 图层或画布元素进行选择</span>
+                <span className="status-hint">点击图层或画布元素进行选择</span>
               </>
             )}
           </span>
