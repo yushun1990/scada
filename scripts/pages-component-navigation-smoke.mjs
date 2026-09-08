@@ -69,13 +69,11 @@ try {
   await button('预览').click()
   assert.equal(await button('撤销').isDisabled(), true)
   assert.equal(await button('重做').isDisabled(), true)
-  console.log('preview names before shortcuts:', JSON.stringify(await names()))
   await page.keyboard.press('Control+z')
-  console.log('preview names after undo shortcut:', JSON.stringify(await names()))
   await page.keyboard.press('Control+Shift+z')
-  console.log('preview names after redo shortcut:', JSON.stringify(await names()))
-  await page.waitForTimeout(50)
-  console.log('preview names after settle:', JSON.stringify(await names()))
+  // Native input undo may restore transient Navigator search history; clear it before
+  // asserting the persisted visual history did not move while Preview was active.
+  await search.fill('')
   await assertNames(['Path 1', 'Path 2', 'Path 3'])
   await button('设计').click()
   await button('重做').click()
