@@ -232,6 +232,7 @@ export function ComponentVisualCanvas({
   const undoStackRef = useRef<ComponentVisualDefinition[]>([])
   const redoStackRef = useRef<ComponentVisualDefinition[]>([])
   const applyingHistoryRef = useRef(false)
+  const isEditableRef = useRef(false)
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
   const [editToolbarHost, setEditToolbarHost] = useState<HTMLElement | null>(null)
   const [viewToolbarHost, setViewToolbarHost] = useState<HTMLElement | null>(null)
@@ -300,6 +301,10 @@ export function ComponentVisualCanvas({
         visualDesignHeight,
       )
     : null
+
+  useLayoutEffect(() => {
+    isEditableRef.current = isEditable
+  }, [isEditable])
 
   function syncHistoryAvailability() {
     setCanUndo(undoStackRef.current.length > 0)
@@ -495,10 +500,10 @@ export function ComponentVisualCanvas({
       const isUndo = modifier && !event.shiftKey && key === 'z'
       const isRedo = modifier && (key === 'y' || (event.shiftKey && key === 'z'))
 
-      if (isUndo && undoStackRef.current.length > 0 && isEditable) {
+      if (isUndo && undoStackRef.current.length > 0 && isEditableRef.current) {
         event.preventDefault()
         undoVisual()
-      } else if (isRedo && redoStackRef.current.length > 0 && isEditable) {
+      } else if (isRedo && redoStackRef.current.length > 0 && isEditableRef.current) {
         event.preventDefault()
         redoVisual()
       }
@@ -511,7 +516,7 @@ export function ComponentVisualCanvas({
   function undoVisual() {
     const previous = undoStackRef.current[undoStackRef.current.length - 1]
 
-    if (!previous || !isEditable) {
+    if (!previous || !isEditableRef.current) {
       return
     }
 
@@ -528,7 +533,7 @@ export function ComponentVisualCanvas({
   function redoVisual() {
     const next = redoStackRef.current[redoStackRef.current.length - 1]
 
-    if (!next || !isEditable) {
+    if (!next || !isEditableRef.current) {
       return
     }
 
