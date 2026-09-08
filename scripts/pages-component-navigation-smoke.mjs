@@ -34,7 +34,7 @@ try {
   }
   await row('Path 1').click()
   await row('Path 2').click({ modifiers: ['Control'] })
-  await button('组合').click()
+  await button('组合选中图层').click()
   await button('折叠 Group 1').click()
   await assertNames(['Group 1', 'Path 3'])
   assert.equal(await row('Group 1').getAttribute('aria-pressed'), 'true', 'collapse must preserve selection')
