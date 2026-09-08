@@ -22,6 +22,7 @@ async function assertNames(expected) {
 
 try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'load' })
+  await button('矩形').waitFor()
 
   const palette = page.getByRole('region', { name: '添加视觉元素' })
   const paletteItems = palette.locator('.component-palette-item')
