@@ -25,13 +25,15 @@
 }
 
 /* Mode selection is a first-class grid child, so it stays centered regardless
- * of left identity width or right action count. */
+ * of left identity width or right action count. The segmented background is
+ * enough grouping; avoid a second outer outline around Design / Preview. */
 .component-editor-header > .mode-switch {
   position: static;
   grid-column: 2;
   grid-row: 1;
   justify-self: center;
   margin: 0;
+  border: 0;
   transform: none;
 }
 
