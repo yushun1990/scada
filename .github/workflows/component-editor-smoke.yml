@@ -41,6 +41,7 @@ jobs:
           SCADA_PAGES_URL: http://127.0.0.1:4173/
         run: |
           set -euo pipefail
+          mkdir -p artifacts
           npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/component-preview.log 2>&1 &
           preview_pid=$!
           trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
@@ -53,19 +54,21 @@ jobs:
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then
-            cat /tmp/component-preview.log
+            cat /tmp/component-preview.log | tee artifacts/component-browser.log
             exit 1
           fi
-          node scripts/pages-component-navigation-smoke.mjs
-          node scripts/pages-component-primitives-smoke.mjs
-          node scripts/pages-component-svg-drag-smoke.mjs
-          node scripts/pages-component-header-smoke.mjs
-          node scripts/pages-component-arrange-smoke.mjs
-          node scripts/pages-component-toolbar-smoke.mjs
+          {
+            node scripts/pages-component-navigation-smoke.mjs
+            node scripts/pages-component-primitives-smoke.mjs
+            node scripts/pages-component-svg-drag-smoke.mjs
+            node scripts/pages-component-header-smoke.mjs
+            node scripts/pages-component-arrange-smoke.mjs
+            node scripts/pages-component-toolbar-smoke.mjs
+          } 2>&1 | tee artifacts/component-browser.log
       - name: Upload interaction captures
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: component-editor-interactions
-          path: artifacts/*.png
+          path: artifacts/*
           if-no-files-found: ignore
