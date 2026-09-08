@@ -69,7 +69,6 @@ type PalettePrimitive = {
   symbol: string
   width: number
   height: number
-  pathData?: string
 }
 
 const LAYER_KIND_LABELS: Array<[VisualLayerKind, string]> = [
@@ -92,17 +91,8 @@ const VECTOR_PRIMITIVE_OPTIONS = VECTOR_PRIMITIVES.map(([value, label]) => ({ va
 
 const PALETTE_PRIMITIVES: readonly PalettePrimitive[] = [
   { primitive: 'rect', label: '矩形', symbol: '□', width: 96, height: 64 },
-  { primitive: 'circle', label: '圆形', symbol: '○', width: 72, height: 72 },
-  { primitive: 'ellipse', label: '椭圆', symbol: '⬭', width: 100, height: 64 },
+  { primitive: 'ellipse', label: '圆/椭圆', symbol: '○', width: 72, height: 72 },
   { primitive: 'line', label: '线段', symbol: '╱', width: 120, height: 8 },
-  {
-    primitive: 'path',
-    label: 'Path',
-    symbol: '⌁',
-    width: 96,
-    height: 64,
-    pathData: 'M 8 56 L 48 8 L 88 56 Z',
-  },
 ]
 
 export function layerKindLabel(kind: VisualLayerKind) {
@@ -268,34 +258,15 @@ export function ComponentVisualTreeEditor({
   }
 
   function addPrimitive(item: PalettePrimitive) {
-    if (isDrawableVisualPrimitive(item.primitive)) {
-      selectComponentCreateTool({
-        kind: 'vector',
-        primitive: item.primitive,
-        label: item.label,
-        defaultWidth: item.width,
-        defaultHeight: item.height,
-      })
-      return
-    }
+    if (!isDrawableVisualPrimitive(item.primitive)) return
 
-    clearComponentCreateTool()
-    const id = nextLayerId('vector', visual.layers)
-    const created = createLayer('vector', id, null)
-    if (created.kind !== 'vector') return
-
-    const layer = centerLayer(
-      visual,
-      {
-        ...created,
-        name: `${item.label} ${id.replace(/\D+/g, '') || ''}`.trim(),
-        primitive: item.primitive,
-        pathData: item.primitive === 'path' ? item.pathData ?? '' : undefined,
-      },
-      item.width,
-      item.height,
-    )
-    appendLayer(layer)
+    selectComponentCreateTool({
+      kind: 'vector',
+      primitive: item.primitive,
+      label: item.label,
+      defaultWidth: item.width,
+      defaultHeight: item.height,
+    })
   }
 
   function addText() {
@@ -357,6 +328,9 @@ export function ComponentVisualTreeEditor({
                 {PALETTE_PRIMITIVES.map((item) => {
                   const active = createTool?.kind === 'vector'
                     && createTool.primitive === item.primitive
+                  const title = item.primitive === 'ellipse'
+                    ? '拖拽绘制圆/椭圆；按住 Shift 约束为正圆；单击创建默认正圆'
+                    : `在画布拖拽绘制${item.label}，或单击创建`
 
                   return (
                     <Button
@@ -364,14 +338,12 @@ export function ComponentVisualTreeEditor({
                       size="small"
                       className={`component-palette-item${active ? ' create-tool-active' : ''}`}
                       disabled={readOnly}
+                      aria-label={item.label}
                       aria-pressed={active}
-                      title={isDrawableVisualPrimitive(item.primitive)
-                        ? `在画布拖拽绘制${item.label}，或单击创建`
-                        : '在画布中央添加默认路径'}
+                      title={title}
                       onClick={() => addPrimitive(item)}
                     >
                       <span className="component-palette-item-symbol" aria-hidden="true">{item.symbol}</span>
-                      <span className="component-palette-item-label">{item.label}</span>
                     </Button>
                   )
                 })}
@@ -379,11 +351,11 @@ export function ComponentVisualTreeEditor({
                   size="small"
                   className="component-palette-item"
                   disabled={readOnly}
+                  aria-label="文本"
                   title="在画布中央添加文本，然后在右侧编辑内容"
                   onClick={addText}
                 >
                   <span className="component-palette-item-symbol" aria-hidden="true">T</span>
-                  <span className="component-palette-item-label">文本</span>
                 </Button>
               </div>
             </div>
@@ -401,8 +373,10 @@ export function ComponentVisualTreeEditor({
 
             <p className="component-palette-help">
               {createTool
-                ? `绘制${createTool.label}：在画布拖拽或单击，Esc 取消。`
-                : '选择图元后在画布绘制；Path、文本直接添加。'}
+                ? createTool.primitive === 'ellipse'
+                  ? '绘制圆/椭圆：拖拽自由设置宽高，按住 Shift 保持正圆，Esc 取消。'
+                  : `绘制${createTool.label}：在画布拖拽或单击，Esc 取消。`
+                : '选择基础图元后在画布绘制；文本直接添加。'}
             </p>
           </>
         ) : (
