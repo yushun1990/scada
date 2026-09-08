@@ -680,6 +680,11 @@ export function ComponentVisualCanvas({
     verticalGuide?.getLayer()?.batchDraw()
   }
 
+  function beginLayerDrag() {
+    clearSnapGuides()
+    setManagedSvgHighlightPoints([])
+  }
+
   function previewLayerSnap(target: Konva.Node) {
     if (!isEditable || !snapEnabled) {
       clearSnapGuides()
@@ -926,7 +931,7 @@ export function ComponentVisualCanvas({
               }}
               onTouchMove={() => updateCreate()}
               onTouchEnd={() => finishCreate()}
-              onDragStart={clearSnapGuides}
+              onDragStart={beginLayerDrag}
               onDragMove={(event) => previewLayerSnap(event.target)}
               onDragEnd={(event) => finishLayerDrag(event.target)}
             >
