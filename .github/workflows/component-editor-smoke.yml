@@ -57,6 +57,7 @@ jobs:
             exit 1
           fi
           node scripts/pages-component-navigation-smoke.mjs
+          node scripts/pages-component-primitives-smoke.mjs
           node scripts/pages-component-arrange-smoke.mjs
           node scripts/pages-component-toolbar-smoke.mjs
       - name: Upload interaction captures
