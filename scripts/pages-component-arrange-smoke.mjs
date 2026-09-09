@@ -40,43 +40,44 @@ try {
     0,
     'Palette must not expose standalone Group creation',
   )
-  const addPath = page.getByRole('button', { name: 'Path', exact: true })
+  const palette = page.getByRole('region', { name: '添加视觉元素' })
+  const addText = palette.getByRole('button', { name: '文本', exact: true })
   for (let index = 1; index <= 3; index += 1) {
-    await addPath.click()
-    await layerRow(`Path ${index}`).waitFor()
+    await addText.click()
+    await layerRow(`文本 ${index}`).waitFor()
   }
 
-  await assertOrder(['Path 1', 'Path 2', 'Path 3'], 'Palette append order is the initial top-level sibling z-order')
+  await assertOrder(['文本 1', '文本 2', '文本 3'], 'Palette append order is the initial top-level sibling z-order')
 
-  await layerRow('Path 1').click()
+  await layerRow('文本 1').click()
   assert.equal(await page.getByRole('button', { name: '置于顶层' }).isEnabled(), true)
   assert.equal(await page.getByRole('button', { name: '上移一层' }).isEnabled(), true)
   assert.equal(await page.getByRole('button', { name: '下移一层' }).isDisabled(), true)
   assert.equal(await page.getByRole('button', { name: '置于底层' }).isDisabled(), true)
 
   await page.getByRole('button', { name: '置于顶层' }).click()
-  await assertOrder(['Path 2', 'Path 3', 'Path 1'], 'bring-to-front moves the selection to the final sibling slot')
+  await assertOrder(['文本 2', '文本 3', '文本 1'], 'bring-to-front moves the selection to the final sibling slot')
 
   await page.getByRole('button', { name: '下移一层' }).click()
-  await assertOrder(['Path 2', 'Path 1', 'Path 3'], 'send-backward moves the selection one sibling step')
+  await assertOrder(['文本 2', '文本 1', '文本 3'], 'send-backward moves the selection one sibling step')
 
   await page.getByRole('button', { name: '置于底层' }).click()
-  await assertOrder(['Path 1', 'Path 2', 'Path 3'], 'send-to-back moves the selection to the first sibling slot')
+  await assertOrder(['文本 1', '文本 2', '文本 3'], 'send-to-back moves the selection to the first sibling slot')
 
   await page.getByRole('button', { name: '上移一层' }).click()
-  await assertOrder(['Path 2', 'Path 1', 'Path 3'], 'bring-forward moves the selection one sibling step')
+  await assertOrder(['文本 2', '文本 1', '文本 3'], 'bring-forward moves the selection one sibling step')
 
-  await selectLayers(['Path 2', 'Path 1'])
+  await selectLayers(['文本 2', '文本 1'])
   assert.equal(await page.locator('.component-layer-row.active').count(), 2)
   await page.getByRole('button', { name: '置于顶层' }).click()
   await assertOrder(
-    ['Path 3', 'Path 2', 'Path 1'],
+    ['文本 3', '文本 2', '文本 1'],
     'multi-selection moves as a block while preserving selected sibling order',
   )
 
   await page.getByRole('button', { name: '置于底层' }).click()
   await assertOrder(
-    ['Path 2', 'Path 1', 'Path 3'],
+    ['文本 2', '文本 1', '文本 3'],
     'multi-selection send-to-back preserves selected sibling order',
   )
 
@@ -86,9 +87,9 @@ try {
 
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
-  await assertOrder(['Path 2', 'Path 1', 'Path 3'], 'saved sibling z-order survives reload')
+  await assertOrder(['文本 2', '文本 1', '文本 3'], 'saved sibling z-order survives reload')
 
-  await layerRow('Path 1').click()
+  await layerRow('文本 1').click()
   await page.getByRole('button', { name: '预览', exact: true }).click()
   for (const commandName of ['置于顶层', '上移一层', '下移一层', '置于底层']) {
     assert.equal(

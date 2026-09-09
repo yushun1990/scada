@@ -175,7 +175,7 @@ function CreateGeometryPreview({
     )
   }
 
-  if (tool.primitive === 'circle' || tool.primitive === 'ellipse') {
+  if (tool.primitive === 'ellipse') {
     return (
       <Ellipse
         x={geometry.x + geometry.width / 2}
@@ -243,6 +243,7 @@ export function ComponentVisualCanvas({
   const [animationTimeMs, setAnimationTimeMs] = useState(0)
   const [createStart, setCreateStart] = useState<ComponentDesignPoint | null>(null)
   const [createCurrent, setCreateCurrent] = useState<ComponentDesignPoint | null>(null)
+  const [createConstrainAspectRatio, setCreateConstrainAspectRatio] = useState(false)
   const [managedSvgHighlightPoints, setManagedSvgHighlightPoints] = useState<number[]>([])
   const selectedLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
   const selectedVisibleLayerIds = useMemo(
@@ -299,6 +300,7 @@ export function ComponentVisualCanvas({
         createCurrent,
         visualDesignWidth,
         visualDesignHeight,
+        createConstrainAspectRatio,
       )
     : null
 
@@ -472,6 +474,7 @@ export function ComponentVisualCanvas({
     if (isEditable) return
     setCreateStart(null)
     setCreateCurrent(null)
+    setCreateConstrainAspectRatio(false)
     clearComponentCreateTool()
   }, [isEditable])
 
@@ -485,6 +488,7 @@ export function ComponentVisualCanvas({
         event.preventDefault()
         setCreateStart(null)
         setCreateCurrent(null)
+        setCreateConstrainAspectRatio(false)
         clearComponentCreateTool()
         return
       }
@@ -676,6 +680,11 @@ export function ComponentVisualCanvas({
     verticalGuide?.getLayer()?.batchDraw()
   }
 
+  function beginLayerDrag() {
+    clearSnapGuides()
+    setManagedSvgHighlightPoints([])
+  }
+
   function previewLayerSnap(target: Konva.Node) {
     if (!isEditable || !snapEnabled) {
       clearSnapGuides()
@@ -756,7 +765,7 @@ export function ComponentVisualCanvas({
     }
   }
 
-  function beginCreate() {
+  function beginCreate(constrainAspectRatio = false) {
     if (!activeCreateTool) return false
 
     const point = pointerDesignPoint()
@@ -766,18 +775,20 @@ export function ComponentVisualCanvas({
     onSelectionChange(null)
     setCreateStart(point)
     setCreateCurrent(point)
+    setCreateConstrainAspectRatio(constrainAspectRatio)
     return true
   }
 
-  function updateCreate() {
+  function updateCreate(constrainAspectRatio = false) {
     if (!activeCreateTool || !createStart) return false
 
     const point = pointerDesignPoint()
     if (point) setCreateCurrent(point)
+    setCreateConstrainAspectRatio(constrainAspectRatio)
     return true
   }
 
-  function finishCreate() {
+  function finishCreate(constrainAspectRatio = false) {
     if (!activeCreateTool || !createStart) return false
 
     const end = pointerDesignPoint() ?? createCurrent ?? createStart
@@ -787,11 +798,13 @@ export function ComponentVisualCanvas({
       end,
       visualDesignWidth,
       visualDesignHeight,
+      constrainAspectRatio,
     )
     const result = appendCreatedVectorLayer(visual, activeCreateTool, geometry)
 
     setCreateStart(null)
     setCreateCurrent(null)
+    setCreateConstrainAspectRatio(false)
     clearComponentCreateTool()
 
     if (result.layerId) {
@@ -904,21 +917,21 @@ export function ComponentVisualCanvas({
               listening={isEditable}
               onMouseDown={(event) => {
                 if (activeCreateTool && event.evt.button !== 0) return
-                if (beginCreate()) return
+                if (beginCreate(event.evt.shiftKey)) return
                 handlePointerTarget(
                   event.target,
                   event.evt.shiftKey || event.evt.ctrlKey || event.evt.metaKey,
                 )
               }}
-              onMouseMove={() => updateCreate()}
-              onMouseUp={() => finishCreate()}
+              onMouseMove={(event) => updateCreate(event.evt.shiftKey)}
+              onMouseUp={(event) => finishCreate(event.evt.shiftKey)}
               onTouchStart={(event) => {
                 if (beginCreate()) return
                 handlePointerTarget(event.target)
               }}
               onTouchMove={() => updateCreate()}
               onTouchEnd={() => finishCreate()}
-              onDragStart={clearSnapGuides}
+              onDragStart={beginLayerDrag}
               onDragMove={(event) => previewLayerSnap(event.target)}
               onDragEnd={(event) => finishLayerDrag(event.target)}
             >
@@ -1020,7 +1033,11 @@ export function ComponentVisualCanvas({
               <>
                 <strong className="component-create-mode-hint">绘制{activeCreateTool.label}</strong>
                 <code>创建模式</code>
-                <span className="status-hint">拖拽创建 · 单击默认尺寸 · Esc 取消</span>
+                <span className="status-hint">
+                  {activeCreateTool.primitive === 'ellipse'
+                    ? '拖拽创建 · Shift 正圆 · 单击默认尺寸 · Esc 取消'
+                    : '拖拽创建 · 单击默认尺寸 · Esc 取消'}
+                </span>
               </>
             ) : selectedLayerIds.length > 1 ? (
               <>

@@ -25,13 +25,18 @@
 }
 
 /* Mode selection is a first-class grid child, so it stays centered regardless
- * of left identity width or right action count. */
-.component-editor-header > .mode-switch {
+ * of left identity width or right action count. The segmented background is
+ * enough grouping; avoid a second outer outline around Design / Preview.
+ * Keep this selector structurally stronger than editor-chrome.css's shared
+ * `.editor-header .mode-switch` fallback so lazy CSS ordering cannot restore
+ * the shared 1px frame in Component Editor. */
+.component-editor-shell > .component-editor-header > .mode-switch {
   position: static;
   grid-column: 2;
   grid-row: 1;
   justify-self: center;
   margin: 0;
+  border: 0;
   transform: none;
 }
 

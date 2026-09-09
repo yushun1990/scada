@@ -4,7 +4,7 @@ import type {
   VectorVisualLayer,
 } from '../../component-system/visual'
 
-export type DrawableVisualPrimitive = 'rect' | 'circle' | 'ellipse' | 'line'
+export type DrawableVisualPrimitive = 'rect' | 'ellipse' | 'line'
 
 export type ComponentCreateTool = {
   kind: 'vector'
@@ -77,7 +77,6 @@ export function isDrawableVisualPrimitive(
   primitive: string,
 ): primitive is DrawableVisualPrimitive {
   return primitive === 'rect'
-    || primitive === 'circle'
     || primitive === 'ellipse'
     || primitive === 'line'
 }
@@ -104,12 +103,34 @@ function clickGeometry(
   }
 }
 
+function constrainedSquareGeometry(
+  start: ComponentDesignPoint,
+  dx: number,
+  dy: number,
+  designWidth: number,
+  designHeight: number,
+): ComponentCreateGeometry {
+  const side = Math.max(CREATE_DRAG_THRESHOLD, Math.max(Math.abs(dx), Math.abs(dy)))
+  const x = dx >= 0 ? start.x : start.x - side
+  const y = dy >= 0 ? start.y : start.y - side
+  const clampedSide = Math.min(side, designWidth, designHeight)
+
+  return {
+    x: clamp(x, 0, Math.max(0, designWidth - clampedSide)),
+    y: clamp(y, 0, Math.max(0, designHeight - clampedSide)),
+    width: clampedSide,
+    height: clampedSide,
+    rotation: 0,
+  }
+}
+
 export function resolveComponentCreateGeometry(
   tool: ComponentCreateTool,
   start: ComponentDesignPoint,
   end: ComponentDesignPoint,
   designWidth: number,
   designHeight: number,
+  constrainAspectRatio = false,
 ): ComponentCreateGeometry {
   const dx = end.x - start.x
   const dy = end.y - start.y
@@ -133,19 +154,8 @@ export function resolveComponentCreateGeometry(
     }
   }
 
-  if (tool.primitive === 'circle') {
-    const side = Math.max(CREATE_DRAG_THRESHOLD, Math.max(Math.abs(dx), Math.abs(dy)))
-    const x = dx >= 0 ? start.x : start.x - side
-    const y = dy >= 0 ? start.y : start.y - side
-    const clampedSide = Math.min(side, designWidth, designHeight)
-
-    return {
-      x: clamp(x, 0, Math.max(0, designWidth - clampedSide)),
-      y: clamp(y, 0, Math.max(0, designHeight - clampedSide)),
-      width: clampedSide,
-      height: clampedSide,
-      rotation: 0,
-    }
+  if (tool.primitive === 'ellipse' && constrainAspectRatio) {
+    return constrainedSquareGeometry(start, dx, dy, designWidth, designHeight)
   }
 
   const left = Math.min(start.x, end.x)

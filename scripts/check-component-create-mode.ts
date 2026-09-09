@@ -18,10 +18,10 @@ const rectTool: ComponentCreateTool = {
   defaultHeight: 64,
 }
 
-const circleTool: ComponentCreateTool = {
+const ellipseTool: ComponentCreateTool = {
   kind: 'vector',
-  primitive: 'circle',
-  label: '圆形',
+  primitive: 'ellipse',
+  label: '圆/椭圆',
   defaultWidth: 72,
   defaultHeight: 72,
 }
@@ -61,30 +61,55 @@ assert.equal(edgeClick.y, 0)
 assert.equal(edgeClick.width, 96)
 assert.equal(edgeClick.height, 64)
 
-const circle = resolveComponentCreateGeometry(
-  circleTool,
-  { x: 10, y: 20 },
-  { x: 50, y: 50 },
+const clickEllipse = resolveComponentCreateGeometry(
+  ellipseTool,
+  { x: 100, y: 100 },
+  { x: 100, y: 100 },
   480,
   360,
 )
-assert.equal(circle.x, 10)
-assert.equal(circle.y, 20)
-assert.equal(circle.width, 40)
-assert.equal(circle.height, 40)
-assert.equal(circle.rotation, 0)
+assert.equal(clickEllipse.width, 72)
+assert.equal(clickEllipse.height, 72)
 
-const reverseCircle = resolveComponentCreateGeometry(
-  circleTool,
+const ellipse = resolveComponentCreateGeometry(
+  ellipseTool,
+  { x: 10, y: 20 },
+  { x: 70, y: 50 },
+  480,
+  360,
+)
+assert.equal(ellipse.x, 10)
+assert.equal(ellipse.y, 20)
+assert.equal(ellipse.width, 60)
+assert.equal(ellipse.height, 30)
+assert.equal(ellipse.rotation, 0)
+
+const constrainedCircle = resolveComponentCreateGeometry(
+  ellipseTool,
+  { x: 10, y: 20 },
+  { x: 70, y: 50 },
+  480,
+  360,
+  true,
+)
+assert.equal(constrainedCircle.x, 10)
+assert.equal(constrainedCircle.y, 20)
+assert.equal(constrainedCircle.width, 60)
+assert.equal(constrainedCircle.height, 60)
+assert.equal(constrainedCircle.rotation, 0)
+
+const reverseConstrainedCircle = resolveComponentCreateGeometry(
+  ellipseTool,
   { x: 100, y: 100 },
   { x: 60, y: 70 },
   480,
   360,
+  true,
 )
-assert.equal(reverseCircle.x, 60)
-assert.equal(reverseCircle.y, 60)
-assert.equal(reverseCircle.width, 40)
-assert.equal(reverseCircle.height, 40)
+assert.equal(reverseConstrainedCircle.x, 60)
+assert.equal(reverseConstrainedCircle.y, 60)
+assert.equal(reverseConstrainedCircle.width, 40)
+assert.equal(reverseConstrainedCircle.height, 40)
 
 const line = resolveComponentCreateGeometry(
   lineTool,
@@ -120,9 +145,14 @@ if (firstLayer?.kind === 'vector') {
   })
 }
 
-const second = appendCreatedVectorLayer(first.visual, circleTool, circle)
+const second = appendCreatedVectorLayer(first.visual, ellipseTool, ellipse)
 assert.equal(second.layerId, 'vector2')
 assert.equal(second.visual.layers.length, 2)
+const secondLayer = second.visual.layers[1]
+assert.equal(secondLayer?.kind, 'vector')
+if (secondLayer?.kind === 'vector') {
+  assert.equal(secondLayer.primitive, 'ellipse')
+}
 
 const nativeVisual: ComponentVisualDefinition = {
   ...emptyVisual,
