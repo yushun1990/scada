@@ -287,7 +287,7 @@ try {
     0,
     'Palette must not expose standalone Group creation',
   )
-  const addText = page.getByRole('button', { name: '文本', exact: true })
+  const addText = page.locator('.component-palette-item[aria-label="文本"]')
   for (let index = 1; index <= 3; index += 1) {
     await addText.click()
     await layerRow(`文本 ${index}`).waitFor()
