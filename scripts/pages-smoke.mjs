@@ -50,9 +50,9 @@ function assertClose(actual, expected, message) {
 }
 
 async function resetGeometry() {
-  await setGeometry('Path 1', 8, 8)
-  await setGeometry('Path 2', 32, 20)
-  await setGeometry('Path 3', 80, 56)
+  await setGeometry('文本 1', 8, 8)
+  await setGeometry('文本 2', 32, 20)
+  await setGeometry('文本 3', 80, 56)
 }
 
 async function assertAxis(names, axis, expected, commandName) {
@@ -248,7 +248,7 @@ async function saveAndWait() {
   await page.getByText('组件已保存', { exact: true }).waitFor()
 }
 
-const layerNames = ['Path 1', 'Path 2', 'Path 3']
+const layerNames = ['文本 1', '文本 2', '文本 3']
 const alignCases = [
   ['左对齐', 'x', 8],
   ['水平居中', 'x', 44],
@@ -287,16 +287,16 @@ try {
     0,
     'Palette must not expose standalone Group creation',
   )
-  const addPath = page.getByRole('button', { name: 'Path', exact: true })
+  const addText = page.getByRole('button', { name: '文本', exact: true })
   for (let index = 1; index <= 3; index += 1) {
-    await addPath.click()
-    await layerRow(`Path ${index}`).waitFor()
+    await addText.click()
+    await layerRow(`文本 ${index}`).waitFor()
   }
   assert.equal(await page.locator('.component-layer-row').count(), 3, 'three top-level sibling layers created from Palette')
 
   await resetGeometry()
 
-  await selectLayers(['Path 1', 'Path 2'])
+  await selectLayers(['文本 1', '文本 2'])
   assert.equal(await page.locator('.component-layer-row.active').count(), 2, 'Navigator multi-selection selects two layers')
   assert.equal(await page.getByRole('button', { name: '左对齐' }).isEnabled(), true, 'align enabled for 2 layers')
   assert.equal(await page.getByRole('button', { name: '水平等距分布' }).isDisabled(), true, 'distribute disabled for 2 layers')
@@ -319,13 +319,13 @@ try {
   await resetGeometry()
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '水平等距分布' }).click()
-  let middle = await readGeometry('Path 2')
+  let middle = await readGeometry('文本 2')
   assertClose(middle.x, 44, 'horizontal distribution middle x')
 
   await resetGeometry()
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '垂直等距分布' }).click()
-  middle = await readGeometry('Path 2')
+  middle = await readGeometry('文本 2')
   assertClose(middle.y, 32, 'vertical distribution middle y')
 
   await resetGeometry()
@@ -362,13 +362,13 @@ try {
     assertClose(actual.height, expected.height, `ungroup preserves ${name} height`)
   }
 
-  await selectLayers(['Path 1', 'Path 2'])
+  await selectLayers(['文本 1', '文本 2'])
   await page.getByRole('button', { name: '预览' }).click()
   assert.equal(await page.getByRole('button', { name: '左对齐' }).isDisabled(), true, 'preview disables align')
   assert.equal(await page.getByRole('button', { name: '组合选中图层' }).isDisabled(), true, 'preview disables group')
   assert.equal(await page.getByRole('button', { name: '吸附' }).isDisabled(), true, 'preview disables snap')
 
-  await layerRow('Path 3').click({ modifiers: ['Control'] })
+  await layerRow('文本 3').click({ modifiers: ['Control'] })
   assert.equal(await page.locator('.component-layer-row.active').count(), 3, 'preview keeps Navigator selection navigation')
 
   await page.getByRole('button', { name: '设计' }).click()
