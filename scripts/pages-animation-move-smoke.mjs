@@ -110,8 +110,8 @@ try {
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
-  await page.getByRole('button', { name: 'Path', exact: true }).click()
-  await layerRow('Path 1').waitFor()
+  await page.locator('.component-palette-item[aria-label="文本"]').click()
+  await layerRow('文本 1').waitFor()
 
   await page.getByRole('button', { name: '保存' }).click()
   await page.waitForFunction(() => window.location.hash !== '#/components/new')
