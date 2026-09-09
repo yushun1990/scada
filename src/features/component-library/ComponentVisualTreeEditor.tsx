@@ -16,14 +16,10 @@ import {
   Select,
   Textarea,
 } from '../../ui'
+import { ComponentAuthoringPalette } from './ComponentAuthoringPalette'
 import { ComponentVisualAssetImportControl } from './ComponentVisualAssetImportControl'
 import { componentLayerAncestorIds, componentNavigatorRows } from './component-layer-navigation'
-import {
-  clearComponentCreateTool,
-  isDrawableVisualPrimitive,
-  selectComponentCreateTool,
-  useComponentCreateTool,
-} from './component-create-mode'
+import { clearComponentCreateTool } from './component-create-mode'
 import './component-visual-palette.css'
 import './component-create-mode.css'
 
@@ -63,14 +59,6 @@ type LayerInspectorContentProps = Omit<ComponentVisualLayerInspectorProps, 'sele
   layer: ComponentVisualLayer
 }
 
-type PalettePrimitive = {
-  primitive: VisualVectorPrimitive
-  label: string
-  symbol: string
-  width: number
-  height: number
-}
-
 const LAYER_KIND_LABELS: Array<[VisualLayerKind, string]> = [
   ['group', 'Group'],
   ['svg', 'SVG'],
@@ -89,70 +77,8 @@ const VECTOR_PRIMITIVES: Array<[VisualVectorPrimitive, string]> = [
 
 const VECTOR_PRIMITIVE_OPTIONS = VECTOR_PRIMITIVES.map(([value, label]) => ({ value, label }))
 
-const PALETTE_PRIMITIVES: readonly PalettePrimitive[] = [
-  { primitive: 'rect', label: '矩形', symbol: '□', width: 96, height: 64 },
-  { primitive: 'ellipse', label: '圆/椭圆', symbol: '○', width: 72, height: 72 },
-  { primitive: 'line', label: '线段', symbol: '╱', width: 120, height: 8 },
-]
-
 export function layerKindLabel(kind: VisualLayerKind) {
   return LAYER_KIND_LABELS.find(([candidate]) => candidate === kind)?.[1] ?? kind
-}
-
-function nextLayerId(kind: VisualLayerKind, layers: readonly ComponentVisualLayer[]) {
-  const ids = new Set(layers.map((layer) => layer.id))
-  let index = 1
-
-  while (ids.has(`${kind}${index}`)) index += 1
-  return `${kind}${index}`
-}
-
-function createLayer(
-  kind: VisualLayerKind,
-  id: string,
-  parentId: string | null,
-): ComponentVisualLayer {
-  const base = {
-    id,
-    name: `${layerKindLabel(kind)} ${id.replace(/\D+/g, '') || ''}`.trim(),
-    kind,
-    parentId,
-    transform: {
-      x: 0,
-      y: 0,
-      width: 64,
-      height: 64,
-      rotation: 0,
-      scaleX: 1,
-      scaleY: 1,
-    },
-    visible: true,
-    opacity: 1,
-  }
-
-  if (kind === 'svg') return { ...base, kind, assetRef: '' }
-  if (kind === 'image') return { ...base, kind, assetRef: '' }
-  if (kind === 'vector') return { ...base, kind, primitive: 'rect' }
-  if (kind === 'text') return { ...base, kind, text: 'Text' }
-  return { ...base, kind: 'group' }
-}
-
-function centerLayer(
-  visual: ComponentVisualDefinition,
-  layer: ComponentVisualLayer,
-  width = layer.transform.width,
-  height = layer.transform.height,
-): ComponentVisualLayer {
-  return {
-    ...layer,
-    transform: {
-      ...layer.transform,
-      x: Math.max(0, (visual.designSize.width - width) / 2),
-      y: Math.max(0, (visual.designSize.height - height) / 2),
-      width,
-      height,
-    },
-  } as ComponentVisualLayer
 }
 
 function collectDescendantIds(
@@ -213,9 +139,9 @@ export function ComponentVisualTreeEditor({
   onSelectionChange,
   onChange,
 }: ComponentVisualTreeEditorProps) {
-  const createTool = useComponentCreateTool()
   const [search, setSearch] = useState('')
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<ReadonlySet<string>>(() => new Set())
+  const [navigatorCollapsed, setNavigatorCollapsed] = useState(false)
   const [revealRequest, setRevealRequest] = useState(0)
   const navigatorRef = useRef<HTMLDivElement>(null)
   const flattened = useMemo(
@@ -237,10 +163,11 @@ export function ComponentVisualTreeEditor({
   }, [ancestorKey, primaryLayerId, revealRequest])
 
   useEffect(() => {
+    if (navigatorCollapsed) return
     const row = Array.from(navigatorRef.current?.querySelectorAll<HTMLElement>('[data-layer-id]') ?? [])
       .find((element) => element.dataset.layerId === primaryLayerId)
     row?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-  }, [primaryLayerId, primaryVisible, revealRequest])
+  }, [navigatorCollapsed, primaryLayerId, primaryVisible, revealRequest])
 
   useEffect(() => {
     if (primaryLayerId && !primaryLayer) onSelectionChange(null)
@@ -250,45 +177,13 @@ export function ComponentVisualTreeEditor({
     if (readOnly || visual.mode !== 'composite') clearComponentCreateTool()
   }, [readOnly, visual.mode])
 
-  function appendLayer(layer: ComponentVisualLayer) {
-    if (readOnly || visual.mode !== 'composite') return
-
-    onChange({ ...visual, layers: [...visual.layers, layer] })
-    onSelectionChange(layer.id)
-  }
-
-  function addPrimitive(item: PalettePrimitive) {
-    if (!isDrawableVisualPrimitive(item.primitive)) return
-
-    selectComponentCreateTool({
-      kind: 'vector',
-      primitive: item.primitive,
-      label: item.label,
-      defaultWidth: item.width,
-      defaultHeight: item.height,
-    })
-  }
-
-  function addText() {
-    clearComponentCreateTool()
-    const id = nextLayerId('text', visual.layers)
-    const created = createLayer('text', id, null)
-    if (created.kind !== 'text') return
-
-    appendLayer(centerLayer(
-      visual,
-      { ...created, name: `文本 ${id.replace(/\D+/g, '') || ''}`.trim(), text: 'Text' },
-      120,
-      36,
-    ))
-  }
-
   function selectNavigatorLayer(layerId: string | null, toggle = false) {
     clearComponentCreateTool()
     onSelectionChange(layerId, toggle)
   }
 
   function revealSelection() {
+    setNavigatorCollapsed(false)
     setSearch('')
     setRevealRequest((current) => current + 1)
   }
@@ -304,172 +199,116 @@ export function ComponentVisualTreeEditor({
 
   return (
     <div className="component-layer-dock">
-      <section className="component-authoring-palette" aria-label="添加视觉元素">
-        <div className="component-layer-dock-heading">
-          <div>
-            <strong>添加</strong>
-            <span>图元与资源</span>
-          </div>
-          <Button
-            size="small"
-            className="component-select-tool"
-            disabled={readOnly || visual.mode !== 'composite'}
-            aria-pressed={!createTool}
-            title="返回选择模式（Esc 取消绘制）"
-            onClick={clearComponentCreateTool}
-          >选择</Button>
-        </div>
+      <ComponentAuthoringPalette
+        visual={visual}
+        readOnly={readOnly}
+        onSelectionChange={onSelectionChange}
+        onChange={onChange}
+      />
 
-        {visual.mode === 'composite' ? (
-          <>
-            <div className="component-palette-section">
-              <span className="component-palette-label">基础图元</span>
-              <div className="component-palette-grid">
-                {PALETTE_PRIMITIVES.map((item) => {
-                  const active = createTool?.kind === 'vector'
-                    && createTool.primitive === item.primitive
-                  const title = item.primitive === 'ellipse'
-                    ? '拖拽绘制圆/椭圆；按住 Shift 约束为正圆；单击创建默认正圆'
-                    : `在画布拖拽绘制${item.label}，或单击创建`
-
-                  return (
-                    <Button
-                      key={item.primitive}
-                      size="small"
-                      className={`component-palette-item${active ? ' create-tool-active' : ''}`}
-                      disabled={readOnly}
-                      aria-label={item.label}
-                      aria-pressed={active}
-                      title={title}
-                      onClick={() => addPrimitive(item)}
-                    >
-                      <span className="component-palette-item-symbol" aria-hidden="true">{item.symbol}</span>
-                    </Button>
-                  )
-                })}
-                <Button
-                  size="small"
-                  className="component-palette-item"
-                  disabled={readOnly}
-                  aria-label="文本"
-                  title="在画布中央添加文本，然后在右侧编辑内容"
-                  onClick={addText}
-                >
-                  <span className="component-palette-item-symbol" aria-hidden="true">T</span>
-                </Button>
-              </div>
-            </div>
-
-            <div className="component-palette-section component-palette-resource">
-              <span className="component-palette-label">资源</span>
-              <ComponentVisualAssetImportControl
-                visual={visual}
-                readOnly={readOnly}
-                selectedLayerId={null}
-                onSelectionChange={onSelectionChange}
-                onChange={onChange}
-              />
-            </div>
-
-            <p className="component-palette-help">
-              {createTool
-                ? createTool.primitive === 'ellipse'
-                  ? '绘制圆/椭圆：拖拽自由设置宽高，按住 Shift 保持正圆，Esc 取消。'
-                  : `绘制${createTool.label}：在画布拖拽或单击，Esc 取消。`
-                : '选择基础图元后在画布绘制；文本直接添加。'}
-            </p>
-          </>
-        ) : (
-          <div className="component-layer-empty">
-            内置组件可查看和预览，不能添加内部图元。
-          </div>
-        )}
-      </section>
-
-      <section className="component-layer-navigator" aria-label="图层导航">
+      <section
+        className={`component-layer-navigator${navigatorCollapsed ? ' collapsed' : ''}`}
+        aria-label="图层导航"
+      >
         <div className="component-layer-dock-heading">
           <div>
             <strong>图层</strong>
             <span>{visual.mode === 'native' ? '内置组件' : `${visual.layers.length} 个图层${selectedLayerIds.length ? ` · 已选 ${selectedLayerIds.length}` : ''}`}</span>
           </div>
-          <Button size="small" variant="ghost" disabled={!primaryLayer} onClick={revealSelection}>
-            定位所选
-          </Button>
-        </div>
-
-        {visual.mode === 'composite' && visual.layers.length > 0 && (
-          <div className="component-layer-search">
-            <Input
-              aria-label="查找图层"
-              placeholder="查找名称、类型或 ID"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  event.preventDefault()
-                  event.stopPropagation()
-                  setSearch('')
-                }
-              }}
-            />
-            {search && <IconButton aria-label="清除图层查找" size="small" onClick={() => setSearch('')}>×</IconButton>}
-          </div>
-        )}
-
-        <div className="component-layer-tree" ref={navigatorRef}>
-          {visual.mode === 'composite' && flattened.map(({ layer, depth, hasChildren }) => (
-            <div
-              key={layer.id}
-              className="component-layer-entry"
-              style={{ paddingLeft: `${depth * 14}px` }}
-              data-layer-id={layer.id}
+          <div className="component-layer-heading-actions">
+            <Button size="small" variant="ghost" disabled={!primaryLayer} onClick={revealSelection}>
+              定位所选
+            </Button>
+            <IconButton
+              size="small"
+              variant="ghost"
+              aria-label={navigatorCollapsed ? '展开图层' : '折叠图层'}
+              aria-expanded={!navigatorCollapsed}
+              title={navigatorCollapsed ? '展开图层' : '折叠图层'}
+              onClick={() => setNavigatorCollapsed((current) => !current)}
             >
-              {hasChildren ? (
-                <IconButton
-                  className="component-layer-disclosure"
-                  size="small"
-                  aria-label={`${collapsedGroupIds.has(layer.id) && !search.trim() ? '展开' : '折叠'} ${layer.name}`}
-                  aria-expanded={Boolean(search.trim()) || !collapsedGroupIds.has(layer.id)}
-                  disabled={Boolean(search.trim())}
-                  title={search.trim() ? '查找时展开匹配的图层，清除查找后可折叠' : undefined}
-                  onClick={() => toggleGroup(layer.id)}
-                ><span aria-hidden="true">{collapsedGroupIds.has(layer.id) && !search.trim() ? '›' : '⌄'}</span></IconButton>
-              ) : <span className="component-layer-disclosure-placeholder" />}
-              <Pressable
-                className={`component-layer-row${selectedLayerIdSet.has(layer.id) ? ' active' : ''}`}
-                aria-pressed={selectedLayerIdSet.has(layer.id)}
-                title={`${layer.name} · ${layerKindLabel(layer.kind)} · ${layer.id}`}
-                onClick={(event) => selectNavigatorLayer(
-                  layer.id,
-                  event.shiftKey || event.ctrlKey || event.metaKey,
-                )}
-              >
-                <span className="component-layer-kind">{layerKindLabel(layer.kind)}</span>
-                <span className="component-layer-name">{layer.name}</span>
-                {!layer.visible && <small>隐藏</small>}
-              </Pressable>
-            </div>
-          ))}
-
-          {visual.mode === 'composite' && flattened.length === 0 && (
-            <div className="component-layer-empty">
-              {visual.layers.length === 0
-                ? '添加图元或导入 SVG / 图片，开始设计组件。'
-                : '没有匹配的图层。试试其他名称，或清除查找。'}
-            </div>
-          )}
-
-          {visual.mode === 'native' && (
-            <div className="component-layer-empty">
-              内置组件的内部图形不在这里编辑。
-            </div>
-          )}
+              <span aria-hidden="true">{navigatorCollapsed ? '›' : '⌄'}</span>
+            </IconButton>
+          </div>
         </div>
 
-        {visual.mode === 'composite' && (
-          <p className="component-layer-navigator-help">
-            Shift / Ctrl / ⌘ 点击多选，使用画布工具栏组合。点击空白画布取消选择。
-          </p>
+        {!navigatorCollapsed && (
+          <>
+            {visual.mode === 'composite' && visual.layers.length > 0 && (
+              <div className="component-layer-search">
+                <Input
+                  aria-label="查找图层"
+                  placeholder="查找名称、类型或 ID"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      setSearch('')
+                    }
+                  }}
+                />
+                {search && <IconButton aria-label="清除图层查找" size="small" onClick={() => setSearch('')}>×</IconButton>}
+              </div>
+            )}
+
+            <div className="component-layer-tree" ref={navigatorRef}>
+              {visual.mode === 'composite' && flattened.map(({ layer, depth, hasChildren }) => (
+                <div
+                  key={layer.id}
+                  className="component-layer-entry"
+                  style={{ paddingLeft: `${depth * 14}px` }}
+                  data-layer-id={layer.id}
+                >
+                  {hasChildren ? (
+                    <IconButton
+                      className="component-layer-disclosure"
+                      size="small"
+                      aria-label={`${collapsedGroupIds.has(layer.id) && !search.trim() ? '展开' : '折叠'} ${layer.name}`}
+                      aria-expanded={Boolean(search.trim()) || !collapsedGroupIds.has(layer.id)}
+                      disabled={Boolean(search.trim())}
+                      title={search.trim() ? '查找时展开匹配的图层，清除查找后可折叠' : undefined}
+                      onClick={() => toggleGroup(layer.id)}
+                    ><span aria-hidden="true">{collapsedGroupIds.has(layer.id) && !search.trim() ? '›' : '⌄'}</span></IconButton>
+                  ) : <span className="component-layer-disclosure-placeholder" />}
+                  <Pressable
+                    className={`component-layer-row${selectedLayerIdSet.has(layer.id) ? ' active' : ''}`}
+                    aria-pressed={selectedLayerIdSet.has(layer.id)}
+                    title={`${layer.name} · ${layerKindLabel(layer.kind)} · ${layer.id}`}
+                    onClick={(event) => selectNavigatorLayer(
+                      layer.id,
+                      event.shiftKey || event.ctrlKey || event.metaKey,
+                    )}
+                  >
+                    <span className="component-layer-kind">{layerKindLabel(layer.kind)}</span>
+                    <span className="component-layer-name">{layer.name}</span>
+                    {!layer.visible && <small>隐藏</small>}
+                  </Pressable>
+                </div>
+              ))}
+
+              {visual.mode === 'composite' && flattened.length === 0 && (
+                <div className="component-layer-empty">
+                  {visual.layers.length === 0
+                    ? '从基础图元、组件或其他资源添加内容，开始设计组件。'
+                    : '没有匹配的图层。试试其他名称，或清除查找。'}
+                </div>
+              )}
+
+              {visual.mode === 'native' && (
+                <div className="component-layer-empty">
+                  内置组件的内部图形不在这里编辑。
+                </div>
+              )}
+            </div>
+
+            {visual.mode === 'composite' && (
+              <p className="component-layer-navigator-help">
+                Shift / Ctrl / ⌘ 点击多选，使用画布工具栏组合。点击空白画布取消选择。
+              </p>
+            )}
+          </>
         )}
       </section>
     </div>
