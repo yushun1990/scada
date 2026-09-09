@@ -72,28 +72,28 @@ try {
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.getByText('Component Editor', { exact: true }).waitFor()
 
-  const addPath = page.getByRole('button', { name: 'Path', exact: true })
+  const addText = page.locator('.component-palette-item[aria-label="文本"]')
 
-  async function addPathFixtureLayer() {
+  async function addTextFixtureLayer() {
     const beforeNames = new Set(
       (await page.locator('.component-layer-name').allTextContents())
         .map((name) => name.trim()),
     )
 
-    await addPath.click()
+    await addText.click()
     await page.waitForFunction((existingNames) => {
       const before = new Set(existingNames)
       return [...document.querySelectorAll('.component-layer-name')].some((node) => {
         const name = node.textContent?.trim() ?? ''
-        return name.startsWith('Path ') && !before.has(name)
+        return name.startsWith('文本 ') && !before.has(name)
       })
     }, [...beforeNames])
 
     const createdName = (await page.locator('.component-layer-name').allTextContents())
       .map((name) => name.trim())
-      .find((name) => name.startsWith('Path ') && !beforeNames.has(name))
+      .find((name) => name.startsWith('文本 ') && !beforeNames.has(name))
 
-    assert.ok(createdName, 'Path creation must expose a new Navigator layer name')
+    assert.ok(createdName, 'text creation must expose a new Navigator layer name')
     return createdName
   }
 
@@ -109,39 +109,39 @@ try {
   )
 
   // Groups are now explicit hierarchy results rather than Palette primitives.
-  // Build the visible bottom Group from two top-level Paths through the real
-  // Canvas group command. Path names are captured from the Navigator because
-  // vector ids deliberately reuse the first free slot after child deletion.
-  const bottomPathA = await addPathFixtureLayer()
-  await setGeometry(bottomPathA, 48, 48, 128, 128)
-  const bottomPathB = await addPathFixtureLayer()
-  await setGeometry(bottomPathB, 48, 48, 128, 128)
-  await groupLayers([bottomPathA, bottomPathB], 'Group 1')
+  // Build the visible bottom Group from two top-level Text layers through the
+  // real Canvas group command. Layer names are captured from the Navigator
+  // because deleted primitive ids may be reused by later fixture creation.
+  const bottomFixtureA = await addTextFixtureLayer()
+  await setGeometry(bottomFixtureA, 48, 48, 128, 128)
+  const bottomFixtureB = await addTextFixtureLayer()
+  await setGeometry(bottomFixtureB, 48, 48, 128, 128)
+  await groupLayers([bottomFixtureA, bottomFixtureB], 'Group 1')
   await setGeometry('Group 1', 48, 48, 128, 128)
 
   // Empty sibling Group placed exactly over the visible bottom Group. Empty
   // Groups remain a valid persisted/legacy structure, but the fixture reaches
   // that state by explicitly grouping and then deleting the children.
-  const overlayPathA = await addPathFixtureLayer()
-  await setGeometry(overlayPathA, 48, 48, 128, 128)
-  const overlayPathB = await addPathFixtureLayer()
-  await setGeometry(overlayPathB, 48, 48, 128, 128)
-  await groupLayers([overlayPathA, overlayPathB], 'Group 2')
+  const overlayFixtureA = await addTextFixtureLayer()
+  await setGeometry(overlayFixtureA, 48, 48, 128, 128)
+  const overlayFixtureB = await addTextFixtureLayer()
+  await setGeometry(overlayFixtureB, 48, 48, 128, 128)
+  await groupLayers([overlayFixtureA, overlayFixtureB], 'Group 2')
   await setGeometry('Group 2', 48, 48, 128, 128)
-  await deleteLayer(overlayPathA)
-  await deleteLayer(overlayPathB)
+  await deleteLayer(overlayFixtureA)
+  await deleteLayer(overlayFixtureB)
 
   // A separate empty Group gives the modifier-click and snap lifecycle tests a
   // non-overlapping target while still exercising empty-layer canvas hit areas.
-  // The just-deleted vector ids may be allocated again, so never assume Path 5/6.
-  const modifierPathA = await addPathFixtureLayer()
-  await setGeometry(modifierPathA, 240, 48, 96, 96)
-  const modifierPathB = await addPathFixtureLayer()
-  await setGeometry(modifierPathB, 240, 48, 96, 96)
-  await groupLayers([modifierPathA, modifierPathB], 'Group 3')
+  // Deleted primitive ids may be allocated again, so always capture live names.
+  const modifierFixtureA = await addTextFixtureLayer()
+  await setGeometry(modifierFixtureA, 240, 48, 96, 96)
+  const modifierFixtureB = await addTextFixtureLayer()
+  await setGeometry(modifierFixtureB, 240, 48, 96, 96)
+  await groupLayers([modifierFixtureA, modifierFixtureB], 'Group 3')
   await setGeometry('Group 3', 240, 48, 96, 96)
-  await deleteLayer(modifierPathA)
-  await deleteLayer(modifierPathB)
+  await deleteLayer(modifierFixtureA)
+  await deleteLayer(modifierFixtureB)
 
   const stage = page.locator('.component-artboard .konvajs-content').first()
   const box = await stage.boundingBox()
