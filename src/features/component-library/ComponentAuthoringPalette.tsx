@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent as ReactDragEvent,
+} from 'react'
 import type {
   ComponentVisualDefinition,
   ComponentVisualLayer,
@@ -100,7 +106,7 @@ function parseDragPayload(value: string): PaletteDragPayload | null {
   return null
 }
 
-function setDragPayload(event: React.DragEvent, payload: PaletteDragPayload) {
+function setDragPayload(event: ReactDragEvent, payload: PaletteDragPayload) {
   event.dataTransfer.effectAllowed = 'copy'
   event.dataTransfer.setData(PALETTE_DRAG_MIME, JSON.stringify(payload))
 }
@@ -139,9 +145,7 @@ function uniqueImportedLayerId(
 }
 
 function cloneLayer<T extends ComponentVisualLayer>(layer: T): T {
-  return globalThis.structuredClone
-    ? globalThis.structuredClone(layer)
-    : JSON.parse(JSON.stringify(layer)) as T
+  return structuredClone(layer)
 }
 
 function placeComponentVisualCopy(
@@ -420,13 +424,13 @@ export function ComponentAuthoringPalette({
     }
   }, [editableComponents, readOnly, resources, visual])
 
-  async function uploadResources(files: FileList | null) {
-    if (!files || files.length === 0 || readOnly || busy) return
+  async function uploadResources(files: readonly File[]) {
+    if (files.length === 0 || readOnly || busy) return
     setBusy(true)
     setMessage('')
     try {
       const imported = []
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         imported.push(await importLocalVisualAsset(file))
       }
       const next = await addComponentVisualAssetResources(imported)
@@ -461,7 +465,7 @@ export function ComponentAuthoringPalette({
                       draggable={!readOnly}
                       aria-label={tool.label}
                       aria-pressed={active}
-                      title={`单击进入绘制；双击居中添加；也可拖到画布任意位置`}
+                      title="单击进入绘制；双击居中添加；也可拖到画布任意位置"
                       onClick={() => selectComponentCreateTool(tool)}
                       onDoubleClick={(event) => {
                         event.preventDefault()
@@ -538,6 +542,7 @@ export function ComponentAuthoringPalette({
             <div className="component-palette-disclosure-body component-palette-resource-library">
               <Input
                 ref={fileInputRef}
+                className="component-palette-resource-input"
                 type="file"
                 hidden
                 multiple
@@ -545,7 +550,7 @@ export function ComponentAuthoringPalette({
                 accept={LOCAL_VISUAL_ASSET_ACCEPT}
                 disabled={readOnly || busy}
                 onChange={(event) => {
-                  const files = event.currentTarget.files
+                  const files = Array.from(event.currentTarget.files ?? [])
                   event.currentTarget.value = ''
                   void uploadResources(files)
                 }}
