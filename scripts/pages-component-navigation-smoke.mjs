@@ -22,27 +22,29 @@ async function assertNames(expected) {
 
 try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'load' })
-  await button('矩形').waitFor()
 
   const palette = page.getByRole('region', { name: '添加视觉元素' })
+  const paletteButton = (name) => palette.getByRole('button', { name, exact: true })
+  await paletteButton('矩形').waitFor()
+
   const paletteItems = palette.locator('.component-palette-item')
   assert.equal(await paletteItems.count(), 4, 'basic palette should expose rect, circle/ellipse, line, and text only')
-  assert.equal(await button('Path').count(), 0, 'Path must not masquerade as a basic primitive')
-  assert.equal(await button('圆形').count(), 0, 'Circle must not be a separate authoring tool')
-  assert.equal(await button('椭圆').count(), 0, 'Ellipse must not be a second authoring tool')
-  assert.equal((await button('矩形').textContent())?.trim(), '□', 'primitive buttons should be icon-only')
-  assert.equal((await button('圆/椭圆').textContent())?.trim(), '○', 'circle/ellipse should share one icon-only tool')
-  assert.equal((await button('线段').textContent())?.trim(), '╱', 'line button should be icon-only')
-  assert.equal((await button('文本').textContent())?.trim(), 'T', 'text button should be icon-only')
+  assert.equal(await paletteButton('Path').count(), 0, 'Path must not masquerade as a basic primitive')
+  assert.equal(await paletteButton('圆形').count(), 0, 'Circle must not be a separate authoring tool')
+  assert.equal(await paletteButton('椭圆').count(), 0, 'Ellipse must not be a second authoring tool')
+  assert.equal((await paletteButton('矩形').textContent())?.trim(), '□', 'primitive buttons should be icon-only')
+  assert.equal((await paletteButton('圆/椭圆').textContent())?.trim(), '○', 'circle/ellipse should share one icon-only tool')
+  assert.equal((await paletteButton('线段').textContent())?.trim(), '╱', 'line button should be icon-only')
+  assert.equal((await paletteButton('文本').textContent())?.trim(), 'T', 'text button should be icon-only')
 
-  await button('矩形').click()
-  assert.equal(await button('矩形').getAttribute('aria-pressed'), 'true')
+  await paletteButton('矩形').click()
+  assert.equal(await paletteButton('矩形').getAttribute('aria-pressed'), 'true')
   await button('选择').click()
   assert.equal(await button('选择').getAttribute('aria-pressed'), 'true')
   assert.equal(await rows.count(), 0, 'leaving draw mode must not create a layer')
 
   for (let index = 1; index <= 3; index += 1) {
-    await button('文本').click()
+    await paletteButton('文本').click()
     await row(`文本 ${index}`).waitFor()
   }
   await row('文本 1').click()
@@ -104,7 +106,7 @@ try {
 
   // A long list must scroll independently while creation and search remain reachable.
   for (let index = 4; index <= 20; index += 1) {
-    await button('文本').click()
+    await paletteButton('文本').click()
     await row(`文本 ${index}`).waitFor()
   }
   await page.setViewportSize({ width: 1000, height: 700 })
