@@ -7,12 +7,17 @@
 }
 
 /* Component Workbench participates in the shared three-zone toolbar grammar
- * from editor-toolbar-context.css. Keep the toolbar itself single-row and let
- * only the middle geometry strip own compact-width overflow. */
+ * from editor-toolbar-context.css. Pin the component toolbar itself to flex so
+ * the shared ::before/::after spacer slots and ordered command groups cannot
+ * fall back to editor-chrome.css's legacy grid layout when CSS chunks load in
+ * a different order. Keep it single-row and let only the middle geometry strip
+ * own compact-width overflow. */
 .component-editor-shell .component-canvas-toolbar.component-canvas-toolbar {
+  display: flex;
   grid-area: 1 / 1;
   width: 100%;
   min-width: 0;
+  align-items: center;
   justify-content: flex-start;
   flex-wrap: nowrap;
   overflow-x: hidden;

@@ -29,8 +29,37 @@ try {
     `component toolbar groups must not draw legacy edge separators: ${groupPseudoContent.join(', ')}`,
   )
 
+  const toolbarLayout = await toolbar.evaluate((element) => ({
+    display: getComputedStyle(element).display,
+    geometryButtons: Array.from(
+      element.querySelectorAll('.component-geometry-tool-group > button'),
+      (button) => {
+        const rect = button.getBoundingClientRect()
+        return { left: rect.left, right: rect.right, width: rect.width }
+      },
+    ),
+  }))
+  assert.equal(
+    toolbarLayout.display,
+    'flex',
+    'component toolbar must keep the flex layout required by shared ordered spacer slots',
+  )
+  assert.ok(toolbarLayout.geometryButtons.length > 1, 'component geometry commands must be present')
+  for (let index = 1; index < toolbarLayout.geometryButtons.length; index += 1) {
+    const previous = toolbarLayout.geometryButtons[index - 1]
+    const current = toolbarLayout.geometryButtons[index]
+    assert.ok(
+      previous.right <= current.left + 0.5,
+      `component geometry buttons must not overlap: ${index - 1}/${index} (${previous.right} > ${current.left})`,
+    )
+    assert.ok(
+      previous.width >= 29 && current.width >= 29,
+      `component geometry buttons must keep their normal hit target: ${previous.width}/${current.width}`,
+    )
+  }
+
   assert.deepEqual(errors, [])
-  console.log('Component header browser smoke passed: no mode-switch outer outline and no legacy group-edge separator.')
+  console.log('Component header browser smoke passed: mode chrome is clean and toolbar geometry buttons stay non-overlapping under the pinned flex layout.')
 } finally {
   await browser.close()
 }
