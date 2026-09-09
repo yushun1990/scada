@@ -32,9 +32,7 @@ function isComponentVisualAssetResource(value: unknown): value is ComponentVisua
 }
 
 function cloneResource(resource: ComponentVisualAssetResource): ComponentVisualAssetResource {
-  return globalThis.structuredClone
-    ? globalThis.structuredClone(resource)
-    : JSON.parse(JSON.stringify(resource)) as ComponentVisualAssetResource
+  return structuredClone(resource)
 }
 
 function parseLibrary(value: unknown): ComponentVisualAssetResource[] {
