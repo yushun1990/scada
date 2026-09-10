@@ -40,10 +40,10 @@ try {
     0,
     'Palette must not expose standalone Group creation',
   )
-  const palette = page.getByRole('region', { name: '添加视觉元素' })
+  const palette = page.getByRole('region', { name: '组件创作素材' })
   const addText = palette.getByRole('button', { name: '文本', exact: true })
   for (let index = 1; index <= 3; index += 1) {
-    await addText.click()
+    await addText.dblclick()
     await layerRow(`文本 ${index}`).waitFor()
   }
 
