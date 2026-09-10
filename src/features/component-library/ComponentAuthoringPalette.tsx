@@ -10,7 +10,7 @@ import type {
   ComponentVisualLayer,
   TextVisualLayer,
 } from '../../component-system/visual'
-import { Button, Input } from '../../ui'
+import { Button, Input, Pressable } from '../../ui'
 import {
   appendCreatedVectorLayer,
   clearComponentCreateTool,
@@ -565,9 +565,8 @@ export function ComponentAuthoringPalette({
               {resources.length > 0 ? (
                 <div className="component-palette-resource-grid">
                   {resources.map((resource) => (
-                    <button
+                    <Pressable
                       key={resource.id}
-                      type="button"
                       className="component-palette-resource-item"
                       disabled={readOnly}
                       draggable={!readOnly}
@@ -580,7 +579,7 @@ export function ComponentAuthoringPalette({
                     >
                       <img src={resource.assetRef} alt="" draggable={false} />
                       <span>{resource.name}</span>
-                    </button>
+                    </Pressable>
                   ))}
                 </div>
               ) : (
