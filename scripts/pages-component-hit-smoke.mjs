@@ -80,7 +80,7 @@ try {
         .map((name) => name.trim()),
     )
 
-    await addText.click()
+    await addText.dblclick()
     await page.waitForFunction((existingNames) => {
       const before = new Set(existingNames)
       return [...document.querySelectorAll('.component-layer-name')].some((node) => {
