@@ -25,19 +25,48 @@
 }
 
 /* Mode selection is a first-class grid child, so it stays centered regardless
- * of left identity width or right action count. The segmented background is
- * enough grouping; avoid a second outer outline around Design / Preview.
- * Keep this selector structurally stronger than editor-chrome.css's shared
- * `.editor-header .mode-switch` fallback so lazy CSS ordering cannot restore
- * the shared 1px frame in Component Editor. */
+ * of left identity width or right action count. In Component Editor the two
+ * mode faces read as one adjacent tab-like control: there is no framed,
+ * padded or tinted wrapper around Design / Preview, and the faces meet without
+ * a gap. Keep this selector structurally stronger than editor-chrome.css's
+ * shared `.editor-header .mode-switch` fallback so lazy CSS ordering cannot
+ * restore the old segmented-control shell. */
 .component-editor-shell > .component-editor-header > .mode-switch {
   position: static;
   grid-column: 2;
   grid-row: 1;
   justify-self: center;
+  gap: 0;
   margin: 0;
+  padding: 0;
   border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   transform: none;
+}
+
+/* The clickable faces own the visible shape instead of an outer container.
+ * Only the two outside corners are rounded; the touching edge stays square so
+ * Design / Preview are visually contiguous rather than two floating pills. */
+.component-editor-shell > .component-editor-header > .mode-switch > .ui-segmented-item {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.component-editor-shell > .component-editor-header > .mode-switch > .ui-segmented-item:first-child {
+  border-radius: var(--ui-radius-small) 0 0 var(--ui-radius-small);
+}
+
+.component-editor-shell > .component-editor-header > .mode-switch > .ui-segmented-item:last-child {
+  border-radius: 0 var(--ui-radius-small) var(--ui-radius-small) 0;
+}
+
+.component-editor-shell > .component-editor-header > .mode-switch > .ui-segmented-item[data-pressed],
+.component-editor-shell > .component-editor-header > .mode-switch > .ui-segmented-item.is-active {
+  background: var(--ui-color-accent-soft);
+  box-shadow: none;
 }
 
 .component-header-actions {
