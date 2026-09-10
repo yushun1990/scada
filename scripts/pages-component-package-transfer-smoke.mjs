@@ -54,7 +54,7 @@ try {
   console.log(`Preparing export browser component: ${baseUrl}#/components/new`)
   await exportPage.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await exportPage.getByText('Component Editor', { exact: true }).waitFor()
-  await exportPage.locator('.component-palette-item[aria-label="文本"]').click()
+  await exportPage.locator('.component-palette-item[aria-label="文本"]').dblclick()
   await exportPage.locator('.component-layer-row', { hasText: '文本 1' }).waitFor()
   await exportPage.getByRole('button', { name: '保存' }).click()
   await exportPage.waitForFunction(() => window.location.hash !== '#/components/new')
