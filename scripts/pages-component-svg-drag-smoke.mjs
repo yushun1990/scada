@@ -38,13 +38,27 @@ async function purpleCanvasPixels() {
 
 try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'load' })
-  const fileInput = page.locator('.component-asset-file-input')
+  const fileInput = page.locator('.component-palette-resource-input')
   await fileInput.setInputFiles({
     name: 'drag-highlight.svg',
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(svgSource),
   })
-  await page.getByText('资源已导入，可撤销/重做', { exact: true }).waitFor()
+  await page.getByText('已保存 1 个资源 · 共 1 个', { exact: true }).waitFor()
+
+  const savedResource = page.locator('.component-palette-resource-item', { hasText: 'drag-highlight' })
+  await savedResource.waitFor()
+  await savedResource.dblclick()
+  await page.locator('.component-layer-row', { hasText: 'drag-highlight' }).waitFor()
+
+  // Resource uploads are authoring-library state, while an unsaved component
+  // visual is intentionally transient. Reload proves the resource persists,
+  // then places that persisted resource again through the normal authoring flow.
+  await page.reload({ waitUntil: 'load' })
+  const reloadedResource = page.locator('.component-palette-resource-item', { hasText: 'drag-highlight' })
+  await reloadedResource.waitFor()
+  await reloadedResource.dblclick()
+  await page.locator('.component-layer-row', { hasText: 'drag-highlight' }).click()
 
   const rectTreeItem = page.getByRole('treeitem').filter({ hasText: '<rect>' }).first()
   await rectTreeItem.waitFor()
@@ -76,7 +90,7 @@ try {
   assert.ok(after > 0, 'managed SVG highlight should return at the committed layer position after drag end')
 
   assert.deepEqual(errors, [])
-  console.log('Component SVG drag browser smoke passed: internal highlight hides during drag and returns after commit without a stale ghost.')
+  console.log('Component SVG drag browser smoke passed: resource upload persists, double-click places the saved SVG, and internal highlight hides during drag without a stale ghost.')
 } finally {
   await browser.close()
 }

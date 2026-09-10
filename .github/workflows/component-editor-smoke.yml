@@ -30,8 +30,10 @@ jobs:
           node-version: 22
       - name: Build the proposed revision
         run: |
+          set -euo pipefail
+          mkdir -p artifacts
           npm ci
-          npm run build
+          npm run build 2>&1 | tee artifacts/component-build.log
       - name: Install browser test tools
         run: |
           npm install --no-save --package-lock=false playwright

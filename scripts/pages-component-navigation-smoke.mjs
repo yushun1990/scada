@@ -23,9 +23,17 @@ async function assertNames(expected) {
 try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'load' })
 
-  const palette = page.getByRole('region', { name: '添加视觉元素' })
+  const palette = page.getByRole('region', { name: '组件创作素材' })
   const paletteButton = (name) => palette.getByRole('button', { name, exact: true })
   await paletteButton('矩形').waitFor()
+
+  const paletteHeadings = await palette.locator('.component-palette-summary > span').allTextContents()
+  assert.deepEqual(
+    paletteHeadings,
+    ['基础图元', '组件', '其他资源'],
+    'left dock should expose the three authoring source groups without a redundant add header',
+  )
+  assert.equal(await button('选择').count(), 0, 'the redundant selection button should be removed')
 
   const paletteItems = palette.locator('.component-palette-item')
   assert.equal(await paletteItems.count(), 4, 'basic palette should expose rect, circle/ellipse, line, and text only')
@@ -39,12 +47,18 @@ try {
 
   await paletteButton('矩形').click()
   assert.equal(await paletteButton('矩形').getAttribute('aria-pressed'), 'true')
-  await button('选择').click()
-  assert.equal(await button('选择').getAttribute('aria-pressed'), 'true')
+  await page.keyboard.press('Escape')
+  assert.equal(await paletteButton('矩形').getAttribute('aria-pressed'), 'false')
   assert.equal(await rows.count(), 0, 'leaving draw mode must not create a layer')
 
+  await button('折叠图层').click()
+  await button('展开图层').waitFor()
+  assert.equal(await page.locator('.component-layer-tree').count(), 0, 'Navigator body should collapse independently')
+  await button('展开图层').click()
+  await button('折叠图层').waitFor()
+
   for (let index = 1; index <= 3; index += 1) {
-    await paletteButton('文本').click()
+    await paletteButton('文本').dblclick()
     await row(`文本 ${index}`).waitFor()
   }
   await row('文本 1').click()
@@ -106,7 +120,7 @@ try {
 
   // A long list must scroll independently while creation and search remain reachable.
   for (let index = 4; index <= 20; index += 1) {
-    await paletteButton('文本').click()
+    await paletteButton('文本').dblclick()
     await row(`文本 ${index}`).waitFor()
   }
   await page.setViewportSize({ width: 1000, height: 700 })
@@ -124,7 +138,7 @@ try {
   await mkdir('artifacts', { recursive: true })
   await page.screenshot({ path: 'artifacts/component-navigation-1000.png' })
   assert.deepEqual(errors, [])
-  console.log('Component navigation browser smoke passed: icon-only primitive palette, collapse/search/reveal, selection/settings, Preview history lock, transient persistence, and independent scrolling.')
+  console.log('Component navigation browser smoke passed: reorganized collapsible Palette, double-click placement, collapse/search/reveal, selection/settings, Preview history lock, transient persistence, and independent scrolling.')
 } finally {
   await browser.close()
 }
