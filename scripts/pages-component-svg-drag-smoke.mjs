@@ -51,10 +51,13 @@ try {
   await savedResource.dblclick()
   await page.locator('.component-layer-row', { hasText: 'drag-highlight' }).waitFor()
 
-  // Resource uploads are authoring-library state, not one-shot file inputs.
-  // Reloading before the rest of this test proves the stored resource remains reusable.
+  // Resource uploads are authoring-library state, while an unsaved component
+  // visual is intentionally transient. Reload proves the resource persists,
+  // then places that persisted resource again through the normal authoring flow.
   await page.reload({ waitUntil: 'load' })
-  await page.locator('.component-palette-resource-item', { hasText: 'drag-highlight' }).waitFor()
+  const reloadedResource = page.locator('.component-palette-resource-item', { hasText: 'drag-highlight' })
+  await reloadedResource.waitFor()
+  await reloadedResource.dblclick()
   await page.locator('.component-layer-row', { hasText: 'drag-highlight' }).click()
 
   const rectTreeItem = page.getByRole('treeitem').filter({ hasText: '<rect>' }).first()
