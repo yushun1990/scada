@@ -35,7 +35,7 @@ import type { ComponentLayerSelectionChange } from './ComponentVisualTreeEditor'
 
 const PALETTE_DRAG_MIME = 'application/x-scada-component-palette'
 
-const PALETTE_PRIMITIVES: readonly Array<{
+const PALETTE_PRIMITIVES: ReadonlyArray<{
   tool: ComponentCreateTool
   symbol: string
 }> = [
