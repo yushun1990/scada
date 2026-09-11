@@ -1,0 +1,39 @@
+name: Patch B2 back smoke
+
+on:
+  push:
+    branches: [fix/ui-b2-save-leave]
+    paths:
+      - '.github/workflows/b2-patch-back-smoke.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ui-b2-save-leave
+      - name: Use a real hash history entry for browser Back
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/pages-editor-save-leave-smoke.mjs')
+          text = path.read_text()
+          old = "  await page.goto(scadaEditorUrl, { waitUntil: 'networkidle' })\n  await page.getByText('SCADA Editor', { exact: true }).waitFor()"
+          new = "  const scadaEditorHash = new URL(scadaEditorUrl).hash\n  await page.evaluate((targetHash) => { window.location.hash = targetHash }, scadaEditorHash)\n  await page.getByText('SCADA Editor', { exact: true }).waitFor()"
+          if text.count(old) != 1:
+              raise SystemExit('expected one SCADA Back fixture navigation')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit patch and remove one-shot workflow
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/b2-patch-back-smoke.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add scripts/pages-editor-save-leave-smoke.mjs
+          git commit -m "test: preserve workspace target for browser back smoke"
+          git push origin HEAD:fix/ui-b2-save-leave
