@@ -98,7 +98,6 @@ import {
   SegmentedControl,
   Select,
   Tabs,
-  Toolbar,
   ToolbarButton,
   ToolbarGroup,
   type SegmentedControlItem,
@@ -986,9 +985,6 @@ export function ScadaEditorPage({
                 : saveState.status === 'error' ? '保存失败'
                 : saveState.dirty ? '未保存' : '已保存'}
             </span>
-            <Button variant="secondary" disabled={!designEditingEnabled || !canUndo} onClick={undo}>撤销</Button>
-            <Button variant="secondary" disabled={!designEditingEnabled || !canRedo} onClick={redo}>重做</Button>
-          <Toolbar className="canvas-toolbar" aria-label="画布工具栏">
             <ToolbarGroup className="canvas-tool-group">
               <ToolbarButton
                 iconOnly
@@ -1137,7 +1133,6 @@ export function ScadaEditorPage({
                 />
               </div>
             </ToolbarGroup>
-          </Toolbar>
             <Input
               ref={importInputRef}
               className="hidden-input"

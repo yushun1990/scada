@@ -26,7 +26,6 @@ import {
   Select,
   Tabs,
   Textarea,
-  Toolbar,
   ToolbarButton,
   ToolbarGroup,
   type SegmentedControlItem,
@@ -706,12 +705,6 @@ export function ComponentEditorPage({
             <Button disabled={!canPublish} onClick={() => void publishRemote()}>
               {publicationBusy ? '处理中…' : '发布'}
             </Button>
-            <Button variant="secondary" disabled={editingDisabled || !canUndo} onClick={undo}>撤销</Button>
-            <Button variant="secondary" disabled={editingDisabled || !canRedo} onClick={redo}>重做</Button>
-          <Toolbar
-            className="canvas-toolbar component-canvas-toolbar"
-            aria-label="组件画布工具栏"
-          >
             <ComponentGeometryToolbarGroup
               visual={component.visual}
               selectedLayerIds={selectedLayerIds}
@@ -734,7 +727,6 @@ export function ComponentEditorPage({
               </ToolbarButton>
             </ToolbarGroup>
             <span className="component-canvas-phase">{snapStatus}</span>
-          </Toolbar>
           </>
         )}
         modeControl={(
