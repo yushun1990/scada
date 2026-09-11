@@ -73,6 +73,8 @@ type ComponentVisualCanvasProps = {
   snapEnabled: boolean
   canUndo: boolean
   canRedo: boolean
+  editToolbarHost: HTMLElement | null
+  viewToolbarHost: HTMLElement | null
   onUndo: () => void
   onRedo: () => void
   onSelectionChange: ComponentLayerSelectionChange
@@ -216,6 +218,8 @@ export function ComponentVisualCanvas({
   snapEnabled,
   canUndo,
   canRedo,
+  editToolbarHost,
+  viewToolbarHost,
   onUndo,
   onRedo,
   onSelectionChange,
@@ -229,8 +233,6 @@ export function ComponentVisualCanvas({
   const verticalGuideRef = useRef<Konva.Line>(null)
   const horizontalGuideRef = useRef<Konva.Line>(null)
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
-  const [editToolbarHost, setEditToolbarHost] = useState<HTMLElement | null>(null)
-  const [viewToolbarHost, setViewToolbarHost] = useState<HTMLElement | null>(null)
   const [gridVisible, setGridVisible] = useState(true)
   const [gridSize, setGridSize] = useState(COMPONENT_SNAP_GRID_SIZE)
   const [animationTimeMs, setAnimationTimeMs] = useState(0)
@@ -303,14 +305,6 @@ export function ComponentVisualCanvas({
     if (!element) {
       return
     }
-
-    const canvasArea = element.closest('.component-canvas-area')
-    const toolbar = canvasArea?.querySelector<HTMLElement>('.component-canvas-toolbar')
-    const hierarchyGroup = toolbar?.querySelector<HTMLElement>('.component-hierarchy-tool-group')
-    const snapButton = toolbar?.querySelector<HTMLElement>('.component-snap-toggle')
-
-    setEditToolbarHost(hierarchyGroup ?? null)
-    setViewToolbarHost(snapButton?.closest<HTMLElement>('.canvas-tool-group') ?? null)
 
     const updateViewport = () => {
       const next = measureCanvasViewport(element)

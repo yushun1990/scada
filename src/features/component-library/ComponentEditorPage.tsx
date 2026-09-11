@@ -66,7 +66,6 @@ import {
   type ComponentStatus,
 } from './storage'
 import './component-editor.css'
-import './component-canvas-toolbar.css'
 
 type InspectorTab = 'properties' | 'actions' | 'events'
 
@@ -317,6 +316,8 @@ export function ComponentEditorPage({
     createDefaultPropsFromDefinition(initial.definition),
   )
   const [snapEnabled, setSnapEnabled] = useState(true)
+  const [componentEditToolbarHost, setComponentEditToolbarHost] = useState<HTMLElement | null>(null)
+  const [componentViewToolbarHost, setComponentViewToolbarHost] = useState<HTMLElement | null>(null)
   const [message, setMessage] = useState('')
   const [publicationSession, setPublicationSession] =
     useState<ComponentPublicationSession | null>(null)
@@ -705,6 +706,7 @@ export function ComponentEditorPage({
             <Button disabled={!canPublish} onClick={() => void publishRemote()}>
               {publicationBusy ? '处理中…' : '发布'}
             </Button>
+            <div ref={setComponentEditToolbarHost} className="component-edit-command-host" />
             <ComponentGeometryToolbarGroup
               visual={component.visual}
               selectedLayerIds={selectedLayerIds}
@@ -713,7 +715,7 @@ export function ComponentEditorPage({
               onSelectionReplace={replaceLayerSelection}
               onApplied={setMessage}
             />
-            <ToolbarGroup className="canvas-tool-group">
+            <div ref={setComponentViewToolbarHost} className="canvas-tool-group component-view-command-host">
               <ToolbarButton
                 iconOnly
                 className={`icon-button toggle-button component-snap-toggle${snapEnabled ? ' active' : ''}`}
@@ -725,7 +727,7 @@ export function ComponentEditorPage({
               >
                 <SnapIcon />
               </ToolbarButton>
-            </ToolbarGroup>
+            </div>
             <span className="component-canvas-phase">{snapStatus}</span>
           </>
         )}
@@ -771,6 +773,8 @@ export function ComponentEditorPage({
             snapEnabled={snapEnabled}
             canUndo={canUndo}
             canRedo={canRedo}
+            editToolbarHost={componentEditToolbarHost}
+            viewToolbarHost={componentViewToolbarHost}
             onUndo={undo}
             onRedo={redo}
             onSelectionChange={selectLayer}

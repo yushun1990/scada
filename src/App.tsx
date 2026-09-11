@@ -8,7 +8,6 @@ import {
   requestStudioNavigation,
 } from './editor/editor-navigation'
 import './inspector-compact.css'
-import './component-editor-header.css'
 import './editor-toolbar-context.css'
 
 const WorkspacePage = lazy(() =>
