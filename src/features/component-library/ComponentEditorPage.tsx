@@ -14,6 +14,7 @@ import type { VisualRuleOperator } from '../../component-system/visualRules'
 import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'
 import { commitStudioNavigation } from '../../editor/editor-navigation'
 import { EditorLeaveDialog } from '../../editor/EditorLeaveDialog'
+import { StudioShell, type StudioMenuDefinition } from '../../editor/StudioShell'
 import { useDocumentHistory } from '../../editor/use-document-history'
 import { useEditorLeaveProtection } from '../../editor/use-editor-leave-protection'
 import { useEditorSaveState } from '../../editor/use-editor-save-state'
@@ -259,7 +260,13 @@ function publicationErrorMessage(
   return error instanceof Error ? error.message : '组件发布失败'
 }
 
-export function ComponentEditorPage({ componentId }: { componentId: string }) {
+export function ComponentEditorPage({
+  componentId,
+  onNavigateWorkspace,
+}: {
+  componentId: string
+  onNavigateWorkspace: () => void
+}) {
   const initial = useMemo(() =>
     componentId === 'new'
       ? createComponentDraft()
@@ -625,59 +632,64 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     }
   }
 
+  const menus: StudioMenuDefinition[] = [
+    {
+      id: 'file',
+      label: '文件',
+      commands: [
+        {
+          id: 'save',
+          label: saveState.saving ? '保存中…' : '保存',
+          disabled: builtInReadOnly || saveState.saving || (!saveState.dirty && saveState.status !== 'error'),
+          onSelect: () => void save(),
+        },
+        { id: 'publish', label: publicationBusy ? '处理中…' : '发布', disabled: !canPublish, onSelect: () => void publishRemote() },
+        { id: 'workspace', label: '返回工作台', separatorBefore: true, onSelect: onNavigateWorkspace },
+      ],
+    },
+    {
+      id: 'edit',
+      label: '编辑',
+      commands: [
+        { id: 'undo', label: '撤销', shortcut: 'Ctrl+Z', disabled: editingDisabled || !canUndo, onSelect: undo },
+        { id: 'redo', label: '重做', shortcut: 'Ctrl+Shift+Z', disabled: editingDisabled || !canRedo, onSelect: redo },
+      ],
+    },
+    {
+      id: 'view',
+      label: '视图',
+      commands: [
+        { id: 'snap', label: snapEnabled ? '关闭吸附' : '开启吸附', disabled: !componentCanvasEditable, onSelect: () => setSnapEnabled((current) => !current) },
+      ],
+    },
+    {
+      id: 'run',
+      label: '运行',
+      commands: [
+        { id: 'design', label: '设计模式', disabled: mode === 'editor', onSelect: () => setMode('editor') },
+        { id: 'preview', label: '预览模式', disabled: mode === 'preview', onSelect: () => setMode('preview') },
+      ],
+    },
+  ]
+
   return (
-    <div
-      className="editor-shell component-editor-shell"
-      onFocusCapture={(event) => {
-        if (!editingDisabled && isTextEditingTarget(event.target)) {
-          beginTransaction()
-        }
-      }}
-      onBlurCapture={(event) => {
-        if (!editingDisabled && isTextEditingTarget(event.target)) {
-          commitTransaction()
-        }
-      }}
-    >
-      <header className="editor-header component-editor-header">
-        <div className="brand-block component-brand-block">
-          <span className="brand-mark" aria-hidden="true">C</span>
-          <div className="brand-text">
-            <strong>Component Editor</strong>
-            <span>{definition.title} · {definition.type}</span>
-          </div>
-        </div>
-
-        <SegmentedControl
-          value={mode}
-          items={MODE_ITEMS}
-          onValueChange={setMode}
-          ariaLabel="组件工作模式"
-          className="mode-switch"
-        />
-
-        <div className="component-header-actions">
-          <div className="document-toolbar" role="toolbar" aria-label="组件文档操作">
-            <Button
-              disabled={!canPublish}
-              onClick={() => void publishRemote()}
-            >
-              {publicationBusy ? '处理中…' : '发布'}
-            </Button>
-            <span
-              className={`document-save-status ${saveState.status}`}
-              title={`current revision ${saveState.currentRevision} · saved revision ${saveState.savedRevision ?? 'none'}`}
-            >
-              {saveState.saving
-                ? saveState.changedWhileSaving
-                  ? '保存中 · 有新修改'
-                  : '保存中…'
-                : saveState.status === 'error'
-                  ? '保存失败'
-                  : saveState.dirty
-                    ? '未保存'
-                    : '已保存'}
-            </span>
+    <>
+      <StudioShell
+        className="component-studio-shell"
+        documentTitle={definition.title}
+        documentType={`Component · ${definition.type}`}
+        dirty={saveState.dirty}
+        menus={menus}
+        workspaceNavigationLabel="返回组件库工作台"
+        onNavigateWorkspace={onNavigateWorkspace}
+        onFocusCapture={(event) => {
+          if (!editingDisabled && isTextEditingTarget(event.target)) beginTransaction()
+        }}
+        onBlurCapture={(event) => {
+          if (!editingDisabled && isTextEditingTarget(event.target)) commitTransaction()
+        }}
+        mainToolbar={(
+          <>
             <Button
               variant="primary"
               disabled={builtInReadOnly || saveState.saving || (!saveState.dirty && saveState.status !== 'error')}
@@ -685,11 +697,29 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             >
               {saveState.saving ? '保存中…' : '保存'}
             </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="editor-main component-editor-main">
+            <span className={`document-save-status ${saveState.status}`}>
+              {saveState.saving
+                ? saveState.changedWhileSaving ? '保存中 · 有新修改' : '保存中…'
+                : saveState.status === 'error' ? '保存失败'
+                : saveState.dirty ? '未保存' : '已保存'}
+            </span>
+            <Button disabled={!canPublish} onClick={() => void publishRemote()}>
+              {publicationBusy ? '处理中…' : '发布'}
+            </Button>
+            <Button variant="secondary" disabled={editingDisabled || !canUndo} onClick={undo}>撤销</Button>
+            <Button variant="secondary" disabled={editingDisabled || !canRedo} onClick={redo}>重做</Button>
+          </>
+        )}
+        modeControl={(
+          <SegmentedControl
+            value={mode}
+            items={MODE_ITEMS}
+            onValueChange={setMode}
+            ariaLabel="组件工作模式"
+            className="mode-switch"
+          />
+        )}
+        leftPanel={(
         <aside className="component-panel component-layer-panel" aria-label="组件内部图层">
           <ComponentVisualTreeEditor
             visual={component.visual}
@@ -700,7 +730,8 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             onChange={(visual) => updatePackage('visual', visual)}
           />
         </aside>
-
+        )}
+        center={(
         <section className="canvas-area component-canvas-area" aria-label="组件设计画布">
           {message && (
             <div className="canvas-toast component-canvas-toast" role="status" aria-live="polite">
@@ -755,7 +786,8 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             onChange={(visual) => updatePackage('visual', visual)}
           />
         </section>
-
+        )}
+        rightPanel={(
         <aside className="property-panel component-property-panel">
           <section className="semantic-inspector component-semantic-inspector" aria-label="组件配置">
             <div className="component-inspector-context">
@@ -1001,7 +1033,21 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             )}
           </section>
         </aside>
-      </main>
+        )}
+        status={(
+          <>
+            <span className="studio-status-cluster">
+              <strong>{mode === 'preview' ? '预览' : '设计'}</strong>
+              <span>{selectedLayerIds.length > 1 ? `已选 ${selectedLayerIds.length} 个图层` : inspectorContextLabel}</span>
+            </span>
+            <span className="studio-status-cluster">
+              <span>{saveState.status === 'error' ? '保存失败' : saveState.dirty ? '未保存' : '已保存'}</span>
+              <code>{definition.size.defaultWidth} × {definition.size.defaultHeight}</code>
+              <span>{snapStatus}</span>
+            </span>
+          </>
+        )}
+      />
 
       <EditorLeaveDialog
         open={leaveProtection.pendingTargetHash !== null}
@@ -1013,6 +1059,6 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
         onDiscardAndLeave={leaveProtection.discardAndLeave}
         onCancel={leaveProtection.cancelLeave}
       />
-    </div>
+    </>
   )
 }

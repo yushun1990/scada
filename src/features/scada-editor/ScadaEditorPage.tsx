@@ -63,6 +63,7 @@ import { parseSceneDocument } from '../../scene/validation'
 import { useSceneHistory } from '../../scene/use-scene-history'
 import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'
 import { EditorLeaveDialog } from '../../editor/EditorLeaveDialog'
+import { StudioShell, type StudioMenuDefinition } from '../../editor/StudioShell'
 import { useEditorLeaveProtection } from '../../editor/use-editor-leave-protection'
 import { useEditorSaveState } from '../../editor/use-editor-save-state'
 import {
@@ -148,7 +149,13 @@ function getInitialSelectedIds(scene: SceneDocument) {
   return firstRoot ? [firstRoot.id] : []
 }
 
-export function ScadaEditorPage({ workId }: { workId: string }) {
+export function ScadaEditorPage({
+  workId,
+  onNavigateWorkspace,
+}: {
+  workId: string
+  onNavigateWorkspace: () => void
+}) {
   const [mode, setMode] = useState<RendererMode>('editor')
   const designEditingEnabled = mode === 'editor'
   const {
@@ -876,41 +883,96 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     : '组合选中对象'
   const hierarchyEnabled = canUngroup || canGroup
 
-  return (
-    <div className="editor-shell">
-      <header className="editor-header">
-        <div className="brand-block">
-          <span className="brand-mark" aria-hidden="true">◆</span>
-          <div className="brand-text">
-            <strong>SCADA Editor</strong>
-            <span>通用组态编辑器</span>
-          </div>
-        </div>
+  const menus: StudioMenuDefinition[] = [
+    {
+      id: 'file',
+      label: '文件',
+      commands: [
+        {
+          id: 'save',
+          label: saveState.saving ? '保存中…' : '保存',
+          disabled: saveState.saving || (!saveState.dirty && saveState.status !== 'error'),
+          onSelect: () => void saveScene(),
+        },
+        {
+          id: 'import',
+          label: '导入场景',
+          disabled: !designEditingEnabled,
+          onSelect: () => importInputRef.current?.click(),
+        },
+        { id: 'export', label: '导出场景', onSelect: exportScene },
+        {
+          id: 'workspace',
+          label: '返回工作台',
+          separatorBefore: true,
+          onSelect: onNavigateWorkspace,
+        },
+      ],
+    },
+    {
+      id: 'edit',
+      label: '编辑',
+      commands: [
+        { id: 'undo', label: '撤销', shortcut: 'Ctrl+Z', disabled: !designEditingEnabled || !canUndo, onSelect: undo },
+        { id: 'redo', label: '重做', shortcut: 'Ctrl+Shift+Z', disabled: !designEditingEnabled || !canRedo, onSelect: redo },
+        { id: 'duplicate', label: '复制选中对象', disabled: !designEditingEnabled || selectedNodes.length === 0, separatorBefore: true, onSelect: duplicateSelectedNodes },
+        { id: 'delete', label: '删除选中对象', disabled: !designEditingEnabled || !hasSelection, destructive: true, onSelect: deleteSelection },
+      ],
+    },
+    {
+      id: 'view',
+      label: '视图',
+      commands: [
+        { id: 'grid', label: gridVisible ? '隐藏格线' : '显示格线', onSelect: () => setGridVisible((current) => !current) },
+        { id: 'snap', label: snapSettings.gridEnabled ? '关闭网格吸附' : '开启网格吸附', onSelect: () => setSnapSettings((current) => ({ ...current, gridEnabled: !current.gridEnabled })) },
+      ],
+    },
+    {
+      id: 'insert',
+      label: '插入',
+      commands: builtInComponentRegistry.list().map(({ definition }) => ({
+        id: `insert-${definition.type}`,
+        label: definition.title,
+        disabled: !designEditingEnabled,
+        onSelect: () => addComponent(definition.type),
+      })),
+    },
+    {
+      id: 'arrange',
+      label: '排列',
+      commands: [
+        { id: hierarchyMode, label: hierarchyTitle, disabled: !designEditingEnabled || !hierarchyEnabled, onSelect: hierarchyMode === 'ungroup' ? ungroupSelectedNode : groupSelectedNodes },
+        ...alignButtons.map((item) => ({
+          id: `align-${item.mode}`,
+          label: item.title,
+          disabled: !designEditingEnabled || selectedNodes.length < 2,
+          onSelect: () => applyAlignment(item.mode),
+        })),
+        { id: 'distribute-horizontal', label: '水平等距分布', disabled: !designEditingEnabled || selectedNodes.length < 3, onSelect: () => applyDistribution('horizontal') },
+        { id: 'distribute-vertical', label: '垂直等距分布', disabled: !designEditingEnabled || selectedNodes.length < 3, onSelect: () => applyDistribution('vertical') },
+      ],
+    },
+    {
+      id: 'run',
+      label: '运行',
+      commands: [
+        { id: 'design', label: '设计模式', disabled: mode === 'editor', onSelect: () => setMode('editor') },
+        { id: 'preview', label: '预览模式', disabled: mode === 'preview', onSelect: () => setMode('preview') },
+      ],
+    },
+  ]
 
-        <div className="header-actions">
-          <div className="document-toolbar" role="toolbar" aria-label="场景文档操作">
-            <Button
-              variant="secondary"
-              disabled={!designEditingEnabled}
-              onClick={() => importInputRef.current?.click()}
-            >
-              导入
-            </Button>
-            <Button variant="secondary" onClick={exportScene}>导出</Button>
-            <span
-              className={`document-save-status ${saveState.status}`}
-              title={`current revision ${saveState.currentRevision} · saved revision ${saveState.savedRevision ?? 'none'}`}
-            >
-              {saveState.saving
-                ? saveState.changedWhileSaving
-                  ? '保存中 · 有新修改'
-                  : '保存中…'
-                : saveState.status === 'error'
-                  ? '保存失败'
-                  : saveState.dirty
-                    ? '未保存'
-                    : '已保存'}
-            </span>
+  return (
+    <>
+      <StudioShell
+        documentTitle={scene.name}
+        documentType="SCADA Work"
+        dirty={saveState.dirty}
+        menus={menus}
+        workspaceNavigationLabel="返回 SCADA 作品工作台"
+        onNavigateWorkspace={onNavigateWorkspace}
+        mainToolbar={(
+          <>
             <Button
               variant="primary"
               disabled={saveState.saving || (!saveState.dirty && saveState.status !== 'error')}
@@ -918,18 +980,25 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
             >
               {saveState.saving ? '保存中…' : '保存'}
             </Button>
+            <span className={`document-save-status ${saveState.status}`}>
+              {saveState.saving
+                ? saveState.changedWhileSaving ? '保存中 · 有新修改' : '保存中…'
+                : saveState.status === 'error' ? '保存失败'
+                : saveState.dirty ? '未保存' : '已保存'}
+            </span>
+            <Button variant="secondary" disabled={!designEditingEnabled || !canUndo} onClick={undo}>撤销</Button>
+            <Button variant="secondary" disabled={!designEditingEnabled || !canRedo} onClick={redo}>重做</Button>
             <Input
               ref={importInputRef}
               className="hidden-input"
               type="file"
               accept="application/json,.json"
               disabled={!designEditingEnabled}
-              onChange={(event) => {
-                void importScene(event)
-              }}
+              onChange={(event) => void importScene(event)}
             />
-          </div>
-
+          </>
+        )}
+        modeControl={(
           <SegmentedControl
             value={mode}
             items={MODE_ITEMS}
@@ -937,10 +1006,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
             ariaLabel="工作模式"
             className="mode-switch"
           />
-        </div>
-      </header>
-
-      <main className="editor-main">
+        )}
+        leftPanel={(
         <aside className="component-panel">
           <Tabs
             value={leftDockTab}
@@ -989,7 +1056,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
             </div>
           )}
         </aside>
-
+        )}
+        center={(
         <section className="canvas-area" aria-label="SCADA 编辑画布">
           <Toolbar className="canvas-toolbar" aria-label="画布工具栏">
             <ToolbarGroup className="canvas-tool-group">
@@ -1162,7 +1230,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
             onTransformNodes={updateNodeTransforms}
           />
         </section>
-
+        )}
+        rightPanel={(
         <aside className="property-panel">
           <section className="semantic-inspector" aria-label="对象配置">
             <Tabs
@@ -1427,7 +1496,21 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
               )}
           </section>
         </aside>
-      </main>
+        )}
+        status={(
+          <>
+            <span className="studio-status-cluster">
+              <strong>{mode === 'preview' ? '预览' : '设计'}</strong>
+              <span>{selectedConnection ? selectedConnection.name : selectedNodes.length > 1 ? `已选 ${selectedNodes.length} 个对象` : primaryNode?.name ?? '未选择对象'}</span>
+            </span>
+            <span className="studio-status-cluster">
+              <span>{saveState.status === 'error' ? '保存失败' : saveState.dirty ? '未保存' : '已保存'}</span>
+              <code>{scene.width} × {scene.height}</code>
+              <span>{scene.nodes.length} 个组件 · {scene.connections.length} 条连线</span>
+            </span>
+          </>
+        )}
+      />
 
       <EditorLeaveDialog
         open={leaveProtection.pendingTargetHash !== null}
@@ -1439,8 +1522,6 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
         onDiscardAndLeave={leaveProtection.discardAndLeave}
         onCancel={leaveProtection.cancelLeave}
       />
-    </div>
+    </>
   )
 }
-
-export default ScadaEditorPage
