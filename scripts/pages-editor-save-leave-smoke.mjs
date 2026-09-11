@@ -199,7 +199,8 @@ try {
   assert.match(page.url(), /#\/works$/)
 
   // Browser Back: dirty editor stays mounted until Cancel/Discard resolves the same guard.
-  await page.goto(scadaEditorUrl, { waitUntil: 'networkidle' })
+  const scadaEditorHash = new URL(scadaEditorUrl).hash
+  await page.evaluate((targetHash) => { window.location.hash = targetHash }, scadaEditorHash)
   await page.getByText('SCADA Editor', { exact: true }).waitFor()
   const backNameField = page
     .locator('.property-panel .property-field')
