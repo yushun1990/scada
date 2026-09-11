@@ -708,6 +708,33 @@ export function ComponentEditorPage({
             </Button>
             <Button variant="secondary" disabled={editingDisabled || !canUndo} onClick={undo}>撤销</Button>
             <Button variant="secondary" disabled={editingDisabled || !canRedo} onClick={redo}>重做</Button>
+          <Toolbar
+            className="canvas-toolbar component-canvas-toolbar"
+            aria-label="组件画布工具栏"
+          >
+            <ComponentGeometryToolbarGroup
+              visual={component.visual}
+              selectedLayerIds={selectedLayerIds}
+              disabled={!componentCanvasEditable}
+              onChange={(visual) => updatePackage('visual', visual)}
+              onSelectionReplace={replaceLayerSelection}
+              onApplied={setMessage}
+            />
+            <ToolbarGroup className="canvas-tool-group">
+              <ToolbarButton
+                iconOnly
+                className={`icon-button toggle-button component-snap-toggle${snapEnabled ? ' active' : ''}`}
+                title={snapEnabled ? '关闭吸附' : '开启吸附'}
+                aria-label="吸附"
+                aria-pressed={snapEnabled}
+                disabled={!componentCanvasEditable}
+                onClick={() => setSnapEnabled((current) => !current)}
+              >
+                <SnapIcon />
+              </ToolbarButton>
+            </ToolbarGroup>
+            <span className="component-canvas-phase">{snapStatus}</span>
+          </Toolbar>
           </>
         )}
         modeControl={(
@@ -738,34 +765,6 @@ export function ComponentEditorPage({
               {message}
             </div>
           )}
-
-          <Toolbar
-            className="canvas-toolbar component-canvas-toolbar"
-            aria-label="组件画布工具栏"
-          >
-            <ComponentGeometryToolbarGroup
-              visual={component.visual}
-              selectedLayerIds={selectedLayerIds}
-              disabled={!componentCanvasEditable}
-              onChange={(visual) => updatePackage('visual', visual)}
-              onSelectionReplace={replaceLayerSelection}
-              onApplied={setMessage}
-            />
-            <ToolbarGroup className="canvas-tool-group">
-              <ToolbarButton
-                iconOnly
-                className={`icon-button toggle-button component-snap-toggle${snapEnabled ? ' active' : ''}`}
-                title={snapEnabled ? '关闭吸附' : '开启吸附'}
-                aria-label="吸附"
-                aria-pressed={snapEnabled}
-                disabled={!componentCanvasEditable}
-                onClick={() => setSnapEnabled((current) => !current)}
-              >
-                <SnapIcon />
-              </ToolbarButton>
-            </ToolbarGroup>
-            <span className="component-canvas-phase">{snapStatus}</span>
-          </Toolbar>
 
           <ComponentVisualCanvas
             visual={component.visual}

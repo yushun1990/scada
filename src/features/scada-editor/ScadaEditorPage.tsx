@@ -988,77 +988,6 @@ export function ScadaEditorPage({
             </span>
             <Button variant="secondary" disabled={!designEditingEnabled || !canUndo} onClick={undo}>撤销</Button>
             <Button variant="secondary" disabled={!designEditingEnabled || !canRedo} onClick={redo}>重做</Button>
-            <Input
-              ref={importInputRef}
-              className="hidden-input"
-              type="file"
-              accept="application/json,.json"
-              disabled={!designEditingEnabled}
-              onChange={(event) => void importScene(event)}
-            />
-          </>
-        )}
-        modeControl={(
-          <SegmentedControl
-            value={mode}
-            items={MODE_ITEMS}
-            onValueChange={setMode}
-            ariaLabel="工作模式"
-            className="mode-switch"
-          />
-        )}
-        leftPanel={(
-        <aside className="component-panel">
-          <Tabs
-            value={leftDockTab}
-            items={LEFT_DOCK_TABS}
-            onValueChange={setLeftDockTab}
-            ariaLabel="左侧工作区"
-            className="dock-tabs"
-          />
-
-          {leftDockTab === 'components' && (
-            <div className="dock-content">
-              <div className="panel-title">基础组件</div>
-              {builtInComponentRegistry.list().map(({ definition }) => (
-                <Pressable
-                  key={definition.type}
-                  className="component-item"
-                  disabled={!designEditingEnabled}
-                  onClick={() => addComponent(definition.type)}
-                >
-                  <span className="component-icon">
-                    {definition.title.slice(0, 1).toUpperCase()}
-                  </span>
-                  <span>
-                    <strong>{definition.title}</strong>
-                    <small>{definition.type}</small>
-                  </span>
-                </Pressable>
-              ))}
-              <p className="panel-description component-dock-help">
-                组件面板直接来自 ComponentRegistry；新增内置注册项无需修改编辑器页面。
-              </p>
-            </div>
-          )}
-
-          {leftDockTab === 'layers' && (
-            <div className="dock-placeholder">
-              <strong>图层树</strong>
-              <span>用于层级、排序、锁定、显隐和进入组合编辑。</span>
-            </div>
-          )}
-
-          {leftDockTab === 'assets' && (
-            <div className="dock-placeholder">
-              <strong>资源库</strong>
-              <span>用于项目图片、SVG 和其他可复用资源。</span>
-            </div>
-          )}
-        </aside>
-        )}
-        center={(
-        <section className="canvas-area" aria-label="SCADA 编辑画布">
           <Toolbar className="canvas-toolbar" aria-label="画布工具栏">
             <ToolbarGroup className="canvas-tool-group">
               <ToolbarButton
@@ -1209,7 +1138,77 @@ export function ScadaEditorPage({
               </div>
             </ToolbarGroup>
           </Toolbar>
+            <Input
+              ref={importInputRef}
+              className="hidden-input"
+              type="file"
+              accept="application/json,.json"
+              disabled={!designEditingEnabled}
+              onChange={(event) => void importScene(event)}
+            />
+          </>
+        )}
+        modeControl={(
+          <SegmentedControl
+            value={mode}
+            items={MODE_ITEMS}
+            onValueChange={setMode}
+            ariaLabel="工作模式"
+            className="mode-switch"
+          />
+        )}
+        leftPanel={(
+        <aside className="component-panel">
+          <Tabs
+            value={leftDockTab}
+            items={LEFT_DOCK_TABS}
+            onValueChange={setLeftDockTab}
+            ariaLabel="左侧工作区"
+            className="dock-tabs"
+          />
 
+          {leftDockTab === 'components' && (
+            <div className="dock-content">
+              <div className="panel-title">基础组件</div>
+              {builtInComponentRegistry.list().map(({ definition }) => (
+                <Pressable
+                  key={definition.type}
+                  className="component-item"
+                  disabled={!designEditingEnabled}
+                  onClick={() => addComponent(definition.type)}
+                >
+                  <span className="component-icon">
+                    {definition.title.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span>
+                    <strong>{definition.title}</strong>
+                    <small>{definition.type}</small>
+                  </span>
+                </Pressable>
+              ))}
+              <p className="panel-description component-dock-help">
+                组件面板直接来自 ComponentRegistry；新增内置注册项无需修改编辑器页面。
+              </p>
+            </div>
+          )}
+
+          {leftDockTab === 'layers' && (
+            <div className="dock-placeholder">
+              <strong>图层树</strong>
+              <span>用于层级、排序、锁定、显隐和进入组合编辑。</span>
+            </div>
+          )}
+
+          {leftDockTab === 'assets' && (
+            <div className="dock-placeholder">
+              <strong>资源库</strong>
+              <span>用于项目图片、SVG 和其他可复用资源。</span>
+            </div>
+          )}
+        </aside>
+        )}
+        center={(
+        <section className="canvas-area" aria-label="SCADA 编辑画布">
           {message && (
             <div className="canvas-toast" role="status" aria-live="polite">
               {message}
