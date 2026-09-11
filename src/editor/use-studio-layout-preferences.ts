@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   browserPersistence,
   ensureBrowserPersistenceReady,
@@ -55,8 +55,6 @@ function reportPreferenceError(error: unknown) {
 export function useStudioLayoutPreferences() {
   const [layout, setLayout] = useState<StudioLayoutPreferences>(DEFAULT_STUDIO_LAYOUT)
   const [hydrated, setHydrated] = useState(false)
-  const latestRef = useRef(layout)
-  latestRef.current = layout
 
   useEffect(() => {
     let active = true
