@@ -26,7 +26,7 @@ export function EditorLeaveDialog({
   if (!open) return null
 
   const savingMessage = saving
-    ? '当前仍有保存请求进行中。若保存期间又发生修改，“保存并继续”会在当前请求完成后再保存最新版本。'
+    ? '当前仍有保存请求进行中。保存并继续会在当前请求完成后补存最新版本；放弃修改会等当前请求结束后离开。'
     : '当前文档包含尚未持久化的修改。'
 
   return (
@@ -49,12 +49,11 @@ export function EditorLeaveDialog({
             disabled={busy}
             onClick={onSaveAndLeave}
           >
-            {busy ? '保存中…' : '保存并继续'}
+            {busy ? '处理中…' : '保存并继续'}
           </Button>
           <Button
             variant="danger"
-            disabled={busy || saving}
-            title={saving ? '已有保存正在进行，不能安全放弃其快照' : undefined}
+            disabled={busy}
             onClick={onDiscardAndLeave}
           >
             放弃修改
