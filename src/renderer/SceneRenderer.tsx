@@ -56,6 +56,7 @@ import {
   VIEWPORT_ZOOM_FACTOR,
   type ViewportTransform,
 } from '../editor/viewport'
+import { isTextEditingTarget } from '../editor/keyboard'
 import { Button, IconButton } from '../ui'
 
 export type RendererMode = 'editor' | 'preview'
@@ -485,14 +486,19 @@ export function SceneRenderer({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || !pointerInsideCanvasRef.current) {
+      if (
+        event.code !== 'Space' ||
+        !pointerInsideCanvasRef.current ||
+        event.isComposing ||
+        isTextEditingTarget(event.target)
+      ) {
         return
       }
 
-      // Canvas navigation owns Space while the pointer is over the canvas,
-      // even when a toolbar/inspector control still has keyboard focus. Use a
-      // capture listener so Base UI composite controls cannot turn Space into
-      // a button click before the viewport-pan shortcut sees it.
+      // Canvas navigation owns Space only from a canvas interaction context.
+      // Text inputs, textareas, contenteditable controls and IME composition
+      // keep their native Space behavior even when the pointer remains over
+      // the canvas behind an Inspector or floating control.
       event.preventDefault()
       event.stopPropagation()
       spacePressedRef.current = true
