@@ -1,0 +1,73 @@
+name: UI Foundation Browser Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/App.tsx'
+      - 'src/styles/**'
+      - 'src/ui/**'
+      - 'src/features/ui-states/**'
+      - 'scripts/pages-ui-foundation-smoke.mjs'
+      - 'scripts/check-ui-token-authority.mjs'
+      - '.github/workflows/ui-foundation-smoke.yml'
+      - 'package*.json'
+      - 'vite.config.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-foundation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and verify visual authority
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          npm ci
+          npm run build 2>&1 | tee artifacts/ui-foundation-build.log
+          npm run lint 2>&1 | tee artifacts/ui-foundation-lint.log
+      - name: Install browser test tools
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+      - name: Verify Studio primitive states
+        env:
+          SCADA_PAGES_URL: http://127.0.0.1:4173/
+        run: |
+          set -euo pipefail
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/ui-foundation-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS "$SCADA_PAGES_URL" >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/ui-foundation-preview.log | tee artifacts/ui-foundation-browser.log
+            exit 1
+          fi
+          node scripts/pages-ui-foundation-smoke.mjs 2>&1 | tee artifacts/ui-foundation-browser.log
+      - name: Upload UI foundation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-foundation-evidence
+          path: artifacts/*
+          if-no-files-found: ignore
