@@ -11,6 +11,8 @@ import {
 } from '../../component-system/definition'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
 import type { VisualRuleOperator } from '../../component-system/visualRules'
+import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'
+import { useDocumentHistory } from '../../editor/use-document-history'
 import {
   Button,
   Input,
@@ -272,7 +274,18 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
       : null,
     [publicationBaseUrl],
   )
-  const [component, setComponent] = useState<ComponentLibraryEntry>(initial)
+  const {
+    document: component,
+    mutate: mutateComponent,
+    beginTransaction,
+    commitTransaction,
+    cancelTransaction,
+    replaceCurrent,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useDocumentHistory<ComponentLibraryEntry>(() => initial)
   const [mode, setMode] = useState<ComponentWorkbenchMode>('editor')
   const [selectedLayerIds, setSelectedLayerIds] = useState<readonly string[]>([])
   const [primaryLayerId, setPrimaryLayerId] = useState<string | null>(null)
@@ -336,6 +349,43 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   }, [component.visual.layers, selectedLayerIds])
 
   useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (
+        event.key === 'Escape' &&
+        !event.isComposing &&
+        isTextEditingTarget(event.target)
+      ) {
+        event.preventDefault()
+        cancelTransaction()
+        if (event.target instanceof HTMLElement) {
+          event.target.blur()
+        }
+        return
+      }
+
+      if (editingDisabled || shouldIgnoreEditorShortcut(event)) {
+        return
+      }
+
+      const modifier = event.ctrlKey || event.metaKey
+      const key = event.key.toLowerCase()
+      const isUndo = modifier && !event.shiftKey && key === 'z'
+      const isRedo = modifier && (key === 'y' || (event.shiftKey && key === 'z'))
+
+      if (isUndo && canUndo) {
+        event.preventDefault()
+        undo()
+      } else if (isRedo && canRedo) {
+        event.preventDefault()
+        redo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [cancelTransaction, canRedo, canUndo, editingDisabled, redo, undo])
+
+  useEffect(() => {
     if (!publicationClient) {
       setPublicationSession({ authenticated: false })
       return
@@ -381,7 +431,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     key: K,
     value: ComponentLibraryEntry[K],
   ) {
-    setComponent((current) => {
+    mutateComponent((current) => {
       if (key === 'visual') {
         return {
           ...current,
@@ -398,7 +448,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   }
 
   function updateDefinition(nextDefinition: ComponentDefinition) {
-    setComponent((current) => ({
+    mutateComponent((current) => ({
       ...current,
       definition: nextDefinition,
       visual: reconcileVisualPropertyReferences(
@@ -465,7 +515,7 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   async function save() {
     try {
       const saved = await saveComponentDefinitionAsync(component)
-      setComponent(saved)
+      replaceCurrent(saved)
       setMessage('组件已保存')
       window.location.hash = `#/components/${encodeURIComponent(saved.id)}`
     } catch (error) {
@@ -551,7 +601,19 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   }
 
   return (
-    <div className="editor-shell component-editor-shell">
+    <div
+      className="editor-shell component-editor-shell"
+      onFocusCapture={(event) => {
+        if (!editingDisabled && isTextEditingTarget(event.target)) {
+          beginTransaction()
+        }
+      }}
+      onBlurCapture={(event) => {
+        if (!editingDisabled && isTextEditingTarget(event.target)) {
+          commitTransaction()
+        }
+      }}
+    >
       <header className="editor-header component-editor-header">
         <div className="brand-block component-brand-block">
           <span className="brand-mark" aria-hidden="true">C</span>
@@ -646,6 +708,10 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             mode={mode}
             readOnly={builtInReadOnly}
             snapEnabled={snapEnabled}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={undo}
+            onRedo={redo}
             onSelectionChange={selectLayer}
             onChange={(visual) => updatePackage('visual', visual)}
           />
