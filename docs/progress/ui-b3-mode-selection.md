@@ -1,12 +1,12 @@
 # UI B3 Preview Mode + Selection Scope
 
-Status: acceptance candidate · 2026-09-11
+Status: accepted for merge · 2026-09-11
 
 Plan source: `docs/design/industrial-designer-rollout.md` → **B3 模式和选择范围**.
 
-Implementation candidate branch: `fix/ui-b3-mode-selection`, based on accepted B2 main `37864e6287e90153cb269e8dcb87a2dbe725cbb7` and PR #192. This record becomes accepted only after the final direct-head CI, B1 transaction, B2 save/leave, Component Editor, and B3 mode/selection browser gates are green.
+Accepted implementation head: `4f47827bc62e2a0e79d0c583c1af34798f398d72` on `fix/ui-b3-mode-selection`, based on accepted B2 main `37864e6287e90153cb269e8dcb87a2dbe725cbb7` and PR #192.
 
-## Result candidate
+## Result
 
 B3 closes the two P1 scope ambiguities left after B1/B2 without introducing another Scene/runtime authority.
 
@@ -42,25 +42,26 @@ B3 keeps only the existing explicitly supported batch fields (currently visibili
 
 This removes the dangerous state where the UI visually represented N selected objects while name/geometry/component-contract fields silently mutated only the last selected node.
 
-## Evidence collected before final closeout
+## Browser and CI acceptance
 
-On implementation head `cdd60c0b528122c490cbad9c753742886aaff2d3`, before adding the dedicated B3 smoke, all inherited gates were green:
+Final direct-head `4f47827bc62e2a0e79d0c583c1af34798f398d72` passed every required gate:
 
-- CI `34589550960` — success;
-- Editor Transaction Browser Check `34589550983` — success;
-- Editor Save Leave Browser Check `34589551061` — success;
-- Component Editor Browser Checks `34589551018` — success.
+- CI `34590425899` — success;
+- Editor Transaction Browser Check `34590425870` — success;
+- Editor Save Leave Browser Check `34590425881` — success;
+- Component Editor Browser Checks `34590425884` — success;
+- Editor Mode Selection Browser Check `34590425880` — success.
 
-The dedicated `Editor Mode Selection Browser Check` was then added. Its first browser pass proved the complete single-selection Preview section (disabled design commands, read-only Inspector, ignored history shortcut, renderer drag rejection, clean save state, unchanged persisted Scene) before the fixture reached multi-selection. Fixture-only failures were traced to overlapping test nodes and corrected by moving the added node to a non-overlapping position before the saved baseline.
+The dedicated B3 Chromium smoke proves:
 
-Final acceptance requires the full dedicated smoke to prove:
-
-1. a clean Scene stays clean through Preview command, shortcut, Inspector, and pointer attempts;
+1. a clean Scene stays clean through Preview command, shortcut, Inspector, and pointer mutation attempts;
 2. view-only grid control remains usable without dirtying the Scene;
-3. returning to Design shows the same authored values and persisted Scene;
-4. real Shift multi-selection shows only batch scope, with no single-object name/identity form;
-5. one supported batch mutation is one history entry and Undo returns to the saved baseline;
+3. returning to Design exposes the same authored values and the persisted Scene is unchanged;
+4. real Shift multi-selection shows only explicit batch scope, with no single-object name/identity form;
+5. one supported batch mutation is one history entry and Undo returns to the saved baseline / clean save state;
 6. Preview makes batch authoring controls read-only and global Undo remains blocked.
+
+The fixture deliberately separates the two authored nodes before establishing the saved baseline so multi-selection evidence exercises two independently hittable Konva objects rather than overlapping geometry.
 
 ## Preserved boundaries
 
@@ -77,6 +78,6 @@ B3 does not change:
 - C-batch StudioShell, visual tokens, or panel layout;
 - D-batch final mixed-value / tri-state Inspector behavior.
 
-## Next gate after acceptance
+## Next gate
 
-After B3 is accepted and merged, proceed to **C1 primitive/token visual system**, then **C2 shared StudioShell/layout**. Do not reopen B1-B3 or M6-M9 authorities merely to make the product look more like Ignition.
+Proceed to **C1 primitive/token visual system**, then **C2 shared StudioShell/layout**. Do not reopen B1-B3 or M6-M9 authorities merely to make the product look more like Ignition.
