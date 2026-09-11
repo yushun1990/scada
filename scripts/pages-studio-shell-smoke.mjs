@@ -104,6 +104,14 @@ try {
   closeTo(geometry.left.width, 248)
   closeTo(geometry.right.width, 320)
 
+  // The same row geometry must hold at a normal desktop viewport.
+  await page.setViewportSize({ width: 1440, height: 900 })
+  geometry = await assertShellGeometry()
+  closeTo(geometry.left.width, 248)
+  closeTo(geometry.right.width, 320)
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await assertShellGeometry()
+
   // The explicit Shell Workspace control must route through the existing B2 guard.
   const restoredNameField = page
     .locator('.studio-right-panel .property-field')
