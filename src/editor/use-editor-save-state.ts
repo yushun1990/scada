@@ -108,6 +108,11 @@ export function useEditorSaveState<T extends object, R>({
 
   const dirty = savedDocumentRef.current !== document
   const saving = savingRef.current
+  const changedWhileSaving = Boolean(
+    saving &&
+      savingRevisionRef.current !== null &&
+      revisionRef.current !== savingRevisionRef.current,
+  )
   const status: EditorSaveStatus = saving
     ? 'saving'
     : error
@@ -120,6 +125,7 @@ export function useEditorSaveState<T extends object, R>({
     status,
     dirty,
     saving,
+    changedWhileSaving,
     error,
     currentRevision: revisionRef.current,
     savedRevision: savedRevisionRef.current,
