@@ -28,12 +28,18 @@ const ComponentEditorStorageGate = lazy(() =>
     default: module.ComponentEditorStorageGate,
   })),
 )
+const UiStatesPage = lazy(() =>
+  import('./features/ui-states/UiStatesPage').then((module) => ({
+    default: module.UiStatesPage,
+  })),
+)
 
 type WorkspaceModule = 'works' | 'components'
 
 type AppRoute =
   | { page: 'workspace'; module: WorkspaceModule }
   | { page: 'runtime' }
+  | { page: 'ui-states' }
   | { page: 'scada'; workId: string }
   | { page: 'component'; componentId: string }
 
@@ -43,6 +49,10 @@ function resolveRoute(): AppRoute {
     .split('/')
     .filter(Boolean)
     .map((segment) => decodeURIComponent(segment))
+
+  if (segments[0] === '__ui-states') {
+    return { page: 'ui-states' }
+  }
 
   if (segments[0] === 'runtime') {
     return { page: 'runtime' }
@@ -185,6 +195,14 @@ function App() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  if (route.page === 'ui-states') {
+    return (
+      <Suspense fallback={<StudioRouteFallback />}>
+        <UiStatesPage />
+      </Suspense>
+    )
+  }
 
   if (route.page === 'runtime') {
     return <StandaloneRuntimePage />
