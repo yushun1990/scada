@@ -1,0 +1,256 @@
+name: Apply B2 editor integration
+
+on:
+  push:
+    branches: [fix/ui-b2-save-leave]
+    paths:
+      - '.github/workflows/b2-apply-editor-integration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ui-b2-save-leave
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Apply editor save and leave lifecycle integration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: Path, old: str, new: str) -> None:
+              text = path.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, found {count}: {old[:80]!r}')
+              path.write_text(text.replace(old, new, 1))
+
+          scada = Path('src/features/scada-editor/ScadaEditorPage.tsx')
+          replace_once(
+              scada,
+              "import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'\n",
+              "import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'\n"
+              "import { EditorLeaveDialog } from '../../editor/EditorLeaveDialog'\n"
+              "import { useEditorLeaveProtection } from '../../editor/use-editor-leave-protection'\n"
+              "import { useEditorSaveState } from '../../editor/use-editor-save-state'\n",
+          )
+          replace_once(
+              scada,
+              "  const importInputRef = useRef<HTMLInputElement>(null)\n\n  useEffect(() => {",
+              "  const importInputRef = useRef<HTMLInputElement>(null)\n"
+              "  const persistScene = useCallback(\n"
+              "    (document: SceneDocument) => saveScadaSceneAsync(workId, document),\n"
+              "    [workId],\n"
+              "  )\n"
+              "  const saveState = useEditorSaveState({\n"
+              "    document: scene,\n"
+              "    initiallySaved: true,\n"
+              "    saveDocument: persistScene,\n"
+              "  })\n"
+              "  const leaveProtection = useEditorLeaveProtection({\n"
+              "    isDirtyNow: saveState.isDirtyNow,\n"
+              "    isSavingNow: saveState.isSavingNow,\n"
+              "    save: saveState.save,\n"
+              "  })\n\n"
+              "  useEffect(() => {",
+          )
+          replace_once(
+              scada,
+              "  async function saveScene() {\n"
+              "    try {\n"
+              "      await saveScadaSceneAsync(workId, scene)\n"
+              "      setMessage('场景已保存')\n"
+              "    } catch (error) {\n"
+              "      setMessage(error instanceof Error ? error.message : '场景保存失败')\n"
+              "    }\n"
+              "  }",
+              "  async function saveScene() {\n"
+              "    const outcome = await saveState.save()\n"
+              "    if (outcome.ok) {\n"
+              "      setMessage(\n"
+              "        outcome.currentAtCompletion\n"
+              "          ? '场景已保存'\n"
+              "          : '已保存当前快照，仍有未保存修改',\n"
+              "      )\n"
+              "    } else {\n"
+              "      setMessage(outcome.error.message || '场景保存失败')\n"
+              "    }\n"
+              "  }",
+          )
+          replace_once(
+              scada,
+              "            <Button variant=\"primary\" onClick={() => void saveScene()}>保存</Button>",
+              "            <span\n"
+              "              className={`document-save-status ${saveState.status}`}\n"
+              "              title={`current revision ${saveState.currentRevision} · saved revision ${saveState.savedRevision ?? 'none'}`}\n"
+              "            >\n"
+              "              {saveState.saving\n"
+              "                ? saveState.changedWhileSaving\n"
+              "                  ? '保存中 · 有新修改'\n"
+              "                  : '保存中…'\n"
+              "                : saveState.status === 'error'\n"
+              "                  ? '保存失败'\n"
+              "                  : saveState.dirty\n"
+              "                    ? '未保存'\n"
+              "                    : '已保存'}\n"
+              "            </span>\n"
+              "            <Button\n"
+              "              variant=\"primary\"\n"
+              "              disabled={saveState.saving || (!saveState.dirty && saveState.status !== 'error')}\n"
+              "              onClick={() => void saveScene()}\n"
+              "            >\n"
+              "              {saveState.saving ? '保存中…' : '保存'}\n"
+              "            </Button>",
+          )
+          replace_once(
+              scada,
+              "      </main>\n    </div>\n  )\n}",
+              "      </main>\n\n"
+              "      <EditorLeaveDialog\n"
+              "        open={leaveProtection.pendingTargetHash !== null}\n"
+              "        saveStatus={saveState.status}\n"
+              "        saving={saveState.saving}\n"
+              "        busy={leaveProtection.leavingBusy}\n"
+              "        errorMessage={saveState.error?.message}\n"
+              "        onSaveAndLeave={() => void leaveProtection.saveAndLeave()}\n"
+              "        onDiscardAndLeave={leaveProtection.discardAndLeave}\n"
+              "        onCancel={leaveProtection.cancelLeave}\n"
+              "      />\n"
+              "    </div>\n  )\n}",
+          )
+
+          component = Path('src/features/component-library/ComponentEditorPage.tsx')
+          replace_once(
+              component,
+              "import { useEffect, useMemo, useState } from 'react'",
+              "import { useCallback, useEffect, useMemo, useState } from 'react'",
+          )
+          replace_once(
+              component,
+              "import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'\n"
+              "import { useDocumentHistory } from '../../editor/use-document-history'\n",
+              "import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'\n"
+              "import { commitStudioNavigation } from '../../editor/editor-navigation'\n"
+              "import { EditorLeaveDialog } from '../../editor/EditorLeaveDialog'\n"
+              "import { useDocumentHistory } from '../../editor/use-document-history'\n"
+              "import { useEditorLeaveProtection } from '../../editor/use-editor-leave-protection'\n"
+              "import { useEditorSaveState } from '../../editor/use-editor-save-state'\n",
+          )
+          replace_once(
+              component,
+              "    cancelTransaction,\n    replaceCurrent,\n    undo,",
+              "    cancelTransaction,\n    undo,",
+          )
+          replace_once(
+              component,
+              "  const [mode, setMode] = useState<ComponentWorkbenchMode>('editor')",
+              "  const persistComponent = useCallback(\n"
+              "    (document: ComponentLibraryEntry) => saveComponentDefinitionAsync(document),\n"
+              "    [],\n"
+              "  )\n"
+              "  const saveState = useEditorSaveState({\n"
+              "    document: component,\n"
+              "    initiallySaved: componentId !== 'new',\n"
+              "    saveDocument: persistComponent,\n"
+              "  })\n"
+              "  const leaveProtection = useEditorLeaveProtection({\n"
+              "    isDirtyNow: saveState.isDirtyNow,\n"
+              "    isSavingNow: saveState.isSavingNow,\n"
+              "    save: saveState.save,\n"
+              "  })\n"
+              "  const [mode, setMode] = useState<ComponentWorkbenchMode>('editor')",
+          )
+          replace_once(
+              component,
+              "  async function save() {\n"
+              "    try {\n"
+              "      const saved = await saveComponentDefinitionAsync(component)\n"
+              "      replaceCurrent(saved)\n"
+              "      setMessage('组件已保存')\n"
+              "      window.location.hash = `#/components/${encodeURIComponent(saved.id)}`\n"
+              "    } catch (error) {\n"
+              "      setMessage(error instanceof Error ? error.message : '组件保存失败')\n"
+              "    }\n"
+              "  }",
+              "  async function save() {\n"
+              "    const outcome = await saveState.save()\n"
+              "    if (!outcome.ok) {\n"
+              "      setMessage(outcome.error.message || '组件保存失败')\n"
+              "      return\n"
+              "    }\n\n"
+              "    setMessage(\n"
+              "      outcome.currentAtCompletion\n"
+              "        ? '组件已保存'\n"
+              "        : '已保存当前快照，仍有未保存修改',\n"
+              "    )\n"
+              "    if (componentId === 'new' && outcome.currentAtCompletion) {\n"
+              "      commitStudioNavigation(\n"
+              "        `#/components/${encodeURIComponent(outcome.result.id)}`,\n"
+              "      )\n"
+              "    }\n"
+              "  }",
+          )
+          replace_once(
+              component,
+              "            <Button\n"
+              "              variant=\"primary\"\n"
+              "              disabled={builtInReadOnly}\n"
+              "              onClick={() => void save()}\n"
+              "            >\n"
+              "              保存\n"
+              "            </Button>",
+              "            <span\n"
+              "              className={`document-save-status ${saveState.status}`}\n"
+              "              title={`current revision ${saveState.currentRevision} · saved revision ${saveState.savedRevision ?? 'none'}`}\n"
+              "            >\n"
+              "              {saveState.saving\n"
+              "                ? saveState.changedWhileSaving\n"
+              "                  ? '保存中 · 有新修改'\n"
+              "                  : '保存中…'\n"
+              "                : saveState.status === 'error'\n"
+              "                  ? '保存失败'\n"
+              "                  : saveState.dirty\n"
+              "                    ? '未保存'\n"
+              "                    : '已保存'}\n"
+              "            </span>\n"
+              "            <Button\n"
+              "              variant=\"primary\"\n"
+              "              disabled={builtInReadOnly || saveState.saving || (!saveState.dirty && saveState.status !== 'error')}\n"
+              "              onClick={() => void save()}\n"
+              "            >\n"
+              "              {saveState.saving ? '保存中…' : '保存'}\n"
+              "            </Button>",
+          )
+          replace_once(
+              component,
+              "      </main>\n    </div>\n  )\n}",
+              "      </main>\n\n"
+              "      <EditorLeaveDialog\n"
+              "        open={leaveProtection.pendingTargetHash !== null}\n"
+              "        saveStatus={saveState.status}\n"
+              "        saving={saveState.saving}\n"
+              "        busy={leaveProtection.leavingBusy}\n"
+              "        errorMessage={saveState.error?.message}\n"
+              "        onSaveAndLeave={() => void leaveProtection.saveAndLeave()}\n"
+              "        onDiscardAndLeave={leaveProtection.discardAndLeave}\n"
+              "        onCancel={leaveProtection.cancelLeave}\n"
+              "      />\n"
+              "    </div>\n  )\n}",
+          )
+          PY
+      - name: Commit integration and remove one-shot workflow
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/b2-apply-editor-integration.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/features/scada-editor/ScadaEditorPage.tsx src/features/component-library/ComponentEditorPage.tsx
+          git commit -m "feat: integrate B2 save and leave lifecycle"
+          git push origin HEAD:fix/ui-b2-save-leave
