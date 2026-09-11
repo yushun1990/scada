@@ -1,24 +1,58 @@
 /*
  * Studio UI primitives.
  *
- * Base UI owns interaction/a11y behavior. These classes own SCADA Studio's
- * visual language and consume only the shared design tokens.
+ * Base UI owns interaction/a11y behavior. These classes own the shared visual
+ * language and consume the C1 token authority from styles/tokens.css.
  */
 
+.ui-button,
+.ui-input,
+.ui-textarea,
+.ui-segmented-item,
+.ui-tab,
+.ui-checkbox,
+.ui-select-trigger,
+.ui-menu-trigger,
+.ui-menu-item,
+.ui-dialog-trigger,
+.ui-dialog-close,
+.ui-split-pane-separator {
+  box-sizing: border-box;
+}
+
+.ui-button:focus-visible,
+.ui-pressable:focus-visible,
+.ui-input:focus-visible,
+.ui-textarea:focus-visible,
+.ui-segmented-item:focus-visible,
+.ui-tab:focus-visible,
+.ui-checkbox:focus-visible,
+.ui-select-trigger:focus-visible,
+.ui-select-item:focus-visible,
+.ui-menu-trigger:focus-visible,
+.ui-menu-item:focus-visible,
+.ui-dialog-trigger:focus-visible,
+.ui-dialog-close:focus-visible,
+.ui-split-pane-separator:focus-visible {
+  outline: var(--ui-focus-outline);
+  outline-offset: 2px;
+}
+
+/* Buttons ----------------------------------------------------------------- */
 .ui-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 0;
   height: var(--ui-control-height);
-  gap: var(--ui-space-2);
-  padding: 0 var(--ui-space-4);
+  gap: var(--ui-space-1);
+  padding: 0 var(--ui-space-3);
   border: 1px solid transparent;
   border-radius: var(--ui-radius-control);
   font: inherit;
   font-size: var(--ui-font-size-tool);
   font-weight: 600;
-  line-height: 1;
+  line-height: var(--ui-line-height-tool);
   white-space: nowrap;
   vertical-align: middle;
   cursor: pointer;
@@ -27,56 +61,78 @@
 
 .ui-button-small {
   height: var(--ui-control-height-small);
-  padding-inline: var(--ui-space-3);
+  padding-inline: var(--ui-space-2);
   font-size: var(--ui-font-size-status);
+  line-height: var(--ui-line-height-status);
 }
 
 .ui-button-primary {
-  border-color: var(--ui-color-accent-hover);
+  border-color: var(--ui-color-accent);
   color: #ffffff;
   background: var(--ui-color-accent);
 }
 
-.ui-button-primary:hover:not(:disabled) {
-  border-color: var(--ui-color-accent-pressed);
+.ui-button-primary:hover:not(:disabled),
+.ui-button-primary[data-popup-open] {
+  border-color: var(--ui-color-accent-hover);
   background: var(--ui-color-accent-hover);
 }
 
+.ui-button-primary:active:not(:disabled) {
+  border-color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-pressed);
+}
+
 .ui-button-accent {
-  border-color: var(--ui-color-accent-soft-strong);
+  border-color: var(--ui-color-accent);
   color: var(--ui-color-accent-hover);
   background: var(--ui-color-accent-soft);
 }
 
 .ui-button-accent:hover:not(:disabled) {
-  border-color: #93c5fd;
   color: var(--ui-color-accent-pressed);
-  background: var(--ui-color-accent-soft-strong);
+  background: var(--ui-color-surface);
+}
+
+.ui-button-accent:active:not(:disabled) {
+  color: #ffffff;
+  background: var(--ui-color-accent-pressed);
 }
 
 .ui-button-secondary {
-  border-color: var(--ui-color-border);
-  color: var(--ui-color-text-secondary);
+  border-color: var(--ui-color-border-strong);
+  color: var(--ui-color-text);
   background: var(--ui-color-surface);
 }
 
 .ui-button-secondary:hover:not(:disabled) {
-  border-color: var(--ui-color-border-strong);
-  color: var(--ui-color-text);
+  border-color: var(--ui-color-accent);
   background: var(--ui-color-surface-subtle);
 }
 
+.ui-button-secondary:active:not(:disabled) {
+  border-color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+}
+
 .ui-button-ghost {
+  border-color: transparent;
   color: var(--ui-color-text-secondary);
   background: transparent;
 }
 
 .ui-button-ghost:hover:not(:disabled) {
-  color: var(--ui-color-accent-hover);
+  color: var(--ui-color-text);
+  background: var(--ui-color-accent-soft);
+}
+
+.ui-button-ghost:active:not(:disabled) {
+  color: var(--ui-color-accent-pressed);
   background: var(--ui-color-accent-soft);
 }
 
 .ui-button-danger {
+  border-color: var(--ui-color-danger);
   color: #ffffff;
   background: var(--ui-color-danger);
 }
@@ -84,12 +140,13 @@
 .ui-button:disabled,
 .ui-button[data-disabled] {
   cursor: not-allowed;
-  opacity: 0.42;
+  border-color: var(--ui-color-border);
+  color: var(--ui-color-text-disabled);
+  background: var(--ui-color-surface-subtle);
+  opacity: 1;
 }
 
-/* Structural click targets keep feature-owned layout while sharing Base UI's
- * interaction semantics. Use this for tree rows, collapsible headers and
- * summary rows that must not inherit ordinary button geometry. */
+/* Structural click targets retain feature-owned geometry. */
 .ui-pressable {
   margin: 0;
   font: inherit;
@@ -101,7 +158,8 @@
 .ui-pressable:disabled,
 .ui-pressable[data-disabled] {
   cursor: not-allowed;
-  opacity: 0.42;
+  color: var(--ui-color-text-disabled);
+  opacity: 1;
 }
 
 .ui-icon-button {
@@ -116,43 +174,63 @@
 .ui-icon-button svg {
   display: block;
   flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
 }
 
+/* Text inputs -------------------------------------------------------------- */
 .ui-input,
 .ui-textarea {
   min-width: 0;
   width: 100%;
-  border: 1px solid var(--ui-color-border);
+  border: 1px solid var(--ui-color-border-strong);
   border-radius: var(--ui-radius-control);
-  color: var(--ui-color-text-secondary);
+  color: var(--ui-color-text);
   background: var(--ui-color-surface);
   font: inherit;
   font-size: var(--ui-font-size-tool);
+  line-height: var(--ui-line-height-tool);
 }
 
 .ui-input {
   height: var(--ui-control-height);
-  padding: 0 var(--ui-space-3);
-  line-height: 1;
+  padding: 0 var(--ui-space-2);
 }
 
 .ui-textarea {
-  min-height: 52px;
-  padding: var(--ui-space-2) var(--ui-space-3);
+  min-height: 56px;
+  padding: var(--ui-space-1) var(--ui-space-2);
   resize: vertical;
-  line-height: 1.4;
 }
 
-.ui-input:hover:not(:disabled),
-.ui-textarea:hover:not(:disabled) {
-  border-color: var(--ui-color-border-strong);
+.ui-input:hover:not(:disabled):not(:read-only),
+.ui-textarea:hover:not(:disabled):not(:read-only) {
+  border-color: var(--ui-color-accent);
+}
+
+.ui-input:focus-visible,
+.ui-textarea:focus-visible {
+  border-color: var(--ui-color-accent);
+}
+
+.ui-input:read-only,
+.ui-textarea:read-only {
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface-subtle);
+  cursor: text;
 }
 
 .ui-input:disabled,
 .ui-textarea:disabled {
   cursor: not-allowed;
-  color: var(--ui-color-text-muted);
-  background: var(--ui-color-surface-muted);
+  border-color: var(--ui-color-border);
+  color: var(--ui-color-text-disabled);
+  background: var(--ui-color-surface-subtle);
+}
+
+.ui-input[aria-invalid='true'],
+.ui-textarea[aria-invalid='true'] {
+  border-color: var(--ui-color-danger);
 }
 
 .ui-input[type='color'] {
@@ -165,19 +243,16 @@
   grid-column: 2;
 }
 
-.property-field > .ui-textarea {
-  min-height: 52px;
-}
-
+/* Segmented controls + tabs ------------------------------------------------ */
 .ui-segmented-control,
 .ui-tabs-list {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--ui-space-micro);
+  padding: var(--ui-space-micro);
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-control);
-  background: var(--ui-color-surface-muted);
+  background: var(--ui-color-surface-subtle);
 }
 
 .ui-segmented-item,
@@ -187,33 +262,39 @@
   justify-content: center;
   min-width: 64px;
   height: var(--ui-control-height);
-  padding: 0 var(--ui-space-4);
+  padding: 0 var(--ui-space-2);
   border: 0;
-  border-radius: var(--ui-radius-small);
-  color: var(--ui-color-text-subtle);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text-secondary);
   background: transparent;
   font: inherit;
   font-size: var(--ui-font-size-tool);
-  font-weight: 600;
-  line-height: 1;
+  font-weight: 400;
+  line-height: var(--ui-line-height-tool);
   cursor: pointer;
   white-space: nowrap;
 }
 
 .ui-segmented-item:hover:not(:disabled),
 .ui-tab:hover:not(:disabled) {
-  color: var(--ui-color-text-secondary);
-  background: var(--ui-color-surface-subtle);
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
 }
 
 .ui-segmented-item[data-pressed],
 .ui-segmented-item.is-active,
 .ui-tab[aria-selected='true'],
 .ui-tab.is-active {
-  color: var(--ui-color-accent-hover);
-  background: var(--ui-color-surface);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-  font-weight: 700;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.ui-segmented-item:disabled,
+.ui-tab:disabled {
+  color: var(--ui-color-text-disabled);
+  cursor: not-allowed;
 }
 
 .ui-tabs,
@@ -232,6 +313,7 @@
   width: 100%;
 }
 
+/* Separator --------------------------------------------------------------- */
 .ui-separator {
   flex: 0 0 auto;
   background: var(--ui-color-border);
@@ -248,13 +330,15 @@
   margin-inline: var(--ui-space-1);
 }
 
+/* Checkbox ---------------------------------------------------------------- */
 .ui-checkbox-field {
   display: inline-flex;
   align-items: center;
-  gap: var(--ui-space-2);
+  gap: var(--ui-space-1);
   min-height: var(--ui-control-height);
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-tool);
+  line-height: var(--ui-line-height-tool);
   cursor: pointer;
 }
 
@@ -266,21 +350,44 @@
   height: 16px;
   flex: 0 0 auto;
   border: 1px solid var(--ui-color-border-strong);
-  border-radius: var(--ui-radius-small);
+  border-radius: var(--ui-radius-control);
   color: #ffffff;
   background: var(--ui-color-surface);
 }
 
-.ui-checkbox[data-checked] {
+.ui-checkbox[data-checked],
+.ui-checkbox[data-indeterminate] {
   border-color: var(--ui-color-accent);
   background: var(--ui-color-accent);
 }
 
+.ui-checkbox[data-readonly] {
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+  cursor: default;
+}
+
+.ui-checkbox[data-disabled] {
+  border-color: var(--ui-color-border);
+  color: var(--ui-color-text-disabled);
+  background: var(--ui-color-surface-subtle);
+  cursor: not-allowed;
+}
+
+.ui-checkbox[aria-invalid='true'] {
+  border-color: var(--ui-color-danger);
+}
+
 .ui-checkbox-indicator {
-  font-size: 11px;
+  font-size: var(--ui-font-size-status);
   line-height: 1;
 }
 
+.ui-checkbox[data-unchecked] .ui-checkbox-indicator:not([data-indeterminate]) {
+  visibility: hidden;
+}
+
+/* Select ------------------------------------------------------------------ */
 .ui-select-trigger {
   display: inline-flex;
   align-items: center;
@@ -288,20 +395,27 @@
   width: 100%;
   height: var(--ui-control-height);
   min-width: 0;
-  gap: var(--ui-space-2);
-  padding: 0 var(--ui-space-3);
-  border: 1px solid var(--ui-color-border);
+  gap: var(--ui-space-1);
+  padding: 0 var(--ui-space-2);
+  border: 1px solid var(--ui-color-border-strong);
   border-radius: var(--ui-radius-control);
-  color: var(--ui-color-text-secondary);
+  color: var(--ui-color-text);
   background: var(--ui-color-surface);
   font: inherit;
   font-size: var(--ui-font-size-tool);
-  line-height: 1;
+  line-height: var(--ui-line-height-tool);
   cursor: pointer;
 }
 
 .ui-select-trigger:hover:not([data-disabled]) {
-  border-color: var(--ui-color-border-strong);
+  border-color: var(--ui-color-accent);
+}
+
+.ui-select-trigger[data-disabled] {
+  border-color: var(--ui-color-border);
+  color: var(--ui-color-text-disabled);
+  background: var(--ui-color-surface-subtle);
+  cursor: not-allowed;
 }
 
 .ui-select-value {
@@ -313,99 +427,268 @@
 
 .ui-select-icon {
   flex: 0 0 auto;
-  color: var(--ui-color-text-muted);
+  color: var(--ui-color-text-secondary);
 }
 
-.ui-select-positioner {
-  z-index: 100;
+.ui-select-positioner,
+.ui-menu-positioner {
+  z-index: 200;
 }
 
-.ui-select-popup {
+.ui-select-popup,
+.ui-menu-popup {
   min-width: var(--anchor-width);
   max-height: min(320px, var(--available-height));
   overflow: auto;
   padding: var(--ui-space-1);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-control);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-floating);
+  color: var(--ui-color-text);
   background: var(--ui-color-surface);
   box-shadow: var(--ui-shadow-floating);
 }
 
-.ui-select-item {
+.ui-select-item,
+.ui-menu-item {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
   min-height: var(--ui-control-height);
-  padding: 0 var(--ui-space-3);
-  border-radius: var(--ui-radius-small);
-  color: var(--ui-color-text-secondary);
+  padding: 0 var(--ui-space-2);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text);
   font-size: var(--ui-font-size-tool);
+  line-height: var(--ui-line-height-tool);
   outline: none;
   cursor: default;
 }
 
-.ui-select-item[data-highlighted] {
-  color: var(--ui-color-accent-hover);
+.ui-select-item[data-highlighted],
+.ui-menu-item[data-highlighted] {
+  color: var(--ui-color-accent-pressed);
   background: var(--ui-color-accent-soft);
+}
+
+.ui-select-item[data-disabled],
+.ui-menu-item[data-disabled] {
+  color: var(--ui-color-text-disabled);
 }
 
 .ui-select-item-indicator {
   color: var(--ui-color-accent);
 }
 
+/* Tooltip ----------------------------------------------------------------- */
 .ui-tooltip-popup {
   max-width: 260px;
-  padding: var(--ui-space-2) var(--ui-space-3);
-  border: 1px solid var(--ui-color-border-strong);
-  border-radius: var(--ui-radius-small);
-  color: #ffffff;
-  background: #334155;
+  padding: var(--ui-space-1) var(--ui-space-2);
+  border: 1px solid var(--ui-color-text);
+  border-radius: var(--ui-radius-floating);
+  color: var(--ui-color-surface);
+  background: var(--ui-color-text);
   box-shadow: var(--ui-shadow-floating);
-  font-size: var(--ui-font-size-status);
-  line-height: 1.35;
+  font-size: var(--ui-font-size-tool);
+  line-height: var(--ui-line-height-tool);
 }
 
-/* Existing editor styles have deliberately higher selector specificity than
- * feature CSS. Once a control opts into a Studio primitive, the primitive's
- * variant must become authoritative inside the header as well. */
-.editor-header .document-toolbar .ui-button.ui-button-primary {
-  border-color: var(--ui-color-accent-hover);
+/* Menu -------------------------------------------------------------------- */
+.ui-menu-trigger,
+.ui-dialog-trigger,
+.ui-dialog-close {
+  min-height: var(--ui-control-height);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
+  font: inherit;
+  font-size: var(--ui-font-size-tool);
+  line-height: var(--ui-line-height-tool);
+  cursor: pointer;
+}
+
+.ui-menu-trigger,
+.ui-dialog-trigger {
+  padding: 0 var(--ui-space-2);
+}
+
+.ui-menu-trigger:hover,
+.ui-dialog-trigger:hover,
+.ui-dialog-close:hover {
+  border-color: var(--ui-color-accent);
+  background: var(--ui-color-surface-subtle);
+}
+
+.ui-menu-item {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ui-menu-item-danger {
+  color: var(--ui-color-danger);
+}
+
+.ui-menu-separator {
+  height: 1px;
+  margin: var(--ui-space-1) 0;
+  background: var(--ui-color-border);
+}
+
+/* Dialog ------------------------------------------------------------------ */
+.ui-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(32, 36, 40, 0.35);
+}
+
+.ui-dialog-viewport {
+  position: fixed;
+  inset: 0;
+  z-index: 301;
+  display: grid;
+  place-items: center;
+  padding: var(--ui-space-4);
+}
+
+.ui-dialog-popup {
+  width: min(460px, 100%);
+  max-height: min(680px, calc(100vh - 48px));
+  overflow: auto;
+  padding: var(--ui-space-4);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-floating);
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow-floating);
+}
+
+.ui-dialog-title {
+  margin: 0 0 var(--ui-space-2);
+  font-size: var(--ui-font-size-title);
+  line-height: var(--ui-line-height-title);
+  font-weight: 600;
+}
+
+.ui-dialog-description {
+  margin: 0 0 var(--ui-space-3);
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-tool);
+  line-height: var(--ui-line-height-tool);
+}
+
+.ui-dialog-close {
+  padding: 0 var(--ui-space-2);
+}
+
+/* Split pane -------------------------------------------------------------- */
+.ui-split-pane {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ui-split-pane-region {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.ui-split-pane-separator {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+  touch-action: none;
+}
+
+.ui-split-pane-horizontal > .ui-split-pane-separator {
+  cursor: col-resize;
+}
+
+.ui-split-pane-vertical > .ui-split-pane-separator {
+  cursor: row-resize;
+}
+
+.ui-split-pane-separator::after {
+  content: '';
+  position: absolute;
+  background: var(--ui-color-border);
+}
+
+.ui-split-pane-horizontal > .ui-split-pane-separator::after {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
+.ui-split-pane-vertical > .ui-split-pane-separator::after {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+.ui-split-pane-separator:hover::after,
+.ui-split-pane-separator:focus-visible::after {
+  background: var(--ui-color-accent);
+}
+
+/* Status bar -------------------------------------------------------------- */
+.ui-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  height: var(--ui-status-height);
+  padding: 0 var(--ui-space-2);
+  border-top: 1px solid var(--ui-color-border);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-panel);
+  font-size: var(--ui-font-size-status);
+  line-height: var(--ui-line-height-status);
+}
+
+/* Compatibility bridges while C2 migrates the current editor chrome -------- */
+.editor-header .document-toolbar > button.ui-button {
+  order: 0;
+  margin-left: 0;
+  box-shadow: none;
+}
+
+.editor-header .document-toolbar > button.ui-button.ui-button-secondary {
+  border-color: var(--ui-color-border-strong);
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
+}
+
+.editor-header .document-toolbar > button.ui-button.ui-button-primary {
+  border-color: var(--ui-color-accent);
   color: #ffffff;
   background: var(--ui-color-accent);
 }
 
-.editor-header .document-toolbar .ui-button.ui-button-primary:hover:not(:disabled) {
-  border-color: var(--ui-color-accent-pressed);
-  color: #ffffff;
-  background: var(--ui-color-accent-hover);
-}
-
-.editor-header .document-toolbar .ui-button.ui-button-accent {
-  border-color: var(--ui-color-accent-soft-strong);
+.editor-header .document-toolbar > button.ui-button.ui-button-accent {
+  border-color: var(--ui-color-accent);
   color: var(--ui-color-accent-hover);
   background: var(--ui-color-accent-soft);
 }
 
-.editor-header .document-toolbar .ui-button.ui-button-accent:hover:not(:disabled) {
-  border-color: #93c5fd;
-  color: var(--ui-color-accent-pressed);
-  background: var(--ui-color-accent-soft-strong);
-}
-
-/* The shared workspace exit is a real member of the document toolbar. */
-.document-toolbar > .ui-workspace-separator {
-  order: 4;
+.document-toolbar > .ui-workspace-separator,
+.editor-header .document-toolbar > .ui-workspace-separator {
+  order: 90;
   margin-inline: var(--ui-space-1);
 }
 
-.document-toolbar > .ui-workspace-exit {
-  order: 5;
+.document-toolbar > .ui-workspace-exit,
+.editor-header .document-toolbar > button.ui-button.ui-workspace-exit {
+  order: 100;
   margin: 0;
-  padding-inline: var(--ui-space-3);
+  padding-inline: var(--ui-space-2);
 }
 
-/* Feature layouts that are structural rather than ordinary buttons retain
- * their own geometry while the element itself is now a Studio Pressable. */
 .ui-pressable.inspector-group-header {
   width: 100%;
   height: var(--ui-inspector-group-height);
@@ -423,70 +706,23 @@
   width: 100%;
 }
 
-/* M6.2.13 editor chrome parity ------------------------------------------------
- * Legacy chrome CSS still contains button-position selectors from before the
- * Studio primitive migration. Once a control is a Studio primitive, semantic
- * variants and explicit workspace ordering win over DOM nth-of-type rules. */
-.editor-header .document-toolbar > button.ui-button {
-  order: 0;
-  margin-left: 0;
-  box-shadow: none;
-}
-
-.editor-header .document-toolbar > button.ui-button.ui-button-secondary {
-  border-color: var(--ui-color-border);
-  color: var(--ui-color-text-secondary);
-  background: var(--ui-color-surface);
-}
-
-.editor-header .document-toolbar > button.ui-button.ui-button-secondary:hover:not(:disabled) {
-  border-color: var(--ui-color-border-strong);
-  color: var(--ui-color-text);
-  background: var(--ui-color-surface-subtle);
-}
-
-.editor-header .document-toolbar > button.ui-button.ui-button-primary {
-  border-color: var(--ui-color-accent-hover);
-  color: #ffffff;
-  background: var(--ui-color-accent);
-}
-
-.editor-header .document-toolbar > button.ui-button.ui-button-accent {
-  border-color: var(--ui-color-accent-soft-strong);
-  color: var(--ui-color-accent-hover);
-  background: var(--ui-color-accent-soft);
-}
-
-.editor-header .document-toolbar > .ui-workspace-separator {
-  order: 90;
-  margin-inline: var(--ui-space-2);
-}
-
-.editor-header .document-toolbar > button.ui-button.ui-workspace-exit {
-  order: 100;
-  margin: 0;
-}
-
-/* Design / Preview is a mode selector, not a subtle neutral tab. The active
- * mode must remain obvious even when legacy header selectors are present. */
+/* Design / Preview uses adjacent low-chrome segments, not a thick blue pill. */
 .editor-header .mode-switch .ui-segmented-item[data-pressed],
 .editor-header .mode-switch .ui-segmented-item.is-active {
   border: 0;
-  color: #ffffff;
-  background: var(--ui-color-accent);
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
-  font-weight: 700;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+  box-shadow: none;
+  font-weight: 600;
 }
 
 .editor-header .mode-switch .ui-segmented-item[data-pressed]:hover,
 .editor-header .mode-switch .ui-segmented-item.is-active:hover {
-  color: #ffffff;
-  background: var(--ui-color-accent-hover);
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
 }
 
-/* Feature tab classes belong to Tabs.List. This prevents old dock/inspector
- * grid rules from turning the Tabs root into a multi-column container and
- * squeezing the real list into its first column. */
+/* Feature tab classes belong to Tabs.List. */
 .ui-tabs-list.dock-tabs,
 .ui-tabs-list.inspector-tabs,
 .ui-tabs-list.component-inspector-tabs {
@@ -494,20 +730,20 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-auto-flow: row;
   grid-auto-columns: auto;
-  gap: var(--ui-space-2);
-  padding: 3px;
+  gap: var(--ui-space-micro);
+  padding: var(--ui-space-micro);
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-control);
-  background: var(--ui-color-surface-muted);
+  background: var(--ui-color-surface-subtle);
 }
 
 .ui-tabs-list.dock-tabs {
-  margin: 0 0 var(--ui-space-4);
+  margin: 0 0 var(--ui-space-3);
 }
 
 .ui-tabs-list.inspector-tabs,
 .ui-tabs-list.component-inspector-tabs {
-  margin: 0 0 var(--ui-space-3);
+  margin: 0 0 var(--ui-space-2);
 }
 
 .ui-tabs-list.dock-tabs > .ui-tab,
@@ -516,7 +752,7 @@
   min-width: 0;
   width: 100%;
   min-height: var(--ui-control-height);
-  padding-inline: var(--ui-space-2);
+  padding-inline: var(--ui-space-1);
 }
 
 .ui-tabs-list.dock-tabs > .ui-tab[aria-selected='true'],
@@ -525,7 +761,7 @@
 .ui-tabs-list.inspector-tabs > .ui-tab.is-active,
 .ui-tabs-list.component-inspector-tabs > .ui-tab[aria-selected='true'],
 .ui-tabs-list.component-inspector-tabs > .ui-tab.is-active {
-  color: #ffffff;
-  background: var(--ui-color-accent);
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.16);
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+  box-shadow: none;
 }

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint . && node scripts/check-ui-primitives.mjs",
+    "lint": "oxlint . && node scripts/check-ui-primitives.mjs && node scripts/check-ui-token-authority.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
