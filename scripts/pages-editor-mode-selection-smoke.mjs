@@ -140,7 +140,14 @@ try {
   await page.locator('.studio-status-mode').getByText('预览', { exact: true }).waitFor()
   await waitForSaveStatus('已保存')
 
-  assert.equal(await page.getByRole('button', { name: '导入', exact: true }).isDisabled(), true)
+  // C2 moves import into the Studio File menu; B3 still owns the semantic
+  // requirement that Preview makes this design mutation unavailable.
+  await page.getByRole('button', { name: '文件', exact: true }).click()
+  const importCommand = page.getByRole('menuitem', { name: '导入场景', exact: true })
+  await importCommand.waitFor()
+  assert.equal(await importCommand.isDisabled(), true)
+  await page.keyboard.press('Escape')
+
   assert.equal(await paletteItems.first().isDisabled(), true)
   assert.equal(await page.getByRole('button', { name: '复制选中对象' }).isDisabled(), true)
   assert.equal(await page.getByRole('button', { name: '删除选中对象' }).isDisabled(), true)
