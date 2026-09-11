@@ -60,6 +60,7 @@ jobs:
             exit 1
           fi
           {
+            node scripts/pages-component-document-history-smoke.mjs
             node scripts/pages-component-navigation-smoke.mjs
             node scripts/pages-component-primitives-smoke.mjs
             SCADA_BROWSER=chromium node scripts/pages-component-hit-smoke.mjs
