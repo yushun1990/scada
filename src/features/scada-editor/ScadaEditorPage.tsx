@@ -964,6 +964,7 @@ export function ScadaEditorPage({
   return (
     <>
       <StudioShell
+        className="scada-studio-shell"
         documentTitle={scene.name}
         documentType="SCADA Work"
         dirty={saveState.dirty}

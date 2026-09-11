@@ -55,7 +55,7 @@
 
 .component-layer-dock {
   display: grid;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
   height: 100%;
