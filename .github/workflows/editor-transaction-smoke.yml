@@ -1,0 +1,72 @@
+name: Editor Transaction Browser Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/scene/use-scene-history.ts'
+      - 'src/features/scada-editor/**'
+      - 'src/renderer/SceneRenderer.tsx'
+      - 'scripts/pages-scada-transaction-smoke.mjs'
+      - 'scripts/pages-scene-fixture-storage.mjs'
+      - '.github/workflows/editor-transaction-smoke.yml'
+      - 'package*.json'
+      - 'vite.config.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: editor-transaction-smoke-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the proposed revision
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          npm ci
+          npm run build 2>&1 | tee artifacts/editor-transaction-build.log
+      - name: Install browser test tools
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+      - name: Verify SCADA editor transactions against the built revision
+        env:
+          SCADA_PAGES_URL: http://127.0.0.1:4173/
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/editor-transaction-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS "$SCADA_PAGES_URL" >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/editor-transaction-preview.log | tee artifacts/editor-transaction-browser.log
+            exit 1
+          fi
+          node scripts/pages-scada-transaction-smoke.mjs 2>&1 | tee artifacts/editor-transaction-browser.log
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-transaction-browser
+          path: artifacts/*
+          if-no-files-found: ignore
