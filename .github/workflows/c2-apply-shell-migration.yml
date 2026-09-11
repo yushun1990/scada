@@ -1,0 +1,36 @@
+name: C2 Apply Shell Migration
+
+on:
+  push:
+    branches:
+      - refactor/ui-c2-studio-shell
+    paths:
+      - scripts/apply-c2-shell-pages.mjs
+      - .github/workflows/c2-apply-shell-migration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/ui-c2-studio-shell
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply deterministic shell migration
+        run: node scripts/apply-c2-shell-pages.mjs
+      - name: Remove one-shot migration assets
+        run: |
+          rm scripts/apply-c2-shell-pages.mjs
+          rm .github/workflows/c2-apply-shell-migration.yml
+      - name: Commit migrated editor pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/features/scada-editor/ScadaEditorPage.tsx src/features/component-library/ComponentEditorPage.tsx scripts/apply-c2-shell-pages.mjs .github/workflows/c2-apply-shell-migration.yml
+          git commit -m "refactor: migrate editors to StudioShell"
+          git push origin HEAD:refactor/ui-c2-studio-shell
