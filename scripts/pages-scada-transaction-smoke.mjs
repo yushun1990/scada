@@ -65,6 +65,55 @@ try {
     'redo must restore the complete committed node name edit',
   )
 
+  // Ctrl/Cmd+Z inside a text control belongs to the text editor, never the
+  // Scene history. Native text undo support varies by browser/edit sequence,
+  // so the invariant here is that it must not roll the Scene back to the
+  // pre-transaction component name.
+  await nameField.focus()
+  await nameField.press('End')
+  await nameField.pressSequentially('X')
+  await nameField.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z')
+  assert.notEqual(
+    await nameField.inputValue(),
+    originalName,
+    'text Ctrl/Cmd+Z must not invoke the global Scene undo command',
+  )
+
+  // Escape cancels the whole staged field transaction instead of committing
+  // whatever partial text remains after native input editing.
+  await nameField.press('Escape')
+  await nameField.waitFor()
+  assert.equal(
+    await nameField.inputValue(),
+    'Transaction Name',
+    'Escape must restore the field value from before the staged edit',
+  )
+
+  // Reproduce the old Space ownership bug: leave the pointer over the Konva
+  // canvas, focus the Inspector input programmatically, then type Space. The
+  // canvas capture shortcut must not prevent the input's default text action.
+  const canvas = page.locator('.konva-host canvas').first()
+  const canvasBox = await canvas.boundingBox()
+  assert.ok(canvasBox, 'SCADA canvas must be visible')
+  await page.mouse.move(
+    canvasBox.x + Math.min(40, canvasBox.width / 2),
+    canvasBox.y + Math.min(40, canvasBox.height / 2),
+  )
+  await nameField.focus()
+  await nameField.press('End')
+  await nameField.press('Space')
+  assert.equal(
+    await nameField.inputValue(),
+    'Transaction Name ',
+    'Space must remain text input even while the pointer is over the canvas',
+  )
+  await nameField.press('Escape')
+  assert.equal(
+    await nameField.inputValue(),
+    'Transaction Name',
+    'Escape must cancel the staged Space edit as one transaction',
+  )
+
   await saveSceneAndWait(page)
   const storedScene = (await readPersistedScene(page)).document
   assert.equal(
@@ -74,7 +123,7 @@ try {
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('SCADA transaction smoke passed: staged text edit commits as one undoable history entry and survives redo/save.')
+  console.log('SCADA transaction smoke passed: form edits are one history transaction, text shortcuts stay local, Escape cancels staged edits, and Space is not stolen from Inspector inputs.')
 } finally {
   await browser.close()
 }
