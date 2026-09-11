@@ -596,6 +596,8 @@ M6.3P1 Component Visual Asset Authoring Patch                  accepted · 2026-
 
 **Current execution gate: post-M9 product/roadmap review / dogfooding and product-polish review. No new numbered implementation milestone is currently authorized.**
 
+The 2026-09-10 UI review delivers a [source audit](docs/design/ui-audit-2026-09-10.md), a corrected [industrial Designer UI specification](docs/design/industrial-designer-spec.md), and a proposed [rollout plan](docs/design/industrial-designer-rollout.md). The rollout prioritizes editing reliability before shared chrome, navigation and Inspector polish. Its A–F work packages are proposed delivery batches, not new architecture milestones or completed implementation. Accepted M6–M9 and UX1 authority boundaries remain unchanged.
+
 The current product phase is hands-on use and polishing of the editor, components and interactions. Component design does not require real-system data integration, and the product is not yet being advanced into speculative protocol/backend/real-device work merely because the runtime foundations exist.
 
 Preserve accepted M6–M9 and M6.3P1 boundaries while fixing defects exposed by dogfooding. In particular, do not reopen flattened `props`, Attribute binding, hidden package installation, standalone authoring state, a second renderer/runtime authority or broad media-library scope through incidental polish work.

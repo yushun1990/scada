@@ -22,13 +22,15 @@ M0–M5  editor/runtime foundations                         accepted/usable
 M6      Component Workbench + Scene v7 semantics          accepted · 2026-08-30
 M7      component packaging / adapter foundation / set    accepted · 2026-08-31
 M8      portable SCADA work + standalone runtime          accepted · 2026-09-02
-M9      Component Attribute / Property authority split    active
-         └─ M9A1 schema / SDK + legacy classification     ACTIVE
+M9      Component Attribute / Property authority split    accepted · 2026-09-03
+M6.3P1  Component visual asset authoring patch             accepted · 2026-09-05
 ```
 
-M9A1.0 has frozen the Attribute / Property authority direction and SCADA DSL v1 surface. The current implementation work establishes versioned migration authority before promoting the split through the core component and Scene schemas.
+M9 established separate authored Attributes and runtime Properties across authoring, Scene v8 persistence, component/work packages and standalone runtime. M6.3P1 added local SVG/Image import and managed SVG target authoring within the existing component visual model.
 
-The authoritative execution roadmap is [`PLAN.md`](PLAN.md).
+The current phase is dogfooding and product polish. The authoritative execution roadmap is [`PLAN.md`](PLAN.md); acceptance evidence is recorded in the [M9 closeout](docs/progress/m9-closeout.md) and [M6.3P1 closeout](docs/progress/m6.3p1-closeout.md).
+
+The [UI audit](docs/design/ui-audit-2026-09-10.md), [industrial Designer UI specification](docs/design/industrial-designer-spec.md) and [rollout plan](docs/design/industrial-designer-rollout.md) define the proposed UI corrections. The specification is a target; implementation batches and browser visual acceptance remain pending.
 
 ## Product structure
 
@@ -68,7 +70,7 @@ The current editor includes:
 - single and multi-selection
 - drag, resize and rotate
 - grouping / ungrouping and hierarchy-aware geometry
-- undo / redo
+- undo / redo for committed scene operations; form-edit transaction gaps are tracked in the UI audit
 - alignment and equal distribution
 - grid and object snapping
 - visible visual Anchors around components
@@ -78,9 +80,9 @@ The current editor includes:
 - local IndexedDB persistence
 - Scene/work import/export paths
 - Design and Preview modes
-- current legacy Component Property editing while M9 migrates authored Attributes separately
+- separate authored Attribute and Property fallback editing
 - runtime-value bindings
-- canonical Scene v7 SCADA semantics
+- canonical SCADA semantics persisted in Scene v8
 - typed Component Actions/Events for trusted registrations
 - host-owned outbound Device/Platform Action dispatch
 
@@ -96,13 +98,13 @@ SCADA Value / Behavior / Interaction semantics
 
 ## Scene persistence
 
-`SceneDocument` currently persists version 7. M9 will introduce the next Scene schema version when authored Attribute values and runtime-capable Property fallback values become separate persisted authorities.
+`SceneDocument` currently persists version 8. Authored Attribute values and Property fallback values are separate persisted authorities. Supported legacy inputs are normalized at the versioned migration boundary; ambiguous Attribute / Property classification fails closed.
 
-The current Scene v7 shape is conceptually:
+The current Scene v8 shape is conceptually:
 
 ```ts
 type SceneDocument = {
-  version: 7
+  version: 8
   id: string
   name: string
   width: number
@@ -113,13 +115,13 @@ type SceneDocument = {
 }
 ```
 
-Component nodes reference a component by `type`, currently persist one legacy public `props` namespace, and persist canonical `scadaSemantics`. M9 corrects that conflation through explicit schema migration rather than indefinite dual authority.
+Component nodes reference a component by `type`, persist `attributes` separately from `propertyFallbacks`, and persist canonical `scadaSemantics`. Effective runtime Property values do not overwrite either authored namespace. Legacy component `props` is migration input, not a second live authority; Group geometry retains its separate internal `props` shape.
 
 Persisted SCADA semantics use stable IDs and structured references rather than DSL statement positions. DSL text is an authoring surface, not persistence authority.
 
 ## Component model
 
-Target reusable component public contract:
+Current reusable component public contract:
 
 ```text
 Attributes + Properties + Actions + Events + Anchors
@@ -145,7 +147,7 @@ See [`docs/architecture/component-attributes-properties.md`](docs/architecture/c
 
 ## SCADA DSL v1
 
-M6.5 proved the text-first DSL approach. M9A1.0 freezes the target v1 surface around two reserved roots:
+M6.5 proved the text-first DSL approach. M9 established the v1 surface around two reserved roots:
 
 ```text
 $self    current component
@@ -215,7 +217,7 @@ The first portable proof set is deployed under `public/component-packages/`:
 - `starter.running-motor` — boolean running/fault state, power/mechanical Anchors, Spin + Blink
 - `starter.signal-quality` — numeric quality Property and threshold visibility Rules
 
-They are real distributable files rather than hard-coded editor examples. M9 will migrate starter definitions through the same Attribute / Property authority path used by built-ins and user packages.
+They are real distributable v2 packages with explicit Attribute / Property namespaces, using the same validation and authority boundaries as other user packages.
 
 ## Portable SCADA works and standalone runtime
 
@@ -288,9 +290,9 @@ Production backend deployment is currently **deferred**. GitHub Pages/local edit
 
 Do not expose server/admin credentials in the browser bundle.
 
-## Why M9 exists
+## M9 authority split
 
-The accepted M6–M8 architecture proved component authoring, structured Scene semantics, packaging, dependency-complete work transfer and standalone runtime. The remaining public-contract problem is that current component `Properties` still mix two different authorities:
+The accepted M6–M8 architecture proved component authoring, structured Scene semantics, packaging, dependency-complete work transfer and standalone runtime. M9 resolved the earlier public-contract problem in which component `Properties` mixed two different authorities:
 
 ```text
 runningColor / faultColor / precision
@@ -300,20 +302,20 @@ running / fault / pressure / level
 = runtime semantic state/data
 ```
 
-M9 therefore corrects the model before the component catalog grows further:
+The accepted model keeps these authorities separate:
 
 > **Attributes are authored configuration. Properties are runtime semantic values and binding targets.**
 
 The migration is versioned and fail-closed. Legacy `bindable: true` fields can safely remain Properties; ambiguous legacy fields require explicit migration decisions rather than heuristic guessing.
 
-Current M9 sequence:
+Accepted M9 sequence:
 
 ```text
 M9A1.0 contract freeze                              accepted
-M9A1 schema / SDK + versioned legacy classification ACTIVE
-M9A2 Component Workbench + Inspector separation     queued
-M9B1 runtime Attribute / Property authority split   queued
-M9B2 package / Scene compatibility acceptance       queued
+M9A1 schema / SDK + versioned legacy classification accepted
+M9A2 Component Workbench + Inspector separation     accepted
+M9B1 runtime Attribute / Property authority split   accepted
+M9B2 package / Scene compatibility acceptance       accepted
 ```
 
 ## Development
@@ -347,6 +349,6 @@ Unless an explicit later gate reopens them:
 - arbitrary DOM / React / Konva authored access
 - full Figma-style vector/path tooling
 - collaborative editing
-- component marketplace/catalog expansion before M9 authority split closes
+- broad component marketplace/catalog expansion without a concrete product requirement
 
-The current priority is completing the **Attribute / Property authority split** without destabilizing the accepted M6–M8 package/runtime/standalone boundaries.
+The current priority is improving editing reliability and the UI through dogfooding while preserving the accepted M6–M9 package/runtime/standalone boundaries. No new numbered implementation milestone is currently authorized by `PLAN.md`.

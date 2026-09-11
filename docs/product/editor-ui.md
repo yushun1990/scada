@@ -1,5 +1,7 @@
 # Generic SCADA Editor UI Architecture
 
+Status: historical editor UI architecture proposal. For the corrected visual system, dimensions, interaction rules and delivery sequence, use the [2026-09-10 UI specification](../design/industrial-designer-spec.md) and [rollout plan](../design/industrial-designer-rollout.md). Features described below are not evidence that those features are currently implemented; see the [source audit](../design/ui-audit-2026-09-10.md).
+
 ## 1. Product posture
 
 The editor is a desktop-first scene-authoring tool. It should feel closer to a lightweight industrial design editor than to a settings dashboard.

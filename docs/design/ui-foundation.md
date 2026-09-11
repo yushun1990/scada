@@ -1,8 +1,8 @@
 # SCADA Studio UI Foundation
 
-Status: normative UI foundation for Workspace, SCADA Editor and Component Editor.
+Status: historical M6 UI foundation and implementation baseline. The target for UI corrections after the 2026-09-10 audit is [Industrial Designer UI Specification](industrial-designer-spec.md). Its visual, density, layout and Inspector rules supersede conflicting rules below; the current implementation has not yet completed that migration. See the [audit](ui-audit-2026-09-10.md) and [rollout plan](industrial-designer-rollout.md).
 
-This document defines the stable visual language of SCADA Studio. Feature work may introduce new controls and domain-specific states, but it must not invent a parallel palette, type scale, spacing scale or editor layout without first updating this foundation.
+The sections below record the earlier visual baseline. They remain useful for understanding existing CSS, but new corrective work must use the target specification linked above rather than invent a parallel palette, type scale, spacing scale or editor layout.
 
 ## 1. Product character
 

@@ -1,6 +1,8 @@
 # SCADA Studio UI Primitives
 
-Status: normative implementation layer below feature UI and above the visual tokens defined by `docs/design/ui-foundation.md`.
+Status: normative implementation boundary for `src/ui`. Current visual tokens live in `src/styles/tokens.css`; target visual rules follow the [Industrial Designer UI Specification](industrial-designer-spec.md). The [earlier UI foundation](ui-foundation.md) records the implementation baseline.
+
+2026-09-10 correction: the Base UI / `src/ui` boundary in this document remains in force. Visual values, action hierarchy and target Inspector labels now follow the [Industrial Designer UI Specification](industrial-designer-spec.md). Menu, Dialog, Tree, PropertyRow, SplitPane and complete tab/panel relationships are planned extensions, not claims about current primitive coverage. See the [rollout plan](industrial-designer-rollout.md).
 
 ## Decision
 
@@ -87,7 +89,7 @@ Header example:
 ## Tabs and segmented controls
 
 - Design / Preview is a segmented control.
-- Inspector `属性 / 方法 / 事件` is a tab control.
+- Inspector uses a tab control; target labels are `配置 / 动作 / 事件` (current labels remain `属性 / 方法 / 事件` until migration).
 - Workspace/dock navigation that behaves as a persistent choice should use Tabs or another Studio selection primitive.
 - Active styling comes from Base UI state attributes and Studio tokens rather than feature-specific native-button state handling.
 
