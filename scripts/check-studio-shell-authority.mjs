@@ -53,6 +53,11 @@ await forbidFile(
 
 const componentCss = await read('src/features/component-library/component-editor.css')
 forbid('component-editor.css must not restore component editor shell geometry', componentCss, /\.component-editor-(?:shell|main)\b/)
+requirePattern(
+  'component layer dock must reserve an intrinsic palette row and a bounded navigator row',
+  componentCss,
+  /\.component-layer-dock\s*\{[\s\S]*?grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)/,
+)
 
 const componentCanvas = await read('src/features/component-library/ComponentVisualCanvas.tsx')
 forbid('ComponentVisualCanvas must not query a toolbar from canvas DOM', componentCanvas, /querySelector[\s\S]{0,120}component-canvas-toolbar/)
@@ -72,6 +77,19 @@ for (const className of [
 }
 requirePattern('StudioShell panel resize handles must be separators', shell, /role="separator"/)
 requirePattern('StudioShell must expose explicit workspace navigation', shell, /onNavigateWorkspace/)
+
+const scadaEditor = await read('src/features/scada-editor/ScadaEditorPage.tsx')
+const componentEditor = await read('src/features/component-library/ComponentEditorPage.tsx')
+requirePattern(
+  'SCADA editor must expose a stable StudioShell identity',
+  scadaEditor,
+  /<StudioShell[\s\S]{0,160}className="scada-studio-shell"/,
+)
+requirePattern(
+  'Component editor must expose a stable StudioShell identity',
+  componentEditor,
+  /<StudioShell[\s\S]{0,160}className="component-studio-shell"/,
+)
 
 if (violations.length) {
   console.error('StudioShell authority audit failed:')
