@@ -14,15 +14,19 @@ export type SceneHistory = {
   scene: SceneDocument
   selectedNodeIds: string[]
   selectedConnectionId: string | null
-  // 直接写入，不推入历史。用于实时预览（拖拽过程、文本逐字符输入）。
+  // 暂存编辑，不立即推入历史。第一次暂存会冻结事务前快照，后续
+  // commit() 将整段连续编辑作为一条历史记录提交。
   setScene: (updater: SceneDocument | ((current: SceneDocument) => SceneDocument)) => void
   setSelectedNodeIds: (ids: string[]) => void
   setSelectedConnectionId: (id: string | null) => void
   // 提交一次变更并推入历史栈。应在「一个完整手势/操作」结束时调用一次。
+  // 如果此前通过 setScene() 做过暂存编辑，则以第一次暂存前的快照为 before。
   commit: (
     nextScene?: SceneDocument | ((current: SceneDocument) => SceneDocument),
     nextSelection?: Partial<Pick<HistorySnapshot, 'selectedNodeIds' | 'selectedConnectionId'>>,
   ) => void
+  // 放弃尚未提交的暂存编辑，恢复事务开始前快照。
+  cancelPending: () => void
   undo: () => void
   redo: () => void
   canUndo: boolean
@@ -50,39 +54,80 @@ function resolveInitial(
   return typeof initial === 'function' ? initial() : initial
 }
 
+function trimHistory(history: HistorySnapshot[]) {
+  if (history.length > MAX_HISTORY) {
+    history.splice(0, history.length - MAX_HISTORY)
+  }
+}
+
 export function useSceneHistory(
   initial: HistorySnapshot | (() => HistorySnapshot),
 ): SceneHistory {
-  const [scene, setSceneState] = useState<SceneDocument>(
-    () => resolveInitial(initial).scene,
-  )
+  const initialSnapshotRef = useRef<HistorySnapshot | null>(null)
+  if (initialSnapshotRef.current === null) {
+    initialSnapshotRef.current = resolveInitial(initial)
+  }
+  const initialSnapshot = initialSnapshotRef.current
+
+  const [scene, setSceneState] = useState<SceneDocument>(initialSnapshot.scene)
   const [selectedNodeIds, setSelectedNodeIdsState] = useState<string[]>(
-    () => resolveInitial(initial).selectedNodeIds,
+    initialSnapshot.selectedNodeIds,
   )
   const [selectedConnectionId, setSelectedConnectionIdState] = useState<string | null>(
-    () => resolveInitial(initial).selectedConnectionId,
+    initialSnapshot.selectedConnectionId,
   )
+
+  // 同步 ref 让同一个浏览器事件中的 setScene() → commit() 也能看到最新暂存值，
+  // 不依赖 React 先完成一次重渲染。
+  const sceneRef = useRef(scene)
+  const selectedNodeIdsRef = useRef(selectedNodeIds)
+  const selectedConnectionIdRef = useRef(selectedConnectionId)
 
   // past / future 用 ref 存放，避免渲染期间依赖、且避免把巨大数组放进 deps。
   const pastRef = useRef<HistorySnapshot[]>([])
   const futureRef = useRef<HistorySnapshot[]>([])
+  // 第一次 setScene() 时冻结事务前快照；直到 commit/cancel/undo/reset 才清空。
+  const pendingBeforeRef = useRef<HistorySnapshot | null>(null)
   // 版本号：每次推入/撤销/重做时自增，驱动 canUndo/canRedo 重算。
   const [tick, setTick] = useState(0)
 
   const bump = useCallback(() => setTick((value) => value + 1), [])
 
+  const currentSnapshot = useCallback((): HistorySnapshot => ({
+    scene: sceneRef.current,
+    selectedNodeIds: selectedNodeIdsRef.current,
+    selectedConnectionId: selectedConnectionIdRef.current,
+  }), [])
+
+  const applySnapshot = useCallback((snapshot: HistorySnapshot) => {
+    sceneRef.current = snapshot.scene
+    selectedNodeIdsRef.current = snapshot.selectedNodeIds
+    selectedConnectionIdRef.current = snapshot.selectedConnectionId
+    setSceneState(snapshot.scene)
+    setSelectedNodeIdsState(snapshot.selectedNodeIds)
+    setSelectedConnectionIdState(snapshot.selectedConnectionId)
+  }, [])
+
   const setScene = useCallback(
     (updater: SceneDocument | ((current: SceneDocument) => SceneDocument)) => {
-      setSceneState(updater)
+      if (pendingBeforeRef.current === null) {
+        pendingBeforeRef.current = currentSnapshot()
+      }
+
+      const resolved = resolveScene(sceneRef.current, updater)
+      sceneRef.current = resolved
+      setSceneState(resolved)
     },
-    [],
+    [currentSnapshot],
   )
 
   const setSelectedNodeIds = useCallback((ids: string[]) => {
+    selectedNodeIdsRef.current = ids
     setSelectedNodeIdsState(ids)
   }, [])
 
   const setSelectedConnectionId = useCallback((id: string | null) => {
+    selectedConnectionIdRef.current = id
     setSelectedConnectionIdState(id)
   }, [])
 
@@ -91,76 +136,92 @@ export function useSceneHistory(
       nextScene?: SceneDocument | ((current: SceneDocument) => SceneDocument),
       nextSelection?: Partial<Pick<HistorySnapshot, 'selectedNodeIds' | 'selectedConnectionId'>>,
     ) => {
-      // 注意：历史栈的推入/弹出必须在 setSceneState 之外完成。
-      // React 的 functional updater 在 StrictMode 下会被调用两次，
-      // 若在其中修改 ref，会导致历史栈被重复推入。
-      const before: HistorySnapshot = {
-        scene,
-        selectedNodeIds,
-        selectedConnectionId,
+      // 注意：历史栈的推入/弹出必须在 React state updater 之外完成。
+      // StrictMode 可能重复调用 functional updater；这里通过同步 ref 先解析最终值。
+      const before = pendingBeforeRef.current ?? currentSnapshot()
+      const resolved = resolveScene(sceneRef.current, nextScene)
+      const after: HistorySnapshot = {
+        scene: resolved,
+        selectedNodeIds:
+          nextSelection?.selectedNodeIds ?? selectedNodeIdsRef.current,
+        selectedConnectionId:
+          nextSelection?.selectedConnectionId ?? selectedConnectionIdRef.current,
       }
-      const resolved = resolveScene(scene, nextScene)
-      // 同值不推历史（纯函数 helper 可能返回同一引用）。
-      if (resolved === scene) {
+
+      pendingBeforeRef.current = null
+
+      // Scene 引用未变化时保持原有语义：纯 selection 变化不创建历史记录。
+      if (after.scene === before.scene) {
         return
       }
+
       pastRef.current.push(before)
-      if (pastRef.current.length > MAX_HISTORY) {
-        pastRef.current.shift()
-      }
+      trimHistory(pastRef.current)
       futureRef.current = []
-      setSceneState(resolved)
-      if (nextSelection?.selectedNodeIds !== undefined) {
-        setSelectedNodeIdsState(nextSelection.selectedNodeIds)
-      }
-      if (nextSelection?.selectedConnectionId !== undefined) {
-        setSelectedConnectionIdState(nextSelection.selectedConnectionId)
-      }
+      applySnapshot(after)
       bump()
     },
-    [scene, selectedNodeIds, selectedConnectionId, bump],
+    [applySnapshot, bump, currentSnapshot],
   )
 
+  const cancelPending = useCallback(() => {
+    const before = pendingBeforeRef.current
+    if (!before) {
+      return
+    }
+
+    pendingBeforeRef.current = null
+    applySnapshot(before)
+  }, [applySnapshot])
+
   const undo = useCallback(() => {
+    const pendingBefore = pendingBeforeRef.current
+
+    // 如果仍有尚未 blur/commit 的表单事务，Undo 直接撤销这一整段暂存编辑，
+    // 并把当前暂存结果放入 future，行为等价于它刚刚提交后立即撤销。
+    if (pendingBefore && pendingBefore.scene !== sceneRef.current) {
+      const after = currentSnapshot()
+      pendingBeforeRef.current = null
+      futureRef.current.push(after)
+      trimHistory(futureRef.current)
+      applySnapshot(pendingBefore)
+      bump()
+      return
+    }
+
+    pendingBeforeRef.current = null
+
     if (pastRef.current.length === 0) {
       return
     }
+
     const before = pastRef.current.pop()!
-    futureRef.current.push({
-      scene,
-      selectedNodeIds,
-      selectedConnectionId,
-    })
-    setSceneState(before.scene)
-    setSelectedNodeIdsState(before.selectedNodeIds)
-    setSelectedConnectionIdState(before.selectedConnectionId)
+    futureRef.current.push(currentSnapshot())
+    trimHistory(futureRef.current)
+    applySnapshot(before)
     bump()
-  }, [scene, selectedNodeIds, selectedConnectionId, bump])
+  }, [applySnapshot, bump, currentSnapshot])
 
   const redo = useCallback(() => {
-    if (futureRef.current.length === 0) {
+    // Redo 只处理已提交/已撤销事务；存在暂存编辑时不跨过它。
+    if (pendingBeforeRef.current !== null || futureRef.current.length === 0) {
       return
     }
+
     const after = futureRef.current.pop()!
-    pastRef.current.push({
-      scene,
-      selectedNodeIds,
-      selectedConnectionId,
-    })
-    setSceneState(after.scene)
-    setSelectedNodeIdsState(after.selectedNodeIds)
-    setSelectedConnectionIdState(after.selectedConnectionId)
+    pastRef.current.push(currentSnapshot())
+    trimHistory(pastRef.current)
+    applySnapshot(after)
     bump()
-  }, [scene, selectedNodeIds, selectedConnectionId, bump])
+  }, [applySnapshot, bump, currentSnapshot])
 
   const reset = useCallback((snapshot: HistorySnapshot) => {
+    pendingBeforeRef.current = null
     pastRef.current = []
     futureRef.current = []
-    setSceneState(snapshot.scene)
-    setSelectedNodeIdsState(snapshot.selectedNodeIds)
-    setSelectedConnectionIdState(snapshot.selectedConnectionId)
+    applySnapshot(snapshot)
     setTick((value) => value + 1)
-  }, [])
+  }, [applySnapshot])
 
   // tick 仅用于让 canUndo/canRedo 在历史变化后重算（ref 不触发重渲染）。
   void tick
@@ -173,10 +234,13 @@ export function useSceneHistory(
     setSelectedNodeIds,
     setSelectedConnectionId,
     commit,
+    cancelPending,
     undo,
     redo,
-    canUndo: pastRef.current.length > 0,
-    canRedo: futureRef.current.length > 0,
+    canUndo: pastRef.current.length > 0 || Boolean(
+      pendingBeforeRef.current && pendingBeforeRef.current.scene !== sceneRef.current,
+    ),
+    canRedo: pendingBeforeRef.current === null && futureRef.current.length > 0,
     reset,
   }
 }
