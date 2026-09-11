@@ -55,7 +55,7 @@
 
 .component-layer-dock {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
   height: 100%;
@@ -607,44 +607,3 @@
   cursor: default;
 }
 
-@media (max-width: 1240px) {
-  .component-editor-main {
-    grid-template-columns: 210px minmax(0, 1fr) 310px;
-  }
-}
-
-@media (max-width: 960px) {
-  .component-editor-main {
-    grid-template-columns: 180px minmax(0, 1fr) 280px;
-  }
-
-  .component-canvas-phase {
-    display: none;
-  }
-}
-
-@media (max-width: 760px) {
-  .component-editor-main {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(520px, 1fr) auto;
-  }
-
-  .component-layer-panel {
-    display: none;
-  }
-
-  .component-property-panel {
-    max-height: 540px;
-    border-top: 1px solid #cbd5e1;
-    border-left: 0;
-  }
-
-  .component-canvas-area {
-    grid-row: 1;
-  }
-
-  .component-brand-block .brand-text span,
-  .component-status-pill {
-    display: none;
-  }
-}
