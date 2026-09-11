@@ -74,8 +74,8 @@ try {
       `component geometry buttons must not overlap: ${index - 1}/${index} (${previous.right} > ${current.left})`,
     )
     assert.ok(
-      previous.width >= 29 && current.width >= 29,
-      `component geometry buttons must keep their normal hit target: ${previous.width}/${current.width}`,
+      previous.width >= 28 && current.width >= 28,
+      `component geometry buttons must keep the C1 28px control target: ${previous.width}/${current.width}`,
     )
   }
 
