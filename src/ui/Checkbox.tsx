@@ -5,6 +5,9 @@ export type CheckboxProps = {
   onCheckedChange: (checked: boolean) => void
   label: string
   disabled?: boolean
+  readOnly?: boolean
+  indeterminate?: boolean
+  invalid?: boolean
   className?: string
 }
 
@@ -13,6 +16,9 @@ export function Checkbox({
   onCheckedChange,
   label,
   disabled = false,
+  readOnly = false,
+  indeterminate = false,
+  invalid = false,
   className = '',
 }: CheckboxProps) {
   return (
@@ -20,10 +26,15 @@ export function Checkbox({
       <BaseCheckbox.Root
         checked={checked}
         disabled={disabled}
+        readOnly={readOnly}
+        indeterminate={indeterminate}
+        aria-invalid={invalid || undefined}
         onCheckedChange={(nextChecked) => onCheckedChange(nextChecked)}
         className="ui-checkbox"
       >
-        <BaseCheckbox.Indicator className="ui-checkbox-indicator">✓</BaseCheckbox.Indicator>
+        <BaseCheckbox.Indicator className="ui-checkbox-indicator" keepMounted>
+          {indeterminate ? '−' : '✓'}
+        </BaseCheckbox.Indicator>
       </BaseCheckbox.Root>
       <span>{label}</span>
     </label>
