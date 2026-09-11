@@ -34,7 +34,6 @@ async function delayNextWrite(storeName, delayMs = 700) {
           this.mode === 'readwrite' &&
           this.objectStoreNames.contains(state.targetStore)
         ) {
-          const delayedStore = state.targetStore
           const delayedBy = state.delay
           state.targetStore = null
           const transaction = this
@@ -279,7 +278,7 @@ try {
   await page.getByRole('button', { name: '返回组件库工作台' }).click()
   await leaveDialog().waitFor()
   await page.getByRole('button', { name: '放弃修改', exact: true }).click()
-  await page.getByText('组件库', { exact: true }).first().waitFor()
+  await page.getByRole('heading', { name: '组件库开发', exact: true }).waitFor()
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log('B2 save/leave smoke passed: snapshot revisions survive edit-during-save, failures retain documents, retry succeeds, workspace/back navigation is guarded, beforeunload is dirty-aware, and Component stale-save overwrite is closed.')
