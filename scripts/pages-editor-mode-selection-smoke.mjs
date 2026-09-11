@@ -84,12 +84,17 @@ async function resolveSceneToClientMapping() {
   })
 }
 
-async function clickSceneNode(sceneNode, toClient, modifiers = {}) {
+async function clickSceneNode(sceneNode, toClient, { shift = false } = {}) {
   const center = toClient(
     sceneNode.transform.x + sceneNode.transform.width / 2,
     sceneNode.transform.y + sceneNode.transform.height / 2,
   )
-  await page.mouse.click(center.x, center.y, modifiers)
+  if (shift) await page.keyboard.down('Shift')
+  try {
+    await page.mouse.click(center.x, center.y)
+  } finally {
+    if (shift) await page.keyboard.up('Shift')
+  }
 }
 
 try {
@@ -185,7 +190,7 @@ try {
   // permits only explicit batch fields and removes the single primary-node
   // Inspector entirely, so no field can silently target only the last node.
   await clickSceneNode(firstNode, toClient)
-  await clickSceneNode(secondNode, toClient, { modifiers: ['Shift'] })
+  await clickSceneNode(secondNode, toClient, { shift: true })
   await page.getByText('已选择', { exact: false }).waitFor()
   await page.getByText('批量属性', { exact: true }).waitFor()
   await page.getByText('已选择 2 个节点。', { exact: false }).waitFor()
