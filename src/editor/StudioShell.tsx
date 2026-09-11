@@ -14,6 +14,7 @@ import {
   MenuSeparator,
   MenuTrigger,
   StatusBar,
+  Toolbar,
 } from '../ui'
 import { useStudioLayoutPreferences } from './use-studio-layout-preferences'
 import './studio-shell.css'
@@ -252,7 +253,7 @@ export function StudioShell({
         </Button>
       </div>
 
-      <div className="studio-main-toolbar" role="toolbar" aria-label="Studio 主工具栏">
+      <Toolbar className="studio-main-toolbar" aria-label="Studio 主工具栏">
         <div className="studio-main-toolbar-content">{mainToolbar}</div>
         <div className="studio-main-toolbar-tail">
           <Button
@@ -283,7 +284,7 @@ export function StudioShell({
           </Button>
           {modeControl}
         </div>
-      </div>
+      </Toolbar>
 
       <div className="studio-document-bar">
         <div className="studio-document-identity">
@@ -302,7 +303,7 @@ export function StudioShell({
       </div>
 
       <div className="studio-workspace-grid">
-        <aside className="studio-left-panel" hidden={!layout.leftVisible}>
+        <aside className="studio-left-panel" aria-label="左侧工作面板" hidden={!layout.leftVisible}>
           {leftPanel}
         </aside>
         {layout.leftVisible && (
@@ -315,7 +316,9 @@ export function StudioShell({
             }))}
           />
         )}
-        <main className="studio-center-workspace">{center}</main>
+        <main className="studio-center-workspace" aria-label={`${documentTitle} 编辑区`}>
+          {center}
+        </main>
         {layout.rightVisible && (
           <StudioPanelResizeHandle
             side="right"
@@ -326,7 +329,7 @@ export function StudioShell({
             }))}
           />
         )}
-        <aside className="studio-right-panel" hidden={!layout.rightVisible}>
+        <aside className="studio-right-panel" aria-label="属性面板" hidden={!layout.rightVisible}>
           {rightPanel}
         </aside>
       </div>
