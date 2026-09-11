@@ -3,6 +3,7 @@ import { chromium } from 'playwright'
 import {
   readPersistedComponent,
   saveAndWait,
+  writePersistedComponent,
 } from './pages-component-fixture-storage.mjs'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/')
@@ -110,8 +111,118 @@ try {
   assert.equal(persisted.definition.title, 'History Component')
   assert.equal(persisted.visual.layers.length, 1)
 
+  // Seed one real Property -> Visual Rule reference, then exercise the real
+  // contract-key editor. This proves history restores the reconciled document
+  // snapshot rather than only the visible Canvas.
+  const layerId = persisted.visual.layers[0]?.id
+  assert.ok(layerId, 'history fixture requires the persisted text layer')
+  const seeded = structuredClone(persisted)
+  seeded.definition.properties = {
+    ...seeded.definition.properties,
+    state: {
+      title: 'State',
+      kind: 'boolean',
+      defaultValue: false,
+      bindable: true,
+    },
+  }
+  seeded.visual.rules = [
+    ...(seeded.visual.rules ?? []),
+    {
+      id: 'history-rule',
+      enabled: true,
+      propertyKey: 'state',
+      operator: 'equals',
+      compareValue: false,
+      layerId,
+      target: 'visible',
+      value: true,
+    },
+  ]
+  await writePersistedComponent(page, seeded)
+  await page.reload({ waitUntil: 'load' })
+  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  await rootInspector.waitFor()
+
+  const propertyItemFor = (key) => rootInspector
+    .locator('.component-root-public-properties .property-contract-item')
+    .filter({ has: page.locator('code', { hasText: new RegExp(`^${key}$`) }) })
+    .first()
+
+  let propertyItem = propertyItemFor('state')
+  await propertyItem.locator('.property-contract-summary').click()
+  let keyInput = propertyItem
+    .locator('.contract-grid label')
+    .filter({ has: page.locator('span', { hasText: /^Key$/ }) })
+    .locator('input')
+    .first()
+  await keyInput.waitFor()
+  assert.equal(await keyInput.inputValue(), 'state')
+
+  // ContractKeyInput writes on blur. Escape must still cancel that pending
+  // blur writer rather than accidentally committing it after the parent
+  // transaction boundary has already finalized.
+  await keyInput.fill('cancelledState')
+  await keyInput.press('Escape')
+  propertyItem = propertyItemFor('state')
+  await propertyItem.waitFor()
+  assert.equal(await propertyItemFor('cancelledState').count(), 0)
+
+  await propertyItem.locator('.property-contract-summary').click()
+  keyInput = propertyItem
+    .locator('.contract-grid label')
+    .filter({ has: page.locator('span', { hasText: /^Key$/ }) })
+    .locator('input')
+    .first()
+  await keyInput.fill('renamedState')
+  await keyInput.press('Enter')
+  await propertyItemFor('renamedState').waitFor()
+
+  await row('文本 1').click()
+  await page.getByText('视觉规则', { exact: true }).click()
+  const rule = page.locator('.component-rule-item').filter({ hasText: 'history-rule' }).first()
+  await rule.waitFor()
+  await page.waitForFunction(() => {
+    const item = [...document.querySelectorAll('.component-rule-item')]
+      .find((candidate) => candidate.textContent?.includes('history-rule'))
+    return item?.textContent?.includes('renamedState') ?? false
+  })
+
+  await undo.click()
+  await page.waitForFunction(() => {
+    const item = [...document.querySelectorAll('.component-rule-item')]
+      .find((candidate) => candidate.textContent?.includes('history-rule'))
+    return item?.textContent?.includes('state')
+      && !item.textContent.includes('renamedState')
+  })
+  await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  await propertyItemFor('state').waitFor()
+  assert.equal(await propertyItemFor('renamedState').count(), 0)
+
+  await redo.click()
+  await propertyItemFor('renamedState').waitFor()
+  assert.equal(await propertyItemFor('state').count(), 0)
+  await row('文本 1').click()
+  await page.getByText('视觉规则', { exact: true }).click()
+  await page.waitForFunction(() => {
+    const item = [...document.querySelectorAll('.component-rule-item')]
+      .find((candidate) => candidate.textContent?.includes('history-rule'))
+    return item?.textContent?.includes('renamedState') ?? false
+  })
+
+  await saveAndWait(page)
+  const persistedRenamed = (await readPersistedComponent(page)).document
+  assert.ok(persistedRenamed.definition.properties.renamedState)
+  assert.equal(persistedRenamed.definition.properties.state, undefined)
+  assert.equal(
+    persistedRenamed.visual.rules.find((candidate) => candidate.id === 'history-rule')?.propertyKey,
+    'renamedState',
+    'Property-key redo must preserve reconciled Visual Rule references',
+  )
+
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Component document history smoke passed: visual and definition edits share one ordered undo/redo authority, text shortcuts stay local, Escape cancels staged fields, and save preserves the redone document.')
+  console.log('Component document history smoke passed: visual, definition and contract-reference edits share one ordered undo/redo authority; text shortcuts and Escape remain field-local; save preserves the redone document.')
 } finally {
   await browser.close()
 }
