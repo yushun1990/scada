@@ -110,7 +110,7 @@ try {
       buffer: Buffer.from(document),
     })
     await page.waitForFunction(() => /#\/components\/component-/.test(window.location.hash))
-    await page.getByText('Component Editor', { exact: true }).waitFor()
+    await page.locator('.studio-shell.component-studio-shell').waitFor()
     assert.equal(confirmationSeen, true, `${fixture.title} import requires explicit confirmation`)
 
     await page.goto(`${baseUrl}#/components`, { waitUntil: 'networkidle' })
@@ -127,7 +127,7 @@ try {
   await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await page.getByText('SCADA Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.scada-studio-shell').waitFor()
 
   for (const fixture of fixtures) {
     assert.equal(

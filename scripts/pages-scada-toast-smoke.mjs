@@ -18,7 +18,7 @@ try {
   await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await page.getByText('SCADA Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.scada-studio-shell').waitFor()
 
   const toolbar = page.getByRole('toolbar', { name: '画布工具栏' })
   const canvasArea = page.getByLabel('SCADA 编辑画布')

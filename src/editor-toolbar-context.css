@@ -1,173 +1,50 @@
-/* Shared editor toolbar layout.
- *
- * Both the Component Workbench and the SCADA Editor use the same three visual
- * zones: edit/history commands, geometry commands, and view/grid controls.
- * The separators belong to the SPACE BETWEEN zones rather than to the edge of
- * either command group. This keeps each vertical line visually centered even
- * when the toolbar has a large amount of free desktop width.
- *
- * At compact widths the two outer groups stay visible and only the geometry
- * strip is allowed to shrink/scroll. The toolbar itself never wraps and never
- * hides the right-side controls behind page-level horizontal overflow. */
-.editor-shell .canvas-area > .canvas-toolbar {
-  justify-content: flex-start;
-  gap: 0;
-  flex-wrap: nowrap;
-  overflow-x: hidden;
-  overflow-y: hidden;
-}
+/* C2 command-family layout inside the single Studio main toolbar. */
 
-/* These generated flex items are the two inter-group spacer slots. Each slot
- * grows equally and draws its separator at exactly 50% of its own width, so
- * the separator is centered between the adjacent visible command groups.
- * Keep the divider deliberately short and softly weighted: it should separate
- * command families without reading like another toolbar control. */
-.editor-shell .canvas-area > .canvas-toolbar::before,
-.editor-shell .canvas-area > .canvas-toolbar::after {
-  content: '';
-  flex: 1 1 24px;
-  min-width: 12px;
-  height: 16px;
-  align-self: center;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      to right,
-      transparent calc(50% - 1px),
-      rgba(148, 163, 184, 0.14) calc(50% - 1px),
-      rgba(148, 163, 184, 0.5) calc(50% - 0.5px),
-      rgba(148, 163, 184, 0.5) calc(50% + 0.5px),
-      rgba(148, 163, 184, 0.14) calc(50% + 1px),
-      transparent calc(50% + 1px)
-    );
-}
-
-.editor-shell .canvas-area > .canvas-toolbar::before {
-  order: 1;
-}
-
-.editor-shell .canvas-area > .canvas-toolbar::after {
-  order: 3;
-}
-
-/* Remove the legacy group-owned border/padding separators. The first and last
- * zones are fixed; the middle geometry zone owns compact-width overflow. */
-.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group {
-  width: max-content;
-  min-width: 0;
-  padding-right: 0;
-  border-right: 0;
-}
-
-.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(1) {
-  order: 0;
+.studio-main-toolbar-content > .canvas-tool-group,
+.studio-main-toolbar-content > .component-edit-command-host,
+.studio-main-toolbar-content > .component-view-command-host {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
-  min-width: max-content;
+  min-width: 0;
+  gap: var(--ui-space-micro);
 }
 
-.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(2) {
-  order: 2;
+.studio-main-toolbar-content > .canvas-tool-group + .canvas-tool-group,
+.studio-main-toolbar-content > .component-edit-command-host,
+.studio-main-toolbar-content > .component-geometry-tool-group,
+.studio-main-toolbar-content > .component-view-command-host {
+  margin-left: var(--ui-space-1);
+  padding-left: var(--ui-space-1);
+  border-left: 1px solid var(--ui-color-border);
+}
+
+.studio-main-toolbar-content .component-geometry-tool-group,
+.studio-main-toolbar-content .scada-geometry-tool-group {
   flex: 0 1 auto;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
 
-.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(3) {
-  order: 4;
-  flex: 0 0 auto;
-  min-width: max-content;
-  margin-left: 0;
+.studio-main-toolbar-content .component-geometry-tool-group > button,
+.studio-main-toolbar-content .scada-geometry-tool-group > button {
+  flex: 0 0 var(--ui-control-height);
 }
 
-/* Geometry icons are stable 30px commands. Never compress them into slivers;
- * when there is not enough room, scroll only the middle strip. */
-.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(2) > button {
-  flex: 0 0 30px;
-  min-width: 30px;
+.studio-main-toolbar-content .component-canvas-phase {
+  display: none;
 }
 
-.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(2)::-webkit-scrollbar {
-  height: 4px;
+.studio-main-toolbar-content .grid-control {
+  display: inline-flex;
+  align-items: center;
 }
 
-.editor-shell .canvas-area > .canvas-toolbar > .canvas-tool-group:nth-child(2)::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: #cbd5e1;
+.studio-main-toolbar-content .grid-control > .icon-button {
+  border-radius: var(--ui-radius-control) 0 0 var(--ui-radius-control);
 }
 
-/* `workbench.css` is imported by lazily loaded editor pages after the global
- * chrome CSS. Its generic `.canvas-toast` rule can therefore re-introduce
- * `top: 12px`, a white pill background and rounded border after
- * `editor-chrome.css` has moved feedback to the footer with `bottom: 7px`.
- * Having both top and bottom set stretches an absolutely positioned auto-height
- * toast across almost the entire canvas. Pin the final editor contract here
- * with a selector that is intentionally stronger than either generic rule, so
- * the result is independent of CSS chunk load order. */
-.editor-shell .canvas-area > .canvas-toast {
-  top: auto;
-  right: auto;
-  bottom: 7px;
-  left: 50%;
-  width: max-content;
-  height: auto;
-  min-height: 0;
-  max-width: min(360px, 28vw);
-  padding: 0 10px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  color: #64748b;
-  line-height: 18px;
-}
-
-/* Grid visibility and spacing are one segmented control. Keep only the outer
- * corners rounded; the two faces that meet at the divider stay square. */
-.canvas-toolbar .grid-control > .icon-button {
-  border-radius: 5px 0 0 5px;
-}
-
-.canvas-toolbar .grid-control > .grid-size-input {
-  border-radius: 0 5px 5px 0;
-}
-
-/* The scene-size shell must shrink-wrap the Base UI trigger. Legacy native
- * select styles otherwise leave a white tail to the right of the trigger. */
-.canvas-toolbar .scene-size-control {
-  box-sizing: border-box;
-  width: 60px;
-  min-width: 60px;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  overflow: visible;
-}
-
-.canvas-toolbar .scene-size-control > button.ui-select-trigger {
-  box-sizing: border-box;
-  width: 60px;
-  min-width: 60px;
-  margin: 0;
-}
-
-/* Component Editor injects common edit commands into the hierarchy group so
- * its first strip follows Copy / Delete / Group-or-Ungroup / Undo / Redo. */
-.component-hierarchy-tool-group > .component-copy-command {
-  order: -4;
-}
-
-.component-hierarchy-tool-group > .component-delete-command {
-  order: -3;
-}
-
-.component-hierarchy-tool-group > .component-undo-command {
-  order: 1;
-}
-
-.component-hierarchy-tool-group > .component-redo-command {
-  order: 2;
+.studio-main-toolbar-content .grid-control > .grid-size-input {
+  border-radius: 0 var(--ui-radius-control) var(--ui-radius-control) 0;
 }

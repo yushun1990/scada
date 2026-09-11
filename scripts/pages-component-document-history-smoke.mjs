@@ -16,7 +16,7 @@ page.on('pageerror', (error) => pageErrors.push(error.message))
 
 try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'load' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   const palette = page.getByRole('region', { name: '组件创作素材' })
   const textTool = palette.getByRole('button', { name: '文本', exact: true })
@@ -141,7 +141,7 @@ try {
   ]
   await writePersistedComponent(page, seeded)
   await page.reload({ waitUntil: 'load' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.getByRole('button', { name: '组件设置', exact: true }).click()
   await rootInspector.waitFor()
 

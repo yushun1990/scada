@@ -38,93 +38,9 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
-/* Shared editor geometry. C2 replaces the temporary single header row with
- * menu / main-toolbar / document-bar slots without changing these C1 tokens. */
-.editor-shell,
-.component-editor-shell {
-  grid-template-rows: var(--ui-header-height) minmax(0, 1fr);
-}
-
-.editor-header,
-.component-editor-header {
-  height: var(--ui-header-height);
-  min-height: var(--ui-header-height);
-  grid-template-columns: minmax(208px, 1fr) auto minmax(208px, 1fr);
-  gap: var(--ui-space-4);
-  padding: 0 var(--ui-space-4);
-  border-bottom: 1px solid var(--ui-color-border);
-  background: var(--ui-color-panel);
-  box-shadow: none;
-}
-
-.editor-header .brand-block,
-.component-editor-header .component-brand-block {
-  gap: var(--ui-space-2);
-}
-
-.editor-header .brand-mark,
-.workspace-brand-mark {
-  border-radius: var(--ui-radius-control);
-  color: #ffffff;
-  background: var(--ui-color-accent);
-  box-shadow: none;
-}
-
-.editor-header .brand-mark {
-  width: 30px;
-  height: 30px;
-  font-size: var(--ui-font-size-title);
-}
-
-.editor-header .brand-text strong {
-  color: var(--ui-color-text);
-  font-size: var(--ui-font-size-title);
-  line-height: var(--ui-line-height-title);
-  font-weight: 600;
-}
-
-.editor-header .brand-text span {
-  color: var(--ui-color-text-subtle);
-  font-size: var(--ui-font-size-status);
-  line-height: var(--ui-line-height-status);
-  letter-spacing: 0;
-}
-
-.editor-header .document-toolbar,
-.component-header-actions {
-  gap: var(--ui-space-1);
-}
-
-.editor-main,
-.component-editor-main {
-  grid-template-columns: var(--ui-left-dock-width) minmax(0, 1fr) var(--ui-right-inspector-width);
-}
-
-.component-panel,
-.property-panel,
-.semantic-inspector {
-  background: var(--ui-color-panel);
-}
-
-.component-panel {
-  border-right-color: var(--ui-color-border);
-}
-
-.property-panel {
-  border-left-color: var(--ui-color-border);
-}
-
 /* Canvas chrome ----------------------------------------------------------- */
 .canvas-area {
   background: var(--ui-color-canvas);
-}
-
-.canvas-toolbar {
-  min-height: var(--ui-toolbar-height);
-  height: var(--ui-toolbar-height);
-  padding: 0 var(--ui-space-3);
-  border-bottom-color: var(--ui-color-border);
-  background: var(--ui-color-panel);
 }
 
 .canvas-tool-group button,
@@ -142,25 +58,7 @@ textarea:focus-visible {
 }
 
 .konva-host {
-  padding-bottom: var(--ui-status-height);
   background: var(--ui-color-canvas) !important;
-}
-
-.canvas-status,
-.component-editor-shell .component-canvas-status {
-  min-height: var(--ui-status-height);
-  height: var(--ui-status-height);
-  padding: 0 var(--ui-space-3);
-  border-top: 1px solid var(--ui-color-border);
-  color: var(--ui-color-text-secondary);
-  background: var(--ui-color-panel);
-  font-size: var(--ui-font-size-status);
-  line-height: var(--ui-line-height-status);
-  backdrop-filter: none;
-}
-
-.component-editor-shell .component-canvas-area {
-  grid-template-rows: minmax(0, 1fr) var(--ui-status-height);
 }
 
 .status-mode {
@@ -426,25 +324,6 @@ textarea:focus-visible {
   font-size: var(--ui-font-size-status);
 }
 
-/* Temporary pre-C2 workspace-exit lane. */
-.studio-workspace-exit-slot {
-  top: calc((var(--ui-header-height) - var(--ui-control-height)) / 2);
-  right: var(--ui-space-4);
-  height: var(--ui-control-height);
-  border-left-color: var(--ui-color-border);
-}
-
-.studio-workspace-exit {
-  height: var(--ui-control-height);
-  border-radius: var(--ui-radius-control);
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-tool);
-}
-
-.studio-workspace-exit:hover {
-  color: var(--ui-color-text);
-}
-
 @media (max-width: 980px) {
   :root {
     --ui-left-dock-width: var(--ui-left-dock-min-width);
@@ -452,9 +331,3 @@ textarea:focus-visible {
   }
 }
 
-@media (max-width: 760px) {
-  .editor-header,
-  .component-editor-header {
-    padding-inline: var(--ui-space-3);
-  }
-}

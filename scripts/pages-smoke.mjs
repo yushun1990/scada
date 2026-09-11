@@ -261,7 +261,7 @@ const alignCases = [
 try {
   console.log(`Opening deployed Component Editor: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   const canvasToolbar = page.locator('.component-canvas-toolbar')
   assert.equal(await canvasToolbar.count(), 1, 'formal component canvas toolbar must exist')
@@ -346,7 +346,7 @@ try {
   assert.match(savedUrl, /#\/components\/component-/, 'save navigates to persisted component id')
 
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   assert.equal(await page.locator('.component-layer-row').count(), 4, 'group hierarchy survives reload')
   assert.equal(await layerRow('Group 1').count(), 1, 'saved explicit group survives reload')
 
@@ -376,7 +376,7 @@ try {
   await saveAndWait()
   assert.equal(await seedAnimationAuthoringFixture(), 0, 'animation fixture persists zero base rotation')
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await layerRow('Animation Smoke Rect').click()
 
   await page.getByRole('button', { name: '动画' }).click()
@@ -408,7 +408,7 @@ try {
   assert.equal(authored.animation?.activation?.compareValue, true, 'inspector persists property compare value')
 
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await clearLayerSelection()
 
   const staticFrameA = await readSceneCanvasDataUrl()

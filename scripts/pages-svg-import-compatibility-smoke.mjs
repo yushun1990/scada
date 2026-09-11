@@ -93,7 +93,7 @@ function managedField(label) {
 try {
   console.log(`Checking real-world SVG stylesheet compatibility: ${baseUrl}#/components/new`)
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await waitForAssetInputReady()
 
   await globalAssetImportControl().locator('input[type="file"]').setInputFiles({

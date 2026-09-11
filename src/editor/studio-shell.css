@@ -1,0 +1,313 @@
+.studio-shell {
+  display: grid;
+  grid-template-rows:
+    var(--ui-menu-height)
+    var(--ui-main-toolbar-height)
+    var(--ui-document-bar-height)
+    minmax(0, 1fr)
+    var(--ui-status-height);
+  width: 100vw;
+  min-width: 0;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--ui-color-text);
+  background: var(--ui-color-app-background);
+}
+
+.studio-menu-bar,
+.studio-main-toolbar,
+.studio-document-bar,
+.studio-status-bar {
+  min-width: 0;
+}
+
+.studio-menu-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+  padding: 0 var(--ui-space-2);
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-panel);
+}
+
+.studio-product-title {
+  margin-right: var(--ui-space-2);
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-tool);
+  line-height: var(--ui-line-height-tool);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.studio-menu-list {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--ui-space-micro);
+}
+
+.ui-menu-trigger.studio-menu-trigger {
+  min-height: 24px;
+  height: 24px;
+  padding: 0 var(--ui-space-1);
+  border-color: transparent;
+  background: transparent;
+}
+
+.ui-menu-trigger.studio-menu-trigger:hover,
+.ui-menu-trigger.studio-menu-trigger[data-popup-open] {
+  border-color: transparent;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+}
+
+.studio-menu-popup {
+  min-width: 210px;
+}
+
+.ui-menu-item.studio-menu-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ui-space-3);
+}
+
+.studio-menu-shortcut {
+  color: var(--ui-color-text-subtle);
+  font: inherit;
+  font-size: var(--ui-font-size-status);
+  line-height: var(--ui-line-height-status);
+}
+
+.studio-workspace-nav {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.studio-main-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+  padding: 0 var(--ui-space-2);
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-panel);
+}
+
+.studio-main-toolbar-content,
+.studio-main-toolbar-tail {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--ui-space-1);
+}
+
+.studio-main-toolbar-content {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.studio-main-toolbar-tail {
+  flex: 0 0 auto;
+}
+
+.studio-main-toolbar .ui-toolbar {
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.studio-main-toolbar .canvas-tool-group {
+  flex: 0 0 auto;
+}
+
+.studio-document-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+  padding: 0 var(--ui-space-2);
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-surface-subtle);
+}
+
+.studio-document-identity {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  gap: var(--ui-space-2);
+}
+
+.studio-document-identity strong,
+.studio-document-identity span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-document-identity strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-tool);
+  line-height: var(--ui-line-height-tool);
+  font-weight: 600;
+}
+
+.studio-document-identity span {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-status);
+  line-height: var(--ui-line-height-status);
+}
+
+.studio-workspace-grid {
+  display: grid;
+  grid-template-columns:
+    var(--studio-left-width)
+    var(--studio-left-resizer)
+    minmax(0, 1fr)
+    var(--studio-right-resizer)
+    var(--studio-right-width);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-left-panel,
+.studio-right-panel,
+.studio-center-workspace {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-left-panel,
+.studio-right-panel {
+  background: var(--ui-color-panel);
+}
+
+.studio-left-panel {
+  border-right: 1px solid var(--ui-color-border);
+}
+
+.studio-right-panel {
+  border-left: 1px solid var(--ui-color-border);
+}
+
+.studio-left-panel > .component-panel,
+.studio-right-panel > .property-panel {
+  width: 100%;
+  height: 100%;
+  padding: var(--ui-space-2);
+  border: 0;
+  overflow: auto;
+  background: var(--ui-color-panel);
+}
+
+.studio-center-workspace > .canvas-area {
+  width: 100%;
+  height: 100%;
+}
+
+.studio-panel-resizer {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+
+.studio-panel-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--ui-color-border);
+}
+
+.studio-panel-resizer:hover::after,
+.studio-panel-resizer:focus-visible::after {
+  background: var(--ui-color-accent);
+}
+
+.studio-panel-resizer:focus-visible {
+  outline: var(--ui-focus-outline);
+  outline-offset: -2px;
+}
+
+.studio-status-bar {
+  gap: var(--ui-space-2);
+  border-top-color: var(--ui-color-border);
+}
+
+.studio-status-cluster {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--ui-space-2);
+}
+
+.studio-status-cluster code {
+  color: var(--ui-color-text-secondary);
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-font-size-status);
+}
+
+/* Renderer-local status DOM remains as hidden telemetry until its pointer/zoom
+ * data becomes an explicit Shell callback. The visible status authority is the
+ * 26px StudioShell status row. Existing browser tests may still read these
+ * nodes without keeping a second visible status bar. */
+.studio-shell .canvas-status,
+.studio-shell .component-canvas-status {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 0 !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.studio-shell .konva-host {
+  padding-bottom: 0;
+}
+
+.studio-shell .component-canvas-area {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* C2 owns toolbar placement at the Shell level. */
+.studio-shell .canvas-area {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+@media (max-width: 980px) {
+  .studio-product-title {
+    display: none;
+  }
+
+  .studio-main-toolbar-tail > .ui-button:not(.studio-workspace-nav) {
+    padding-inline: var(--ui-space-1);
+  }
+}
+
+.component-studio-shell .component-canvas-area {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.component-studio-shell .component-canvas-stage {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}

@@ -33,7 +33,7 @@ async function assertOrder(expected, label) {
 try {
   console.log(`Opening deployed Component Editor arrange smoke: ${baseUrl}#/components/new`)
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   assert.equal(
     await page.getByRole('button', { name: '组', exact: true }).count(),
@@ -86,7 +86,7 @@ try {
   const savedUrl = page.url()
 
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await assertOrder(['文本 2', '文本 1', '文本 3'], 'saved sibling z-order survives reload')
 
   await layerRow('文本 1').click()

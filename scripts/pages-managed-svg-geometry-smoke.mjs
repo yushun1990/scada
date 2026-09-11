@@ -137,7 +137,7 @@ async function waitForHighlight(currentPage) {
 try {
   console.log(`Verifying UX1.4 typed managed SVG geometry: ${baseUrl}#/components/new`)
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   const input = globalAssetImportControl(page).locator('input[type="file"]')
   await input.waitFor({ state: 'attached' })
@@ -247,7 +247,7 @@ try {
   assert.match(decodeURIComponent(svgLayer.assetRef), /width="40"/)
 
   await page.goto(savedUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-layer-row', { hasText: 'ux1.4-geometry' }).click()
   const reloadedRow = page.locator('.component-managed-svg-row', { hasText: '@bodyShape' })
   await reloadedRow.waitFor()
