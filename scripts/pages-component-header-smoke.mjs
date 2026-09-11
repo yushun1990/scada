@@ -15,63 +15,31 @@ try {
   const mainToolbar = shell.getByRole('toolbar', { name: 'Studio 主工具栏' })
   await mainToolbar.waitFor()
 
-  const modeSwitch = mainToolbar.locator('.mode-switch')
+  // C1 owns the visual skin of SegmentedControl. This integration smoke only
+  // verifies that Component Editor consumes that shared primitive inside C2's
+  // single Studio toolbar and keeps both mode targets usable/non-overlapping.
+  const modeSwitch = mainToolbar.locator('.mode-switch.ui-segmented-control')
   await modeSwitch.waitFor()
-  const modeChrome = await modeSwitch.evaluate((element) => {
-    const style = getComputedStyle(element)
-    return {
-      border: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth],
-      padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
-      columnGap: style.columnGap,
-      rowGap: style.rowGap,
-      borderRadius: style.borderRadius,
-      backgroundColor: style.backgroundColor,
-      boxShadow: style.boxShadow,
-    }
-  })
-  assert.deepEqual(
-    modeChrome.border,
-    ['0px', '0px', '0px', '0px'],
-    'Design / Preview wrapper must not draw an outer outline',
-  )
-  assert.deepEqual(
-    modeChrome.padding,
-    ['0px', '0px', '0px', '0px'],
-    'Design / Preview wrapper must not leave a padded shell around the mode faces',
-  )
-  assert.equal(modeChrome.columnGap, '0px', 'Design / Preview mode faces must touch horizontally')
-  assert.equal(modeChrome.rowGap, '0px', 'Design / Preview wrapper must not retain segmented-control gap')
-  assert.equal(modeChrome.borderRadius, '0px', 'Design / Preview wrapper itself must not look like a rounded control')
-  assert.ok(
-    modeChrome.backgroundColor === 'rgba(0, 0, 0, 0)' || modeChrome.backgroundColor === 'transparent',
-    `Design / Preview wrapper must be transparent, got ${modeChrome.backgroundColor}`,
-  )
-  assert.equal(modeChrome.boxShadow, 'none', 'Design / Preview wrapper must not have a surrounding shadow')
-
   const modeFaces = await modeSwitch.locator(':scope > .ui-segmented-item').evaluateAll((items) =>
     items.map((item) => {
       const rect = item.getBoundingClientRect()
-      const style = getComputedStyle(item)
       return {
         left: rect.left,
         right: rect.right,
         width: rect.width,
-        borderTopLeftRadius: style.borderTopLeftRadius,
-        borderTopRightRadius: style.borderTopRightRadius,
-        borderBottomRightRadius: style.borderBottomRightRadius,
-        borderBottomLeftRadius: style.borderBottomLeftRadius,
+        height: rect.height,
       }
     }),
   )
-  assert.equal(modeFaces.length, 2, 'Design / Preview must expose exactly two adjacent mode faces')
+  assert.equal(modeFaces.length, 2, 'Design / Preview must expose exactly two shared segmented-control faces')
+  for (const face of modeFaces) {
+    assert.ok(face.width >= 48, `mode face must keep a usable width, got ${face.width}`)
+    assert.ok(face.height >= 28, `mode face must keep the shared control height, got ${face.height}`)
+  }
   assert.ok(
-    Math.abs(modeFaces[0].right - modeFaces[1].left) <= 0.5,
-    `Design / Preview mode faces must meet without a visual gap: ${modeFaces[0].right}/${modeFaces[1].left}`,
+    modeFaces[0].right <= modeFaces[1].left + 0.5,
+    `Design / Preview mode faces must not overlap: ${modeFaces[0].right}/${modeFaces[1].left}`,
   )
-  assert.equal(modeFaces[0].borderTopRightRadius, '0px', 'Design inner edge must stay square')
-  assert.equal(modeFaces[0].borderBottomRightRadius, '0px', 'Design inner edge must stay square')
-  assert.equal(modeFaces[1].borderTopLeftRadius, '0px', 'Preview inner edge must stay square')
-  assert.equal(modeFaces[1].borderBottomLeftRadius, '0px', 'Preview inner edge must stay square')
 
   const groupPseudoContent = await mainToolbar.locator('.canvas-tool-group').evaluateAll((groups) =>
     groups.map((group) => getComputedStyle(group, '::after').content),
@@ -117,7 +85,7 @@ try {
     'C2 must not restore the legacy second component canvas toolbar',
   )
   assert.deepEqual(errors, [])
-  console.log('Component chrome browser smoke passed: StudioShell owns the single toolbar, mode faces remain contiguous, and component geometry buttons stay non-overlapping.')
+  console.log('Component chrome browser smoke passed: Component Editor consumes the shared mode primitive inside the single Studio toolbar and geometry commands stay non-overlapping.')
 } finally {
   await browser.close()
 }
