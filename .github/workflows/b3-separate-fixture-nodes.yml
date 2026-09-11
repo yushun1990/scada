@@ -1,0 +1,52 @@
+name: Separate B3 fixture nodes
+
+on:
+  push:
+    branches:
+      - fix/ui-b3-mode-selection
+    paths:
+      - .github/workflows/b3-separate-fixture-nodes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ui-b3-mode-selection
+      - name: Move the added fixture node before saving
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/pages-editor-mode-selection-smoke.mjs')
+          text = path.read_text()
+          old = (
+              "  await paletteItems.first().click()\n"
+              "  await saveSceneAndWait(page)\n"
+          )
+          new = (
+              "  await paletteItems.first().click()\n"
+              "  const fixtureXField = page\n"
+              "    .locator('.property-panel .property-field.compact')\n"
+              "    .filter({ has: page.locator('span', { hasText: /^X$/ }) })\n"
+              "    .locator('input')\n"
+              "    .first()\n"
+              "  await fixtureXField.fill('620')\n"
+              "  await fixtureXField.press('Tab')\n"
+              "  await saveSceneAndWait(page)\n"
+          )
+          if old not in text:
+              raise SystemExit('B3 fixture save block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit patch and remove helper workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/b3-separate-fixture-nodes.yml
+          git add scripts/pages-editor-mode-selection-smoke.mjs
+          git commit -m "test: separate B3 multiselect fixture nodes"
+          git push origin HEAD:fix/ui-b3-mode-selection
