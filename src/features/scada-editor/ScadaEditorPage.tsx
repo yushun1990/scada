@@ -150,6 +150,7 @@ function getInitialSelectedIds(scene: SceneDocument) {
 
 export function ScadaEditorPage({ workId }: { workId: string }) {
   const [mode, setMode] = useState<RendererMode>('editor')
+  const designEditingEnabled = mode === 'editor'
   const {
     scene,
     selectedNodeIds,
@@ -214,7 +215,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
         return
       }
 
-      if (shouldIgnoreEditorShortcut(event)) {
+      if (shouldIgnoreEditorShortcut(event) || !designEditingEnabled) {
         return
       }
 
@@ -238,7 +239,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [cancelPending, undo, redo])
+  }, [cancelPending, designEditingEnabled, undo, redo])
 
   useEffect(() => {
     if (mode !== 'preview') {
@@ -299,6 +300,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     nodeId: string,
     updater: (node: SceneNode) => SceneNode,
   ) {
+    if (!designEditingEnabled) return
+
     setScene((current) => ({
       ...current,
       nodes: current.nodes.map((node) =>
@@ -311,6 +314,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     connectionId: string,
     updater: (connection: SceneConnection) => SceneConnection,
   ) {
+    if (!designEditingEnabled) return
+
     setScene((current) => ({
       ...current,
       connections: current.connections.map((connection) =>
@@ -320,11 +325,12 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   }
 
   const commitScene = useCallback(() => {
+    if (!designEditingEnabled) return
     commit()
-  }, [commit])
+  }, [commit, designEditingEnabled])
 
   function updateNodeTransforms(updates: TransformUpdates) {
-    if (Object.keys(updates).length === 0) {
+    if (!designEditingEnabled || Object.keys(updates).length === 0) {
       return
     }
 
@@ -336,6 +342,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   }
 
   function addComponent(componentType: string) {
+    if (!designEditingEnabled) return
+
     const registration = builtInComponentRegistry.require(componentType)
     const existingCount = scene.nodes.filter(
       (node) => !isGroupNode(node) && node.type === componentType,
@@ -353,12 +361,11 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
       }),
       { selectedNodeIds: [node.id], selectedConnectionId: null },
     )
-    setMode('editor')
     setMessage(`已添加 ${registration.definition.title}`)
   }
 
   function duplicateSelectedNodes() {
-    if (selectedNodes.length === 0) {
+    if (!designEditingEnabled || selectedNodes.length === 0) {
       return
     }
 
@@ -371,6 +378,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   }
 
   function deleteSelection() {
+    if (!designEditingEnabled) return
+
     if (selectedConnection) {
       commit(
         (current) => ({
@@ -394,7 +403,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   }
 
   function groupSelectedNodes() {
-    if (!canGroup) {
+    if (!designEditingEnabled || !canGroup) {
       return
     }
 
@@ -413,7 +422,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   }
 
   function ungroupSelectedNode() {
-    if (!primaryNode || !isGroupNode(primaryNode)) {
+    if (!designEditingEnabled || !primaryNode || !isGroupNode(primaryNode)) {
       return
     }
 
@@ -429,6 +438,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     source: ConnectionEndpoint,
     target: ConnectionEndpoint,
   ) {
+    if (!designEditingEnabled) return
+
     if (hasDuplicateConnection(scene, source, target)) {
       setMessage('这两个锚点之间已经存在连接')
       return
@@ -455,6 +466,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     role: ConnectionEndpointRole,
     endpoint: ConnectionEndpoint,
   ) {
+    if (!designEditingEnabled) return false
+
     const result = reconnectSceneConnection(
       scene,
       connectionId,
@@ -491,6 +504,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     property: 'visible' | 'locked',
     value: boolean,
   ) {
+    if (!designEditingEnabled) return
+
     const selectedIdSet = new Set(selectedNodeIds)
     commit((current) => ({
       ...current,
@@ -507,7 +522,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     value: string | number | boolean | null,
     commitImmediately: boolean,
   ) {
-    if (!primaryNode || isGroupNode(primaryNode)) {
+    if (!designEditingEnabled || !primaryNode || isGroupNode(primaryNode)) {
       return
     }
 
@@ -538,7 +553,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     value: string | number | boolean | null,
     commitImmediately: boolean,
   ) {
-    if (!primaryNode || isGroupNode(primaryNode)) {
+    if (!designEditingEnabled || !primaryNode || isGroupNode(primaryNode)) {
       return
     }
 
@@ -569,6 +584,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     runtimeKey: string | null,
   ) {
     if (
+      !designEditingEnabled ||
       !primaryNode ||
       isGroupNode(primaryNode) ||
       !primaryComponentRegistration?.definition.properties[key]?.bindable
@@ -642,7 +658,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     target: BehaviorActionTarget | null,
   ) {
     if (
-      mode !== 'editor' ||
+      !designEditingEnabled ||
       !primaryNode ||
       isGroupNode(primaryNode) ||
       !primaryComponentRegistration?.definition.events[eventName]
@@ -712,7 +728,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     field: keyof NodeTransform,
     value: number,
   ) {
-    if (!primaryNode || !Number.isFinite(value)) {
+    if (!designEditingEnabled || !primaryNode || !Number.isFinite(value)) {
       return
     }
 
@@ -745,6 +761,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   }
 
   function applyAlignment(alignMode: AlignMode) {
+    if (!designEditingEnabled) return
+
     const updates = alignNodes(scene, selectedNodeIds, alignMode)
     updateNodeTransforms(updates)
 
@@ -754,6 +772,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   }
 
   function applyDistribution(distributionMode: DistributeMode) {
+    if (!designEditingEnabled) return
+
     const updates = distributeNodes(scene, selectedNodeIds, distributionMode)
     updateNodeTransforms(updates)
 
@@ -767,6 +787,8 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   }
 
   function changeSceneSize(presetId: string) {
+    if (!designEditingEnabled) return
+
     const preset = SCENE_SIZE_PRESETS.find((item) => item.id === presetId)
 
     if (!preset) {
@@ -814,7 +836,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     const file = event.target.files?.[0]
     event.target.value = ''
 
-    if (!file) {
+    if (!designEditingEnabled || !file) {
       return
     }
 
@@ -867,7 +889,13 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
 
         <div className="header-actions">
           <div className="document-toolbar" role="toolbar" aria-label="场景文档操作">
-            <Button variant="secondary" onClick={() => importInputRef.current?.click()}>导入</Button>
+            <Button
+              variant="secondary"
+              disabled={!designEditingEnabled}
+              onClick={() => importInputRef.current?.click()}
+            >
+              导入
+            </Button>
             <Button variant="secondary" onClick={exportScene}>导出</Button>
             <span
               className={`document-save-status ${saveState.status}`}
@@ -895,6 +923,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
               className="hidden-input"
               type="file"
               accept="application/json,.json"
+              disabled={!designEditingEnabled}
               onChange={(event) => {
                 void importScene(event)
               }}
@@ -928,6 +957,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 <Pressable
                   key={definition.type}
                   className="component-item"
+                  disabled={!designEditingEnabled}
                   onClick={() => addComponent(definition.type)}
                 >
                   <span className="component-icon">
@@ -968,7 +998,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 className="icon-button"
                 title="复制选中对象"
                 aria-label="复制选中对象"
-                disabled={selectedNodes.length === 0}
+                disabled={!designEditingEnabled || selectedNodes.length === 0}
                 onClick={duplicateSelectedNodes}
               >
                 <CopyIcon />
@@ -978,7 +1008,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 className="icon-button"
                 title="删除选中对象"
                 aria-label="删除选中对象"
-                disabled={!hasSelection}
+                disabled={!designEditingEnabled || !hasSelection}
                 onClick={deleteSelection}
               >
                 <TrashIcon />
@@ -988,7 +1018,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 className="icon-button"
                 title={hierarchyTitle}
                 aria-label={hierarchyTitle}
-                disabled={!hierarchyEnabled}
+                disabled={!designEditingEnabled || !hierarchyEnabled}
                 onClick={hierarchyMode === 'ungroup' ? ungroupSelectedNode : groupSelectedNodes}
               >
                 {hierarchyMode === 'ungroup' ? <UngroupIcon /> : <GroupIcon />}
@@ -998,7 +1028,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 className="icon-button"
                 title="撤销 (Ctrl+Z)"
                 aria-label="撤销"
-                disabled={!canUndo}
+                disabled={!designEditingEnabled || !canUndo}
                 onClick={undo}
               >
                 <UndoIcon />
@@ -1008,7 +1038,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 className="icon-button"
                 title="重做 (Ctrl+Shift+Z)"
                 aria-label="重做"
-                disabled={!canRedo}
+                disabled={!designEditingEnabled || !canRedo}
                 onClick={redo}
               >
                 <RedoIcon />
@@ -1025,7 +1055,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     className="icon-button"
                     title={item.title}
                     aria-label={item.title}
-                    disabled={selectedNodes.length < 2}
+                    disabled={!designEditingEnabled || selectedNodes.length < 2}
                     onClick={() => applyAlignment(item.mode)}
                   >
                     <Icon />
@@ -1037,7 +1067,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 className="icon-button"
                 title="水平等距分布"
                 aria-label="水平等距分布"
-                disabled={selectedNodes.length < 3}
+                disabled={!designEditingEnabled || selectedNodes.length < 3}
                 onClick={() => applyDistribution('horizontal')}
               >
                 <DistributeHorizontalIcon />
@@ -1047,7 +1077,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 className="icon-button"
                 title="垂直等距分布"
                 aria-label="垂直等距分布"
-                disabled={selectedNodes.length < 3}
+                disabled={!designEditingEnabled || selectedNodes.length < 3}
                 onClick={() => applyDistribution('vertical')}
               >
                 <DistributeVerticalIcon />
@@ -1103,6 +1133,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 <Select
                   ariaLabel="画板尺寸"
                   value={sceneSizePresetId}
+                  disabled={!designEditingEnabled}
                   triggerLabel={sceneSizeTriggerLabel}
                   options={sceneSizeOptions}
                   onValueChange={changeSceneSize}
@@ -1149,6 +1180,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     <span>名称</span>
                     <Input
                       value={selectedConnection.name}
+                      disabled={!designEditingEnabled}
                       onChange={(event) => {
                         const name = event.target.value
                         updateConnection(selectedConnection.id, (connection) => ({
@@ -1163,6 +1195,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     <span>路由</span>
                     <Select
                       value={selectedConnection.routing}
+                      disabled={!designEditingEnabled}
                       ariaLabel="连线路由"
                       options={CONNECTION_ROUTING_OPTIONS}
                       onValueChange={(value) => {
@@ -1185,6 +1218,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                         className="color-input"
                         type="color"
                         value={selectedConnection.style.stroke}
+                        disabled={!designEditingEnabled}
                         onChange={(event) => {
                           const stroke = event.target.value
                           updateConnection(selectedConnection.id, (connection) => ({
@@ -1201,6 +1235,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                         min="1"
                         max="24"
                         value={selectedConnection.style.strokeWidth}
+                        disabled={!designEditingEnabled}
                         onChange={(event) => {
                           const strokeWidth = Number(event.target.value)
 
@@ -1219,6 +1254,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     <span>线型</span>
                     <Select
                       value={selectedConnection.style.dash}
+                      disabled={!designEditingEnabled}
                       ariaLabel="连线路由"
                       options={CONNECTION_DASH_OPTIONS}
                       onValueChange={(value) => {
@@ -1269,12 +1305,14 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                   </div>
                   <Checkbox
                     className="checkbox-field property-toggle"
+                    disabled={!designEditingEnabled}
                     checked={commonVisible}
                     label="全部可见"
                     onCheckedChange={(checked) => updateSelectedBaseProperty('visible', checked)}
                   />
                   <Checkbox
                     className="checkbox-field property-toggle"
+                    disabled={!designEditingEnabled}
                     checked={commonLocked}
                     label="全部锁定"
                     onCheckedChange={(checked) => updateSelectedBaseProperty('locked', checked)}
@@ -1283,13 +1321,17 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
               </div>
             )}
 
-            {inspectorTab === 'properties' && !selectedConnection && primaryNode && (
+            {inspectorTab === 'properties' &&
+              !selectedConnection &&
+              selectedNodes.length === 1 &&
+              primaryNode && (
               <div className="property-section-list">
                 <CollapsibleInspectorGroup title="标识">
                   <label className="property-field">
                     <span>名称</span>
                     <Input
                       value={primaryNode.name}
+                      disabled={!designEditingEnabled}
                       onChange={(event) => {
                         const name = event.target.value
                         updateNode(primaryNode.id, (node) => ({ ...node, name }))
@@ -1310,6 +1352,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                     propertyFallbacks={primaryNode.propertyFallbacks}
                     bindings={primaryNode.bindings}
                     runtimeSources={DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES}
+                    readOnly={!designEditingEnabled}
                     onAttributeChange={updatePrimaryComponentAttribute}
                     onPropertyChange={updatePrimaryComponentProperty}
                     onBindingChange={updatePrimaryComponentBinding}
@@ -1324,6 +1367,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                           <span>{field.toUpperCase()}</span>
                           <NumberInput
                             value={Math.round(primaryNode.transform[field] * 100) / 100}
+                            disabled={!designEditingEnabled}
                             onChange={(event) =>
                               updatePrimaryTransformField(field, Number(event.target.value))
                             }
@@ -1337,12 +1381,14 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
                 <CollapsibleInspectorGroup title="显示" className="inspector-toggle-group">
                   <Checkbox
                     className="checkbox-field property-toggle"
+                    disabled={!designEditingEnabled}
                     checked={primaryNode.visible}
                     label="可见"
                     onCheckedChange={(checked) => updateSelectedBaseProperty('visible', checked)}
                   />
                   <Checkbox
                     className="checkbox-field property-toggle"
+                    disabled={!designEditingEnabled}
                     checked={primaryNode.locked}
                     label="锁定"
                     onCheckedChange={(checked) => updateSelectedBaseProperty('locked', checked)}

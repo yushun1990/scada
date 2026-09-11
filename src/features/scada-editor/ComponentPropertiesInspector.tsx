@@ -16,6 +16,7 @@ type ComponentPropertiesInspectorProps = {
   propertyFallbacks: Readonly<Record<string, ComponentScalarValue>>
   bindings: readonly DataBinding[]
   runtimeSources: readonly PreviewRuntimeValueSourceDefinition[]
+  readOnly?: boolean
   onAttributeChange: (
     key: string,
     value: ComponentScalarValue,
@@ -45,12 +46,14 @@ function renderScalarInput(
   value: ComponentScalarValue,
   onChange: ScalarChangeHandler,
   ariaPrefix: string,
+  readOnly: boolean,
 ) {
   if (definition.kind === 'boolean') {
     return (
       <Checkbox
         className="checkbox-field property-toggle"
         checked={value === true}
+        disabled={readOnly}
         label={definition.title}
         onCheckedChange={(checked) => onChange(key, checked, true)}
       />
@@ -63,6 +66,7 @@ function renderScalarInput(
         <span>{definition.title}</span>
         <Select
           value={valueForTextInput(value)}
+          disabled={readOnly}
           ariaLabel={`${ariaPrefix} ${definition.title}`}
           options={(definition.options ?? []).map((option) => ({
             value: String(option.value),
@@ -90,6 +94,7 @@ function renderScalarInput(
         <NumberInput
           key={`${ariaPrefix}:${key}:${String(value)}`}
           defaultValue={typeof value === 'number' ? value : ''}
+          disabled={readOnly}
           onBlur={(event) => {
             const nextValue = Number(event.currentTarget.value)
 
@@ -112,6 +117,7 @@ function renderScalarInput(
           className="color-input"
           type="color"
           defaultValue={typeof value === 'string' ? value : '#000000'}
+          disabled={readOnly}
           onBlur={(event) => onChange(key, event.currentTarget.value, true)}
         />
         {definition.description && <small>{definition.description}</small>}
@@ -125,6 +131,7 @@ function renderScalarInput(
       <Input
         key={`${ariaPrefix}:${key}:${String(value)}`}
         defaultValue={valueForTextInput(value)}
+        disabled={readOnly}
         onBlur={(event) => onChange(key, event.currentTarget.value, true)}
       />
       {definition.description && <small>{definition.description}</small>}
@@ -149,6 +156,7 @@ export function ComponentPropertiesInspector({
   propertyFallbacks,
   bindings,
   runtimeSources,
+  readOnly = false,
   onAttributeChange,
   onPropertyChange,
   onBindingChange,
@@ -175,6 +183,7 @@ export function ComponentPropertiesInspector({
                 attributes[key] ?? attribute.defaultValue,
                 onAttributeChange,
                 'Attribute',
+                readOnly,
               )}
             </div>
           ))}
@@ -215,6 +224,7 @@ export function ComponentPropertiesInspector({
                   propertyFallbacks[key] ?? property.defaultValue,
                   onPropertyChange,
                   'Property',
+                  readOnly,
                 )}
 
                 {property.bindable && (
@@ -222,6 +232,7 @@ export function ComponentPropertiesInspector({
                     <span>数据绑定</span>
                     <Select
                       value={binding?.source.key ?? ''}
+                      disabled={readOnly}
                       ariaLabel={`${property.title} 数据绑定`}
                       options={bindingOptions}
                       onValueChange={(nextValue) => onBindingChange(key, nextValue || null)}
