@@ -27,7 +27,6 @@ import {
   Tabs,
   Textarea,
   ToolbarButton,
-  ToolbarGroup,
   type SegmentedControlItem,
   type StudioTabItem,
 } from '../../ui'
