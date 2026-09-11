@@ -1,12 +1,15 @@
-name: Component Editor Browser Checks
+name: Editor Transaction Browser Check
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/**'
-      - 'scripts/pages-component-*.mjs'
-      - '.github/workflows/component-editor-smoke.yml'
+      - 'src/scene/use-scene-history.ts'
+      - 'src/features/scada-editor/**'
+      - 'src/renderer/SceneRenderer.tsx'
+      - 'scripts/pages-scada-transaction-smoke.mjs'
+      - 'scripts/pages-scene-fixture-storage.mjs'
+      - '.github/workflows/editor-transaction-smoke.yml'
       - 'package*.json'
       - 'vite.config.ts'
 
@@ -14,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: component-editor-smoke-${{ github.event.pull_request.number }}
+  group: editor-transaction-smoke-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -33,18 +36,18 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
           npm ci
-          npm run build 2>&1 | tee artifacts/component-build.log
+          npm run build 2>&1 | tee artifacts/editor-transaction-build.log
       - name: Install browser test tools
         run: |
           npm install --no-save --package-lock=false playwright
           npx playwright install --with-deps chromium
-      - name: Verify component interactions against the built revision
+      - name: Verify SCADA editor transactions against the built revision
         env:
           SCADA_PAGES_URL: http://127.0.0.1:4173/
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/component-preview.log 2>&1 &
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/editor-transaction-preview.log 2>&1 &
           preview_pid=$!
           trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
           ready=0
@@ -56,24 +59,14 @@ jobs:
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then
-            cat /tmp/component-preview.log | tee artifacts/component-browser.log
+            cat /tmp/editor-transaction-preview.log | tee artifacts/editor-transaction-browser.log
             exit 1
           fi
-          {
-            node scripts/pages-component-document-history-smoke.mjs
-            node scripts/pages-component-navigation-smoke.mjs
-            node scripts/pages-component-primitives-smoke.mjs
-            SCADA_BROWSER=chromium node scripts/pages-component-hit-smoke.mjs
-            node scripts/pages-component-svg-drag-smoke.mjs
-            node scripts/pages-component-header-smoke.mjs
-            node scripts/pages-component-arrange-smoke.mjs
-            node scripts/pages-component-toolbar-smoke.mjs
-            node scripts/pages-component-package-transfer-smoke.mjs
-          } 2>&1 | tee artifacts/component-browser.log
-      - name: Upload interaction captures
+          node scripts/pages-scada-transaction-smoke.mjs 2>&1 | tee artifacts/editor-transaction-browser.log
+      - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: component-editor-interactions
+          name: editor-transaction-browser
           path: artifacts/*
           if-no-files-found: ignore

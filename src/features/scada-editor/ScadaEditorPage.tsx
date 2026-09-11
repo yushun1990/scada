@@ -61,6 +61,7 @@ import {
 } from '../../scene/scene-size'
 import { parseSceneDocument } from '../../scene/validation'
 import { useSceneHistory } from '../../scene/use-scene-history'
+import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'
 import {
   SceneRenderer,
   type RendererMode,
@@ -154,6 +155,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     setSelectedNodeIds,
     setSelectedConnectionId,
     commit,
+    cancelPending,
     undo,
     redo,
     canUndo,
@@ -182,6 +184,23 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (
+        event.key === 'Escape' &&
+        !event.isComposing &&
+        isTextEditingTarget(event.target)
+      ) {
+        event.preventDefault()
+        cancelPending()
+        if (event.target instanceof HTMLElement) {
+          event.target.blur()
+        }
+        return
+      }
+
+      if (shouldIgnoreEditorShortcut(event)) {
+        return
+      }
+
       const isUndo =
         (event.ctrlKey || event.metaKey) &&
         !event.shiftKey &&
@@ -202,7 +221,7 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undo, redo])
+  }, [cancelPending, undo, redo])
 
   useEffect(() => {
     if (mode !== 'preview') {
