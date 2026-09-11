@@ -1,6 +1,6 @@
 import '../../m2.css'
 import '../../workbench.css'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import { SnapIcon } from '../../components/toolbar-icons'
 import {
@@ -12,7 +12,11 @@ import {
 import type { ComponentVisualDefinition } from '../../component-system/visual'
 import type { VisualRuleOperator } from '../../component-system/visualRules'
 import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'
+import { commitStudioNavigation } from '../../editor/editor-navigation'
+import { EditorLeaveDialog } from '../../editor/EditorLeaveDialog'
 import { useDocumentHistory } from '../../editor/use-document-history'
+import { useEditorLeaveProtection } from '../../editor/use-editor-leave-protection'
+import { useEditorSaveState } from '../../editor/use-editor-save-state'
 import {
   Button,
   Input,
@@ -280,12 +284,25 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
     beginTransaction,
     commitTransaction,
     cancelTransaction,
-    replaceCurrent,
     undo,
     redo,
     canUndo,
     canRedo,
   } = useDocumentHistory<ComponentLibraryEntry>(() => initial)
+  const persistComponent = useCallback(
+    (document: ComponentLibraryEntry) => saveComponentDefinitionAsync(document),
+    [],
+  )
+  const saveState = useEditorSaveState({
+    document: component,
+    initiallySaved: componentId !== 'new',
+    saveDocument: persistComponent,
+  })
+  const leaveProtection = useEditorLeaveProtection({
+    isDirtyNow: saveState.isDirtyNow,
+    isSavingNow: saveState.isSavingNow,
+    save: saveState.save,
+  })
   const [mode, setMode] = useState<ComponentWorkbenchMode>('editor')
   const [selectedLayerIds, setSelectedLayerIds] = useState<readonly string[]>([])
   const [primaryLayerId, setPrimaryLayerId] = useState<string | null>(null)
@@ -513,13 +530,21 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
   }
 
   async function save() {
-    try {
-      const saved = await saveComponentDefinitionAsync(component)
-      replaceCurrent(saved)
-      setMessage('组件已保存')
-      window.location.hash = `#/components/${encodeURIComponent(saved.id)}`
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '组件保存失败')
+    const outcome = await saveState.save()
+    if (!outcome.ok) {
+      setMessage(outcome.error.message || '组件保存失败')
+      return
+    }
+
+    setMessage(
+      outcome.currentAtCompletion
+        ? '组件已保存'
+        : '已保存当前快照，仍有未保存修改',
+    )
+    if (componentId === 'new' && outcome.currentAtCompletion) {
+      commitStudioNavigation(
+        `#/components/${encodeURIComponent(outcome.result.id)}`,
+      )
     }
   }
 
@@ -639,12 +664,26 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
             >
               {publicationBusy ? '处理中…' : '发布'}
             </Button>
+            <span
+              className={`document-save-status ${saveState.status}`}
+              title={`current revision ${saveState.currentRevision} · saved revision ${saveState.savedRevision ?? 'none'}`}
+            >
+              {saveState.saving
+                ? saveState.changedWhileSaving
+                  ? '保存中 · 有新修改'
+                  : '保存中…'
+                : saveState.status === 'error'
+                  ? '保存失败'
+                  : saveState.dirty
+                    ? '未保存'
+                    : '已保存'}
+            </span>
             <Button
               variant="primary"
-              disabled={builtInReadOnly}
+              disabled={builtInReadOnly || saveState.saving || (!saveState.dirty && saveState.status !== 'error')}
               onClick={() => void save()}
             >
-              保存
+              {saveState.saving ? '保存中…' : '保存'}
             </Button>
           </div>
         </div>
@@ -963,6 +1002,17 @@ export function ComponentEditorPage({ componentId }: { componentId: string }) {
           </section>
         </aside>
       </main>
+
+      <EditorLeaveDialog
+        open={leaveProtection.pendingTargetHash !== null}
+        saveStatus={saveState.status}
+        saving={saveState.saving}
+        busy={leaveProtection.leavingBusy}
+        errorMessage={saveState.error?.message}
+        onSaveAndLeave={() => void leaveProtection.saveAndLeave()}
+        onDiscardAndLeave={leaveProtection.discardAndLeave}
+        onCancel={leaveProtection.cancelLeave}
+      />
     </div>
   )
 }
