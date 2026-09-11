@@ -27,7 +27,7 @@ async function patchPages() {
     '',
     'Component nested toolbar open',
   )
-  component = replaceRequired(component, /\n          <\/Toolbar>\n        \)}/, '\n        )}', 'Component nested toolbar close')
+  component = replaceRequired(component, /\n          <\/Toolbar>\n          <\/\>\n        \)}/, '\n          </>\n        )}', 'Component nested toolbar close')
   await writeFile(componentPath, component)
 }
 
