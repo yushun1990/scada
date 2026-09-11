@@ -39,6 +39,10 @@ function pushLimited<T>(history: T[], value: T, limit: number) {
  * calls update the live document but share the same before snapshot. This is
  * the contract used by controlled form fields: focus begins, blur/Enter
  * commits, and Escape cancels.
+ *
+ * Commit/cancel finalization is deferred to the current microtask boundary.
+ * React blur capture therefore cannot finalize before a child's onBlur writer
+ * (for example a contract-key editor) has applied its last document mutation.
  */
 export function useDocumentHistory<T>(
   initial: T | (() => T),
@@ -56,6 +60,9 @@ export function useDocumentHistory<T>(
   const pastRef = useRef<T[]>([])
   const futureRef = useRef<T[]>([])
   const pendingBeforeRef = useRef<T | null>(null)
+  const finalizeScheduledRef = useRef(false)
+  const cancelRequestedRef = useRef(false)
+  const beginAfterFinalizeRef = useRef(false)
   const [, setVersion] = useState(0)
 
   const bump = useCallback(() => setVersion((value) => value + 1), [])
@@ -64,6 +71,55 @@ export function useDocumentHistory<T>(
     documentRef.current = next
     setDocument(next)
   }, [])
+
+  const finalizeTransaction = useCallback(() => {
+    finalizeScheduledRef.current = false
+    const before = pendingBeforeRef.current
+
+    if (before === null) {
+      cancelRequestedRef.current = false
+      beginAfterFinalizeRef.current = false
+      return
+    }
+
+    const cancelled = cancelRequestedRef.current
+    const beginNext = beginAfterFinalizeRef.current
+    pendingBeforeRef.current = null
+    cancelRequestedRef.current = false
+    beginAfterFinalizeRef.current = false
+
+    if (cancelled) {
+      if (before !== documentRef.current) {
+        apply(before)
+        bump()
+      }
+    } else if (before !== documentRef.current) {
+      pushLimited(pastRef.current, before, limit)
+      futureRef.current = []
+      bump()
+    }
+
+    // Focus may already have moved to another editor field while the previous
+    // blur transaction was waiting for its microtask. Start that next field's
+    // transaction from the post-finalization document rather than leaving it
+    // outside history coalescing.
+    if (beginNext) {
+      pendingBeforeRef.current = documentRef.current
+    }
+  }, [apply, bump, limit])
+
+  const scheduleFinalize = useCallback((cancel: boolean) => {
+    if (cancel) {
+      cancelRequestedRef.current = true
+    }
+
+    if (finalizeScheduledRef.current) {
+      return
+    }
+
+    finalizeScheduledRef.current = true
+    queueMicrotask(finalizeTransaction)
+  }, [finalizeTransaction])
 
   const mutate = useCallback((updater: Updater<T>) => {
     const current = documentRef.current
@@ -82,54 +138,53 @@ export function useDocumentHistory<T>(
   }, [apply, limit])
 
   const beginTransaction = useCallback(() => {
-    pendingBeforeRef.current ??= documentRef.current
+    if (pendingBeforeRef.current === null) {
+      pendingBeforeRef.current = documentRef.current
+      cancelRequestedRef.current = false
+      return
+    }
+
+    if (finalizeScheduledRef.current) {
+      beginAfterFinalizeRef.current = true
+    }
   }, [])
 
   const commitTransaction = useCallback(() => {
-    const before = pendingBeforeRef.current
-    if (before === null) {
-      return
+    if (pendingBeforeRef.current !== null) {
+      scheduleFinalize(false)
     }
-
-    pendingBeforeRef.current = null
-    if (before === documentRef.current) {
-      return
-    }
-
-    pushLimited(pastRef.current, before, limit)
-    futureRef.current = []
-    bump()
-  }, [bump, limit])
+  }, [scheduleFinalize])
 
   const cancelTransaction = useCallback(() => {
-    const before = pendingBeforeRef.current
-    if (before === null) {
-      return
+    if (pendingBeforeRef.current !== null) {
+      scheduleFinalize(true)
     }
+  }, [scheduleFinalize])
 
+  const clearPending = useCallback(() => {
     pendingBeforeRef.current = null
-    apply(before)
-    bump()
-  }, [apply, bump])
+    cancelRequestedRef.current = false
+    beginAfterFinalizeRef.current = false
+  }, [])
 
   const replaceCurrent = useCallback((next: T) => {
-    pendingBeforeRef.current = null
+    clearPending()
     apply(next)
     bump()
-  }, [apply, bump])
+  }, [apply, bump, clearPending])
 
   const undo = useCallback(() => {
     const pendingBefore = pendingBeforeRef.current
     if (pendingBefore !== null && pendingBefore !== documentRef.current) {
       const after = documentRef.current
-      pendingBeforeRef.current = null
+      clearPending()
       pushLimited(futureRef.current, after, limit)
       apply(pendingBefore)
       bump()
       return
     }
 
-    pendingBeforeRef.current = null
+    clearPending()
     const previous = pastRef.current.pop()
     if (previous === undefined) {
       return
@@ -138,7 +193,7 @@ export function useDocumentHistory<T>(
     pushLimited(futureRef.current, documentRef.current, limit)
     apply(previous)
     bump()
-  }, [apply, bump, limit])
+  }, [apply, bump, clearPending, limit])
 
   const redo = useCallback(() => {
     if (pendingBeforeRef.current !== null) {
@@ -156,12 +211,12 @@ export function useDocumentHistory<T>(
   }, [apply, bump, limit])
 
   const reset = useCallback((next: T) => {
-    pendingBeforeRef.current = null
+    clearPending()
     pastRef.current = []
     futureRef.current = []
     apply(next)
     bump()
-  }, [apply, bump])
+  }, [apply, bump, clearPending])
 
   return {
     document,
