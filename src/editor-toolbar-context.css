@@ -19,14 +19,16 @@
   border-left: 1px solid var(--ui-color-border);
 }
 
-.studio-main-toolbar-content .component-geometry-tool-group {
+.studio-main-toolbar-content .component-geometry-tool-group,
+.studio-main-toolbar-content .scada-geometry-tool-group {
   flex: 0 1 auto;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
 
-.studio-main-toolbar-content .component-geometry-tool-group > button {
+.studio-main-toolbar-content .component-geometry-tool-group > button,
+.studio-main-toolbar-content .scada-geometry-tool-group > button {
   flex: 0 0 var(--ui-control-height);
 }
 

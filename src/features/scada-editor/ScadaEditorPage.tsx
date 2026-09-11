@@ -1039,7 +1039,7 @@ export function ScadaEditorPage({
               </ToolbarButton>
             </ToolbarGroup>
 
-            <ToolbarGroup className="canvas-tool-group">
+            <ToolbarGroup className="canvas-tool-group scada-geometry-tool-group">
               {alignButtons.map((item) => {
                 const Icon = item.icon
                 return (
