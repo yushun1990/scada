@@ -1,10 +1,10 @@
 # UI B2 Save Revision + Leave Protection
 
-Status: acceptance candidate · 2026-09-11
+Status: accepted for merge · 2026-09-11
 
 Plan source: `docs/design/industrial-designer-rollout.md` → **B2 保存状态与离开处理**.
 
-Implementation candidate head: `eed48b9a03a0f6cc03e7d4eeaff637386df99d9f` on PR #191. This record becomes accepted only after the final direct-head CI, B1 transaction, B2 save/leave, and Component Editor browser regressions are green.
+Implementation acceptance head: `eed48b9a03a0f6cc03e7d4eeaff637386df99d9f` on PR #191. Final direct-head verification ran on `c03774eafa90e919bd34e3e53fa6911c12fae180`, whose only additional change was this acceptance record in candidate form. Any later PR-head commits in this tranche are documentation-only unless recorded otherwise.
 
 ## Result
 
@@ -39,11 +39,11 @@ The leave dialog provides:
 
 Guarded browser Back restores the accepted editor location without destroying the attempted history target, so Cancel followed by Back can request the same leave again.
 
-## Browser acceptance evidence collected before final closeout
+## Browser acceptance
 
 ### Editor Save Leave Browser Check
 
-Workflow run `34588462985` on `414f67585ac4cdabedc26e94e519d77244a3f23a` — success.
+Workflow run `34588874644` on `c03774eafa90e919bd34e3e53fa6911c12fae180` — success.
 
 Chromium proves:
 
@@ -63,20 +63,24 @@ Chromium proves:
 
 ### Preserved B1 transaction authority
 
-Editor Transaction Browser Check run `34588463038` on `414f67585ac4cdabedc26e94e519d77244a3f23a` — success.
+Editor Transaction Browser Check run `34588874665` on `c03774eafa90e919bd34e3e53fa6911c12fae180` — success.
 
 This confirms the B2 lifecycle did not regress SCADA form transactions, Undo/Redo, Escape cancellation, or input/Canvas shortcut scope.
 
+### Component Editor regressions
+
+Component Editor Browser Checks run `34588874790` on `c03774eafa90e919bd34e3e53fa6911c12fae180` — success.
+
+The complete existing Component browser suite passed, including full-document history, Palette/Navigator navigation, primitive authoring, pointer/hit behavior, managed-SVG drag, header layout, arrange commands, toolbar layout, and package transfer. Existing fixtures now respect B2 semantics: clean documents do not force redundant saves, and leaving an unsaved new Component resolves the same discard guard a user sees rather than bypassing it.
+
 ### CI
 
-CI run `34588463084` on `414f67585ac4cdabedc26e94e519d77244a3f23a` — success.
+CI run `34588874658` on `c03774eafa90e919bd34e3e53fa6911c12fae180` — success.
 
 - production build passed;
 - runtime/model checks passed;
 - lint passed;
 - publication API checks passed.
-
-The final candidate additionally updates existing Component browser fixtures to respect the new clean-save and guarded-leave semantics instead of bypassing them. Final closeout records the direct-head workflow ids once those regressions are green.
 
 ## Preserved boundaries
 
@@ -91,9 +95,9 @@ B2 does not change:
 - B3 Preview-mode command gating or multi-selection scope;
 - C-batch StudioShell, visual tokens, or docking/layout work.
 
-## Next gate after acceptance
+## Next gate
 
-Proceed to **B3 模式和选择范围** only after PR #191 is accepted and merged:
+Proceed to **B3 模式和选择范围**:
 
 - centralize command enabled/disabled conditions needed by the current editors;
 - make SCADA Preview a complete design-mutation gate across buttons, shortcuts, and callbacks;
