@@ -1493,7 +1493,7 @@ export function ScadaEditorPage({
         )}
         status={(
           <>
-            <span className="studio-status-cluster">
+            <span className="studio-status-cluster studio-status-mode">
               <strong>{mode === 'preview' ? '预览' : '设计'}</strong>
               <span>{selectedConnection ? selectedConnection.name : selectedNodes.length > 1 ? `已选 ${selectedNodes.length} 个对象` : primaryNode?.name ?? '未选择对象'}</span>
             </span>

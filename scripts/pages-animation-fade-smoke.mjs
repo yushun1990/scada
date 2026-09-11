@@ -67,7 +67,7 @@ async function readPersistedFadeState() {
 try {
   console.log(`Opening deployed Component Editor fade animation smoke: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-palette-item[aria-label="文本"]').click()
   await layerRow('文本 1').waitFor()
   await page.getByRole('button', { name: '保存' }).click()
@@ -75,7 +75,7 @@ try {
   const savedUrl = page.url()
 
   assert.deepEqual(await seedFadeAnimationFixture(), { opacity: 0.8, x: 220, y: 150, rotation: 0, scaleX: 1, scaleY: 1 }, 'fade fixture starts from stable persisted visual state')
-  await page.reload({ waitUntil: 'networkidle' }); await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.reload({ waitUntil: 'networkidle' }); await page.locator('.studio-shell.component-studio-shell').waitFor()
   await layerRow('Fade Animation Smoke Rect').click(); await page.getByRole('button', { name: '动画' }).click()
   await page.getByRole('button', { name: '+ 添加 Fade 动画' }).click()
   assert.equal(await page.locator('.component-animation-item').count(), 1, 'fade animation added through real inspector')
@@ -97,7 +97,7 @@ try {
   assert.equal(authored.fade?.timing?.easing, 'ease-in-out'); assert.equal(authored.fade?.activation?.kind, 'property')
   assert.equal(authored.fade?.activation?.propertyKey, 'running'); assert.equal(authored.fade?.activation?.compareValue, true)
 
-  await page.reload({ waitUntil: 'networkidle' }); await page.getByText('Component Editor', { exact: true }).waitFor(); await clearLayerSelection()
+  await page.reload({ waitUntil: 'networkidle' }); await page.locator('.studio-shell.component-studio-shell').waitFor(); await clearLayerSelection()
   const designFrameA = await readSceneCanvasDataUrl(); await page.waitForTimeout(250); const designFrameB = await readSceneCanvasDataUrl()
   assert.equal(designFrameA, designFrameB, 'design mode must remain static with authored fade')
   await page.getByRole('button', { name: '预览' }).click(); await page.waitForTimeout(120)

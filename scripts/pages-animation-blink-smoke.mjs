@@ -75,7 +75,7 @@ async function readPersistedBlinkState() {
 try {
   console.log(`Opening deployed Component Editor blink animation smoke: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-palette-item[aria-label="文本"]').click()
   await layerRow('文本 1').waitFor()
   await page.getByRole('button', { name: '保存' }).click()
@@ -83,7 +83,7 @@ try {
   const savedUrl = page.url()
 
   assert.deepEqual(await seedBlinkAnimationFixture(), { visible: true, opacity: 0.9, x: 220, y: 150, rotation: 0, scaleX: 1, scaleY: 1 }, 'blink fixture starts from stable persisted visual state')
-  await page.reload({ waitUntil: 'networkidle' }); await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.reload({ waitUntil: 'networkidle' }); await page.locator('.studio-shell.component-studio-shell').waitFor()
   await layerRow('Blink Animation Smoke Lamp').click(); await page.getByRole('button', { name: '动画' }).click()
   await page.getByRole('button', { name: '+ 添加 Blink 动画' }).click()
   assert.equal(await page.locator('.component-animation-item').count(), 1, 'blink animation added through real inspector')
@@ -101,7 +101,7 @@ try {
   assert.equal(authored.blink?.timing?.iterations, 'infinite'); assert.equal(authored.blink?.timing?.direction, 'normal'); assert.equal(authored.blink?.timing?.easing, 'linear')
   assert.equal(authored.blink?.activation?.kind, 'property'); assert.equal(authored.blink?.activation?.propertyKey, 'alarm'); assert.equal(authored.blink?.activation?.compareValue, true)
 
-  await page.reload({ waitUntil: 'networkidle' }); await page.getByText('Component Editor', { exact: true }).waitFor(); await clearLayerSelection()
+  await page.reload({ waitUntil: 'networkidle' }); await page.locator('.studio-shell.component-studio-shell').waitFor(); await clearLayerSelection()
   const designFrames = await sampleCanvasFrames(3, 180)
   assert.equal(new Set(designFrames).size, 1, 'design mode must remain static with authored blink')
   await page.getByRole('button', { name: '预览' }).click(); await page.waitForTimeout(100)

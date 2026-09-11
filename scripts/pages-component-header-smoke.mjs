@@ -9,7 +9,7 @@ page.on('pageerror', (error) => errors.push(error.message))
 
 try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'load' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   const modeSwitch = page.locator('.component-editor-header > .mode-switch')
   await modeSwitch.waitFor()

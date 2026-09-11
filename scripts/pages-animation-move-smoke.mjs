@@ -108,7 +108,7 @@ async function readPersistedMoveState() {
 try {
   console.log(`Opening deployed Component Editor move animation smoke: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   await page.locator('.component-palette-item[aria-label="文本"]').click()
   await layerRow('文本 1').waitFor()
@@ -124,7 +124,7 @@ try {
   )
 
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await layerRow('Move Animation Smoke Rect').click()
   await page.getByRole('button', { name: '动画' }).click()
   await page.getByRole('button', { name: '+ 添加 Move 动画' }).click()
@@ -161,7 +161,7 @@ try {
   assert.equal(authored.move?.activation?.compareValue, true, 'move persists property compare value')
 
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await clearLayerSelection()
 
   const designFrameA = await readSceneCanvasDataUrl()

@@ -20,7 +20,7 @@ try {
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
 
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await page.getByText('SCADA Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.scada-studio-shell').waitFor()
 
   const componentItem = page.locator('.component-item').first()
   assert.equal(await componentItem.count(), 1, 'SCADA component palette must contain a component')

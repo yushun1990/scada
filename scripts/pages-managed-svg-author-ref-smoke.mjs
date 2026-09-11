@@ -89,7 +89,7 @@ async function openInspectorGroup(currentPage, title) {
 try {
   console.log(`Verifying managed SVG author refs and UX1.5 rule-target convergence: ${baseUrl}#/components/new`)
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   const publicProperties = page.locator('.component-root-public-properties')
   await publicProperties.waitFor()
@@ -151,7 +151,7 @@ try {
   )
 
   await page.goto(savedUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
   const reloadedRow = page.locator('.component-managed-svg-row', { hasText: `@${authorRef}` })
   await reloadedRow.waitFor()
@@ -214,7 +214,7 @@ try {
   )
 
   await page.goto(savedUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
   await page.locator('.component-managed-svg-row', { hasText: `@${renamedAuthorRef}` }).click()
   const reopenedRuleGroup = await openInspectorGroup(page, '视觉规则')

@@ -28,7 +28,7 @@ function assertModeCentered(headerBox, modeBox, label) {
 try {
   console.log(`Opening deployed Component Editor header regression: ${baseUrl}#/components/new`)
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   const componentHeader = page.locator('.component-editor-header')
   const componentMode = componentHeader.locator('.mode-switch')
@@ -67,7 +67,7 @@ try {
   await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await page.getByText('SCADA Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.scada-studio-shell').waitFor()
 
   const scadaHeader = page.locator('.editor-header').filter({ hasText: 'SCADA Editor' })
   const scadaMode = scadaHeader.locator('.mode-switch')

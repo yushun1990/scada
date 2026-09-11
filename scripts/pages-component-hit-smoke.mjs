@@ -70,7 +70,7 @@ function assertClose(actual, expected, message, tolerance = 0.001) {
 try {
   console.log(`Opening deployed Component Editor pointer regression in ${browserName}: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   const addText = page.locator('.component-palette-item[aria-label="文本"]')
 

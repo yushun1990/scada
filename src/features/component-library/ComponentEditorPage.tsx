@@ -1030,7 +1030,7 @@ export function ComponentEditorPage({
         )}
         status={(
           <>
-            <span className="studio-status-cluster">
+            <span className="studio-status-cluster studio-status-mode">
               <strong>{mode === 'preview' ? '预览' : '设计'}</strong>
               <span>{selectedLayerIds.length > 1 ? `已选 ${selectedLayerIds.length} 个图层` : inspectorContextLabel}</span>
             </span>

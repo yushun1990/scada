@@ -281,7 +281,7 @@ try {
 
   console.log(`Opening deployed Component Editor toolbar layout regression: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   const componentToolbar = page.getByRole('toolbar', { name: '组件画布工具栏' })
   await componentToolbar.waitFor()
@@ -362,7 +362,7 @@ try {
   await page.evaluate(() => { window.location.hash = '#/works' })
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await page.getByText('SCADA Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.scada-studio-shell').waitFor()
 
   await page.screenshot({ path: 'artifacts/scada-toolbar-1200.png', fullPage: true })
   await assertScadaSingleRowLayout('SCADA 1200px desktop')
