@@ -9,9 +9,13 @@ page.on('pageerror', (error) => errors.push(error.message))
 
 try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'load' })
-  await page.locator('.studio-shell.component-studio-shell').waitFor()
+  const shell = page.locator('.studio-shell.component-studio-shell')
+  await shell.waitFor()
 
-  const modeSwitch = page.locator('.component-editor-header > .mode-switch')
+  const mainToolbar = shell.getByRole('toolbar', { name: 'Studio 主工具栏' })
+  await mainToolbar.waitFor()
+
+  const modeSwitch = mainToolbar.locator('.mode-switch')
   await modeSwitch.waitFor()
   const modeChrome = await modeSwitch.evaluate((element) => {
     const style = getComputedStyle(element)
@@ -69,17 +73,16 @@ try {
   assert.equal(modeFaces[1].borderTopLeftRadius, '0px', 'Preview inner edge must stay square')
   assert.equal(modeFaces[1].borderBottomLeftRadius, '0px', 'Preview inner edge must stay square')
 
-  const toolbar = page.getByRole('toolbar', { name: '组件画布工具栏' })
-  const groupPseudoContent = await toolbar.locator(':scope > .canvas-tool-group').evaluateAll((groups) =>
+  const groupPseudoContent = await mainToolbar.locator('.canvas-tool-group').evaluateAll((groups) =>
     groups.map((group) => getComputedStyle(group, '::after').content),
   )
-  assert.ok(groupPseudoContent.length > 0, 'component toolbar command groups must be present')
+  assert.ok(groupPseudoContent.length > 0, 'component toolbar command groups must be present in Studio main toolbar')
   assert.ok(
     groupPseudoContent.every((content) => content === 'none' || content === 'normal'),
     `component toolbar groups must not draw legacy edge separators: ${groupPseudoContent.join(', ')}`,
   )
 
-  const toolbarLayout = await toolbar.evaluate((element) => ({
+  const toolbarLayout = await mainToolbar.evaluate((element) => ({
     display: getComputedStyle(element).display,
     geometryButtons: Array.from(
       element.querySelectorAll('.component-geometry-tool-group > button'),
@@ -92,7 +95,7 @@ try {
   assert.equal(
     toolbarLayout.display,
     'flex',
-    'component toolbar must keep the flex layout required by shared ordered spacer slots',
+    'Studio main toolbar must keep the flex layout required by ordered command groups',
   )
   assert.ok(toolbarLayout.geometryButtons.length > 1, 'component geometry commands must be present')
   for (let index = 1; index < toolbarLayout.geometryButtons.length; index += 1) {
@@ -108,8 +111,13 @@ try {
     )
   }
 
+  assert.equal(
+    await page.getByRole('toolbar', { name: '组件画布工具栏' }).count(),
+    0,
+    'C2 must not restore the legacy second component canvas toolbar',
+  )
   assert.deepEqual(errors, [])
-  console.log('Component header browser smoke passed: mode faces are contiguous without an outer shell and toolbar geometry buttons stay non-overlapping.')
+  console.log('Component chrome browser smoke passed: StudioShell owns the single toolbar, mode faces remain contiguous, and component geometry buttons stay non-overlapping.')
 } finally {
   await browser.close()
 }
