@@ -126,7 +126,18 @@ export async function saveAndWait(page) {
     }
   }
 
-  await page.getByRole('button', { name: '保存' }).click()
+  const saveButton = page.getByRole('button', { name: '保存' })
+  const saveDisabled = await saveButton.isDisabled()
+
+  // B2 intentionally disables Save for a clean persisted document. Older
+  // interaction smokes call this helper defensively even when they did not
+  // mutate the document, so treat that case as an already-satisfied save
+  // rather than forcing a product-only write just to advance the fixture.
+  if (saveDisabled && beforeHash !== '#/components/new') {
+    return readPersistedComponent(page)
+  }
+
+  await saveButton.click()
 
   const deadline = Date.now() + 30_000
   let lastError = null

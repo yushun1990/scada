@@ -1,6 +1,13 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { StandaloneRuntimePage } from './features/runtime/StandaloneRuntimePage'
+import {
+  commitStudioNavigation,
+  consumeStudioNavigationBypass,
+  getActiveEditorNavigationGuard,
+  normalizeStudioHash,
+  requestStudioNavigation,
+} from './editor/editor-navigation'
 import { Button, Separator } from './ui'
 import './inspector-compact.css'
 import './component-editor-header.css'
@@ -57,7 +64,7 @@ function resolveRoute(): AppRoute {
 }
 
 function navigateToWorkspace(module: WorkspaceModule) {
-  window.location.hash = module === 'components' ? '#/components' : '#/works'
+  requestStudioNavigation(module === 'components' ? '#/components' : '#/works')
 }
 
 function StudioWorkspaceExit({ module }: { module: WorkspaceModule }) {
@@ -144,9 +151,37 @@ function StudioRouteFallback() {
 
 function App() {
   const [route, setRoute] = useState<AppRoute>(resolveRoute)
+  const acceptedHashRef = useRef(normalizeStudioHash(window.location.hash))
 
   useEffect(() => {
-    const handleHashChange = () => setRoute(resolveRoute())
+    const handleHashChange = () => {
+      const nextHash = normalizeStudioHash(window.location.hash)
+
+      if (consumeStudioNavigationBypass(nextHash)) {
+        acceptedHashRef.current = nextHash
+        setRoute(resolveRoute())
+        return
+      }
+
+      const guard = getActiveEditorNavigationGuard()
+      if (
+        nextHash !== acceptedHashRef.current &&
+        guard?.shouldBlock()
+      ) {
+        const previousHash = acceptedHashRef.current
+        guard.requestLeave(nextHash)
+        // Hash navigation cannot be cancelled after hashchange fires. Restore
+        // the accepted editor location as a new current entry instead of
+        // rewriting the target entry: the original Back target remains behind
+        // it, so Cancel followed by Back reaches the same guarded destination.
+        commitStudioNavigation(previousHash)
+        return
+      }
+
+      acceptedHashRef.current = nextHash
+      setRoute(resolveRoute())
+    }
+
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])

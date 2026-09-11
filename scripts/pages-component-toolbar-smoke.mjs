@@ -355,7 +355,11 @@ try {
 
   console.log(`Opening deployed SCADA Editor toolbar layout regression: ${baseUrl}#/works`)
   await page.setViewportSize({ width: 1200, height: 900 })
-  await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: '返回组件库工作台' }).click()
+  await page.getByRole('dialog', { name: '保存修改后离开？' }).waitFor()
+  await page.getByRole('button', { name: '放弃修改', exact: true }).click()
+  await page.getByText('组件库开发', { exact: true }).first().waitFor()
+  await page.evaluate(() => { window.location.hash = '#/works' })
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
   await page.getByText('SCADA Editor', { exact: true }).waitFor()

@@ -62,6 +62,9 @@ import {
 import { parseSceneDocument } from '../../scene/validation'
 import { useSceneHistory } from '../../scene/use-scene-history'
 import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'
+import { EditorLeaveDialog } from '../../editor/EditorLeaveDialog'
+import { useEditorLeaveProtection } from '../../editor/use-editor-leave-protection'
+import { useEditorSaveState } from '../../editor/use-editor-save-state'
 import {
   SceneRenderer,
   type RendererMode,
@@ -181,6 +184,20 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
     threshold: 7,
   })
   const importInputRef = useRef<HTMLInputElement>(null)
+  const persistScene = useCallback(
+    (document: SceneDocument) => saveScadaSceneAsync(workId, document),
+    [workId],
+  )
+  const saveState = useEditorSaveState({
+    document: scene,
+    initiallySaved: true,
+    saveDocument: persistScene,
+  })
+  const leaveProtection = useEditorLeaveProtection({
+    isDirtyNow: saveState.isDirtyNow,
+    isSavingNow: saveState.isSavingNow,
+    save: saveState.save,
+  })
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -768,11 +785,15 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
   }
 
   async function saveScene() {
-    try {
-      await saveScadaSceneAsync(workId, scene)
-      setMessage('场景已保存')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '场景保存失败')
+    const outcome = await saveState.save()
+    if (outcome.ok) {
+      setMessage(
+        outcome.currentAtCompletion
+          ? '场景已保存'
+          : '已保存当前快照，仍有未保存修改',
+      )
+    } else {
+      setMessage(outcome.error.message || '场景保存失败')
     }
   }
 
@@ -848,7 +869,27 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
           <div className="document-toolbar" role="toolbar" aria-label="场景文档操作">
             <Button variant="secondary" onClick={() => importInputRef.current?.click()}>导入</Button>
             <Button variant="secondary" onClick={exportScene}>导出</Button>
-            <Button variant="primary" onClick={() => void saveScene()}>保存</Button>
+            <span
+              className={`document-save-status ${saveState.status}`}
+              title={`current revision ${saveState.currentRevision} · saved revision ${saveState.savedRevision ?? 'none'}`}
+            >
+              {saveState.saving
+                ? saveState.changedWhileSaving
+                  ? '保存中 · 有新修改'
+                  : '保存中…'
+                : saveState.status === 'error'
+                  ? '保存失败'
+                  : saveState.dirty
+                    ? '未保存'
+                    : '已保存'}
+            </span>
+            <Button
+              variant="primary"
+              disabled={saveState.saving || (!saveState.dirty && saveState.status !== 'error')}
+              onClick={() => void saveScene()}
+            >
+              {saveState.saving ? '保存中…' : '保存'}
+            </Button>
             <Input
               ref={importInputRef}
               className="hidden-input"
@@ -1341,6 +1382,17 @@ export function ScadaEditorPage({ workId }: { workId: string }) {
           </section>
         </aside>
       </main>
+
+      <EditorLeaveDialog
+        open={leaveProtection.pendingTargetHash !== null}
+        saveStatus={saveState.status}
+        saving={saveState.saving}
+        busy={leaveProtection.leavingBusy}
+        errorMessage={saveState.error?.message}
+        onSaveAndLeave={() => void leaveProtection.saveAndLeave()}
+        onDiscardAndLeave={leaveProtection.discardAndLeave}
+        onCancel={leaveProtection.cancelLeave}
+      />
     </div>
   )
 }
