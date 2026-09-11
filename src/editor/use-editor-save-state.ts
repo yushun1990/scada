@@ -36,6 +36,7 @@ export function useEditorSaveState<T extends object, R>({
   const savingRevisionRef = useRef<number | null>(null)
   const savingRef = useRef(false)
   const activeSaveRef = useRef<Promise<EditorSaveOutcome<T, R>> | null>(null)
+  const activeSaveTokenRef = useRef<object | null>(null)
   const [error, setError] = useState<Error | null>(null)
   const [, setVersion] = useState(0)
 
@@ -62,25 +63,25 @@ export function useEditorSaveState<T extends object, R>({
 
     const snapshot = documentRef.current
     const revision = revisionRef.current
+    const token = {}
     savingRef.current = true
     savingRevisionRef.current = revision
+    activeSaveTokenRef.current = token
     setError(null)
     bump()
 
-    let operation: Promise<EditorSaveOutcome<T, R>>
-    operation = (async () => {
+    const operation = (async (): Promise<EditorSaveOutcome<T, R>> => {
       try {
         const result = await saveDocument(snapshot)
         savedDocumentRef.current = snapshot
         savedRevisionRef.current = revision
-        const outcome: EditorSaveOutcome<T, R> = {
+        return {
           ok: true,
           document: snapshot,
           revision,
           result,
           currentAtCompletion: documentRef.current === snapshot,
         }
-        return outcome
       } catch (cause) {
         const normalized = cause instanceof Error
           ? cause
@@ -93,7 +94,8 @@ export function useEditorSaveState<T extends object, R>({
           error: normalized,
         }
       } finally {
-        if (activeSaveRef.current === operation) {
+        if (activeSaveTokenRef.current === token) {
+          activeSaveTokenRef.current = null
           activeSaveRef.current = null
           savingRef.current = false
           savingRevisionRef.current = null
