@@ -1,8 +1,17 @@
-import { readFile } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import process from 'node:process'
 
 async function read(path) {
   return readFile(path, 'utf8')
+}
+
+async function forbidFile(label, path) {
+  try {
+    await access(path)
+    violations.push(label)
+  } catch {
+    // Missing is the accepted C2 state.
+  }
 }
 
 const violations = []
@@ -32,6 +41,15 @@ for (const [path, css] of sharedCss) {
   forbid(`${path} must not restore .editor-main authority`, css, /\.editor-main\b/)
   forbid(`${path} must not restore pre-C2 workspace exit lane`, css, /studio-workspace-exit/)
 }
+
+await forbidFile(
+  'pre-C2 component-editor-header.css must stay deleted',
+  'src/component-editor-header.css',
+)
+await forbidFile(
+  'pre-C2 component-canvas-toolbar.css must stay deleted',
+  'src/features/component-library/component-canvas-toolbar.css',
+)
 
 const componentCss = await read('src/features/component-library/component-editor.css')
 forbid('component-editor.css must not restore component editor shell geometry', componentCss, /\.component-editor-(?:shell|main)\b/)
