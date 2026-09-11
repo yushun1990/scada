@@ -108,6 +108,13 @@ try {
   const paletteItems = page.locator('.component-item')
   assert.ok(await paletteItems.count() > 0, 'SCADA Palette must expose at least one component')
   await paletteItems.first().click()
+  const fixtureXField = page
+    .locator('.property-panel .property-field.compact')
+    .filter({ has: page.locator('span', { hasText: /^X$/ }) })
+    .locator('input')
+    .first()
+  await fixtureXField.fill('620')
+  await fixtureXField.press('Tab')
   await saveSceneAndWait(page)
   await waitForSaveStatus('已保存')
 
