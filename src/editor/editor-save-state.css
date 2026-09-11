@@ -1,0 +1,66 @@
+.document-save-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: #475569;
+}
+
+.document-save-status.dirty {
+  color: #92400e;
+}
+
+.document-save-status.saving {
+  color: #1d4ed8;
+}
+
+.document-save-status.error {
+  color: #b91c1c;
+}
+
+.editor-leave-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.editor-leave-dialog {
+  width: min(440px, calc(100vw - 48px));
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 18px;
+  background: #ffffff;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.26);
+}
+
+.editor-leave-dialog h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  line-height: 1.4;
+  color: #0f172a;
+}
+
+.editor-leave-dialog p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #475569;
+}
+
+.editor-leave-dialog .editor-leave-error {
+  margin-top: 10px;
+  color: #b91c1c;
+}
+
+.editor-leave-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
