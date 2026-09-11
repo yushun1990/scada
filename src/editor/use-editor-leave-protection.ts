@@ -46,13 +46,27 @@ export function useEditorLeaveProtection<T extends object, R>({
     setPendingTargetHash(null)
   }, [])
 
-  const discardAndLeave = useCallback(() => {
-    if (isSavingNow()) return
+  const discardAndLeave = useCallback(async () => {
     const target = targetRef.current
-    targetRef.current = null
-    setPendingTargetHash(null)
-    if (target) commitStudioNavigation(target)
-  }, [isSavingNow])
+    if (!target || leavingBusy) return false
+
+    setLeavingBusy(true)
+    try {
+      // IndexedDB writes cannot be cancelled once issued. If a save is already
+      // active, wait for that captured snapshot to settle before leaving; any
+      // edits newer than that snapshot are deliberately discarded by unmount.
+      if (isSavingNow()) {
+        await save()
+      }
+
+      targetRef.current = null
+      setPendingTargetHash(null)
+      commitStudioNavigation(target)
+      return true
+    } finally {
+      setLeavingBusy(false)
+    }
+  }, [isSavingNow, leavingBusy, save])
 
   const saveAndLeave = useCallback(async () => {
     const target = targetRef.current
@@ -64,8 +78,8 @@ export function useEditorLeaveProtection<T extends object, R>({
       if (!outcome.ok) return false
 
       // A save already in flight may have captured an older revision while the
-      // user continued editing. The modal prevents further edits, so at most
-      // one follow-up save is needed to persist the latest document snapshot.
+      // user continued editing. The modal prevents further pointer edits, so at
+      // most one follow-up save is needed to persist the latest snapshot.
       if (isDirtyNow()) {
         outcome = await save()
         if (!outcome.ok || isDirtyNow()) return false
