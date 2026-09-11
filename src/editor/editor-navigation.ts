@@ -4,6 +4,9 @@ export type EditorNavigationGuard = {
 }
 
 let activeGuard: EditorNavigationGuard | null = null
+// One-shot bypass for navigation that the editor lifecycle has explicitly
+// accepted, including restoring the current editor after an intercepted Back.
+// It prevents that restoration hashchange from reopening the leave dialog.
 let bypassTargetHash: string | null = null
 
 export function normalizeStudioHash(hash: string) {
