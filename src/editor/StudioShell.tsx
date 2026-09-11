@@ -1,6 +1,7 @@
 import {
   useRef,
   type CSSProperties,
+  type FocusEventHandler,
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
@@ -47,6 +48,8 @@ type StudioShellProps = {
   status: ReactNode
   workspaceNavigationLabel: string
   onNavigateWorkspace: () => void
+  onFocusCapture?: FocusEventHandler<HTMLDivElement>
+  onBlurCapture?: FocusEventHandler<HTMLDivElement>
   className?: string
 }
 
@@ -157,6 +160,8 @@ export function StudioShell({
   status,
   workspaceNavigationLabel,
   onNavigateWorkspace,
+  onFocusCapture,
+  onBlurCapture,
   className = '',
 }: StudioShellProps) {
   const { layout, setLayout, resetLayout } = useStudioLayoutPreferences()
@@ -202,7 +207,12 @@ export function StudioShell({
   }
 
   return (
-    <div className={`studio-shell ${className}`.trim()} style={shellStyle}>
+    <div
+      className={`studio-shell ${className}`.trim()}
+      style={shellStyle}
+      onFocusCapture={onFocusCapture}
+      onBlurCapture={onBlurCapture}
+    >
       <div className="studio-menu-bar">
         <strong className="studio-product-title">{productTitle}</strong>
         <nav className="studio-menu-list" aria-label="Studio 菜单">
