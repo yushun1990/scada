@@ -1,0 +1,49 @@
+name: C2 Apply Shell Identity And Layer Layout Fix
+
+on:
+  push:
+    branches:
+      - refactor/ui-c2-studio-shell
+    paths:
+      - .github/workflows/c2-fix-shell-layout.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/ui-c2-studio-shell
+      - name: Apply scoped C2 fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          scada = Path('src/features/scada-editor/ScadaEditorPage.tsx')
+          text = scada.read_text()
+          old = '''      <StudioShell\n        documentTitle={scene.name}'''
+          new = '''      <StudioShell\n        className="scada-studio-shell"\n        documentTitle={scene.name}'''
+          if old not in text:
+              raise SystemExit('SCADA StudioShell insertion point not found')
+          scada.write_text(text.replace(old, new, 1))
+
+          css = Path('src/features/component-library/component-editor.css')
+          text = css.read_text()
+          old = '''.component-layer-dock {\n  display: grid;\n  grid-template-rows: minmax(0, 1fr);'''
+          new = '''.component-layer-dock {\n  display: grid;\n  grid-template-rows: auto minmax(0, 1fr);'''
+          if old not in text:
+              raise SystemExit('component layer dock grid rule not found')
+          css.write_text(text.replace(old, new, 1))
+
+          Path('.github/workflows/c2-fix-shell-layout.yml').unlink()
+          PY
+      - name: Commit fix and remove helper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: stabilize C2 editor shell layout"
+          git push origin HEAD:refactor/ui-c2-studio-shell
