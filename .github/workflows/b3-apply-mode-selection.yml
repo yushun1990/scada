@@ -1,0 +1,224 @@
+name: Apply B3 SCADA mode selection gate
+
+on:
+  push:
+    branches:
+      - fix/ui-b3-mode-selection
+    paths:
+      - .github/workflows/b3-apply-mode-selection.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ui-b3-mode-selection
+      - name: Apply preview and selection scope gate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/features/scada-editor/ScadaEditorPage.tsx')
+          text = path.read_text()
+
+          def replace_once(old, new):
+              global text
+              if old not in text:
+                  raise SystemExit(f'missing target:\n{old}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              "  const [mode, setMode] = useState<RendererMode>('editor')\n",
+              "  const [mode, setMode] = useState<RendererMode>('editor')\n  const designEditingEnabled = mode === 'editor'\n",
+          )
+          replace_once(
+              "      if (shouldIgnoreEditorShortcut(event)) {\n        return\n      }\n\n      const isUndo =\n",
+              "      if (shouldIgnoreEditorShortcut(event) || !designEditingEnabled) {\n        return\n      }\n\n      const isUndo =\n",
+          )
+          replace_once(
+              "  }, [cancelPending, undo, redo])\n",
+              "  }, [cancelPending, designEditingEnabled, undo, redo])\n",
+          )
+          replace_once(
+              "  ) {\n    setScene((current) => ({\n",
+              "  ) {\n    if (!designEditingEnabled) return\n\n    setScene((current) => ({\n",
+          )
+          replace_once(
+              "  ) {\n    setScene((current) => ({\n      ...current,\n      connections: current.connections.map",
+              "  ) {\n    if (!designEditingEnabled) return\n\n    setScene((current) => ({\n      ...current,\n      connections: current.connections.map",
+          )
+          replace_once(
+              "  const commitScene = useCallback(() => {\n    commit()\n  }, [commit])\n",
+              "  const commitScene = useCallback(() => {\n    if (!designEditingEnabled) return\n    commit()\n  }, [commit, designEditingEnabled])\n",
+          )
+          replace_once(
+              "  function updateNodeTransforms(updates: TransformUpdates) {\n    if (Object.keys(updates).length === 0) {\n",
+              "  function updateNodeTransforms(updates: TransformUpdates) {\n    if (!designEditingEnabled || Object.keys(updates).length === 0) {\n",
+          )
+          replace_once(
+              "  function addComponent(componentType: string) {\n    const registration = builtInComponentRegistry.require(componentType)\n",
+              "  function addComponent(componentType: string) {\n    if (!designEditingEnabled) return\n\n    const registration = builtInComponentRegistry.require(componentType)\n",
+          )
+          replace_once("    setMode('editor')\n    setMessage(`已添加 ${registration.definition.title}`)\n", "    setMessage(`已添加 ${registration.definition.title}`)\n")
+          replace_once(
+              "  function duplicateSelectedNodes() {\n    if (selectedNodes.length === 0) {\n",
+              "  function duplicateSelectedNodes() {\n    if (!designEditingEnabled || selectedNodes.length === 0) {\n",
+          )
+          replace_once(
+              "  function deleteSelection() {\n    if (selectedConnection) {\n",
+              "  function deleteSelection() {\n    if (!designEditingEnabled) return\n\n    if (selectedConnection) {\n",
+          )
+          replace_once(
+              "  function groupSelectedNodes() {\n    if (!canGroup) {\n",
+              "  function groupSelectedNodes() {\n    if (!designEditingEnabled || !canGroup) {\n",
+          )
+          replace_once(
+              "  function ungroupSelectedNode() {\n    if (!primaryNode || !isGroupNode(primaryNode)) {\n",
+              "  function ungroupSelectedNode() {\n    if (!designEditingEnabled || !primaryNode || !isGroupNode(primaryNode)) {\n",
+          )
+          replace_once(
+              "  ) {\n    if (hasDuplicateConnection(scene, source, target)) {\n",
+              "  ) {\n    if (!designEditingEnabled) return\n\n    if (hasDuplicateConnection(scene, source, target)) {\n",
+          )
+          replace_once(
+              "  ) {\n    const result = reconnectSceneConnection(\n",
+              "  ) {\n    if (!designEditingEnabled) return false\n\n    const result = reconnectSceneConnection(\n",
+          )
+          replace_once(
+              "  ) {\n    const selectedIdSet = new Set(selectedNodeIds)\n",
+              "  ) {\n    if (!designEditingEnabled) return\n\n    const selectedIdSet = new Set(selectedNodeIds)\n",
+          )
+          replace_once(
+              "    if (!primaryNode || isGroupNode(primaryNode)) {\n      return\n    }\n\n    const updateScene = (current: SceneDocument): SceneDocument => ({\n",
+              "    if (!designEditingEnabled || !primaryNode || isGroupNode(primaryNode)) {\n      return\n    }\n\n    const updateScene = (current: SceneDocument): SceneDocument => ({\n",
+          )
+          replace_once(
+              "    if (!primaryNode || isGroupNode(primaryNode)) {\n      return\n    }\n\n    const updateScene = (current: SceneDocument): SceneDocument => ({\n",
+              "    if (!designEditingEnabled || !primaryNode || isGroupNode(primaryNode)) {\n      return\n    }\n\n    const updateScene = (current: SceneDocument): SceneDocument => ({\n",
+          )
+          replace_once(
+              "    if (\n      !primaryNode ||\n      isGroupNode(primaryNode) ||\n",
+              "    if (\n      !designEditingEnabled ||\n      !primaryNode ||\n      isGroupNode(primaryNode) ||\n",
+          )
+          replace_once(
+              "      mode !== 'editor' ||\n      !primaryNode ||\n",
+              "      !designEditingEnabled ||\n      !primaryNode ||\n",
+          )
+          replace_once(
+              "    if (!primaryNode || !Number.isFinite(value)) {\n",
+              "    if (!designEditingEnabled || !primaryNode || !Number.isFinite(value)) {\n",
+          )
+          replace_once(
+              "  function applyAlignment(alignMode: AlignMode) {\n    const updates = alignNodes(scene, selectedNodeIds, alignMode)\n",
+              "  function applyAlignment(alignMode: AlignMode) {\n    if (!designEditingEnabled) return\n\n    const updates = alignNodes(scene, selectedNodeIds, alignMode)\n",
+          )
+          replace_once(
+              "  function applyDistribution(distributionMode: DistributeMode) {\n    const updates = distributeNodes(scene, selectedNodeIds, distributionMode)\n",
+              "  function applyDistribution(distributionMode: DistributeMode) {\n    if (!designEditingEnabled) return\n\n    const updates = distributeNodes(scene, selectedNodeIds, distributionMode)\n",
+          )
+          replace_once(
+              "  function changeSceneSize(presetId: string) {\n    const preset = SCENE_SIZE_PRESETS.find((item) => item.id === presetId)\n",
+              "  function changeSceneSize(presetId: string) {\n    if (!designEditingEnabled) return\n\n    const preset = SCENE_SIZE_PRESETS.find((item) => item.id === presetId)\n",
+          )
+          replace_once(
+              "  async function importScene(event: ChangeEvent<HTMLInputElement>) {\n    const file = event.target.files?.[0]\n    event.target.value = ''\n\n    if (!file) {\n",
+              "  async function importScene(event: ChangeEvent<HTMLInputElement>) {\n    const file = event.target.files?.[0]\n    event.target.value = ''\n\n    if (!designEditingEnabled || !file) {\n",
+          )
+
+          replace_once(
+              "            <Button variant=\"secondary\" onClick={() => importInputRef.current?.click()}>导入</Button>\n",
+              "            <Button\n              variant=\"secondary\"\n              disabled={!designEditingEnabled}\n              onClick={() => importInputRef.current?.click()}\n            >\n              导入\n            </Button>\n",
+          )
+          replace_once(
+              "              onChange={(event) => {\n                void importScene(event)\n              }}\n",
+              "              disabled={!designEditingEnabled}\n              onChange={(event) => {\n                void importScene(event)\n              }}\n",
+          )
+          replace_once(
+              "                  className=\"component-item\"\n                  onClick={() => addComponent(definition.type)}\n",
+              "                  className=\"component-item\"\n                  disabled={!designEditingEnabled}\n                  onClick={() => addComponent(definition.type)}\n",
+          )
+
+          replacements = {
+              "disabled={selectedNodes.length === 0}": "disabled={!designEditingEnabled || selectedNodes.length === 0}",
+              "disabled={!hasSelection}": "disabled={!designEditingEnabled || !hasSelection}",
+              "disabled={!hierarchyEnabled}": "disabled={!designEditingEnabled || !hierarchyEnabled}",
+              "disabled={!canUndo}": "disabled={!designEditingEnabled || !canUndo}",
+              "disabled={!canRedo}": "disabled={!designEditingEnabled || !canRedo}",
+              "disabled={selectedNodes.length < 2}": "disabled={!designEditingEnabled || selectedNodes.length < 2}",
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'missing toolbar target: {old}')
+              text = text.replace(old, new)
+
+          old = "disabled={selectedNodes.length < 3}"
+          if text.count(old) != 2:
+              raise SystemExit(f'expected two distribution targets, found {text.count(old)}')
+          text = text.replace(old, "disabled={!designEditingEnabled || selectedNodes.length < 3}")
+
+          replace_once(
+              "                  value={sceneSizePresetId}\n                  triggerLabel={sceneSizeTriggerLabel}\n",
+              "                  value={sceneSizePresetId}\n                  disabled={!designEditingEnabled}\n                  triggerLabel={sceneSizeTriggerLabel}\n",
+          )
+
+          replace_once(
+              "                      value={selectedConnection.name}\n                      onChange={(event) => {\n",
+              "                      value={selectedConnection.name}\n                      disabled={!designEditingEnabled}\n                      onChange={(event) => {\n",
+          )
+          replace_once(
+              "                      value={selectedConnection.routing}\n                      ariaLabel=\"连线路由\"\n",
+              "                      value={selectedConnection.routing}\n                      disabled={!designEditingEnabled}\n                      ariaLabel=\"连线路由\"\n",
+          )
+          replace_once(
+              "                        type=\"color\"\n                        value={selectedConnection.style.stroke}\n",
+              "                        type=\"color\"\n                        value={selectedConnection.style.stroke}\n                        disabled={!designEditingEnabled}\n",
+          )
+          replace_once(
+              "                        max=\"24\"\n                        value={selectedConnection.style.strokeWidth}\n",
+              "                        max=\"24\"\n                        value={selectedConnection.style.strokeWidth}\n                        disabled={!designEditingEnabled}\n",
+          )
+          replace_once(
+              "                      value={selectedConnection.style.dash}\n                      ariaLabel=\"连线路由\"\n",
+              "                      value={selectedConnection.style.dash}\n                      disabled={!designEditingEnabled}\n                      ariaLabel=\"连线路由\"\n",
+          )
+
+          checkbox_marker = "                    className=\"checkbox-field property-toggle\"\n                    checked="
+          count = text.count(checkbox_marker)
+          if count != 4:
+              raise SystemExit(f'expected four SCADA property checkboxes, found {count}')
+          text = text.replace(
+              checkbox_marker,
+              "                    className=\"checkbox-field property-toggle\"\n                    disabled={!designEditingEnabled}\n                    checked=",
+          )
+
+          replace_once(
+              "            {inspectorTab === 'properties' && !selectedConnection && primaryNode && (\n",
+              "            {inspectorTab === 'properties' &&\n              !selectedConnection &&\n              selectedNodes.length === 1 &&\n              primaryNode && (\n",
+          )
+          replace_once(
+              "                      value={primaryNode.name}\n                      onChange={(event) => {\n",
+              "                      value={primaryNode.name}\n                      disabled={!designEditingEnabled}\n                      onChange={(event) => {\n",
+          )
+          replace_once(
+              "                    runtimeSources={DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES}\n                    onAttributeChange={updatePrimaryComponentAttribute}\n",
+              "                    runtimeSources={DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES}\n                    readOnly={!designEditingEnabled}\n                    onAttributeChange={updatePrimaryComponentAttribute}\n",
+          )
+          replace_once(
+              "                            value={Math.round(primaryNode.transform[field] * 100) / 100}\n                            onChange={(event) =>\n",
+              "                            value={Math.round(primaryNode.transform[field] * 100) / 100}\n                            disabled={!designEditingEnabled}\n                            onChange={(event) =>\n",
+          )
+
+          path.write_text(text)
+          PY
+      - name: Commit patch and remove helper workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/b3-apply-mode-selection.yml
+          git add src/features/scada-editor/ScadaEditorPage.tsx
+          git commit -m "fix: gate SCADA preview mutations and multi-selection scope"
+          git push origin HEAD:fix/ui-b3-mode-selection
