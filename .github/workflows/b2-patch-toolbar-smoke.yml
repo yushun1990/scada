@@ -18,29 +18,31 @@ jobs:
         with:
           ref: fix/ui-b2-save-leave
       - name: Align toolbar smoke with guarded leave lifecycle
-        shell: python
         run: |
+          python - <<'PY'
           from pathlib import Path
-
           path = Path('scripts/pages-component-toolbar-smoke.mjs')
           text = path.read_text()
-          old = """  console.log(`Opening deployed SCADA Editor toolbar layout regression: ${baseUrl}#/works`)
-  await page.setViewportSize({ width: 1200, height: 900 })
-  await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
-  await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
-"""
-          new = """  console.log(`Opening deployed SCADA Editor toolbar layout regression: ${baseUrl}#/works`)
-  await page.setViewportSize({ width: 1200, height: 900 })
-  await page.getByRole('button', { name: '返回组件库工作台' }).click()
-  await page.getByRole('dialog', { name: '保存修改后离开？' }).waitFor()
-  await page.getByRole('button', { name: '放弃修改', exact: true }).click()
-  await page.getByText('组件库开发', { exact: true }).first().waitFor()
-  await page.evaluate(() => { window.location.hash = '#/works' })
-  await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
-"""
+          old = (
+              "  console.log(`Opening deployed SCADA Editor toolbar layout regression: ${baseUrl}#/works`)\n"
+              "  await page.setViewportSize({ width: 1200, height: 900 })\n"
+              "  await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })\n"
+              "  await page.getByText('SCADA 作品', { exact: true }).first().waitFor()\n"
+          )
+          new = (
+              "  console.log(`Opening deployed SCADA Editor toolbar layout regression: ${baseUrl}#/works`)\n"
+              "  await page.setViewportSize({ width: 1200, height: 900 })\n"
+              "  await page.getByRole('button', { name: '返回组件库工作台' }).click()\n"
+              "  await page.getByRole('dialog', { name: '保存修改后离开？' }).waitFor()\n"
+              "  await page.getByRole('button', { name: '放弃修改', exact: true }).click()\n"
+              "  await page.getByText('组件库开发', { exact: true }).first().waitFor()\n"
+              "  await page.evaluate(() => { window.location.hash = '#/works' })\n"
+              "  await page.getByText('SCADA 作品', { exact: true }).first().waitFor()\n"
+          )
           if old not in text:
               raise SystemExit('target toolbar navigation block not found')
           path.write_text(text.replace(old, new, 1))
+          PY
       - name: Commit patch and remove helper workflow
         run: |
           git config user.name "github-actions[bot]"
