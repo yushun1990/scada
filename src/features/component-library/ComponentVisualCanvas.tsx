@@ -25,6 +25,7 @@ import {
   TrashIcon,
   UndoIcon,
 } from '../../components/toolbar-icons'
+import { shouldIgnoreEditorShortcut } from '../../editor/keyboard'
 import { NumberInput, ToolbarButton } from '../../ui'
 import {
   appendCreatedVectorLayer,
@@ -70,6 +71,10 @@ type ComponentVisualCanvasProps = {
   mode: ComponentWorkbenchMode
   readOnly: boolean
   snapEnabled: boolean
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
   onSelectionChange: ComponentLayerSelectionChange
   onChange: (visual: ComponentVisualDefinition) => void
 }
@@ -93,7 +98,6 @@ const TRANSFORMER_ANCHORS = [
 const WORKBENCH_ARTBOARD_MAX_WIDTH = 720
 const WORKBENCH_ARTBOARD_MAX_HEIGHT = 520
 const WORKBENCH_ARTBOARD_FIT_GUTTER = 4
-const COMPONENT_VISUAL_HISTORY_LIMIT = 100
 
 function isInsideTransformer(
   target: Konva.Node,
@@ -137,14 +141,6 @@ function measureCanvasViewport(element: HTMLDivElement): CanvasViewport {
       element.clientHeight - verticalPadding - WORKBENCH_ARTBOARD_FIT_GUTTER,
     ),
   }
-}
-
-function isTextEditingTarget(target: EventTarget | null) {
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    (target instanceof HTMLElement && target.isContentEditable)
-  )
 }
 
 function CreateGeometryPreview({
@@ -218,6 +214,10 @@ export function ComponentVisualCanvas({
   mode,
   readOnly,
   snapEnabled,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
   onSelectionChange,
   onChange,
 }: ComponentVisualCanvasProps) {
@@ -228,18 +228,11 @@ export function ComponentVisualCanvas({
   const transformerRef = useRef<Konva.Transformer>(null)
   const verticalGuideRef = useRef<Konva.Line>(null)
   const horizontalGuideRef = useRef<Konva.Line>(null)
-  const visualRef = useRef(visual)
-  const undoStackRef = useRef<ComponentVisualDefinition[]>([])
-  const redoStackRef = useRef<ComponentVisualDefinition[]>([])
-  const applyingHistoryRef = useRef(false)
-  const isEditableRef = useRef(false)
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
   const [editToolbarHost, setEditToolbarHost] = useState<HTMLElement | null>(null)
   const [viewToolbarHost, setViewToolbarHost] = useState<HTMLElement | null>(null)
   const [gridVisible, setGridVisible] = useState(true)
   const [gridSize, setGridSize] = useState(COMPONENT_SNAP_GRID_SIZE)
-  const [canUndo, setCanUndo] = useState(false)
-  const [canRedo, setCanRedo] = useState(false)
   const [animationTimeMs, setAnimationTimeMs] = useState(0)
   const [createStart, setCreateStart] = useState<ComponentDesignPoint | null>(null)
   const [createCurrent, setCreateCurrent] = useState<ComponentDesignPoint | null>(null)
@@ -305,15 +298,6 @@ export function ComponentVisualCanvas({
     : null
 
   useLayoutEffect(() => {
-    isEditableRef.current = isEditable
-  }, [isEditable])
-
-  function syncHistoryAvailability() {
-    setCanUndo(undoStackRef.current.length > 0)
-    setCanRedo(redoStackRef.current.length > 0)
-  }
-
-  useLayoutEffect(() => {
     const element = canvasHostRef.current
 
     if (!element) {
@@ -366,29 +350,6 @@ export function ComponentVisualCanvas({
     frameId = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(frameId)
   }, [mode, visual.animations.length])
-
-  useEffect(() => {
-    const previous = visualRef.current
-
-    if (previous === visual) {
-      return
-    }
-
-    if (applyingHistoryRef.current) {
-      applyingHistoryRef.current = false
-      visualRef.current = visual
-      syncHistoryAvailability()
-      return
-    }
-
-    undoStackRef.current = [
-      ...undoStackRef.current.slice(-(COMPONENT_VISUAL_HISTORY_LIMIT - 1)),
-      previous,
-    ]
-    redoStackRef.current = []
-    visualRef.current = visual
-    syncHistoryAvailability()
-  }, [visual])
 
   useEffect(() => {
     const transformer = transformerRef.current
@@ -480,7 +441,7 @@ export function ComponentVisualCanvas({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.defaultPrevented || isTextEditingTarget(event.target)) {
+      if (shouldIgnoreEditorShortcut(event)) {
         return
       }
 
@@ -496,60 +457,12 @@ export function ComponentVisualCanvas({
       if (event.key === 'Escape' && selectedLayerIds.length > 0) {
         event.preventDefault()
         onSelectionChange(null)
-        return
-      }
-
-      const modifier = event.ctrlKey || event.metaKey
-      const key = event.key.toLowerCase()
-      const isUndo = modifier && !event.shiftKey && key === 'z'
-      const isRedo = modifier && (key === 'y' || (event.shiftKey && key === 'z'))
-
-      if (isUndo && undoStackRef.current.length > 0 && isEditableRef.current) {
-        event.preventDefault()
-        undoVisual()
-      } else if (isRedo && redoStackRef.current.length > 0 && isEditableRef.current) {
-        event.preventDefault()
-        redoVisual()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   })
-
-  function undoVisual() {
-    const previous = undoStackRef.current[undoStackRef.current.length - 1]
-
-    if (!previous || !isEditableRef.current) {
-      return
-    }
-
-    undoStackRef.current = undoStackRef.current.slice(0, -1)
-    redoStackRef.current = [
-      ...redoStackRef.current.slice(-(COMPONENT_VISUAL_HISTORY_LIMIT - 1)),
-      visualRef.current,
-    ]
-    applyingHistoryRef.current = true
-    onChange(previous)
-    syncHistoryAvailability()
-  }
-
-  function redoVisual() {
-    const next = redoStackRef.current[redoStackRef.current.length - 1]
-
-    if (!next || !isEditableRef.current) {
-      return
-    }
-
-    redoStackRef.current = redoStackRef.current.slice(0, -1)
-    undoStackRef.current = [
-      ...undoStackRef.current.slice(-(COMPONENT_VISUAL_HISTORY_LIMIT - 1)),
-      visualRef.current,
-    ]
-    applyingHistoryRef.current = true
-    onChange(next)
-    syncHistoryAvailability()
-  }
 
   function duplicateSelection() {
     if (!isEditable || selectedLayerIds.length === 0) {
@@ -845,7 +758,7 @@ export function ComponentVisualCanvas({
             title="撤销 (Ctrl+Z)"
             aria-label="撤销"
             disabled={!isEditable || !canUndo}
-            onClick={undoVisual}
+            onClick={onUndo}
           >
             <UndoIcon />
           </ToolbarButton>
@@ -855,7 +768,7 @@ export function ComponentVisualCanvas({
             title="重做 (Ctrl+Shift+Z)"
             aria-label="重做"
             disabled={!isEditable || !canRedo}
-            onClick={redoVisual}
+            onClick={onRedo}
           >
             <RedoIcon />
           </ToolbarButton>
