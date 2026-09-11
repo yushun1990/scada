@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { StandaloneRuntimePage } from './features/runtime/StandaloneRuntimePage'
 import {
+  commitStudioNavigation,
   consumeStudioNavigationBypass,
   getActiveEditorNavigationGuard,
   normalizeStudioHash,
@@ -168,8 +169,12 @@ function App() {
         guard?.shouldBlock()
       ) {
         const previousHash = acceptedHashRef.current
-        window.history.replaceState(window.history.state, '', previousHash)
         guard.requestLeave(nextHash)
+        // Hash navigation cannot be cancelled after hashchange fires. Restore
+        // the accepted editor location as a new current entry instead of
+        // rewriting the target entry: the original Back target remains behind
+        // it, so Cancel followed by Back reaches the same guarded destination.
+        commitStudioNavigation(previousHash)
         return
       }
 
