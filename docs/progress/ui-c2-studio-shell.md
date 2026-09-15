@@ -1,6 +1,6 @@
 # UI C2 Shared StudioShell
 
-Status: implementation and local acceptance in progress · 2026-09-15
+Status: local acceptance passed; remote PR checks pending · 2026-09-15
 
 Plan source: [industrial Designer rollout](../design/industrial-designer-rollout.md), C2. PR: [#194](https://github.com/yushun1990/scada/pull/194), based on C1 `main@03ef6184ed0dcdb61f910b4290b907b694380d8d`.
 
@@ -19,6 +19,14 @@ The failing Component Editor Browser Checks run was [34608776760](https://github
 - Toolbar regression now explicitly discards the unsaved fixture through B2's leave guard before changing editor routes. SCADA fits at 1000px, so a separate 900px case exercises actual geometry overflow while retaining the 1000px visibility check.
 - Remaining component/work transfer, SVG, standalone and deployed chrome tests now use the shared Shell identity. Standalone absence assertions check the current Shell rather than a deleted class.
 - The dedicated Shell regression also runs after Pages deployment and uploads its captures.
+
+## Verification
+
+Local build and lint passed on repair `16dd67a`. Chromium checks passed for StudioShell, compact toolbars, all nine Component Editor checks, B1 transactions, B2 save/leave, B3 mode/selection, C1 foundation, shared chrome, the main authoring smoke, work-package transfer, managed SVG authoring/author refs/geometry/stylesheet compatibility, and fresh standalone runtime.
+
+The SVG checks now perform the current resource upload followed by explicit double-click placement. Unsafe-upload rejection, Inspector replacement, history, canonical target identity, package closure and standalone rendering assertions remain intact.
+
+Remote CI and deployed acceptance remain separate gates; the PR's check rollup and subsequent Pages runs provide those results.
 
 ## Acceptance scope
 
