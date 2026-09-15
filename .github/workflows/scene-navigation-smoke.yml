@@ -1,0 +1,77 @@
+name: Scene Navigation Browser Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/App.tsx'
+      - 'src/editor/**'
+      - 'src/styles.css'
+      - 'src/styles/**'
+      - 'src/ui/**'
+      - 'src/features/scada-editor/**'
+      - 'src/features/component-library/**'
+      - 'src/features/workspace/EditorStorageGate.tsx'
+      - 'src/storage/**'
+      - 'scripts/pages-scene-navigation-smoke.mjs'
+      - '.github/workflows/scene-navigation-smoke.yml'
+      - 'package*.json'
+      - 'vite.config.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scene-navigation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and verify UI authority
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          npm ci
+          npm run build 2>&1 | tee artifacts/scene-navigation-build.log
+          npm run lint 2>&1 | tee artifacts/scene-navigation-lint.log
+      - name: Install browser test tools
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+      - name: Verify shared Scene Navigator layout
+        env:
+          SCADA_PAGES_URL: http://127.0.0.1:4173/
+        run: |
+          set -euo pipefail
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/scene-navigation-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS "$SCADA_PAGES_URL" >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/scene-navigation-preview.log | tee artifacts/scene-navigation-browser.log
+            exit 1
+          fi
+          node scripts/pages-scene-navigation-smoke.mjs 2>&1 | tee artifacts/scene-navigation-browser.log
+      - name: Upload Scene Navigator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scene-navigation-evidence
+          path: artifacts/*
+          if-no-files-found: ignore

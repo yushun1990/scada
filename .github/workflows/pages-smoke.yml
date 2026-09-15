@@ -39,6 +39,7 @@ jobs:
         run: |
           node scripts/pages-smoke.mjs
           node scripts/pages-studio-shell-smoke.mjs
+          node scripts/pages-scene-navigation-smoke.mjs
           node scripts/pages-component-arrange-smoke.mjs
           node scripts/pages-component-navigation-smoke.mjs
           node scripts/pages-animation-move-smoke.mjs
@@ -67,6 +68,7 @@ jobs:
           name: editor-toolbar-pages-audit
           path: |
             artifacts/studio-shell-*.png
+            artifacts/scene-navigator-*.png
             artifacts/component-toolbar-1200.png
             artifacts/component-toolbar-1000.png
             artifacts/component-navigation-1000.png

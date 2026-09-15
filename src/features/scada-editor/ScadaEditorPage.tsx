@@ -13,6 +13,8 @@ import {
   DEFAULT_PREVIEW_RUNTIME_VALUE_SOURCES,
   previewRuntime,
 } from '../../runtime'
+import { SceneNavigator } from './SceneNavigator'
+import { ScenePalette } from './ScenePalette'
 import { ComponentPropertiesInspector } from './ComponentPropertiesInspector'
 import {
   ComponentInteractionsInspector,
@@ -94,7 +96,6 @@ import {
   Checkbox,
   Input,
   NumberInput,
-  Pressable,
   SegmentedControl,
   Select,
   Tabs,
@@ -105,7 +106,7 @@ import {
 } from '../../ui'
 
 type InspectorTab = 'properties' | 'actions' | 'events'
-type LeftDockTab = 'components' | 'layers' | 'assets'
+type LeftDockTab = 'components' | 'layers'
 
 const alignButtons: Array<{ mode: AlignMode; title: string; icon: typeof CopyIcon }> = [
   { mode: 'left', title: '左对齐', icon: AlignLeftIcon },
@@ -124,7 +125,6 @@ const MODE_ITEMS: Array<SegmentedControlItem<RendererMode>> = [
 const LEFT_DOCK_TABS: Array<StudioTabItem<LeftDockTab>> = [
   { value: 'components', label: '组件' },
   { value: 'layers', label: '图层' },
-  { value: 'assets', label: '资源' },
 ]
 
 const INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
@@ -1160,46 +1160,26 @@ export function ScadaEditorPage({
             items={LEFT_DOCK_TABS}
             onValueChange={setLeftDockTab}
             ariaLabel="左侧工作区"
-            className="dock-tabs"
+            className="dock-tabs scada-navigation-tabs"
           />
 
           {leftDockTab === 'components' && (
-            <div className="dock-content">
-              <div className="panel-title">基础组件</div>
-              {builtInComponentRegistry.list().map(({ definition }) => (
-                <Pressable
-                  key={definition.type}
-                  className="component-item"
-                  disabled={!designEditingEnabled}
-                  onClick={() => addComponent(definition.type)}
-                >
-                  <span className="component-icon">
-                    {definition.title.slice(0, 1).toUpperCase()}
-                  </span>
-                  <span>
-                    <strong>{definition.title}</strong>
-                    <small>{definition.type}</small>
-                  </span>
-                </Pressable>
-              ))}
-              <p className="panel-description component-dock-help">
-                组件面板直接来自 ComponentRegistry；新增内置注册项无需修改编辑器页面。
-              </p>
-            </div>
+            <ScenePalette readOnly={!designEditingEnabled} onAdd={addComponent} />
           )}
-
           {leftDockTab === 'layers' && (
-            <div className="dock-placeholder">
-              <strong>图层树</strong>
-              <span>用于层级、排序、锁定、显隐和进入组合编辑。</span>
-            </div>
-          )}
-
-          {leftDockTab === 'assets' && (
-            <div className="dock-placeholder">
-              <strong>资源库</strong>
-              <span>用于项目图片、SVG 和其他可复用资源。</span>
-            </div>
+            <SceneNavigator
+              nodes={scene.nodes}
+              selectedNodeIds={selectedNodeIds}
+              readOnly={!designEditingEnabled}
+              onSelectionChange={selectNodes}
+              onNodeStateChange={(id, patch) => {
+                if (!designEditingEnabled) return
+                commit((current) => ({
+                  ...current,
+                  nodes: current.nodes.map((node) => node.id === id ? { ...node, ...patch } : node),
+                }))
+              }}
+            />
           )}
         </aside>
         )}

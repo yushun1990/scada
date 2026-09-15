@@ -1984,9 +1984,17 @@ export function SceneRenderer({
     clearReconnectSession(accepted)
   }
 
+  // Navigator may inspect descendants and locked nodes. Keep transform handles
+  // root-scoped, but show their selection through the existing passive overlay.
+  const inspectedNodes = scene.nodes.filter((node) => selectedNodeIds.includes(node.id))
+  const inspectedNode = inspectedNodes.find((node) => node.id === selectedNodeIds.at(-1))
+  const visibleSelection = inspectedNodes.filter((node) => isNodeEffectivelyVisible(scene, node))
+  const outlinedNodes = visibleSelection.filter((node) =>
+    selectedNodeIds.length > 1 || node.parentId !== null || node.locked,
+  )
   const selectionBounds =
-    selectedNodeIds.length > 1
-      ? getSelectionBounds(scene, selectedNodeIds)
+    visibleSelection.length > 1
+      ? getSelectionBounds(scene, visibleSelection.map((node) => node.id))
       : null
   const marqueeBounds = marquee ? normalizeMarquee(marquee) : null
   const transformNode = selectedNodeIds.length === 1 ? primaryNode : null
@@ -2361,8 +2369,7 @@ export function SceneRenderer({
               onTransformEnd={handleTransformEnd}
             />
 
-            {selectedNodeIds.length > 1 &&
-              selectedNodes.map((node) => {
+            {outlinedNodes.map((node) => {
                 const bounds = getNodeBounds(scene, node)
 
                 return (
@@ -2630,17 +2637,17 @@ export function SceneRenderer({
               <>
                 <strong>已选 {selectedNodeIds.length} 个对象</strong>
               </>
-            ) : primaryNode ? (
+            ) : inspectedNode ? (
               <>
-                <strong>{primaryNode.name}</strong>
-                <code>{primaryNode.type}</code>
+                <strong>{inspectedNode.name}</strong>
+                <code>{inspectedNode.type}</code>
                 <span>
-                  {Math.round(primaryNode.transform.width)} ×{' '}
-                  {Math.round(primaryNode.transform.height)}
+                  {Math.round(inspectedNode.transform.width)} ×{' '}
+                  {Math.round(inspectedNode.transform.height)}
                 </span>
                 <span className="status-hint">
-                  @ {Math.round(primaryNode.transform.x)}, {Math.round(primaryNode.transform.y)}
-                  {isGroupNode(primaryNode) ? ' · 组合' : ''}
+                  @ {Math.round(inspectedNode.transform.x)}, {Math.round(inspectedNode.transform.y)}
+                  {isGroupNode(inspectedNode) ? ' · 组合' : ''}
                 </span>
               </>
             ) : (

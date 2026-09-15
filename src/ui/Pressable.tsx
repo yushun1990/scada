@@ -1,7 +1,7 @@
 import { Button as BaseButton } from '@base-ui/react/button'
-import type { ButtonHTMLAttributes } from 'react'
+import type { ComponentPropsWithRef } from 'react'
 
-export type PressableProps = ButtonHTMLAttributes<HTMLButtonElement>
+export type PressableProps = ComponentPropsWithRef<'button'>
 
 export function Pressable({
   className = '',

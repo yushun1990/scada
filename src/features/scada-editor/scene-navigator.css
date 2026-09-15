@@ -1,0 +1,97 @@
+.scada-studio-shell .component-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.scada-studio-shell .component-panel > .ui-tabs {
+  flex: 0 0 auto;
+}
+
+.scene-navigator {
+  flex: 1;
+  min-height: 0;
+}
+
+.scene-palette {
+  overflow: auto;
+  min-height: 0;
+}
+
+.scada-navigation-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.scene-navigator,
+.scene-palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+  min-width: 0;
+}
+
+.scene-navigator-heading,
+.scene-navigator-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+}
+
+.scene-navigator-heading {
+  justify-content: space-between;
+}
+
+.scene-navigator-summary {
+  margin: 0;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-tool);
+}
+
+.scene-navigator-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.scene-navigator-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+  width: 100%;
+  min-height: var(--ui-control-height);
+  padding: var(--ui-space-1);
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text);
+  background: transparent;
+  text-align: left;
+  font-size: var(--ui-font-size-tool);
+}
+
+.scene-navigator-row:hover {
+  background: var(--ui-color-surface-subtle);
+}
+
+.scene-navigator-row[aria-selected='true'] {
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+  border-color: var(--ui-color-accent);
+}
+
+.scene-navigator-row:focus-visible {
+  outline: var(--ui-focus-outline);
+  outline-offset: -2px;
+}
+
+.scene-navigator-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-navigator-state {
+  flex: 0 0 auto;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-tool);
+}
