@@ -63,9 +63,7 @@ const staticStructuralSvg = `
 `.trim()
 
 function globalAssetImportControl() {
-  return page.locator('.component-asset-import-control')
-    .filter({ hasText: '导入 SVG / 图片' })
-    .first()
+  return page.getByRole('region', { name: '组件创作素材' })
 }
 
 function selectedAssetReplacementControl() {
@@ -76,9 +74,7 @@ function selectedAssetReplacementControl() {
 
 async function waitForAssetInputReady() {
   await page.waitForFunction(() => {
-    const control = [...document.querySelectorAll('.component-asset-import-control')]
-      .find((candidate) => candidate.textContent?.includes('导入 SVG / 图片'))
-    const input = control?.querySelector('input[type="file"]')
+    const input = document.querySelector('.component-palette-resource-input')
     return input instanceof HTMLInputElement && !input.disabled && input.value === ''
   })
 }
@@ -101,7 +97,7 @@ try {
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(unsafeStyledSvg),
   })
-  await globalAssetImportControl().locator('.component-asset-import-message').waitFor()
+  await globalAssetImportControl().locator('.component-palette-message').waitFor()
   assert.equal(
     await page.locator('.component-layer-row').count(),
     0,
@@ -114,6 +110,7 @@ try {
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(styledSvg),
   })
+  await page.locator('.component-palette-resource-item', { hasText: 'styled-inkscape-like' }).dblclick()
   await page.locator('.component-layer-row', { hasText: 'styled-inkscape-like' }).waitFor()
   await page.locator('.component-managed-svg-editor').waitFor()
   await page.locator('.component-managed-svg-row', { hasText: 'svg-tag-000003' }).click()

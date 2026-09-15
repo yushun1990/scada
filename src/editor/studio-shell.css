@@ -120,10 +120,6 @@
   background: transparent;
 }
 
-.studio-main-toolbar .canvas-tool-group {
-  flex: 0 0 auto;
-}
-
 .studio-document-bar {
   display: flex;
   align-items: center;
@@ -188,11 +184,25 @@
 }
 
 .studio-left-panel {
+  grid-column: 1;
   border-right: 1px solid var(--ui-color-border);
 }
 
 .studio-right-panel {
+  grid-column: 5;
   border-left: 1px solid var(--ui-color-border);
+}
+
+.studio-center-workspace {
+  grid-column: 3;
+}
+
+.studio-panel-resizer-left {
+  grid-column: 2;
+}
+
+.studio-panel-resizer-right {
+  grid-column: 4;
 }
 
 .studio-left-panel > .component-panel,

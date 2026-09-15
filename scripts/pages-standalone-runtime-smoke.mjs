@@ -54,7 +54,7 @@ try {
   await page.getByText('加载 dependency-complete SCADA 作品包', { exact: true }).waitFor()
 
   assert.equal(await page.locator('.workspace-shell').count(), 0)
-  assert.equal(await page.locator('.editor-shell').count(), 0)
+  assert.equal(await page.locator('.studio-shell').count(), 0)
   assert.equal(await page.getByRole('button', { name: '保存', exact: true }).count(), 0)
   assert.equal((await localDatabaseNames()).includes('scada-editor-lab'), false)
 
@@ -154,7 +154,7 @@ try {
   })
 
   assert.equal(await page.locator('.workspace-shell').count(), 0)
-  assert.equal(await page.locator('.editor-shell').count(), 0)
+  assert.equal(await page.locator('.studio-shell').count(), 0)
   assert.equal(await page.getByRole('button', { name: '保存', exact: true }).count(), 0)
   assert.equal(
     (await localDatabaseNames()).includes('scada-editor-lab'),

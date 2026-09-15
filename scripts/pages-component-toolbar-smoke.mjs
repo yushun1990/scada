@@ -219,6 +219,11 @@ try {
 
   console.log(`Opening SCADA Editor Studio toolbar regression: ${baseUrl}#/works`)
   await page.setViewportSize({ width: 1200, height: 900 })
+  // A new component is unsaved: leave through B2's guard before changing routes.
+  await page.getByRole('button', { name: '返回组件库工作台', exact: true }).click()
+  await page.getByRole('dialog').waitFor()
+  await page.getByRole('button', { name: '放弃修改', exact: true }).click()
+  await page.getByRole('heading', { name: '组件库开发', exact: true }).waitFor()
   await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
@@ -242,11 +247,16 @@ try {
   await page.setViewportSize({ width: 1000, height: 900 })
   await page.waitForTimeout(100)
   await page.screenshot({ path: 'artifacts/scada-toolbar-1000.png', fullPage: true })
-  const scadaCompact = await measureScadaToolbar('SCADA 1000px compact desktop')
+  await measureScadaToolbar('SCADA 1000px compact desktop')
+  // C2's shorter SCADA command set fits at 1000px. Exercise overflow below that
+  // width instead of requiring a scrollbar when every command already fits.
+  await page.setViewportSize({ width: 900, height: 900 })
+  await page.waitForTimeout(100)
+  const scadaCompact = await measureScadaToolbar('SCADA 900px compact desktop')
   await assertCompactGeometryReachability(
     scadaCompact,
     scadaCompact.geometryGroup.getByRole('button', { name: '垂直等距分布' }),
-    'SCADA 1000px',
+    'SCADA 900px',
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'http://127.0.0.1:4173/').replace(/\/?$/, '/')
@@ -64,13 +65,34 @@ async function assertShellGeometry({ panels = true } = {}) {
   assert.ok(geometry.center.width >= 480, `center workspace must remain usable, got ${geometry.center.width}`)
   assert.ok(geometry.bodyScrollWidth <= geometry.bodyClientWidth + 1, 'StudioShell must not create page-level horizontal overflow')
   assert.equal(geometry.visibleCanvasToolbars, 0, 'C2 must expose one Studio toolbar row, not a second canvas toolbar')
+  closeTo(geometry.center.y, geometry.document.y + geometry.document.height)
+  closeTo(geometry.center.y + geometry.center.height, geometry.status.y)
+  closeTo(geometry.center.x, geometry.left ? geometry.left.width + 6 : 0)
+  closeTo(
+    geometry.center.x + geometry.center.width,
+    geometry.bodyClientWidth - (geometry.right ? geometry.right.width + 6 : 0),
+  )
   if (panels) {
     assert.ok(geometry.left && geometry.right, 'both side panels must be visible')
   }
   return geometry
 }
 
+async function assertPanelVisibilityLayout() {
+  for (const side of ['左侧', '属性', '左侧', '属性']) {
+    const hide = page.getByRole('button', { name: `隐藏${side}面板`, exact: true })
+    if (await hide.count()) {
+      await hide.click()
+    } else {
+      await page.getByRole('button', { name: `显示${side}面板`, exact: true }).click()
+    }
+    await assertShellGeometry({ panels: false })
+  }
+  await assertShellGeometry()
+}
+
 try {
+  await mkdir('artifacts', { recursive: true })
   await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
@@ -82,6 +104,8 @@ try {
   assert.ok(await page.getByRole('button', { name: '保存', exact: true }).isVisible())
   assert.ok(await page.getByRole('button', { name: '设计', exact: true }).isVisible())
   assert.ok(await page.locator('.studio-right-panel .semantic-inspector').isVisible())
+  await assertPanelVisibilityLayout()
+  await page.screenshot({ path: 'artifacts/studio-shell-scada-1366.png', fullPage: true })
 
   const nameField = page
     .locator('.studio-right-panel .property-field')
@@ -109,6 +133,7 @@ try {
   const persistedResizerWidth = Number(await page.locator('.studio-panel-resizer-left').getAttribute('aria-valuenow'))
   assert.equal(persistedResizerWidth, resizedLeftWidth, 'left panel width must persist through existing storage meta')
   assert.equal(await page.locator('.studio-right-panel:not([hidden])').count(), 0, 'hidden right panel must persist')
+  await assertShellGeometry({ panels: false })
   assert.equal(await page.locator('.document-save-status').getByText('已保存', { exact: true }).count(), 1)
 
   await page.getByRole('button', { name: '视图', exact: true }).click()
@@ -155,6 +180,8 @@ try {
   await viewHost.getByRole('button', { name: '显示格线' }).waitFor()
   assert.ok(await viewHost.getByRole('button', { name: '吸附' }).isVisible())
   assert.equal(await page.locator('.component-canvas-toolbar').count(), 0, 'old component canvas toolbar authority must be gone')
+  await assertPanelVisibilityLayout()
+  await page.screenshot({ path: 'artifacts/studio-shell-component-1366.png', fullPage: true })
 
   assert.deepEqual(pageErrors, [], `unexpected page errors: ${pageErrors.join('; ')}`)
 } finally {

@@ -263,8 +263,8 @@ try {
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
 
-  const canvasToolbar = page.locator('.component-canvas-toolbar')
-  assert.equal(await canvasToolbar.count(), 1, 'formal component canvas toolbar must exist')
+  const canvasToolbar = page.getByRole('toolbar', { name: 'Studio 主工具栏' })
+  assert.equal(await canvasToolbar.count(), 1, 'shared Studio toolbar must exist')
   assert.equal(
     await page.locator('.component-layer-root').count(),
     0,

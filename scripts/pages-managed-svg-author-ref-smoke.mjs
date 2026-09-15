@@ -23,9 +23,7 @@ const svgSource = `
 `.trim()
 
 function globalAssetImportControl(currentPage) {
-  return currentPage.locator('.component-asset-import-control')
-    .filter({ hasText: '导入 SVG / 图片' })
-    .first()
+  return currentPage.getByRole('region', { name: '组件创作素材' })
 }
 
 function findVisualLayer(document, kind, name) {
@@ -105,6 +103,7 @@ try {
     buffer: Buffer.from(svgSource),
   })
 
+  await page.locator('.component-palette-resource-item', { hasText: 'ux1.3-author-ref' }).dblclick()
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).waitFor()
   await page.locator('.component-managed-svg-editor').waitFor()
 
