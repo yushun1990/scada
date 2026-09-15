@@ -110,7 +110,7 @@ try {
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
 
-  await page.locator('.component-palette-item[aria-label="文本"]').click()
+  await page.locator('.component-palette-item[aria-label="文本"]').dblclick()
   await layerRow('文本 1').waitFor()
 
   await page.getByRole('button', { name: '保存' }).click()

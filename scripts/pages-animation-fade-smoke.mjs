@@ -68,7 +68,7 @@ try {
   console.log(`Opening deployed Component Editor fade animation smoke: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
-  await page.locator('.component-palette-item[aria-label="文本"]').click()
+  await page.locator('.component-palette-item[aria-label="文本"]').dblclick()
   await layerRow('文本 1').waitFor()
   await page.getByRole('button', { name: '保存' }).click()
   await page.waitForFunction(() => window.location.hash !== '#/components/new')

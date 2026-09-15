@@ -1,6 +1,6 @@
 # UI C2 Shared StudioShell
 
-Status: local acceptance passed; remote PR checks pending · 2026-09-15
+Status: merged; deployed regression follow-up in progress · 2026-09-15
 
 Plan source: [industrial Designer rollout](../design/industrial-designer-rollout.md), C2. PR: [#194](https://github.com/yushun1990/scada/pull/194), based on C1 `main@03ef6184ed0dcdb61f910b4290b907b694380d8d`.
 
@@ -41,3 +41,9 @@ The renderer-local status nodes remain visually hidden telemetry consumed by exi
 ## Next
 
 Proceed with D1 Scene Navigator: replace the SCADA layer placeholder with the actual Scene hierarchy, searchable names/types, explicit selection and hidden/locked state. Remove the unused resource placeholder and add Palette search/category filtering. Preserve Scene v8, B1–B3 and M9 semantics. D2 Inspector/property rows and D3 mixed-value editing remain separate work.
+
+## Deployed follow-up
+
+PR #194 merged as `bf995a43c416be0f35a468a9993684eb8de0cf8a`; all eight PR checks, main CI 34969647402 and deployment 34969647366 passed. Pages run 34969714724 exposed older animation fixtures still using single-click Palette creation. Move/scale/fade/blink fixtures now use explicit double-click placement and passed against that deployed revision.
+
+The remaining SCADA feedback check also exposed competing toast declarations in lazy `workbench.css`: `top` and `bottom` stretched the notification over the canvas. Toast layout now has one authority in `editor-chrome.css`; the competing legacy and foundation blocks are removed. Browser evidence confirms an 18px-high transparent message 8px above the canvas footer. This regression now runs in the PR Shell gate as well as after deployment.

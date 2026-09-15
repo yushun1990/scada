@@ -12,6 +12,12 @@
 }
 
 .canvas-toast {
+  position: absolute;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--ui-font-size-tool);
   top: auto;
   right: auto;
   bottom: var(--ui-space-2);

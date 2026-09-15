@@ -20,27 +20,14 @@ try {
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
   await page.locator('.studio-shell.scada-studio-shell').waitFor()
 
-  const toolbar = page.getByRole('toolbar', { name: '画布工具栏' })
+  const toolbar = page.getByRole('toolbar', { name: 'Studio 主工具栏' })
   const canvasArea = page.getByLabel('SCADA 编辑画布')
   await toolbar.waitFor()
   await canvasArea.waitFor()
 
-  const separatorStyles = await toolbar.evaluate((element) => {
-    const before = getComputedStyle(element, '::before')
-    const after = getComputedStyle(element, '::after')
-    return {
-      beforeHeight: before.height,
-      afterHeight: after.height,
-      beforeBackground: before.backgroundImage,
-      afterBackground: after.backgroundImage,
-    }
-  })
-
-  console.log(`SCADA separator styles: ${JSON.stringify(separatorStyles)}`)
-  assert.equal(separatorStyles.beforeHeight, '16px', 'first toolbar separator should be shortened to 16px')
-  assert.equal(separatorStyles.afterHeight, '16px', 'second toolbar separator should be shortened to 16px')
-  assert.notEqual(separatorStyles.beforeBackground, 'none', 'first toolbar separator should keep a soft gradient line')
-  assert.notEqual(separatorStyles.afterBackground, 'none', 'second toolbar separator should keep a soft gradient line')
+  const geometry = toolbar.locator('.scada-geometry-tool-group')
+  assert.equal(await geometry.evaluate((element) => getComputedStyle(element).borderLeftWidth), '1px',
+    'command families retain the shared C2 divider')
 
   const firstComponent = page.locator('.component-item').first()
   await firstComponent.waitFor()
@@ -77,10 +64,10 @@ try {
 
   const toastBottomGap = (canvasBox.y + canvasBox.height) - (toastBox.y + toastBox.height)
 
-  assert.equal(toastStyles.bottom, '7px', 'SCADA feedback toast must stay pinned to the footer area')
+  assert.equal(toastStyles.bottom, '8px', 'SCADA feedback toast must stay pinned to the footer area')
   assert.ok(
-    Math.abs(toastBottomGap - 7) <= 1,
-    `SCADA feedback toast rendered bottom gap must remain 7px, got ${toastBottomGap}px`,
+    Math.abs(toastBottomGap - 8) <= 1,
+    `SCADA feedback toast rendered bottom gap must remain 8px, got ${toastBottomGap}px`,
   )
   assert.equal(toastStyles.borderTopWidth, '0px', 'SCADA feedback toast must not regain the floating-pill border')
   assert.equal(toastStyles.borderRadius, '0px', 'SCADA feedback toast must not regain the floating-pill radius')
@@ -96,7 +83,7 @@ try {
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages SCADA toast smoke passed: add-component feedback stays compact at the footer and toolbar separators keep the shorter soft treatment.')
+  console.log('Pages SCADA toast smoke passed: add-component feedback stays compact at the footer and toolbar families retain the shared C2 divider.')
 } finally {
   await browser.close()
 }
