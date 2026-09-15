@@ -101,7 +101,7 @@ try {
   await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await page.getByText('SCADA Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.scada-studio-shell').waitFor()
 
   // Create a second Scene node so B3 can exercise both a normal single
   // selection and a real multi-selection through the Konva authoring surface.
@@ -137,10 +137,17 @@ try {
   assert.equal(baselineName, secondNode.name)
 
   await page.getByRole('button', { name: '预览', exact: true }).click()
-  await page.locator('.status-mode').getByText('预览', { exact: true }).waitFor()
+  await page.locator('.studio-status-mode').getByText('预览', { exact: true }).waitFor()
   await waitForSaveStatus('已保存')
 
-  assert.equal(await page.getByRole('button', { name: '导入', exact: true }).isDisabled(), true)
+  // C2 moves import into the Studio File menu; B3 still owns the semantic
+  // requirement that Preview makes this design mutation unavailable.
+  await page.getByRole('button', { name: '文件', exact: true }).click()
+  const importCommand = page.getByRole('menuitem', { name: '导入场景', exact: true })
+  await importCommand.waitFor()
+  assert.equal(await importCommand.isDisabled(), true)
+  await page.keyboard.press('Escape')
+
   assert.equal(await paletteItems.first().isDisabled(), true)
   assert.equal(await page.getByRole('button', { name: '复制选中对象' }).isDisabled(), true)
   assert.equal(await page.getByRole('button', { name: '删除选中对象' }).isDisabled(), true)
@@ -186,7 +193,7 @@ try {
   await waitForSaveStatus('已保存')
 
   await page.getByRole('button', { name: '设计', exact: true }).click()
-  await page.locator('.status-mode').getByText('选择', { exact: true }).waitFor()
+  await page.locator('.studio-status-mode').getByText('设计', { exact: true }).waitFor()
   assert.equal(await singleNameField.inputValue(), baselineName)
   await waitForSaveStatus('已保存')
 
@@ -230,7 +237,7 @@ try {
   // Preview preserves the multi-selection context but makes its batch fields
   // read-only and blocks history shortcuts as well.
   await page.getByRole('button', { name: '预览', exact: true }).click()
-  await page.locator('.status-mode').getByText('预览', { exact: true }).waitFor()
+  await page.locator('.studio-status-mode').getByText('预览', { exact: true }).waitFor()
   assert.equal(await batchLocked.isDisabled(), true)
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z')
   await waitForSaveStatus('已保存')

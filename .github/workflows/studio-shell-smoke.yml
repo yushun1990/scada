@@ -1,0 +1,78 @@
+name: Studio Shell Browser Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/App.tsx'
+      - 'src/editor/**'
+      - 'src/styles.css'
+      - 'src/styles/**'
+      - 'src/ui/**'
+      - 'src/features/scada-editor/**'
+      - 'src/features/component-library/**'
+      - 'src/features/workspace/EditorStorageGate.tsx'
+      - 'src/storage/**'
+      - 'scripts/pages-studio-shell-smoke.mjs'
+      - 'scripts/check-studio-shell-authority.mjs'
+      - '.github/workflows/studio-shell-smoke.yml'
+      - 'package*.json'
+      - 'vite.config.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-shell-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and verify shell authority
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          npm ci
+          npm run build 2>&1 | tee artifacts/studio-shell-build.log
+          npm run lint 2>&1 | tee artifacts/studio-shell-lint.log
+      - name: Install browser test tools
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+      - name: Verify shared StudioShell layout
+        env:
+          SCADA_PAGES_URL: http://127.0.0.1:4173/
+        run: |
+          set -euo pipefail
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/studio-shell-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS "$SCADA_PAGES_URL" >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/studio-shell-preview.log | tee artifacts/studio-shell-browser.log
+            exit 1
+          fi
+          node scripts/pages-studio-shell-smoke.mjs 2>&1 | tee artifacts/studio-shell-browser.log
+      - name: Upload StudioShell evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-shell-evidence
+          path: artifacts/*
+          if-no-files-found: ignore

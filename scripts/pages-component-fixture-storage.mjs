@@ -151,7 +151,7 @@ export async function saveAndWait(page) {
         const persisted = await readPersistedComponent(page)
         const updatedAt = persisted.document?.updatedAt ?? null
         if (beforeHash === '#/components/new' || updatedAt !== beforeUpdatedAt) {
-          await page.getByText('Component Editor', { exact: true }).waitFor()
+          await page.locator('.studio-shell.component-studio-shell').waitFor()
           return persisted
         }
       } catch (error) {

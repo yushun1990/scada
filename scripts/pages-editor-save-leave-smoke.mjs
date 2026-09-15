@@ -130,7 +130,7 @@ try {
   await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await page.getByText('SCADA Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.scada-studio-shell').waitFor()
   const scadaEditorUrl = page.url()
   await waitForSaveStatus('已保存')
 
@@ -200,7 +200,7 @@ try {
   // Browser Back: dirty editor stays mounted until Cancel/Discard resolves the same guard.
   const scadaEditorHash = new URL(scadaEditorUrl).hash
   await page.evaluate((targetHash) => { window.location.hash = targetHash }, scadaEditorHash)
-  await page.getByText('SCADA Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.scada-studio-shell').waitFor()
   const backNameField = page
     .locator('.property-panel .property-field')
     .filter({ has: page.locator('span', { hasText: /^名称$/ }) })
@@ -220,7 +220,7 @@ try {
 
   // Component new-document race: an older completed save must not overwrite or remount newer edits.
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await waitForSaveStatus('未保存')
   let componentTitle = await componentRootTitleField()
   await fillAndCommit(componentTitle, 'B2 Component Snapshot A')
@@ -249,7 +249,7 @@ try {
 
   await saveButton().click()
   await page.waitForFunction(() => /^#\/components\/(?!new$)[^/]+$/.test(window.location.hash))
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await waitForSaveStatus('已保存')
   componentTitle = await componentRootTitleField()
   assert.equal(await componentTitle.inputValue(), 'B2 Component Snapshot B')

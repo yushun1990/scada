@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { StandaloneRuntimePage } from './features/runtime/StandaloneRuntimePage'
 import {
   commitStudioNavigation,
@@ -8,9 +7,7 @@ import {
   normalizeStudioHash,
   requestStudioNavigation,
 } from './editor/editor-navigation'
-import { Button, Separator } from './ui'
 import './inspector-compact.css'
-import './component-editor-header.css'
 import './editor-toolbar-context.css'
 
 const WorkspacePage = lazy(() =>
@@ -50,84 +47,22 @@ function resolveRoute(): AppRoute {
     .filter(Boolean)
     .map((segment) => decodeURIComponent(segment))
 
-  if (segments[0] === '__ui-states') {
-    return { page: 'ui-states' }
-  }
-
-  if (segments[0] === 'runtime') {
-    return { page: 'runtime' }
-  }
-
+  if (segments[0] === '__ui-states') return { page: 'ui-states' }
+  if (segments[0] === 'runtime') return { page: 'runtime' }
   if (segments[0] === 'scada' && segments[1]) {
     return { page: 'scada', workId: segments[1] }
   }
-
   if (segments[0] === 'components' && segments[1]) {
     return { page: 'component', componentId: segments[1] }
   }
-
   if (segments[0] === 'components') {
     return { page: 'workspace', module: 'components' }
   }
-
   return { page: 'workspace', module: 'works' }
 }
 
 function navigateToWorkspace(module: WorkspaceModule) {
   requestStudioNavigation(module === 'components' ? '#/components' : '#/works')
-}
-
-function StudioWorkspaceExit({ module }: { module: WorkspaceModule }) {
-  const [toolbar, setToolbar] = useState<HTMLElement | null>(null)
-
-  useEffect(() => {
-    const resolveToolbar = () => {
-      const nextToolbar = document.querySelector<HTMLElement>(
-        '.editor-header .document-toolbar',
-      )
-      setToolbar((current) => current === nextToolbar ? current : nextToolbar)
-      return nextToolbar !== null
-    }
-
-    if (resolveToolbar()) {
-      return
-    }
-
-    const observer = new MutationObserver(() => {
-      if (resolveToolbar()) {
-        observer.disconnect()
-      }
-    })
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    })
-
-    return () => observer.disconnect()
-  }, [module])
-
-  if (!toolbar) {
-    return null
-  }
-
-  const title = module === 'components' ? '返回组件库工作台' : '返回 SCADA 作品工作台'
-
-  return createPortal(
-    <>
-      <Separator orientation="vertical" className="ui-workspace-separator" />
-      <Button
-        variant="accent"
-        className="ui-workspace-exit"
-        title={title}
-        aria-label={title}
-        onClick={() => navigateToWorkspace(module)}
-      >
-        ← 工作台
-      </Button>
-    </>,
-    toolbar,
-  )
 }
 
 function StorageWriteErrorNotice() {
@@ -174,16 +109,9 @@ function App() {
       }
 
       const guard = getActiveEditorNavigationGuard()
-      if (
-        nextHash !== acceptedHashRef.current &&
-        guard?.shouldBlock()
-      ) {
+      if (nextHash !== acceptedHashRef.current && guard?.shouldBlock()) {
         const previousHash = acceptedHashRef.current
         guard.requestLeave(nextHash)
-        // Hash navigation cannot be cancelled after hashchange fires. Restore
-        // the accepted editor location as a new current entry instead of
-        // rewriting the target entry: the original Back target remains behind
-        // it, so Cancel followed by Back reaches the same guarded destination.
         commitStudioNavigation(previousHash)
         return
       }
@@ -204,15 +132,16 @@ function App() {
     )
   }
 
-  if (route.page === 'runtime') {
-    return <StandaloneRuntimePage />
-  }
+  if (route.page === 'runtime') return <StandaloneRuntimePage />
 
   if (route.page === 'scada') {
     return (
       <Suspense fallback={<StudioRouteFallback />}>
-        <ScadaEditorStorageGate key={route.workId} workId={route.workId} />
-        <StudioWorkspaceExit key={`scada-${route.workId}`} module="works" />
+        <ScadaEditorStorageGate
+          key={route.workId}
+          workId={route.workId}
+          onNavigateWorkspace={() => navigateToWorkspace('works')}
+        />
         <StorageWriteErrorNotice />
       </Suspense>
     )
@@ -224,8 +153,8 @@ function App() {
         <ComponentEditorStorageGate
           key={route.componentId}
           componentId={route.componentId}
+          onNavigateWorkspace={() => navigateToWorkspace('components')}
         />
-        <StudioWorkspaceExit key={`component-${route.componentId}`} module="components" />
         <StorageWriteErrorNotice />
       </Suspense>
     )

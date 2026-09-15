@@ -9,6 +9,10 @@ type LoadState =
   | { status: 'ready' }
   | { status: 'error'; message: string }
 
+type EditorStorageGateProps = {
+  onNavigateWorkspace: () => void
+}
+
 function StorageLoading({ label }: { label: string }) {
   return (
     <div className="workspace-main" role="status" aria-live="polite">
@@ -30,7 +34,10 @@ function StorageError({ message }: { message: string }) {
   )
 }
 
-export function ScadaEditorStorageGate({ workId }: { workId: string }) {
+export function ScadaEditorStorageGate({
+  workId,
+  onNavigateWorkspace,
+}: EditorStorageGateProps & { workId: string }) {
   const [state, setState] = useState<LoadState>({ status: 'loading' })
 
   useEffect(() => {
@@ -54,20 +61,15 @@ export function ScadaEditorStorageGate({ workId }: { workId: string }) {
     }
   }, [workId])
 
-  if (state.status === 'loading') {
-    return <StorageLoading label="正在加载 SCADA 作品…" />
-  }
-  if (state.status === 'error') {
-    return <StorageError message={state.message} />
-  }
-  return <ScadaEditorPage workId={workId} />
+  if (state.status === 'loading') return <StorageLoading label="正在加载 SCADA 作品…" />
+  if (state.status === 'error') return <StorageError message={state.message} />
+  return <ScadaEditorPage workId={workId} onNavigateWorkspace={onNavigateWorkspace} />
 }
 
 export function ComponentEditorStorageGate({
   componentId,
-}: {
-  componentId: string
-}) {
+  onNavigateWorkspace,
+}: EditorStorageGateProps & { componentId: string }) {
   const [state, setState] = useState<LoadState>(
     componentId === 'new' ? { status: 'ready' } : { status: 'loading' },
   )
@@ -98,11 +100,12 @@ export function ComponentEditorStorageGate({
     }
   }, [componentId])
 
-  if (state.status === 'loading') {
-    return <StorageLoading label="正在加载组件…" />
-  }
-  if (state.status === 'error') {
-    return <StorageError message={state.message} />
-  }
-  return <ComponentEditorPage componentId={componentId} />
+  if (state.status === 'loading') return <StorageLoading label="正在加载组件…" />
+  if (state.status === 'error') return <StorageError message={state.message} />
+  return (
+    <ComponentEditorPage
+      componentId={componentId}
+      onNavigateWorkspace={onNavigateWorkspace}
+    />
+  )
 }

@@ -38,6 +38,7 @@ jobs:
           SCADA_PAGES_URL: https://yushun1990.github.io/scada/
         run: |
           node scripts/pages-smoke.mjs
+          node scripts/pages-studio-shell-smoke.mjs
           node scripts/pages-component-arrange-smoke.mjs
           node scripts/pages-component-navigation-smoke.mjs
           node scripts/pages-animation-move-smoke.mjs
@@ -65,6 +66,7 @@ jobs:
         with:
           name: editor-toolbar-pages-audit
           path: |
+            artifacts/studio-shell-*.png
             artifacts/component-toolbar-1200.png
             artifacts/component-toolbar-1000.png
             artifacts/component-navigation-1000.png

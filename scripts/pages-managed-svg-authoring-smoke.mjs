@@ -71,16 +71,12 @@ function attributeValue(element, name) {
 }
 
 function globalAssetImportControl(page) {
-  return page.locator('.component-asset-import-control')
-    .filter({ hasText: '导入 SVG / 图片' })
-    .first()
+  return page.getByRole('region', { name: '组件创作素材' })
 }
 
 async function waitForGlobalAssetInputReady(page) {
   await page.waitForFunction(() => {
-    const control = [...document.querySelectorAll('.component-asset-import-control')]
-      .find((candidate) => candidate.textContent?.includes('导入 SVG / 图片'))
-    const input = control?.querySelector('input[type="file"]')
+    const input = document.querySelector('.component-palette-resource-input')
     return input instanceof HTMLInputElement && !input.disabled && input.value === ''
   })
 }
@@ -177,7 +173,7 @@ async function clearAuthorLayerSelectionFromCanvas() {
 try {
   console.log(`Authoring UX1.6 dogfood component from Palette through standalone: ${baseUrl}#/components/new`)
   await authorPage.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
-  await authorPage.getByText('Component Editor', { exact: true }).waitFor()
+  await authorPage.locator('.studio-shell.component-studio-shell').waitFor()
   assert.equal(
     await authorPage.locator('.component-layer-root').count(),
     0,
@@ -219,7 +215,7 @@ try {
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(unsafeSvgSource),
   })
-  const unsafeMessage = importControl.locator('.component-asset-import-message')
+  const unsafeMessage = importControl.locator('.component-palette-message')
   await unsafeMessage.waitFor()
   assert.ok((await unsafeMessage.textContent())?.trim(), 'unsafe SVG import exposes a visible failure')
   assert.equal(
@@ -234,6 +230,7 @@ try {
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(svgSource),
   })
+  await authorPage.locator('.component-palette-resource-item', { hasText: 'p14-status' }).dblclick()
   await authorPage.locator('.component-layer-row', { hasText: 'p14-status' }).waitFor()
   await waitForGlobalAssetInputReady(authorPage)
   await authorPage.locator('.component-managed-svg-editor').waitFor()
@@ -262,6 +259,7 @@ try {
     mimeType: 'image/png',
     buffer: pngBuffer,
   })
+  await authorPage.locator('.component-palette-resource-item', { hasText: 'p14-image' }).dblclick()
   await authorPage.locator('.component-layer-row', { hasText: 'p14-image' }).waitFor()
   await waitForGlobalAssetInputReady(authorPage)
 
@@ -295,7 +293,7 @@ try {
   assert.match(firstSavedImage.assetRef, /^data:image\/png;base64,/)
 
   await authorPage.goto(savedUrl, { waitUntil: 'networkidle' })
-  await authorPage.getByText('Component Editor', { exact: true }).waitFor()
+  await authorPage.locator('.studio-shell.component-studio-shell').waitFor()
   await authorPage.locator('.component-layer-row', { hasText: authoredPrimitiveName }).waitFor()
   await authorPage.locator('.component-layer-row', { hasText: 'p14-status' }).click()
   await authorPage.locator('.component-managed-svg-row', { hasText: 'svg-tag-000003' }).click()
@@ -417,7 +415,7 @@ try {
     buffer: Buffer.from(exportedComponentDocument),
   })
   await importPage.waitForFunction(() => /#\/components\/component-/.test(window.location.hash))
-  await importPage.getByText('Component Editor', { exact: true }).waitFor()
+  await importPage.locator('.studio-shell.component-studio-shell').waitFor()
   assert.equal(componentConfirmationSeen, true)
 
   const importedComponent = await readPersistedComponent(importPage)
@@ -442,7 +440,7 @@ try {
   await importPage.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await importPage.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await importPage.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await importPage.getByText('SCADA Editor', { exact: true }).waitFor()
+  await importPage.locator('.studio-shell.scada-studio-shell').waitFor()
   const paletteItem = importPage.locator('.component-item', { hasText: componentTitle })
   assert.equal(await paletteItem.count(), 1)
   await paletteItem.click()
@@ -537,7 +535,7 @@ try {
     blueMax: 255,
   })
   assert.equal(await runtimePage.locator('.workspace-shell').count(), 0)
-  assert.equal(await runtimePage.locator('.editor-shell').count(), 0)
+  assert.equal(await runtimePage.locator('.studio-shell').count(), 0)
   assert.equal(
     (await localDatabaseNames(runtimePage)).includes('scada-editor-lab'),
     false,

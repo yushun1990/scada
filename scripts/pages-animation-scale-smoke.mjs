@@ -66,7 +66,7 @@ async function readPersistedScaleState() {
 try {
   console.log(`Opening deployed Component Editor scale animation smoke: ${componentUrl}`)
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-palette-item[aria-label="文本"]').click()
   await layerRow('文本 1').waitFor()
   await page.getByRole('button', { name: '保存' }).click()
@@ -75,7 +75,7 @@ try {
 
   assert.deepEqual(await seedScaleAnimationFixture(), { scaleX: 1, scaleY: 1, x: 220, y: 150 }, 'scale fixture starts from stable persisted geometry')
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await layerRow('Scale Animation Smoke Rect').click()
   await page.getByRole('button', { name: '动画' }).click()
   await page.getByRole('button', { name: '+ 添加 Scale 动画' }).click()
@@ -101,7 +101,7 @@ try {
   assert.equal(authored.scale?.activation?.propertyKey, 'running'); assert.equal(authored.scale?.activation?.compareValue, true)
 
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor(); await clearLayerSelection()
+  await page.locator('.studio-shell.component-studio-shell').waitFor(); await clearLayerSelection()
   const designFrameA = await readSceneCanvasDataUrl(); await page.waitForTimeout(250); const designFrameB = await readSceneCanvasDataUrl()
   assert.equal(designFrameA, designFrameB, 'design mode must remain static with authored scale')
   await page.getByRole('button', { name: '预览' }).click(); await page.waitForTimeout(120)

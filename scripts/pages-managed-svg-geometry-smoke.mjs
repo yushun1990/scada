@@ -31,9 +31,7 @@ const highlightMatcher = {
 }
 
 function globalAssetImportControl(currentPage) {
-  return currentPage.locator('.component-asset-import-control')
-    .filter({ hasText: '导入 SVG / 图片' })
-    .first()
+  return currentPage.getByRole('region', { name: '组件创作素材' })
 }
 
 function findVisualLayer(document, kind, name) {
@@ -137,7 +135,7 @@ async function waitForHighlight(currentPage) {
 try {
   console.log(`Verifying UX1.4 typed managed SVG geometry: ${baseUrl}#/components/new`)
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   const input = globalAssetImportControl(page).locator('input[type="file"]')
   await input.waitFor({ state: 'attached' })
@@ -147,6 +145,7 @@ try {
     buffer: Buffer.from(svgSource),
   })
 
+  await page.locator('.component-palette-resource-item', { hasText: 'ux1.4-geometry' }).dblclick()
   await page.locator('.component-layer-row', { hasText: 'ux1.4-geometry' }).waitFor()
   const rectRow = page.locator('.component-managed-svg-row', { hasText: 'svg-tag-000003' })
   await rectRow.click()
@@ -247,7 +246,7 @@ try {
   assert.match(decodeURIComponent(svgLayer.assetRef), /width="40"/)
 
   await page.goto(savedUrl, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-layer-row', { hasText: 'ux1.4-geometry' }).click()
   const reloadedRow = page.locator('.component-managed-svg-row', { hasText: '@bodyShape' })
   await reloadedRow.waitFor()

@@ -651,44 +651,6 @@
   line-height: var(--ui-line-height-status);
 }
 
-/* Compatibility bridges while C2 migrates the current editor chrome -------- */
-.editor-header .document-toolbar > button.ui-button {
-  order: 0;
-  margin-left: 0;
-  box-shadow: none;
-}
-
-.editor-header .document-toolbar > button.ui-button.ui-button-secondary {
-  border-color: var(--ui-color-border-strong);
-  color: var(--ui-color-text);
-  background: var(--ui-color-surface);
-}
-
-.editor-header .document-toolbar > button.ui-button.ui-button-primary {
-  border-color: var(--ui-color-accent);
-  color: #ffffff;
-  background: var(--ui-color-accent);
-}
-
-.editor-header .document-toolbar > button.ui-button.ui-button-accent {
-  border-color: var(--ui-color-accent);
-  color: var(--ui-color-accent-hover);
-  background: var(--ui-color-accent-soft);
-}
-
-.document-toolbar > .ui-workspace-separator,
-.editor-header .document-toolbar > .ui-workspace-separator {
-  order: 90;
-  margin-inline: var(--ui-space-1);
-}
-
-.document-toolbar > .ui-workspace-exit,
-.editor-header .document-toolbar > button.ui-button.ui-workspace-exit {
-  order: 100;
-  margin: 0;
-  padding-inline: var(--ui-space-2);
-}
-
 .ui-pressable.inspector-group-header {
   width: 100%;
   height: var(--ui-inspector-group-height);
@@ -704,22 +666,6 @@
 .ui-pressable.component-layer-row,
 .ui-pressable.workspace-nav-item {
   width: 100%;
-}
-
-/* Design / Preview uses adjacent low-chrome segments, not a thick blue pill. */
-.editor-header .mode-switch .ui-segmented-item[data-pressed],
-.editor-header .mode-switch .ui-segmented-item.is-active {
-  border: 0;
-  color: var(--ui-color-accent-pressed);
-  background: var(--ui-color-accent-soft);
-  box-shadow: none;
-  font-weight: 600;
-}
-
-.editor-header .mode-switch .ui-segmented-item[data-pressed]:hover,
-.editor-header .mode-switch .ui-segmented-item.is-active:hover {
-  color: var(--ui-color-accent-pressed);
-  background: var(--ui-color-accent-soft);
 }
 
 /* Feature tab classes belong to Tabs.List. */

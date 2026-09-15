@@ -1,19 +1,4 @@
-/* Editor chrome polish: keep transient status in the footer and make toolbar
-   grouping visually explicit without coupling it to scene rendering. */
-
-/* The editor is a desktop workbench. Keep the shell pinned to the viewport so
-   a taller inspector state (for example multi-selection) cannot grow the grid
-   and push the footer status bar below the visible window. */
-.editor-shell {
-  height: 100vh;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.editor-main {
-  min-height: 0;
-  overflow: hidden;
-}
+/* Canvas-specific chrome that remains after C2 moves global layout into StudioShell. */
 
 .canvas-area {
   position: relative;
@@ -21,257 +6,30 @@
   overflow: hidden;
 }
 
-/* Reserve real space for the status bar instead of drawing the Konva stage
-   underneath it. ResizeObserver reads the content box, so the Stage height
-   naturally excludes this footer area. */
 .konva-host {
   min-height: 0;
-  padding-bottom: 32px;
+  padding-bottom: 0;
 }
 
-.canvas-status {
-  z-index: 5;
-}
-
-/* Action feedback belongs to the footer status area, not the page header. */
 .canvas-toast {
   top: auto;
-  bottom: 7px;
+  right: auto;
+  bottom: var(--ui-space-2);
   left: 50%;
   z-index: 6;
+  width: max-content;
+  height: auto;
   max-width: min(360px, 28vw);
-  padding: 0 10px;
+  padding: 0 var(--ui-space-2);
   border: 0;
   border-radius: 0;
+  color: var(--ui-color-text-secondary);
   background: transparent;
   box-shadow: none;
-  backdrop-filter: none;
-  color: #64748b;
-  line-height: 18px;
+  line-height: var(--ui-line-height-tool);
+  transform: translateX(-50%);
 }
 
-.canvas-status > .canvas-status-group:first-child,
-.canvas-status > .scene-status-summary {
-  max-width: 38%;
-  overflow: hidden;
-}
-
-.scene-status-summary {
-  justify-content: flex-end;
-}
-
-/* Editor header uses the same hierarchy as a desktop design tool:
-   product identity on the left, mode switch centered in the viewport, and
-   document actions on the right. `header-actions` becomes layout-transparent
-   so its two child groups can occupy independent grid columns.
-
-   Keep the selector structurally stronger than the lazy-loaded workbench.css
-   `.editor-header` fallback. Otherwise that later flex rule turns JSX order
-   into visual order and moves document actions ahead of Design / Preview. */
-.editor-shell > .editor-header {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
-  align-items: center;
-  gap: 20px;
-  min-width: 0;
-  padding: 0 18px;
-  border-bottom: 1px solid #dbe2ea;
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
-}
-
-.editor-header .brand-block {
-  grid-column: 1;
-  min-width: 0;
-  gap: 11px;
-}
-
-.editor-header .brand-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: #1d4ed8;
-  box-shadow: 0 1px 2px rgba(29, 78, 216, 0.22);
-  font-size: 13px;
-}
-
-.editor-header .brand-text {
-  gap: 2px;
-}
-
-.editor-header .brand-text strong {
-  color: #172033;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.editor-header .brand-text span {
-  color: #8b97a8;
-  font-size: 9px;
-  letter-spacing: 0.02em;
-}
-
-.editor-header .header-actions {
-  display: contents;
-}
-
-.editor-header .mode-switch {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: center;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid #d7dde5;
-  border-radius: 8px;
-  background: #edf1f5;
-  box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.035);
-}
-
-.editor-header .mode-switch button {
-  min-width: 68px;
-  height: 30px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 6px;
-  color: #667085;
-  background: #dde3ea;
-  font-size: 11px;
-  font-weight: 600;
-  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
-}
-
-.editor-header .mode-switch button:hover:not(.is-active):not([data-pressed]) {
-  color: #344054;
-  background: #e5eaf0;
-}
-
-.editor-header .mode-switch button.is-active,
-.editor-header .mode-switch button[data-pressed] {
-  color: #1d4ed8;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14);
-  font-weight: 700;
-}
-
-.editor-header .document-toolbar {
-  display: inline-flex;
-  grid-column: 3;
-  grid-row: 1;
-  justify-self: end;
-  align-items: center;
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.editor-header .document-toolbar button {
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: #667085;
-  background: transparent;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-/* Import/export are supporting actions; save is the deliberate primary action
-   and is visually placed last, matching common editor toolbars. */
-.editor-header .document-toolbar button:nth-of-type(2) {
-  order: 1;
-}
-
-.editor-header .document-toolbar button:nth-of-type(3) {
-  order: 2;
-}
-
-.editor-header .document-toolbar button:first-of-type {
-  order: 3;
-  min-width: 56px;
-  margin-left: 5px;
-  padding: 0 13px;
-  border-color: #1d4ed8;
-  color: #ffffff;
-  background: #2563eb;
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.18);
-}
-
-.editor-header .document-toolbar button:not(:first-of-type):hover {
-  border-color: #e2e8f0;
-  color: #344054;
-  background: #f8fafc;
-}
-
-.editor-header .document-toolbar button:first-of-type:hover {
-  border-color: #1e40af;
-  color: #ffffff;
-  background: #1d4ed8;
-}
-
-/* Use a 24-column mental model for the three top-level tool families:
-   object operations = col-6, alignment/distribution = col-12,
-   grid/view settings = col-6. */
-.canvas-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
-  gap: 0;
-}
-
-.canvas-toolbar > .canvas-tool-group {
-  position: relative;
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-  padding: 0 12px;
-  border-right: 0;
-}
-
-/* A native border-right always spans the full group height. Draw a shorter
-   divider at the exact column boundary instead, while keeping the same visual
-   semantics as a group border. */
-.canvas-toolbar > .canvas-tool-group:not(:last-child)::after {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  width: 1px;
-  height: 18px;
-  transform: translateY(-50%);
-  background: #cbd5e1;
-  content: '';
-  pointer-events: none;
-}
-
-.canvas-toolbar > .canvas-tool-group:first-child {
-  justify-content: flex-start;
-  padding-left: 0;
-}
-
-.canvas-toolbar > .canvas-tool-group:nth-child(2) {
-  justify-content: center;
-}
-
-.canvas-toolbar > .canvas-tool-group:last-child {
-  justify-content: flex-end;
-  padding-right: 0;
-}
-
-/* Cancel the previous internal command-family separators. */
-.canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(3),
-.canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(5) {
-  margin-left: 0;
-}
-
-.canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(3)::before,
-.canvas-toolbar > .canvas-tool-group:first-child .icon-button:nth-child(5)::before {
-  content: none;
-}
-
-/* Number input is a compact value field, not a spinner control. Firefox needs
-   appearance:textfield while Chromium additionally needs the pseudo-elements
-   disabled. */
 .grid-size-input[type='number'] {
   width: 34px;
   padding: 0 2px;
@@ -286,118 +44,17 @@
   -webkit-appearance: none;
 }
 
-/* Keep the closed artboard selector compact while preserving full native
-   option text in the popup. The short label shares the select's grid cell so
-   it remains geometrically centered without absolute positioning. */
 .scene-size-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  width: 72px;
-  min-width: 72px;
+  width: 76px;
+  min-width: 76px;
 }
 
-.scene-size-control::before,
-.scene-size-control select {
-  grid-area: 1 / 1;
-}
-
-.scene-size-control::before {
-  z-index: 1;
-  align-self: center;
-  justify-self: stretch;
-  overflow: hidden;
-  color: #334155;
-  content: '尺寸';
-  font-size: 11px;
-  line-height: 28px;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.scene-size-control:has(option[value='xga']:checked)::before {
-  content: 'XGA';
-}
-
-.scene-size-control:has(option[value='hd']:checked)::before {
-  content: 'HD';
-}
-
-.scene-size-control:has(option[value='fhd']:checked)::before {
-  content: 'Full HD';
-}
-
-.scene-size-control:has(option[value='qhd']:checked)::before {
-  content: 'QHD';
-}
-
-.scene-size-control:has(option[value='uhd']:checked)::before {
-  content: '4K';
-}
-
-.scene-size-control:has(option[value='']:checked)::before {
-  content: '自定义';
-}
-
-.scene-size-control select {
+.scene-size-control > .ui-select-trigger {
   width: 100%;
-  min-width: 0;
-  max-width: none;
-  padding-right: 18px;
-  color: transparent;
-}
-
-.scene-size-control select option {
-  color: #334155;
-  text-align: left;
 }
 
 @media (max-width: 1120px) {
-  .editor-shell > .editor-header {
-    grid-template-columns: minmax(170px, 1fr) auto minmax(170px, 1fr);
-    gap: 12px;
-    padding: 0 12px;
-  }
-
-  .editor-header .brand-text span {
-    display: none;
-  }
-
-  .editor-header .document-toolbar button {
-    padding-inline: 8px;
-  }
-
   .canvas-toast {
     max-width: 240px;
-  }
-
-  .canvas-status > .canvas-status-group:first-child,
-  .canvas-status > .scene-status-summary {
-    max-width: 34%;
-  }
-}
-
-@media (max-width: 880px) {
-  .editor-shell > .editor-header {
-    grid-template-columns: minmax(130px, 1fr) auto minmax(130px, 1fr);
-  }
-
-  .editor-header .brand-mark {
-    display: none;
-  }
-
-  .editor-header .mode-switch button {
-    min-width: 58px;
-    padding-inline: 10px;
-  }
-
-  .canvas-toast {
-    display: none;
-  }
-
-  .canvas-status > .canvas-status-group:first-child,
-  .canvas-status > .scene-status-summary {
-    max-width: 48%;
   }
 }

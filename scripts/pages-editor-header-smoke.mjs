@@ -7,7 +7,6 @@ const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({ viewport: { width: 1400, height: 900 } })
 const page = await context.newPage()
 const pageErrors = []
-
 page.on('pageerror', (error) => pageErrors.push(error.message))
 
 async function boxOf(locator, label) {
@@ -16,101 +15,54 @@ async function boxOf(locator, label) {
   return box
 }
 
-function assertModeCentered(headerBox, modeBox, label) {
-  const headerCenter = headerBox.x + headerBox.width / 2
-  const modeCenter = modeBox.x + modeBox.width / 2
-  assert.ok(
-    Math.abs(headerCenter - modeCenter) <= 2,
-    `${label} Design / Preview must stay centered in the editor header (${modeCenter}/${headerCenter})`,
-  )
+function contains(outer, inner) {
+  return inner.x >= outer.x && inner.y >= outer.y
+    && inner.x + inner.width <= outer.x + outer.width + 1
+    && inner.y + inner.height <= outer.y + outer.height + 1
+}
+
+async function assertChrome(label, exitLabel) {
+  const toolbar = page.getByRole('toolbar', { name: 'Studio 主工具栏' })
+  const [menu, main, save, mode, exit] = await Promise.all([
+    boxOf(page.locator('.studio-menu-bar'), `${label} menu`),
+    boxOf(toolbar, `${label} toolbar`),
+    boxOf(toolbar.getByRole('button', { name: '保存', exact: true }), `${label} save`),
+    boxOf(toolbar.locator('.mode-switch'), `${label} mode`),
+    boxOf(page.getByRole('button', { name: exitLabel }), `${label} exit`),
+  ])
+  assert.equal(menu.height, 28)
+  assert.equal(main.height, 36)
+  assert.ok(contains(menu, exit), `${label}: workspace navigation belongs to the menu row`)
+  assert.ok(contains(main, save) && contains(main, mode), `${label}: save and mode must remain visible`)
+  assert.ok(save.x + save.width < mode.x, `${label}: save precedes the right-hand mode switch`)
+  assert.ok(exit.x > mode.x, `${label}: workspace exit remains at the right edge`)
 }
 
 try {
-  console.log(`Opening deployed Component Editor header regression: ${baseUrl}#/components/new`)
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
-  await page.getByText('Component Editor', { exact: true }).waitFor()
-
-  const componentHeader = page.locator('.component-editor-header')
-  const componentMode = componentHeader.locator('.mode-switch')
-  const componentToolbar = page.getByRole('toolbar', { name: '组件文档操作' })
-  const componentExit = page.getByRole('button', { name: '返回组件库工作台' })
-  await componentExit.waitFor()
-
-  const [componentHeaderBox, componentModeBox, componentToolbarBox, componentExitBox] = await Promise.all([
-    boxOf(componentHeader, 'Component Editor header'),
-    boxOf(componentMode, 'Component Editor mode switch'),
-    boxOf(componentToolbar, 'Component Editor document toolbar'),
-    boxOf(componentExit, 'Component Editor workspace exit'),
-  ])
-
-  console.log(`Component Editor header geometry: ${JSON.stringify({
-    header: componentHeaderBox,
-    mode: componentModeBox,
-    documentToolbar: componentToolbarBox,
-    workspaceExit: componentExitBox,
-  })}`)
-  assertModeCentered(componentHeaderBox, componentModeBox, 'Component Editor')
-  assert.ok(
-    componentToolbarBox.x > componentModeBox.x + componentModeBox.width,
-    'Component Editor document actions must stay to the right of Design / Preview',
-  )
-  assert.ok(
-    componentExitBox.x >= componentToolbarBox.x
-      && componentExitBox.x + componentExitBox.width <= componentToolbarBox.x + componentToolbarBox.width + 1,
-    'Component Editor workspace exit must remain inside the document toolbar',
-  )
-
-  await componentExit.click()
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
+  await assertChrome('Component', '返回组件库工作台')
+  await page.getByRole('button', { name: '返回组件库工作台' }).click()
+  await page.getByRole('dialog').waitFor()
+  await page.getByRole('button', { name: '放弃修改', exact: true }).click()
   await page.waitForURL(/#\/components$/)
+  await page.getByRole('heading', { name: '组件库开发', exact: true }).waitFor()
 
-  console.log(`Opening deployed SCADA Editor header regression: ${baseUrl}#/works`)
   await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await page.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await page.getByText('SCADA Editor', { exact: true }).waitFor()
-
-  const scadaHeader = page.locator('.editor-header').filter({ hasText: 'SCADA Editor' })
-  const scadaMode = scadaHeader.locator('.mode-switch')
-  const scadaToolbar = page.getByRole('toolbar', { name: '场景文档操作' })
-  const importButton = scadaToolbar.getByRole('button', { name: '导入', exact: true })
-  const scadaExit = page.getByRole('button', { name: '返回 SCADA 作品工作台' })
-  await scadaExit.waitFor()
-
-  const [scadaHeaderBox, scadaModeBox, scadaToolbarBox, importBox, scadaExitBox] = await Promise.all([
-    boxOf(scadaHeader, 'SCADA Editor header'),
-    boxOf(scadaMode, 'SCADA Editor mode switch'),
-    boxOf(scadaToolbar, 'SCADA Editor document toolbar'),
-    boxOf(importButton, 'SCADA import button'),
-    boxOf(scadaExit, 'SCADA workspace exit'),
-  ])
-
-  console.log(`SCADA Editor header geometry: ${JSON.stringify({
-    header: scadaHeaderBox,
-    mode: scadaModeBox,
-    documentToolbar: scadaToolbarBox,
-    importButton: importBox,
-    workspaceExit: scadaExitBox,
-  })}`)
-  assertModeCentered(scadaHeaderBox, scadaModeBox, 'SCADA Editor')
-  assert.ok(
-    importBox.x > scadaModeBox.x + scadaModeBox.width,
-    'SCADA Import must stay to the right of Design / Preview instead of swapping places with it',
-  )
-  assert.ok(
-    scadaExitBox.x > importBox.x,
-    'SCADA workspace exit must remain the far-right navigation action',
-  )
-  assert.ok(
-    scadaExitBox.x >= scadaToolbarBox.x
-      && scadaExitBox.x + scadaExitBox.width <= scadaToolbarBox.x + scadaToolbarBox.width + 1,
-    'SCADA workspace exit must remain inside the document toolbar after the async storage gate resolves',
-  )
-
-  await scadaExit.click()
+  await page.locator('.studio-shell.scada-studio-shell').waitFor()
+  await assertChrome('SCADA', '返回 SCADA 作品工作台')
+  const fileMenu = page.getByRole('button', { name: '文件', exact: true })
+  await fileMenu.focus()
+  await page.keyboard.press('Enter')
+  await page.getByRole('menuitem', { name: '导入场景', exact: true }).waitFor()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '返回 SCADA 作品工作台' }).click()
   await page.waitForURL(/#\/works$/)
 
-  assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages editor header smoke passed: Design / Preview stays centered, document actions remain on the right, and both workspace exits survive async editor loading.')
+  assert.deepEqual(pageErrors, [])
+  console.log('Pages editor chrome smoke passed: shared menu navigation, visible save/mode controls, keyboard file menu, and guarded exits survive async editor loading and route switching.')
 } finally {
   await browser.close()
 }

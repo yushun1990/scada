@@ -161,14 +161,14 @@ try {
     buffer: Buffer.from(starterDocument),
   })
   await exportPage.waitForFunction(() => /#\/components\/component-/.test(window.location.hash))
-  await exportPage.getByText('Component Editor', { exact: true }).waitFor()
+  await exportPage.locator('.studio-shell.component-studio-shell').waitFor()
   assert.equal(componentConfirmationSeen, true, 'portable dependency import requires explicit confirmation')
 
   console.log(`Creating export work with portable dependency: ${baseUrl}#/works`)
   await exportPage.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
   await exportPage.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await exportPage.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await exportPage.getByText('SCADA Editor', { exact: true }).waitFor()
+  await exportPage.locator('.studio-shell.scada-studio-shell').waitFor()
   await exportPage.locator('.component-item', { hasText: componentTitle }).click()
   await exportPage.getByRole('button', { name: '保存', exact: true }).click()
   await exportPage.getByText('场景已保存', { exact: true }).waitFor()
@@ -277,7 +277,7 @@ try {
     buffer: Buffer.from(exportedDocument),
   })
   await importPage.waitForFunction(() => /#\/scada\/work-/.test(window.location.hash))
-  await importPage.getByText('SCADA Editor', { exact: true }).waitFor()
+  await importPage.locator('.studio-shell.scada-studio-shell').waitFor()
   assert.equal(workConfirmationSeen, true, 'work import requires explicit confirmation')
   assert.equal(
     await importPage.locator('.component-item', { hasText: componentTitle }).count(),
