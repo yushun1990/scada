@@ -90,12 +90,6 @@ textarea:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-.canvas-toast {
-  bottom: var(--ui-space-splitter);
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-status);
-  line-height: var(--ui-line-height-status);
-}
 
 .viewport-controls {
   bottom: calc(var(--ui-status-height) + var(--ui-space-4));

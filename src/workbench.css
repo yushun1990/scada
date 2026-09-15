@@ -415,26 +415,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.canvas-toast {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 4;
-  max-width: min(520px, 70%);
-  padding: 6px 14px;
-  border: 1px solid rgba(148, 163, 184, 0.6);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
-  backdrop-filter: blur(8px);
-  color: #334155;
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-}
 
 .canvas-status {
   justify-content: space-between;

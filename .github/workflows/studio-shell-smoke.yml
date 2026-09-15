@@ -7,6 +7,8 @@ on:
       - 'src/App.tsx'
       - 'src/editor/**'
       - 'src/styles.css'
+      - 'src/editor-chrome.css'
+      - 'src/workbench.css'
       - 'src/styles/**'
       - 'src/ui/**'
       - 'src/features/scada-editor/**'
@@ -14,6 +16,7 @@ on:
       - 'src/features/workspace/EditorStorageGate.tsx'
       - 'src/storage/**'
       - 'scripts/pages-studio-shell-smoke.mjs'
+      - 'scripts/pages-scada-toast-smoke.mjs'
       - 'scripts/check-studio-shell-authority.mjs'
       - '.github/workflows/studio-shell-smoke.yml'
       - 'package*.json'
@@ -69,6 +72,7 @@ jobs:
             exit 1
           fi
           node scripts/pages-studio-shell-smoke.mjs 2>&1 | tee artifacts/studio-shell-browser.log
+          node scripts/pages-scada-toast-smoke.mjs 2>&1 | tee artifacts/scada-toast-browser.log
       - name: Upload StudioShell evidence
         if: always()
         uses: actions/upload-artifact@v4
