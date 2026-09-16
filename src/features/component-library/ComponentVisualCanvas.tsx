@@ -75,6 +75,7 @@ type ComponentVisualCanvasProps = {
   canRedo: boolean
   editToolbarHost: HTMLElement | null
   viewToolbarHost: HTMLElement | null
+  onArtboardElementChange: (element: HTMLDivElement | null) => void
   onUndo: () => void
   onRedo: () => void
   onSelectionChange: ComponentLayerSelectionChange
@@ -222,6 +223,7 @@ export function ComponentVisualCanvas({
   canRedo,
   editToolbarHost,
   viewToolbarHost,
+  onArtboardElementChange,
   onUndo,
   onRedo,
   onSelectionChange,
@@ -811,6 +813,7 @@ export function ComponentVisualCanvas({
 
       <div ref={canvasHostRef} className={`component-canvas-stage ${mode}`}>
         <div
+          ref={onArtboardElementChange}
           className={`component-artboard${showDesignGrid ? ' component-artboard-grid' : ''}${activeCreateTool ? ' component-create-mode' : ''}`}
           style={{
             width: `${artboardWidth}px`,

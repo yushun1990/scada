@@ -318,6 +318,7 @@ export function ComponentEditorPage({
   const [snapEnabled, setSnapEnabled] = useState(true)
   const [componentEditToolbarHost, setComponentEditToolbarHost] = useState<HTMLElement | null>(null)
   const [componentViewToolbarHost, setComponentViewToolbarHost] = useState<HTMLElement | null>(null)
+  const [componentArtboard, setComponentArtboard] = useState<HTMLDivElement | null>(null)
   const [message, setMessage] = useState('')
   const [publicationSession, setPublicationSession] =
     useState<ComponentPublicationSession | null>(null)
@@ -717,6 +718,7 @@ export function ComponentEditorPage({
           <ComponentVisualTreeEditor
             visual={component.visual}
             readOnly={editingDisabled}
+            dropTarget={componentArtboard}
             selectedLayerIds={selectedLayerIds}
             primaryLayerId={primaryLayerId}
             onSelectionReplace={replaceLayerSelection}
@@ -749,6 +751,7 @@ export function ComponentEditorPage({
             canRedo={canRedo}
             editToolbarHost={componentEditToolbarHost}
             viewToolbarHost={componentViewToolbarHost}
+            onArtboardElementChange={setComponentArtboard}
             onUndo={undo}
             onRedo={redo}
             onSelectionChange={selectLayer}

@@ -33,6 +33,7 @@ export type ComponentLayerSelectionChange = (
 type ComponentVisualTreeEditorProps = {
   visual: ComponentVisualDefinition
   readOnly: boolean
+  dropTarget: HTMLElement | null
   selectedLayerIds: readonly string[]
   primaryLayerId: string | null
   onSelectionChange: ComponentLayerSelectionChange
@@ -149,6 +150,7 @@ function LayerIdInput({
 export function ComponentVisualTreeEditor({
   visual,
   readOnly,
+  dropTarget,
   selectedLayerIds,
   primaryLayerId,
   onSelectionChange,
@@ -213,6 +215,7 @@ export function ComponentVisualTreeEditor({
       <ComponentAuthoringPalette
         visual={visual}
         readOnly={readOnly}
+        dropTarget={dropTarget}
         onSelectionChange={onSelectionChange}
         onChange={onChange}
       />

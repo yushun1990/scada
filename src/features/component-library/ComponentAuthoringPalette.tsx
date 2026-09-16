@@ -81,6 +81,7 @@ type PaletteDragPayload =
 type ComponentAuthoringPaletteProps = {
   visual: ComponentVisualDefinition
   readOnly: boolean
+  dropTarget: HTMLElement | null
   onSelectionChange: ComponentLayerSelectionChange
   onChange: (visual: ComponentVisualDefinition) => void
 }
@@ -230,6 +231,7 @@ function centeredPoint(visual: ComponentVisualDefinition): ComponentDesignPoint 
 export function ComponentAuthoringPalette({
   visual,
   readOnly,
+  dropTarget,
   onSelectionChange,
   onChange,
 }: ComponentAuthoringPaletteProps) {
@@ -359,9 +361,7 @@ export function ComponentAuthoringPalette({
   }
 
   useEffect(() => {
-    const artboard = document.querySelector<HTMLElement>(
-      '.component-editor-shell .component-artboard',
-    )
+    const artboard = dropTarget
     if (!artboard || readOnly || visual.mode !== 'composite') return
 
     const hasPalettePayload = (event: DragEvent) =>
@@ -423,7 +423,7 @@ export function ComponentAuthoringPalette({
       artboard.removeEventListener('dragleave', handleDragLeave)
       artboard.removeEventListener('drop', handleDrop)
     }
-  }, [editableComponents, readOnly, resources, visual])
+  }, [dropTarget, editableComponents, readOnly, resources, visual])
 
   async function uploadResources(files: readonly File[]) {
     if (files.length === 0 || readOnly || busy) return
@@ -561,7 +561,7 @@ export function ComponentAuthoringPalette({
                 disabled={readOnly || busy}
                 onClick={() => fileInputRef.current?.click()}
               >
-                {busy ? '处理中…' : '上传 SVG / 图片'}
+                {busy ? '处理中…' : '上传资源'}
               </Button>
               {resources.length > 0 ? (
                 <div className="component-palette-resource-grid">

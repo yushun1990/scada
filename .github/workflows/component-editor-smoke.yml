@@ -63,6 +63,7 @@ jobs:
             node scripts/pages-component-document-history-smoke.mjs
             node scripts/pages-component-navigation-smoke.mjs
             node scripts/pages-component-primitives-smoke.mjs
+            node scripts/pages-component-palette-drop-smoke.mjs
             SCADA_BROWSER=chromium node scripts/pages-component-hit-smoke.mjs
             node scripts/pages-component-svg-drag-smoke.mjs
             node scripts/pages-component-header-smoke.mjs
