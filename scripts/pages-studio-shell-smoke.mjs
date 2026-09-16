@@ -87,14 +87,9 @@ async function assertShellGeometry({ panels = true } = {}) {
 }
 
 async function assertPanelVisibilityLayout() {
-  for (const side of ['左侧', '属性', '左侧', '属性']) {
+  for (const action of ['隐藏左侧面板', '隐藏属性面板', '显示左侧面板', '显示属性面板']) {
     await page.getByRole('button', { name: '布局', exact: true }).click()
-    const hide = page.getByRole('menuitem', { name: `隐藏${side}面板`, exact: true })
-    if (await hide.count()) {
-      await hide.click()
-    } else {
-      await page.getByRole('menuitem', { name: `显示${side}面板`, exact: true }).click()
-    }
+    await page.getByRole('menuitem', { name: action, exact: true }).click()
     await assertShellGeometry({ panels: false })
   }
   await assertShellGeometry()
