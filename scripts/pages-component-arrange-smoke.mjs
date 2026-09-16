@@ -27,14 +27,6 @@ async function selectLayers(names) {
 }
 
 const rowButton = (name, command) => layerRow(name).locator('..').getByRole('button', { name: `${command} · ${name}`, exact: true })
-async function orderMenu(name) {
-  await rowButton(name, '更多排序').click()
-}
-async function menuOrder(name, command) {
-  await orderMenu(name)
-  await page.getByRole('menuitem', { name: command, exact: true }).click()
-}
-
 async function assertOrder(expected, label) {
   assert.deepEqual(await navigatorOrder(), [...expected].reverse(), label)
 }
@@ -61,16 +53,15 @@ try {
   await layerRow('文本 1').click()
   assert.equal(await rowButton('文本 1', '上移一层').isEnabled(), true)
   assert.equal(await rowButton('文本 1', '下移一层').isDisabled(), true)
-  await orderMenu('文本 1')
-  assert.equal(await page.getByRole('menuitem', { name: '置于顶层', exact: true }).isEnabled(), true)
-  assert.equal(await page.getByRole('menuitem', { name: '置于底层', exact: true }).isDisabled(), true)
-  await page.getByRole('menuitem', { name: '置于顶层', exact: true }).click()
+  assert.equal(await rowButton('文本 1', '置于顶层').isEnabled(), true)
+  assert.equal(await rowButton('文本 1', '置于底层').isDisabled(), true)
+  await rowButton('文本 1', '置于顶层').click()
   await assertOrder(['文本 2', '文本 3', '文本 1'], 'bring-to-front moves the selection to the final sibling slot')
 
   await rowButton('文本 1', '下移一层').click()
   await assertOrder(['文本 2', '文本 1', '文本 3'], 'send-backward moves the selection one sibling step')
 
-  await menuOrder('文本 1', '置于底层')
+  await rowButton('文本 1', '置于底层').click()
   await assertOrder(['文本 1', '文本 2', '文本 3'], 'send-to-back moves the selection to the first sibling slot')
 
   await rowButton('文本 1', '上移一层').click()
@@ -78,13 +69,13 @@ try {
 
   await selectLayers(['文本 2', '文本 1'])
   assert.equal(await page.locator('.component-layer-row.active').count(), 2)
-  await menuOrder('文本 1', '置于顶层')
+  await rowButton('文本 1', '置于顶层').click()
   await assertOrder(
     ['文本 3', '文本 2', '文本 1'],
     'multi-selection moves as a block while preserving selected sibling order',
   )
 
-  await menuOrder('文本 1', '置于底层')
+  await rowButton('文本 1', '置于底层').click()
   await assertOrder(
     ['文本 2', '文本 1', '文本 3'],
     'multi-selection send-to-back preserves selected sibling order',
@@ -110,11 +101,9 @@ try {
   for (const commandName of ['上移一层', '下移一层']) {
     assert.equal(await rowButton('文本 1', commandName).isDisabled(), true, `${commandName} is disabled in preview`)
   }
-  await orderMenu('文本 1')
   for (const commandName of ['置于顶层', '置于底层']) {
-    assert.equal(await page.getByRole('menuitem', { name: commandName, exact: true }).isDisabled(), true)
+    assert.equal(await rowButton('文本 1', commandName).isDisabled(), true)
   }
-  await page.keyboard.press('Escape')
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log('Pages component arrange smoke passed: top-level sibling order is manipulated from each layer row (frontmost first), multi-selection preserves relative order, persistence survives reload, and preview remains read-only.')

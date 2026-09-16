@@ -566,12 +566,12 @@
   cursor: default;
 }
 
-.component-layer-entry { position: relative; }
+.component-layer-entry {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 96px;
+}
 .component-layer-row { grid-template-columns: 18px minmax(0, 1fr) auto; }
 .component-layer-row-actions {
-  position: absolute;
-  right: 0;
-  top: 1px;
   display: flex;
   gap: 0;
   opacity: 0;
@@ -585,9 +585,6 @@
   opacity: 1;
   pointer-events: auto;
 }
-.component-layer-entry:hover .component-layer-row,
-.component-layer-entry:focus-within .component-layer-row,
-.component-layer-row.active { padding-right: 78px; }
 .component-layer-row-actions .ui-icon-button,
 .component-layer-row-actions .ui-menu-trigger {
   width: 24px;

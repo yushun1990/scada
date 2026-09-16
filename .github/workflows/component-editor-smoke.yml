@@ -69,6 +69,7 @@ jobs:
             node scripts/pages-component-header-smoke.mjs
             node scripts/pages-component-design-smoke.mjs
             node scripts/pages-component-arrange-smoke.mjs
+            node scripts/pages-component-group-selection-smoke.mjs
             node scripts/pages-component-toolbar-smoke.mjs
             node scripts/pages-component-package-transfer-smoke.mjs
           } 2>&1 | tee artifacts/component-browser.log

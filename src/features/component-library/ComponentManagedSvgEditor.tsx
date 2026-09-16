@@ -221,7 +221,7 @@ export function ComponentManagedSvgEditor({
 
   function commitGeometry(field: ManagedSvgGeometryField, value: string) {
     const currentDocument = layer.document
-    if (readOnly || !selectedTagId || !currentDocument) return
+    if (readOnly || layer.parentId !== null || !selectedTagId || !currentDocument) return
 
     try {
       const nextDocument = updateManagedSvgElementGeometry(
@@ -350,7 +350,7 @@ export function ComponentManagedSvgEditor({
                     key={field}
                     field={field}
                     value={getManagedSvgElementAttribute(selectedElement, field)}
-                    disabled={readOnly}
+                    disabled={readOnly || layer.parentId !== null}
                     onCommit={commitGeometry}
                   />
                 ))}

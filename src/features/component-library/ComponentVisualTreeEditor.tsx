@@ -405,6 +405,7 @@ function LayerInspectorContent({
   onSelectionChange,
   onChange,
 }: LayerInspectorContentProps) {
+  const geometryReadOnly = readOnly || layer.parentId !== null
   const descendantIds = collectDescendantIds(visual.layers, layer.id)
   const parentOptions = visual.layers.filter(
     (candidate) => candidate.kind === 'group' && !descendantIds.has(candidate.id),
@@ -445,7 +446,7 @@ function LayerInspectorContent({
     field: keyof ComponentVisualLayer['transform'],
     value: number,
   ) {
-    if (!Number.isFinite(value)) return
+    if (geometryReadOnly || !Number.isFinite(value)) return
 
     updateLayer({
       ...layer,
@@ -473,7 +474,7 @@ function LayerInspectorContent({
           <span>父级</span>
           <Select
             value={layer.parentId ?? ''}
-            disabled={readOnly}
+            disabled={geometryReadOnly}
             ariaLabel={`${layer.name} 父级`}
             options={[
               { value: '', label: '顶层' },
@@ -488,6 +489,9 @@ function LayerInspectorContent({
       </CollapsibleInspectorGroup>
 
       <CollapsibleInspectorGroup title="几何">
+        {layer.parentId !== null && (
+          <p className="component-inspector-help">组合内图层可配置属性与行为；修改位置、尺寸或形状前请先拆分组合。</p>
+        )}
         <div className="property-grid component-layer-geometry-grid">
           {([
             ['x', 'X'],
@@ -503,7 +507,7 @@ function LayerInspectorContent({
               <NumberInput
                 step={field.startsWith('scale') ? '0.1' : '1'}
                 value={layer.transform[field]}
-                disabled={readOnly}
+                disabled={geometryReadOnly}
                 onChange={(event) => updateTransform(field, Number(event.target.value))}
               />
             </label>
@@ -536,7 +540,7 @@ function LayerInspectorContent({
         <CollapsibleInspectorGroup title="资源">
           <ComponentVisualAssetImportControl
             visual={visual}
-            readOnly={readOnly}
+            readOnly={geometryReadOnly}
             selectedLayerId={layer.id}
             requireReplacement
             onSelectionChange={onSelectionChange}
@@ -546,7 +550,7 @@ function LayerInspectorContent({
             <span>资源引用</span>
             <Input
               value={layer.assetRef}
-              disabled={readOnly || (layer.kind === 'svg' && Boolean(layer.document))}
+              disabled={geometryReadOnly || (layer.kind === 'svg' && Boolean(layer.document))}
               placeholder={layer.kind === 'svg' ? 'assets/pump-body.svg' : 'assets/vendor-logo.png'}
               onChange={(event) => updateLayer({ ...layer, assetRef: event.target.value })}
             />
@@ -569,7 +573,7 @@ function LayerInspectorContent({
             <span>图元</span>
             <Select
               value={layer.primitive}
-              disabled={readOnly}
+              disabled={geometryReadOnly}
               ariaLabel={`${layer.name} 图元类型`}
               options={VECTOR_PRIMITIVE_OPTIONS}
               onValueChange={(value) => updateLayer({
@@ -585,7 +589,7 @@ function LayerInspectorContent({
               <Textarea
                 rows={4}
                 value={layer.pathData ?? ''}
-                disabled={readOnly}
+                disabled={geometryReadOnly}
                 onChange={(event) => updateLayer({ ...layer, pathData: event.target.value })}
               />
             </label>

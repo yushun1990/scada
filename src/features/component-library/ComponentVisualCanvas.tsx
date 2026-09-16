@@ -292,7 +292,7 @@ export function ComponentVisualCanvas({
   const isEditable = isComposite && mode === 'editor' && !readOnly
   const activeCreateTool = isEditable ? createTool : null
   const showDesignGrid = isComposite && mode === 'editor' && gridVisible
-  const canTransformSelection = selectedLayerIds.length === 1 && !activeCreateTool
+  const canTransformSelection = selectedLayerIds.length === 1 && !activeCreateTool && selectedLayer?.parentId === null
   const createGeometry = activeCreateTool && createStart && createCurrent
     ? resolveComponentCreateGeometry(
         activeCreateTool,
@@ -504,7 +504,7 @@ export function ComponentVisualCanvas({
       ? visual.layers.find((candidate) => candidate.id === layerId)
       : null
 
-    if (!layerId || !layer) {
+    if (!layerId || !layer || layer.parentId !== null) {
       return
     }
 
@@ -642,7 +642,7 @@ export function ComponentVisualCanvas({
       return
     }
 
-    onSelectionChange(getCompositeVisualLayerId(target), toggle)
+    onSelectionChange(getCompositeVisualLayerId(target, 'outermost'), toggle)
   }
 
   function commitSelectedTransform() {

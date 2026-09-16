@@ -30,8 +30,9 @@ export function compositeVisualLayerNodeId(layerId: string) {
   return `${COMPOSITE_VISUAL_LAYER_NODE_PREFIX}${layerId}`
 }
 
-export function getCompositeVisualLayerId(target: Konva.Node) {
+export function getCompositeVisualLayerId(target: Konva.Node, scope: 'closest' | 'outermost' = 'closest') {
   let current: Konva.Node | null = target
+  let layerId: string | null = null
 
   while (current) {
     const id = current.id()
@@ -40,13 +41,14 @@ export function getCompositeVisualLayerId(target: Konva.Node) {
       current.hasName(COMPOSITE_VISUAL_LAYER_NODE_NAME) &&
       id.startsWith(COMPOSITE_VISUAL_LAYER_NODE_PREFIX)
     ) {
-      return id.slice(COMPOSITE_VISUAL_LAYER_NODE_PREFIX.length)
+      layerId = id.slice(COMPOSITE_VISUAL_LAYER_NODE_PREFIX.length)
+      if (scope === 'closest') return layerId
     }
 
     current = current.getParent()
   }
 
-  return null
+  return layerId
 }
 
 export type CompositeComponentVisualRendererProps = {
@@ -349,7 +351,9 @@ function VisualLayerNode({
     childrenByParent.get(layer.id) ?? [],
     frontBranchIds,
   )
-  const draggable = listening && dragEnabled
+  // A grouped layer remains configurable through the tree, but its geometry
+  // belongs to the group until the author explicitly ungroups it.
+  const draggable = listening && dragEnabled && layer.parentId === null
   const ownsEditorBoundsHitArea = listening && dragEnabled
   const ownsFullBoundsDragHitArea = draggableLayerId === layer.id
 
