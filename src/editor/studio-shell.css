@@ -245,13 +245,9 @@
   grid-column: 3;
 }
 
-.studio-panel-resizer-left {
-  grid-column: 2;
-}
+.studio-panel-rail-left { grid-column: 2; }
 
-.studio-panel-resizer-right {
-  grid-column: 4;
-}
+.studio-panel-rail-right { grid-column: 4; }
 
 .studio-left-panel > .component-panel,
 .studio-right-panel > .property-panel {
@@ -266,6 +262,38 @@
 .studio-center-workspace > .canvas-area {
   width: 100%;
   height: 100%;
+}
+
+.studio-panel-rail {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  z-index: 4;
+  background: var(--ui-color-panel);
+}
+
+.studio-panel-rail .studio-panel-resizer { height: 100%; }
+
+.studio-panel-rail .studio-panel-toggle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  min-width: 20px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text-subtle);
+  background: var(--ui-color-panel);
+}
+
+.studio-panel-rail .studio-panel-toggle:hover {
+  color: var(--ui-color-accent);
+  border-color: var(--ui-color-accent);
+  background: var(--ui-color-accent-soft);
 }
 
 .studio-panel-resizer {

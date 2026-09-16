@@ -33,8 +33,8 @@ async function assertChrome(label, exitLabel) {
     boxOf(header.locator('.studio-document-identity'), `${label} identity`),
   ])
   const component = await page.locator('.component-studio-shell').count() > 0
-  assert.equal(document.height, component ? 48 : 44)
-  assert.equal(main.height, component ? 48 : 36)
+  assert.equal(document.height, 44)
+  assert.equal(main.height, 36)
   const accent = await header.evaluate((el) => getComputedStyle(el).getPropertyValue('--ui-color-accent').trim())
   assert.equal(accent, component ? '#137766' : '#1769aa', 'component theme is removed when leaving its route')
   assert.ok(contains(document, exit), `${label}: workspace navigation belongs to the document header`)

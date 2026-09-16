@@ -168,7 +168,7 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  padding: 32px;
+  padding: 16px;
   overflow: auto;
   place-items: center;
   background-color: var(--ui-color-canvas);
@@ -231,7 +231,7 @@
 .component-semantic-inspector {
   min-height: 0;
   padding: 0;
-  overflow: auto;
+  overflow: visible;
   background: var(--ui-color-panel);
 }
 
@@ -339,7 +339,7 @@
   border-bottom: 1px solid var(--ui-color-border);
 }
 
-.component-inspector-scope .ui-segmented-control { flex: 0 0 auto; }
+.component-inspector-scope .ui-segmented-control { flex: 0 0 auto; min-height: 28px; height: 28px; padding: 0; }
 .component-inspector-scope .ui-segmented-item { min-height: 26px; padding: 0 7px; font-size: 12px; }
 .component-inspector-scope > span {
   min-width: 0;

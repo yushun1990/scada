@@ -14,6 +14,12 @@ const tab = (name) => page.getByRole('tab', { name, exact: true })
 try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   assert.equal(await button('所选图层').isDisabled(), true)
+  const panel = page.locator('.studio-right-panel > .property-panel')
+  await panel.evaluate((element) => { element.scrollTop = element.scrollHeight })
+  const panelBox = await panel.boundingBox()
+  const scopeBox = await page.locator('.component-inspector-scope').boundingBox()
+  assert.ok(scopeBox.y >= panelBox.y && scopeBox.y < panelBox.y + 40, 'scope controls stay at hand while browsing long component contracts')
+  await panel.evaluate((element) => { element.scrollTop = 0 })
   const saved = await saveAndWait(page)
   const layer = {
     id: 'indicator', name: '状态指示灯', kind: 'vector', parentId: null, visible: true, opacity: 1,

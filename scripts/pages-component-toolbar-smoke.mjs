@@ -65,7 +65,7 @@ async function studioToolbar(height = 36) {
 
 async function measureComponentToolbar(label, compact = false) {
   await page.locator('.studio-shell.component-studio-shell').waitFor()
-  const studio = await studioToolbar(48)
+  const studio = await studioToolbar(36)
   const centerBox = await page.locator('.studio-center-workspace').boundingBox()
   assert.equal(studio.toolbarBox.x, centerBox.x)
   assert.equal(studio.toolbarBox.width, centerBox.width)
@@ -191,14 +191,13 @@ try {
   await measureComponentToolbar('Component 1000px compact desktop', true)
   await page.screenshot({ path: 'artifacts/component-toolbar-1000.png', fullPage: true })
   // At a phone-sized viewport, panel visibility provides a usable canvas.
-  for (const label of ['隐藏左侧面板', '隐藏属性面板']) {
-    await page.getByRole('button', { name: '布局', exact: true }).click()
-    await page.getByRole('menuitem', { name: label, exact: true }).click()
+  for (const label of ['收起左侧面板', '收起右侧面板']) {
+    await page.getByRole('button', { name: label, exact: true }).click()
   }
   await page.setViewportSize({ width: 600, height: 900 })
-  await measureComponentToolbar('Component 600px with panels hidden')
-  await page.getByRole('button', { name: '布局', exact: true }).click()
-  await page.getByRole('menuitem', { name: '重置布局', exact: true }).click()
+  await measureComponentToolbar('Component 600px with panels hidden', true)
+  await page.getByRole('button', { name: '展开左侧面板', exact: true }).click()
+  await page.getByRole('button', { name: '展开右侧面板', exact: true }).click()
 
   console.log(`Opening SCADA Editor Studio toolbar regression: ${baseUrl}#/works`)
   await page.setViewportSize({ width: 1200, height: 900 })

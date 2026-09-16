@@ -98,8 +98,6 @@ const TRANSFORMER_ANCHORS = [
   'bottom-right',
 ]
 
-const WORKBENCH_ARTBOARD_MAX_WIDTH = 720
-const WORKBENCH_ARTBOARD_MAX_HEIGHT = 520
 const WORKBENCH_ARTBOARD_FIT_GUTTER = 4
 
 function isInsideTransformer(
@@ -272,20 +270,13 @@ export function ComponentVisualCanvas({
     : visual
   const visualDesignWidth = visual.designSize.width
   const visualDesignHeight = visual.designSize.height
-  const maxArtboardScale = Math.min(
-    WORKBENCH_ARTBOARD_MAX_WIDTH / Math.max(1, visualDesignWidth),
-    WORKBENCH_ARTBOARD_MAX_HEIGHT / Math.max(1, visualDesignHeight),
-  )
-  const viewportArtboardScale = canvasViewport
-    ? Math.min(
+  // Fit the white artboard to the available workspace without changing design coordinates.
+  const artboardScale = canvasViewport
+    ? Math.max(0.01, Math.min(
         canvasViewport.width / Math.max(1, visualDesignWidth),
         canvasViewport.height / Math.max(1, visualDesignHeight),
-      )
-    : Math.min(1, maxArtboardScale)
-  const artboardScale = Math.max(
-    0.01,
-    Math.min(maxArtboardScale, viewportArtboardScale),
-  )
+      ))
+    : 1
   const artboardWidth = visualDesignWidth * artboardScale
   const artboardHeight = visualDesignHeight * artboardScale
   const isComposite = visual.mode === 'composite'

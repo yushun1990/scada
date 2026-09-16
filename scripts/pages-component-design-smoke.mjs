@@ -37,7 +37,8 @@ try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await page.locator('.component-root-inspector').waitFor()
   await assertLayout()
-  assert.equal(await page.locator('.component-inspector-context').count(), 0, 'root settings do not repeat a title bar')
+  assert.equal(await button('当前组件').getAttribute('aria-pressed'), 'true')
+  assert.equal(await button('所选图层').isDisabled(), true)
   const basicInfo = page.locator('.component-root-inspector .inspector-group').filter({ has: button('基本信息') })
   const infoBox = await basicInfo.boundingBox()
   assert.ok(infoBox && infoBox.height < 260, `basic fields should fit in a compact group (${infoBox?.height})`)
@@ -51,6 +52,21 @@ try {
 
   // Build a fresh isolated display fixture for the actual editor captures.
   const saved = await saveAndWait(page)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.waitForFunction(() => document.querySelector('.component-artboard')?.getBoundingClientRect().width > 800)
+  const whiteCanvas = await page.locator('.component-artboard').boundingBox()
+  assert.ok(whiteCanvas.width > 800 && whiteCanvas.height > 600, 'white artboard fills a large workspace beyond the former 720 × 520 cap')
+  assert.ok(Math.abs(whiteCanvas.width / whiteCanvas.height - saved.document.visual.designSize.width / saved.document.visual.designSize.height) < 0.01, 'display scaling preserves design proportions')
+  await button('收起左侧面板').click()
+  await button('收起右侧面板').click()
+  await page.waitForFunction((width) => document.querySelector('.component-artboard')?.getBoundingClientRect().width > width + 100, whiteCanvas.width)
+  assert.equal(await button('展开左侧面板').isVisible(), true)
+  assert.equal(await button('展开右侧面板').isVisible(), true)
+  await page.reload({ waitUntil: 'networkidle' })
+  assert.equal(await button('展开左侧面板').isVisible(), true, 'collapsed panel state persists')
+  await button('展开左侧面板').click()
+  await button('展开右侧面板').click()
+  await page.setViewportSize({ width: 1366, height: 768 })
   const layer = (id, name, kind, x, y, width, height, extra) => ({
     id, name, kind, parentId: null, visible: true, opacity: 1,
     transform: { x, y, width, height, rotation: 0, scaleX: 1, scaleY: 1 }, ...extra,

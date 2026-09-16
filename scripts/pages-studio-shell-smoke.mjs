@@ -59,8 +59,8 @@ function closeTo(actual, expected, tolerance = 1) {
 async function assertShellGeometry({ panels = true } = {}) {
   const geometry = await shellGeometry()
   assert.ok(geometry.header && geometry.toolbar && geometry.status && geometry.center)
-  closeTo(geometry.header.height, geometry.canvasToolbar ? 48 : 44)
-  closeTo(geometry.toolbar.height, geometry.canvasToolbar ? 48 : 36)
+  closeTo(geometry.header.height, 44)
+  closeTo(geometry.toolbar.height, 36)
   closeTo(geometry.status.height, 26)
   assert.ok(geometry.center.width >= 480, `center workspace must remain usable, got ${geometry.center.width}`)
   assert.ok(geometry.bodyScrollWidth <= geometry.bodyClientWidth + 1, 'StudioShell must not create page-level horizontal overflow')
@@ -75,10 +75,10 @@ async function assertShellGeometry({ panels = true } = {}) {
     closeTo(geometry.center.y, geometry.toolbar.y + geometry.toolbar.height)
   }
   closeTo(geometry.center.y + geometry.center.height, geometry.status.y)
-  closeTo(geometry.center.x, geometry.left ? geometry.left.width + 6 : 0)
+  closeTo(geometry.center.x, geometry.left ? geometry.left.width + 6 : 24)
   closeTo(
     geometry.center.x + geometry.center.width,
-    geometry.bodyClientWidth - (geometry.right ? geometry.right.width + 6 : 0),
+    geometry.bodyClientWidth - (geometry.right ? geometry.right.width + 6 : 24),
   )
   if (panels) {
     assert.ok(geometry.left && geometry.right, 'both side panels must be visible')
@@ -87,9 +87,9 @@ async function assertShellGeometry({ panels = true } = {}) {
 }
 
 async function assertPanelVisibilityLayout() {
-  for (const action of ['隐藏左侧面板', '隐藏属性面板', '显示左侧面板', '显示属性面板']) {
-    await page.getByRole('button', { name: '布局', exact: true }).click()
-    await page.getByRole('menuitem', { name: action, exact: true }).click()
+  for (const action of ['收起左侧面板', '收起右侧面板', '展开左侧面板', '展开右侧面板']) {
+    await page.getByRole('button', { name: action, exact: true }).click()
+    assert.equal(await page.locator('.studio-panel-toggle:focus').count(), 1, 'collapse keeps a reachable keyboard focus')
     await assertShellGeometry({ panels: false })
   }
   await assertShellGeometry()
@@ -102,6 +102,7 @@ try {
   await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
   await waitForStudioShell('.studio-shell.scada-studio-shell')
 
+  assert.equal(await page.getByRole('button', { name: '布局', exact: true }).count(), 0, 'panel controls belong at the sidebar edges')
   let geometry = await assertShellGeometry()
   closeTo(geometry.left.width, 248)
   closeTo(geometry.right.width, 320)
@@ -128,8 +129,7 @@ try {
   assert.equal(resizedLeftWidth, originalLeftWidth + 8)
   assert.equal(await nameField.inputValue(), originalName, 'layout resize must not reset selection/document state')
 
-  await page.getByRole('button', { name: '布局', exact: true }).click()
-  await page.getByRole('menuitem', { name: '隐藏属性面板' }).click()
+  await page.getByRole('button', { name: '收起右侧面板', exact: true }).click()
   assert.equal(await page.locator('.studio-right-panel:not([hidden])').count(), 0)
   assert.equal(await page.locator('.document-save-status').getByText('已保存', { exact: true }).count(), 1)
   await page.waitForTimeout(250)
@@ -141,8 +141,8 @@ try {
   await assertShellGeometry({ panels: false })
   assert.equal(await page.locator('.document-save-status').getByText('已保存', { exact: true }).count(), 1)
 
-  await page.getByRole('button', { name: '布局', exact: true }).click()
-  await page.getByRole('menuitem', { name: '重置布局', exact: true }).click()
+  await page.getByRole('button', { name: '展开右侧面板', exact: true }).click()
+  await page.locator('.studio-panel-resizer-left').press('Enter')
   await page.waitForTimeout(100)
   geometry = await assertShellGeometry()
   closeTo(geometry.left.width, 248)

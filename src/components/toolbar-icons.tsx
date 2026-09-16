@@ -40,6 +40,14 @@ export function VectorIcon(props: SVGProps<SVGSVGElement>) {
   return <svg {...base(props)}><path d="M5 17C5 6 19 18 19 7M5 17l7-13 7 3-7 13Z" /><circle cx="5" cy="17" r="2" fill="var(--ui-color-panel)" /><circle cx="19" cy="7" r="2" fill="var(--ui-color-panel)" /></svg>
 }
 
+export function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><path d="m14 6-6 6 6 6" /></svg>
+}
+
+export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><path d="m10 6 6 6-6 6" /></svg>
+}
+
 export function ChevronUpIcon(props: SVGProps<SVGSVGElement>) {
   return <svg {...base(props)}><path d="m6 14 6-6 6 6" /></svg>
 }

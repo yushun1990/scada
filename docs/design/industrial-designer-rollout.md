@@ -79,9 +79,9 @@ flowchart LR
 - 将新 palette、字号、行高、圆角、边框、焦点和密度写入 `tokens.css` 与 primitive 样式。
 - 建立控件状态样本，覆盖 default/hover/focus/pressed/disabled/read-only/error/mixed。
 - 增加或扩展 `Menu`、`Dialog`、`SplitPane`、`StatusBar` 等 Studio primitive；使用 Base UI 负责适合的行为。
-- 提取 `StudioShell`：组态页头 44 / 工具栏 36，组件页头 48 / 画布内工具栏 48；状态栏 26、左右面板 248/320。不保留单独的菜单行和单文档页签。
+- 提取 `StudioShell`：两种编辑器页头 44 / 工具栏 36，组件工具栏位于画布内；状态栏 26、左右面板 248/320。不保留单独的菜单行和单文档页签。
 - 显式插槽接收工作台导航，移除 `StudioWorkspaceExit` 的 DOM 查询与 MutationObserver。
-- 文档操作、工具栏与快捷键复用 B 的命令接口，但可见入口按职责划分；布局菜单处理面板隐藏/恢复，禁止完整镜像工具栏命令。
+- 文档操作、工具栏与快捷键复用 B 的命令接口，但可见入口按职责划分；侧栏边缘按钮处理面板收起/展开，分隔线支持恢复默认宽度，禁止完整镜像工具栏命令。
 - 收敛旧 CSS：逐区域迁移，删除对应旧声明，不额外叠一份“最终覆盖样式”。处理未分层规则和 lazy CSS 顺序。
 - 同步旧 ui-foundation 与 ui-primitives 引用关系；按组件语义设置主按钮，不用 first-of-type。
 
