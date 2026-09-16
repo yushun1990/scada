@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
+import { RectangleIcon, EllipseIcon, LineIcon, TextIcon, GroupIcon, ImageIcon, VectorIcon } from '../../components/toolbar-icons'
 import {
   type ComponentVisualDefinition,
   type ComponentVisualLayer,
@@ -17,6 +18,7 @@ import {
   Textarea,
 } from '../../ui'
 import { ComponentAuthoringPalette } from './ComponentAuthoringPalette'
+import { ComponentLayerOrderActions } from './ComponentLayerCommands'
 import { ComponentVisualAssetImportControl } from './ComponentVisualAssetImportControl'
 import { componentLayerAncestorIds, componentNavigatorRows } from './component-layer-navigation'
 import { clearComponentCreateTool } from './component-create-mode'
@@ -36,6 +38,8 @@ type ComponentVisualTreeEditorProps = {
   primaryLayerId: string | null
   onSelectionChange: ComponentLayerSelectionChange
   onChange: (visual: ComponentVisualDefinition) => void
+  onSelectionReplace: (layerIds: readonly string[]) => void
+  onApplied: (message: string) => void
 }
 
 type ComponentVisualCanvasProps = {
@@ -79,6 +83,18 @@ const VECTOR_PRIMITIVE_OPTIONS = VECTOR_PRIMITIVES.map(([value, label]) => ({ va
 
 export function layerKindLabel(kind: VisualLayerKind) {
   return LAYER_KIND_LABELS.find(([candidate]) => candidate === kind)?.[1] ?? kind
+}
+
+function LayerIcon({ layer }: { layer: ComponentVisualLayer }) {
+  if (layer.kind === 'text') return <TextIcon />
+  if (layer.kind === 'group') return <GroupIcon />
+  if (layer.kind === 'image') return <ImageIcon />
+  if (layer.kind === 'vector') {
+    if (layer.primitive === 'rect') return <RectangleIcon />
+    if (layer.primitive === 'circle' || layer.primitive === 'ellipse') return <EllipseIcon />
+    if (layer.primitive === 'line') return <LineIcon />
+  }
+  return <VectorIcon />
 }
 
 function collectDescendantIds(
@@ -138,6 +154,8 @@ export function ComponentVisualTreeEditor({
   primaryLayerId,
   onSelectionChange,
   onChange,
+  onSelectionReplace,
+  onApplied,
 }: ComponentVisualTreeEditorProps) {
   const [search, setSearch] = useState('')
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<ReadonlySet<string>>(() => new Set())
@@ -145,7 +163,8 @@ export function ComponentVisualTreeEditor({
   const [revealRequest, setRevealRequest] = useState(0)
   const navigatorRef = useRef<HTMLDivElement>(null)
   const flattened = useMemo(
-    () => componentNavigatorRows(visual.layers, collapsedGroupIds, search),
+    // Stored sibling order is back-to-front; display the frontmost layer first.
+    () => componentNavigatorRows([...visual.layers].reverse(), collapsedGroupIds, search),
     [visual.layers, collapsedGroupIds, search],
   )
   const ancestorKey = JSON.stringify(componentLayerAncestorIds(visual.layers, primaryLayerId))
@@ -281,10 +300,20 @@ export function ComponentVisualTreeEditor({
                       event.shiftKey || event.ctrlKey || event.metaKey,
                     )}
                   >
-                    <span className="component-layer-kind">{layerKindLabel(layer.kind)}</span>
+                    <span className="component-layer-kind" aria-hidden="true"><LayerIcon layer={layer} /></span>
                     <span className="component-layer-name">{layer.name}</span>
                     {!layer.visible && <small>隐藏</small>}
                   </Pressable>
+                  <ComponentLayerOrderActions
+                    visual={visual}
+                    layerId={layer.id}
+                    layerName={layer.name}
+                    selectedLayerIds={selectedLayerIds}
+                    disabled={readOnly}
+                    onChange={onChange}
+                    onSelectionReplace={onSelectionReplace}
+                    onApplied={onApplied}
+                  />
                 </div>
               ))}
 
@@ -305,7 +334,7 @@ export function ComponentVisualTreeEditor({
 
             {visual.mode === 'composite' && (
               <p className="component-layer-navigator-help">
-                Shift / Ctrl / ⌘ 点击多选，使用画布工具栏组合。点击空白画布取消选择。
+                上方图层显示在前 · Ctrl / ⌘ 点击多选
               </p>
             )}
           </>
@@ -422,30 +451,6 @@ function LayerInspectorContent({
     onSelectionChange(nextId)
   }
 
-  function removeLayer() {
-    if (readOnly) return
-
-    const deleted = collectDescendantIds(visual.layers, layer.id)
-    updateLayers(visual.layers.filter((candidate) => !deleted.has(candidate.id)))
-    onSelectionChange(null)
-  }
-
-  function moveLayer(direction: -1 | 1) {
-    if (readOnly) return
-
-    const siblings = visual.layers.filter((candidate) => candidate.parentId === layer.parentId)
-    const siblingIndex = siblings.findIndex((candidate) => candidate.id === layer.id)
-    const target = siblings[siblingIndex + direction]
-    if (!target) return
-
-    const currentIndex = visual.layers.findIndex((candidate) => candidate.id === layer.id)
-    const targetIndex = visual.layers.findIndex((candidate) => candidate.id === target.id)
-    const nextLayers = [...visual.layers]
-    nextLayers[currentIndex] = target
-    nextLayers[targetIndex] = layer
-    updateLayers(nextLayers)
-  }
-
   function updateTransform(
     field: keyof ComponentVisualLayer['transform'],
     value: number,
@@ -461,19 +466,6 @@ function LayerInspectorContent({
   return (
     <div className="property-section-list component-layer-inspector">
       <CollapsibleInspectorGroup title="图层">
-        <div className="component-layer-inspector-title">
-          <div>
-            <strong>{layer.name}</strong>
-            <span>{layerKindLabel(layer.kind)} · {layer.id}</span>
-          </div>
-          {!readOnly && (
-            <div className="component-layer-actions">
-              <IconButton aria-label="图层上移" title="上移" size="small" onClick={() => moveLayer(-1)}>↑</IconButton>
-              <IconButton aria-label="图层下移" title="下移" size="small" onClick={() => moveLayer(1)}>↓</IconButton>
-              <Button variant="danger" size="small" onClick={removeLayer}>删除</Button>
-            </div>
-          )}
-        </div>
 
         <label className="property-field">
           <span>ID</span>

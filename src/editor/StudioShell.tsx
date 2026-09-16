@@ -29,19 +29,14 @@ export type StudioMenuCommand = {
   onSelect: () => void
 }
 
-export type StudioMenuDefinition = {
-  id: string
-  label: string
-  commands: StudioMenuCommand[]
-}
-
 type StudioShellProps = {
-  productTitle?: string
   documentTitle: string
   documentType: string
   dirty: boolean
-  menus: StudioMenuDefinition[]
+  documentActions: ReactNode
+  documentCommands?: StudioMenuCommand[]
   mainToolbar: ReactNode
+  toolbarPlacement?: 'full-width' | 'canvas'
   modeControl?: ReactNode
   leftPanel: ReactNode
   center: ReactNode
@@ -148,12 +143,13 @@ function StudioPanelResizeHandle({
 }
 
 export function StudioShell({
-  productTitle = 'SCADA Studio',
   documentTitle,
   documentType,
   dirty,
-  menus,
+  documentActions,
+  documentCommands = [],
   mainToolbar,
+  toolbarPlacement = 'full-width',
   modeControl,
   leftPanel,
   center,
@@ -173,7 +169,7 @@ export function StudioShell({
     '--studio-right-resizer': layout.rightVisible ? '6px' : '0px',
   } as CSSProperties
 
-  const viewCommands: StudioMenuCommand[] = [
+  const layoutCommands: StudioMenuCommand[] = [
     {
       id: 'toggle-left-panel',
       label: layout.leftVisible ? '隐藏左侧面板' : '显示左侧面板',
@@ -197,110 +193,51 @@ export function StudioShell({
       onSelect: resetLayout,
     },
   ]
-
-  const mergedMenus = menus.map((menu) =>
-    menu.id === 'view'
-      ? { ...menu, commands: [...menu.commands, ...viewCommands] }
-      : menu,
+  const canvasToolbar = toolbarPlacement === 'canvas'
+  const toolbar = (
+    <Toolbar className="studio-main-toolbar" aria-label="Studio 主工具栏">
+      <div className="studio-main-toolbar-content">{mainToolbar}</div>
+    </Toolbar>
   )
-  if (!mergedMenus.some((menu) => menu.id === 'view')) {
-    mergedMenus.push({ id: 'view', label: '视图', commands: viewCommands })
-  }
 
   return (
     <div
-      className={`studio-shell ${className}`.trim()}
+      className={`studio-shell${canvasToolbar ? ' studio-shell-canvas-toolbar' : ''} ${className}`.trim()}
       style={shellStyle}
       onFocusCapture={onFocusCapture}
       onBlurCapture={onBlurCapture}
     >
-      <div className="studio-menu-bar">
-        <strong className="studio-product-title">{productTitle}</strong>
-        <nav className="studio-menu-list" aria-label="Studio 菜单">
-          {mergedMenus.map((menu) => (
-            <MenuRoot key={menu.id}>
-              <MenuTrigger className="studio-menu-trigger">{menu.label}</MenuTrigger>
-              <MenuPopup className="studio-menu-popup">
-                {menu.commands.map((command) => (
-                  <div key={command.id}>
-                    {command.separatorBefore && <MenuSeparator />}
-                    <MenuItem
-                      className="studio-menu-item"
-                      disabled={command.disabled}
-                      destructive={command.destructive}
-                      onClick={command.onSelect}
-                    >
-                      <span>{command.label}</span>
-                      {command.shortcut && (
-                        <kbd className="studio-menu-shortcut">{command.shortcut}</kbd>
-                      )}
-                    </MenuItem>
-                  </div>
-                ))}
-              </MenuPopup>
-            </MenuRoot>
-          ))}
-        </nav>
-        <Button
-          variant="ghost"
-          size="small"
-          className="studio-workspace-nav"
-          title={workspaceNavigationLabel}
-          aria-label={workspaceNavigationLabel}
-          onClick={onNavigateWorkspace}
-        >
-          工作台
-        </Button>
-      </div>
-
-      <Toolbar className="studio-main-toolbar" aria-label="Studio 主工具栏">
-        <div className="studio-main-toolbar-content">{mainToolbar}</div>
-        <div className="studio-main-toolbar-tail">
+      <header className="studio-document-header">
+        <div className="studio-document-brand">
           <Button
             variant="ghost"
             size="small"
-            aria-pressed={layout.leftVisible}
-            aria-label={layout.leftVisible ? '隐藏左侧面板' : '显示左侧面板'}
-            title={layout.leftVisible ? '隐藏左侧面板' : '显示左侧面板'}
-            onClick={() => setLayout((current) => ({
-              ...current,
-              leftVisible: !current.leftVisible,
-            }))}
+            className="studio-workspace-nav"
+            title={workspaceNavigationLabel}
+            aria-label={workspaceNavigationLabel}
+            onClick={onNavigateWorkspace}
           >
-            左栏
+            工作台
           </Button>
-          <Button
-            variant="ghost"
-            size="small"
-            aria-pressed={layout.rightVisible}
-            aria-label={layout.rightVisible ? '隐藏属性面板' : '显示属性面板'}
-            title={layout.rightVisible ? '隐藏属性面板' : '显示属性面板'}
-            onClick={() => setLayout((current) => ({
-              ...current,
-              rightVisible: !current.rightVisible,
-            }))}
-          >
-            属性
-          </Button>
-          {modeControl}
+          <div className="studio-document-identity" title={`${documentTitle} · ${documentType}`}>
+            <strong aria-label={`${documentTitle}${dirty ? '，未保存' : ''}`}>
+              {documentTitle}{dirty ? ' *' : ''}
+            </strong>
+            <span>{documentType}</span>
+          </div>
         </div>
-      </Toolbar>
+        {canvasToolbar && <div className="studio-document-mode">{modeControl}</div>}
+        <div className="studio-document-actions">
+          {documentActions}
+          {documentCommands.length > 0 && (
+            <StudioCommandMenu label="文件" commands={documentCommands} />
+          )}
+          <StudioCommandMenu label="布局" commands={layoutCommands} />
+          {!canvasToolbar && modeControl}
+        </div>
+      </header>
 
-      <div className="studio-document-bar">
-        <div className="studio-document-identity">
-          <strong>{documentTitle}{dirty ? ' *' : ''}</strong>
-          <span>{documentType}</span>
-        </div>
-        <Button
-          variant="ghost"
-          size="small"
-          aria-label={`关闭 ${documentTitle}`}
-          title="关闭并返回工作台"
-          onClick={onNavigateWorkspace}
-        >
-          ×
-        </Button>
-      </div>
+      {!canvasToolbar && toolbar}
 
       <div className="studio-workspace-grid">
         <aside className="studio-left-panel" aria-label="左侧工作面板" hidden={!layout.leftVisible}>
@@ -317,7 +254,7 @@ export function StudioShell({
           />
         )}
         <main className="studio-center-workspace" aria-label={`${documentTitle} 编辑区`}>
-          {center}
+          {canvasToolbar ? <>{toolbar}<div className="studio-canvas-content">{center}</div></> : center}
         </main>
         {layout.rightVisible && (
           <StudioPanelResizeHandle
@@ -336,5 +273,29 @@ export function StudioShell({
 
       <StatusBar className="studio-status-bar">{status}</StatusBar>
     </div>
+  )
+}
+
+function StudioCommandMenu({ label, commands }: { label: string; commands: StudioMenuCommand[] }) {
+  return (
+    <MenuRoot>
+      <MenuTrigger className="studio-menu-trigger">{label}</MenuTrigger>
+      <MenuPopup className="studio-menu-popup" align="end">
+        {commands.map((command) => (
+          <div key={command.id}>
+            {command.separatorBefore && <MenuSeparator />}
+            <MenuItem
+              className="studio-menu-item"
+              disabled={command.disabled}
+              destructive={command.destructive}
+              onClick={command.onSelect}
+            >
+              <span>{command.label}</span>
+              {command.shortcut && <kbd className="studio-menu-shortcut">{command.shortcut}</kbd>}
+            </MenuItem>
+          </div>
+        ))}
+      </MenuPopup>
+    </MenuRoot>
   )
 }

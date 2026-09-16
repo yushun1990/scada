@@ -89,6 +89,10 @@ async function clickSceneNode(sceneNode, toClient, { shift = false } = {}) {
     sceneNode.transform.x + sceneNode.transform.width / 2,
     sceneNode.transform.y + sceneNode.transform.height / 2,
   )
+  const canvas = await page.locator('.konva-host canvas').first().boundingBox()
+  assert.ok(canvas && center.x > canvas.x && center.x < canvas.x + canvas.width
+    && center.y > canvas.y && center.y < canvas.y + canvas.height,
+  `fixture node ${sceneNode.name} must be inside the canvas before pointer selection`)
   if (shift) await page.keyboard.down('Shift')
   try {
     await page.mouse.click(center.x, center.y)
@@ -122,6 +126,9 @@ try {
   assert.ok(baseline.nodes.length >= 2, 'B3 fixture must contain at least two Scene nodes')
   const firstNode = baseline.nodes[0]
   const secondNode = baseline.nodes[baseline.nodes.length - 1]
+  // Default fill scales with viewport height and can crop the first node after
+  // chrome changes. Use a known view so this test measures selection, not crop.
+  await page.getByTitle('恢复 100%', { exact: true }).click()
   const toClient = await resolveSceneToClientMapping()
 
   // Single-selection Preview: page commands and Inspector authoring controls
@@ -143,7 +150,7 @@ try {
   // C2 moves import into the Studio File menu; B3 still owns the semantic
   // requirement that Preview makes this design mutation unavailable.
   await page.getByRole('button', { name: '文件', exact: true }).click()
-  const importCommand = page.getByRole('menuitem', { name: '导入场景', exact: true })
+  const importCommand = page.getByRole('menuitem', { name: '导入场景结构（高级）', exact: true })
   await importCommand.waitFor()
   assert.equal(await importCommand.isDisabled(), true)
   await page.keyboard.press('Escape')

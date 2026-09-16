@@ -35,9 +35,10 @@ async function shellGeometry() {
       return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
     }
     return {
-      menu: box('.studio-menu-bar'),
+      canvasToolbar: !!document.querySelector('.studio-shell-canvas-toolbar'),
+      canvas: box('.studio-canvas-content'),
+      header: box('.studio-document-header'),
       toolbar: box('.studio-main-toolbar'),
-      document: box('.studio-document-bar'),
       status: box('.studio-status-bar'),
       left: box('.studio-left-panel:not([hidden])'),
       center: box('.studio-center-workspace'),
@@ -57,15 +58,22 @@ function closeTo(actual, expected, tolerance = 1) {
 
 async function assertShellGeometry({ panels = true } = {}) {
   const geometry = await shellGeometry()
-  assert.ok(geometry.menu && geometry.toolbar && geometry.document && geometry.status && geometry.center)
-  closeTo(geometry.menu.height, 28)
-  closeTo(geometry.toolbar.height, 36)
-  closeTo(geometry.document.height, 28)
+  assert.ok(geometry.header && geometry.toolbar && geometry.status && geometry.center)
+  closeTo(geometry.header.height, geometry.canvasToolbar ? 48 : 44)
+  closeTo(geometry.toolbar.height, geometry.canvasToolbar ? 48 : 36)
   closeTo(geometry.status.height, 26)
   assert.ok(geometry.center.width >= 480, `center workspace must remain usable, got ${geometry.center.width}`)
   assert.ok(geometry.bodyScrollWidth <= geometry.bodyClientWidth + 1, 'StudioShell must not create page-level horizontal overflow')
   assert.equal(geometry.visibleCanvasToolbars, 0, 'C2 must expose one Studio toolbar row, not a second canvas toolbar')
-  closeTo(geometry.center.y, geometry.document.y + geometry.document.height)
+  closeTo(geometry.toolbar.y, geometry.header.y + geometry.header.height)
+  if (geometry.canvasToolbar) {
+    closeTo(geometry.center.y, geometry.header.y + geometry.header.height)
+    closeTo(geometry.canvas.y, geometry.toolbar.y + geometry.toolbar.height)
+    closeTo(geometry.toolbar.x, geometry.center.x)
+    closeTo(geometry.toolbar.width, geometry.center.width)
+  } else {
+    closeTo(geometry.center.y, geometry.toolbar.y + geometry.toolbar.height)
+  }
   closeTo(geometry.center.y + geometry.center.height, geometry.status.y)
   closeTo(geometry.center.x, geometry.left ? geometry.left.width + 6 : 0)
   closeTo(
@@ -80,11 +88,12 @@ async function assertShellGeometry({ panels = true } = {}) {
 
 async function assertPanelVisibilityLayout() {
   for (const side of ['左侧', '属性', '左侧', '属性']) {
-    const hide = page.getByRole('button', { name: `隐藏${side}面板`, exact: true })
+    await page.getByRole('button', { name: '布局', exact: true }).click()
+    const hide = page.getByRole('menuitem', { name: `隐藏${side}面板`, exact: true })
     if (await hide.count()) {
       await hide.click()
     } else {
-      await page.getByRole('button', { name: `显示${side}面板`, exact: true }).click()
+      await page.getByRole('menuitem', { name: `显示${side}面板`, exact: true }).click()
     }
     await assertShellGeometry({ panels: false })
   }
@@ -124,7 +133,8 @@ try {
   assert.equal(resizedLeftWidth, originalLeftWidth + 8)
   assert.equal(await nameField.inputValue(), originalName, 'layout resize must not reset selection/document state')
 
-  await page.getByRole('button', { name: '隐藏属性面板' }).click()
+  await page.getByRole('button', { name: '布局', exact: true }).click()
+  await page.getByRole('menuitem', { name: '隐藏属性面板' }).click()
   assert.equal(await page.locator('.studio-right-panel:not([hidden])').count(), 0)
   assert.equal(await page.locator('.document-save-status').getByText('已保存', { exact: true }).count(), 1)
   await page.waitForTimeout(250)
@@ -136,7 +146,7 @@ try {
   await assertShellGeometry({ panels: false })
   assert.equal(await page.locator('.document-save-status').getByText('已保存', { exact: true }).count(), 1)
 
-  await page.getByRole('button', { name: '视图', exact: true }).click()
+  await page.getByRole('button', { name: '布局', exact: true }).click()
   await page.getByRole('menuitem', { name: '重置布局', exact: true }).click()
   await page.waitForTimeout(100)
   geometry = await assertShellGeometry()

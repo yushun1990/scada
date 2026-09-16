@@ -66,6 +66,7 @@ jobs:
             SCADA_BROWSER=chromium node scripts/pages-component-hit-smoke.mjs
             node scripts/pages-component-svg-drag-smoke.mjs
             node scripts/pages-component-header-smoke.mjs
+            node scripts/pages-component-design-smoke.mjs
             node scripts/pages-component-arrange-smoke.mjs
             node scripts/pages-component-toolbar-smoke.mjs
             node scripts/pages-component-package-transfer-smoke.mjs

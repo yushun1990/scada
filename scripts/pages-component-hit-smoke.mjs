@@ -56,7 +56,8 @@ async function groupLayers(names, groupName) {
 
 async function deleteLayer(name) {
   await layerRow(name).click()
-  await page.getByRole('button', { name: '删除', exact: true }).click()
+  await page.getByRole('toolbar', { name: 'Studio 主工具栏' })
+    .getByRole('button', { name: '删除选中图层', exact: true }).click()
   await layerRow(name).waitFor({ state: 'detached' })
 }
 

@@ -394,7 +394,7 @@ export function ComponentAttributeContractEditor({
       })}
 
       {Object.keys(definition.attributes).length === 0 && (
-        <div className="contract-empty">尚未定义公开 Attribute。</div>
+        <div className="contract-empty">尚未添加静态配置</div>
       )}
 
       {!readOnly && (

@@ -1,8 +1,6 @@
-/* C2 command-family layout inside the single Studio main toolbar. */
+/* SCADA command-family layout inside the full-width toolbar. */
 
-.studio-main-toolbar-content > .canvas-tool-group,
-.studio-main-toolbar-content > .component-edit-command-host,
-.studio-main-toolbar-content > .component-view-command-host {
+.scada-studio-shell .studio-main-toolbar-content > .canvas-tool-group {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
@@ -10,41 +8,115 @@
   gap: var(--ui-space-micro);
 }
 
-.studio-main-toolbar-content > .canvas-tool-group + .canvas-tool-group,
-.studio-main-toolbar-content > .component-edit-command-host,
-.studio-main-toolbar-content > .component-geometry-tool-group,
-.studio-main-toolbar-content > .component-view-command-host {
+.scada-studio-shell .studio-main-toolbar-content > .canvas-tool-group + .canvas-tool-group {
   margin-left: var(--ui-space-1);
   padding-left: var(--ui-space-1);
   border-left: 1px solid var(--ui-color-border);
 }
 
-.studio-main-toolbar-content .component-geometry-tool-group,
-.studio-main-toolbar-content .scada-geometry-tool-group {
+.scada-studio-shell .studio-main-toolbar-content .scada-geometry-tool-group {
   flex: 0 1 auto;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
 
-.studio-main-toolbar-content .component-geometry-tool-group > button,
-.studio-main-toolbar-content .scada-geometry-tool-group > button {
+.scada-studio-shell .studio-main-toolbar-content .scada-geometry-tool-group > button {
   flex: 0 0 var(--ui-control-height);
 }
 
-.studio-main-toolbar-content .component-canvas-phase {
-  display: none;
-}
-
-.studio-main-toolbar-content .grid-control {
+.scada-studio-shell .studio-main-toolbar-content .grid-control {
   display: inline-flex;
   align-items: center;
 }
 
-.studio-main-toolbar-content .grid-control > .icon-button {
+.scada-studio-shell .studio-main-toolbar-content .grid-control > .icon-button {
   border-radius: var(--ui-radius-control) 0 0 var(--ui-radius-control);
 }
 
-.studio-main-toolbar-content .grid-control > .grid-size-input {
+.scada-studio-shell .studio-main-toolbar-content .grid-control > .grid-size-input {
   border-radius: 0 var(--ui-radius-control) var(--ui-radius-control) 0;
+}
+
+/* Component tools belong to the canvas. Three groups share its available width;
+ * compact layouts replace the alignment strip with one keyboard-accessible menu. */
+.component-studio-shell .studio-main-toolbar-content {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(238px, 1.8fr) minmax(112px, 1fr);
+  gap: 8px;
+  overflow: visible;
+}
+
+.component-studio-shell .studio-main-toolbar-content > [role='group'],
+.component-studio-shell .component-edit-command-host,
+.component-studio-shell .component-geometry-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.component-studio-shell .studio-main-toolbar-content > [role='group'] + [role='group'] {
+  border-left: 1px solid var(--ui-color-border);
+}
+
+.component-studio-shell .studio-main-toolbar-content > .canvas-tool-group {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.component-studio-shell .studio-main-toolbar .icon-button {
+  flex: 0 0 28px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ui-color-text-secondary);
+}
+
+.component-studio-shell .studio-main-toolbar .icon-button:disabled {
+  color: var(--ui-color-text-disabled);
+  background: transparent;
+}
+
+.component-studio-shell .studio-main-toolbar .icon-button:hover:not(:disabled),
+.component-studio-shell .studio-main-toolbar .icon-button[aria-pressed='true'] {
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+}
+
+.component-studio-shell .grid-control {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.component-studio-shell .grid-size-input {
+  width: 38px;
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface);
+}
+
+.component-arrange-menu { display: none; }
+
+.component-studio-shell .component-arrange-menu .ui-menu-trigger {
+  color: var(--ui-color-text-secondary);
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface);
+}
+
+.component-studio-shell .component-arrange-menu .ui-menu-trigger:hover,
+.component-studio-shell .component-arrange-menu .ui-menu-trigger:focus-visible {
+  color: var(--ui-color-accent-pressed);
+  border-color: var(--ui-color-accent);
+  background: var(--ui-color-accent-soft);
+  box-shadow: none;
+}
+
+@container component-tools (max-width: 570px) {
+  .component-studio-shell .studio-main-toolbar-content {
+    grid-template-columns: minmax(150px, 1fr) minmax(100px, 1fr) minmax(112px, 1fr);
+    gap: 4px;
+  }
+  .component-studio-shell .component-geometry-buttons { display: none; }
+  .component-arrange-menu { display: block; }
 }

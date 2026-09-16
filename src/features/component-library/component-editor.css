@@ -1,62 +1,15 @@
-.component-brand-block {
-  min-width: 0;
-}
-
-.component-back-button {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid #dbe3ec;
-  border-radius: 7px;
-  color: #64748b;
-  background: #ffffff;
-  cursor: pointer;
-  font-size: 15px;
-}
-
-.component-back-button:hover {
-  border-color: #93c5fd;
-  color: #1d4ed8;
-  background: #eff6ff;
-}
-
-.component-status-pill {
-  padding: 3px 8px;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  color: #64748b;
-  background: #ffffff;
-  font-size: 9px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.component-status-pill.ready {
-  border-color: #bbf7d0;
-  color: #15803d;
-  background: #f0fdf4;
-}
-
-.component-status-pill.draft {
-  border-color: #fde68a;
-  color: #a16207;
-  background: #fffbeb;
-}
-
 .component-layer-panel {
   min-height: 0;
   padding: 12px;
   overflow: hidden;
-  border-right: 1px solid #cbd5e1;
-  background: #f8fafc;
+  border-right: 1px solid var(--ui-color-border);
+  background: var(--ui-color-panel);
 }
 
 .component-layer-dock {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
   height: 100%;
   min-height: 0;
@@ -68,7 +21,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 2px 2px 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--ui-color-border);
 }
 
 .component-layer-dock-heading > div {
@@ -78,41 +31,13 @@
 }
 
 .component-layer-dock-heading strong {
-  color: #334155;
+  color: var(--ui-color-text);
   font-size: 12px;
 }
 
 .component-layer-dock-heading span {
-  color: #94a3b8;
-  font-size: 9px;
-}
-
-.component-layer-add-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px;
-  gap: 6px;
-}
-
-.component-layer-add-row select,
-.component-layer-add-row button {
-  height: 31px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  font-size: 10px;
-}
-
-.component-layer-add-row select {
-  min-width: 0;
-  padding: 0 8px;
-  color: #475569;
-}
-
-.component-layer-add-row button {
-  color: #1d4ed8;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 700;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
 }
 
 .component-layer-tree {
@@ -131,19 +56,19 @@
   min-width: 0;
   border: 0;
   border-radius: 5px;
-  color: #475569;
+  color: var(--ui-color-text-secondary);
   background: transparent;
   cursor: pointer;
   text-align: left;
 }
 
 .component-layer-row:hover {
-  background: #eef2f7;
+  background: var(--ui-color-surface-subtle);
 }
 
 .component-layer-row.active {
-  color: #1d4ed8;
-  background: #dbeafe;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
 }
 
 .component-layer-row {
@@ -151,10 +76,10 @@
   grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 5px;
-  min-height: 31px;
-  padding-top: 4px;
+  min-height: 28px;
+  padding-top: 2px;
   padding-right: 7px;
-  padding-bottom: 4px;
+  padding-bottom: 2px;
   padding-left: 5px;
 }
 
@@ -174,14 +99,16 @@
   min-width: 24px;
   height: 28px;
   padding: 0;
-  color: #64748b;
+  color: var(--ui-color-text-subtle);
   font-size: 16px;
 }
 
 .component-layer-kind {
+  display: flex;
+  align-items: center;
   overflow: hidden;
-  color: #64748b;
-  font-size: 10px;
+  color: var(--ui-color-text-subtle);
+  font-size: 12px;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -196,13 +123,13 @@
 }
 
 .component-layer-row small {
-  color: #94a3b8;
-  font-size: 8px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
 }
 
 .component-layer-empty {
   padding: 18px 10px;
-  color: #64748b;
+  color: var(--ui-color-text-subtle);
   font-size: 12px;
   line-height: 1.55;
   text-align: center;
@@ -211,8 +138,8 @@
 .component-layer-help,
 .component-inspector-help {
   margin: 0;
-  color: #94a3b8;
-  font-size: 9px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
   line-height: 1.5;
 }
 
@@ -223,7 +150,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #d9dee5;
+  background: var(--ui-color-canvas);
 }
 
 .component-canvas-toolbar {
@@ -232,8 +159,8 @@
 
 .component-canvas-phase {
   flex: 0 0 auto;
-  color: #94a3b8;
-  font-size: 9px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -241,10 +168,10 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  padding: 34px;
+  padding: 32px;
   overflow: auto;
   place-items: center;
-  background-color: #d9dee5;
+  background-color: var(--ui-color-canvas);
   background-image:
     linear-gradient(rgba(100, 116, 139, 0.13) 1px, transparent 1px),
     linear-gradient(90deg, rgba(100, 116, 139, 0.13) 1px, transparent 1px);
@@ -253,7 +180,7 @@
 
 .component-canvas-stage.preview {
   background-image: none;
-  background-color: #cfd5dd;
+  background-color: var(--ui-color-canvas);
 }
 
 .component-artboard {
@@ -262,9 +189,9 @@
   min-width: 120px;
   min-height: 90px;
   place-items: center;
-  border: 1px solid #94a3b8;
-  background: #ffffff;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+  border: 1px solid var(--ui-color-border-strong);
+  background: var(--ui-color-surface);
+  box-shadow: 0 2px 12px rgb(38 51 47 / 8%);
 }
 
 .component-artboard-placeholder {
@@ -272,51 +199,141 @@
   gap: 5px;
   max-width: 80%;
   padding: 14px;
-  color: #64748b;
+  color: var(--ui-color-text-subtle);
   text-align: center;
 }
 
 .component-artboard-placeholder strong {
-  color: #334155;
+  color: var(--ui-color-text);
   font-size: 13px;
 }
 
 .component-artboard-placeholder span {
-  color: #2563eb;
-  font-size: 9px;
+  color: var(--ui-color-accent);
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .component-artboard-placeholder small {
-  color: #94a3b8;
-  font-size: 9px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
   line-height: 1.45;
 }
 
 .component-property-panel {
   min-height: 0;
-  border-left: 1px solid #cbd5e1;
-  background: #f8fafc;
+  border-left: 1px solid var(--ui-color-border);
+  background: var(--ui-color-panel);
 }
 
 .component-semantic-inspector {
   min-height: 0;
+  padding: 0;
   overflow: auto;
+  background: var(--ui-color-panel);
+}
+
+.component-semantic-inspector .property-section-list {
+  gap: 0;
+}
+
+.component-semantic-inspector .inspector-group {
+  border: 0;
+  border-bottom: 1px solid var(--ui-color-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.component-semantic-inspector .inspector-group-header {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 6px;
+  color: var(--ui-color-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.component-semantic-inspector .inspector-group-content {
+  gap: 6px;
+  padding: 4px 8px 12px;
+}
+
+.component-semantic-inspector .inspector-collapsible.is-open .inspector-group-header {
+  border-bottom: 0;
+}
+
+.component-semantic-inspector .property-field {
+  grid-template-columns: minmax(54px, 72px) minmax(0, 1fr);
+  min-height: 28px;
+  margin: 0;
+  gap: 4px 8px;
+  font-size: 12px;
+  color: var(--ui-color-text-secondary);
+}
+
+.component-semantic-inspector .property-grid .property-field {
+  grid-template-columns: minmax(20px, max-content) minmax(0, 1fr);
+  gap: 4px;
+}
+
+.component-semantic-inspector .property-field .ui-input,
+.component-semantic-inspector .property-field .ui-select-trigger,
+.component-semantic-inspector .property-field .ui-textarea {
+  min-height: 28px;
+  border-color: var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
+  font-size: 12px;
+}
+
+.component-semantic-inspector .property-field .ui-textarea {
+  min-height: 48px;
+}
+
+.component-semantic-inspector .property-field > small,
+.component-semantic-inspector .component-inspector-help {
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.component-semantic-inspector .ui-tabs-list.component-inspector-tabs {
+  gap: 12px;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--ui-color-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.component-semantic-inspector .component-inspector-tabs > .ui-tab {
+  height: 40px;
+  border-radius: 0;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+}
+
+.component-semantic-inspector .component-inspector-tabs > .ui-tab[aria-selected='true'] {
+  color: var(--ui-color-accent);
+  background: transparent;
+  border-bottom-color: var(--ui-color-accent);
 }
 
 .component-inspector-context {
   position: sticky;
-  top: -7px;
+  top: 0;
   z-index: 2;
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 38px;
+  min-height: 32px;
   padding: 4px 0;
-  border-bottom: 1px solid #d8dde3;
-  background: #f5f6f7;
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-panel);
 }
 
 .component-inspector-context > button {
@@ -325,14 +342,14 @@
 }
 
 .component-inspector-context > button[aria-pressed='true'] {
-  color: #1d4ed8;
-  background: #dbeafe;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
 }
 
 .component-inspector-context > span {
   min-width: 0;
   overflow: hidden;
-  color: #64748b;
+  color: var(--ui-color-text-subtle);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -346,88 +363,30 @@
 .component-layer-inspector,
 .component-contract-card .contract-list {
   display: grid;
-  gap: 10px;
+  gap: 0;
 }
 
 .component-readonly-note {
   padding: 8px 9px;
-  border: 1px solid #d9e4f2;
+  border: 1px solid var(--ui-color-border);
   border-radius: 6px;
-  color: #526a8d;
-  background: #f3f7fc;
-  font-size: 9px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-subtle);
+  font-size: 11px;
   line-height: 1.45;
 }
 
 .component-implementation-note {
   display: grid;
   gap: 5px;
-  color: #64748b;
-  font-size: 9px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
   line-height: 1.5;
 }
 
 .component-implementation-note strong {
-  color: #334155;
-  font-size: 10px;
-}
-
-.component-layer-inspector-title {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.component-layer-inspector-title > div:first-child {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.component-layer-inspector-title strong,
-.component-layer-inspector-title span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.component-layer-inspector-title strong {
-  color: #334155;
-  font-size: 11px;
-}
-
-.component-layer-inspector-title span {
-  color: #94a3b8;
-  font-size: 8px;
-}
-
-.component-layer-actions {
-  display: flex;
-  gap: 3px;
-}
-
-.component-layer-actions button {
-  min-width: 27px;
-  height: 25px;
-  padding: 0 6px;
-  border: 1px solid #d8e0e8;
-  border-radius: 5px;
-  color: #64748b;
-  background: #ffffff;
-  cursor: pointer;
-  font-size: 9px;
-}
-
-.component-layer-actions button:hover {
-  border-color: #93c5fd;
-  color: #1d4ed8;
-  background: #eff6ff;
-}
-
-.component-layer-actions button.danger {
-  border-color: #fecaca;
-  color: #b91c1c;
+  color: var(--ui-color-text);
+  font-size: 12px;
 }
 
 .component-layer-geometry-grid {
@@ -469,9 +428,9 @@
 
 .contract-item {
   padding: 10px;
-  border: 1px solid #d8e0e8;
+  border: 1px solid var(--ui-color-border);
   border-radius: 7px;
-  background: #ffffff;
+  background: var(--ui-color-surface);
 }
 
 .contract-item-head {
@@ -484,8 +443,8 @@
 
 .contract-item-head strong {
   overflow: hidden;
-  color: #334155;
-  font-size: 10px;
+  color: var(--ui-color-text);
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -493,10 +452,10 @@
 .contract-item-head button {
   padding: 2px 0;
   border: 0;
-  color: #b91c1c;
+  color: var(--ui-color-danger);
   background: transparent;
   cursor: pointer;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .contract-grid,
@@ -510,8 +469,8 @@
 .contract-block-field {
   display: grid;
   gap: 5px;
-  color: #64748b;
-  font-size: 9px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -521,10 +480,10 @@
 .contract-block-field select,
 .contract-block-field textarea {
   width: 100%;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--ui-color-border);
   border-radius: 5px;
-  color: #334155;
-  background: #ffffff;
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
   font: inherit;
   font-weight: 500;
 }
@@ -548,8 +507,8 @@
 }
 
 .contract-block-field small {
-  color: #94a3b8;
-  font-size: 8px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
 }
@@ -565,8 +524,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #526174;
-  font-size: 9px;
+  color: var(--ui-color-text-secondary);
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -578,22 +537,22 @@
 
 .contract-empty {
   padding: 18px 10px;
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed var(--ui-color-border);
   border-radius: 7px;
-  color: #94a3b8;
+  color: var(--ui-color-text-subtle);
   text-align: center;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .contract-add-button {
   justify-self: start;
   padding: 6px 9px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--ui-color-border);
   border-radius: 5px;
-  color: #1d4ed8;
-  background: #eff6ff;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
   cursor: pointer;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -602,8 +561,47 @@
 .component-semantic-inspector textarea:disabled,
 .component-layer-panel select:disabled,
 .component-layer-panel button:disabled {
-  color: #94a3b8;
-  background: #f8fafc;
+  color: var(--ui-color-text-subtle);
+  background: var(--ui-color-panel);
   cursor: default;
 }
 
+.component-layer-entry { position: relative; }
+.component-layer-row { grid-template-columns: 18px minmax(0, 1fr) auto; }
+.component-layer-row-actions {
+  position: absolute;
+  right: 0;
+  top: 1px;
+  display: flex;
+  gap: 0;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-panel);
+}
+.component-layer-entry:hover .component-layer-row-actions,
+.component-layer-entry:focus-within .component-layer-row-actions,
+.component-layer-entry:has(.component-layer-row.active) .component-layer-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.component-layer-entry:hover .component-layer-row,
+.component-layer-entry:focus-within .component-layer-row,
+.component-layer-row.active { padding-right: 78px; }
+.component-layer-row-actions .ui-icon-button,
+.component-layer-row-actions .ui-menu-trigger {
+  width: 24px;
+  min-width: 24px;
+  min-height: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-color-text-secondary);
+}
+.component-layer-row-actions .ui-icon-button:disabled { color: var(--ui-color-text-disabled); }
+.component-layer-row-actions .ui-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

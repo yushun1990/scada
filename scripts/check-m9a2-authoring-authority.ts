@@ -26,8 +26,8 @@ assert.equal(pumpComponentDefinition.properties.state.bindable, true)
 
 assert.match(attributeEditor, /definition\.attributes/)
 assert.doesNotMatch(attributeEditor, /bindable/)
-assert.match(componentEditor, /公开配置 · Attributes/)
-assert.match(componentEditor, /运行属性 · Properties/)
+assert.match(componentEditor, /component-root-public-attributes/)
+assert.match(componentEditor, /component-root-public-properties/)
 assert.match(componentEditor, /<ComponentAttributeContractEditor/)
 assert.match(componentEditor, /<ComponentPropertyContractEditor/)
 

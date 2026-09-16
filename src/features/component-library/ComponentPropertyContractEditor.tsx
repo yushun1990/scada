@@ -412,7 +412,7 @@ export function ComponentPropertyContractEditor({
       })}
 
       {Object.keys(definition.properties).length === 0 && (
-        <div className="contract-empty property-contract-empty">尚未定义公开 Property。</div>
+        <div className="contract-empty property-contract-empty">尚未添加运行属性</div>
       )}
 
       {!readOnly && (

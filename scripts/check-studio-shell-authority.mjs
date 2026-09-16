@@ -67,14 +67,15 @@ requirePattern('ComponentVisualCanvas must receive explicit view toolbar host', 
 
 const shell = await read('src/editor/StudioShell.tsx')
 for (const className of [
-  'studio-menu-bar',
+  'studio-document-header',
   'studio-main-toolbar',
-  'studio-document-bar',
   'studio-workspace-grid',
   'studio-status-bar',
 ]) {
   requirePattern(`StudioShell must render ${className}`, shell, new RegExp(className))
 }
+forbid('StudioShell must not restore a desktop menu row or single-document tab row', shell, /studio-(?:menu-bar|document-bar)/)
+forbid('StudioShell must not mirror editor commands into a menu taxonomy', shell, /StudioMenuDefinition|mergedMenus/)
 requirePattern('StudioShell panel resize handles must be separators', shell, /role="separator"/)
 requirePattern('StudioShell must expose explicit workspace navigation', shell, /onNavigateWorkspace/)
 

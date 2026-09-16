@@ -1,9 +1,8 @@
 .studio-shell {
   display: grid;
   grid-template-rows:
-    var(--ui-menu-height)
+    var(--ui-document-header-height)
     var(--ui-main-toolbar-height)
-    var(--ui-document-bar-height)
     minmax(0, 1fr)
     var(--ui-status-height);
   width: 100vw;
@@ -15,14 +14,13 @@
   background: var(--ui-color-app-background);
 }
 
-.studio-menu-bar,
+.studio-document-header,
 .studio-main-toolbar,
-.studio-document-bar,
 .studio-status-bar {
   min-width: 0;
 }
 
-.studio-menu-bar {
+.studio-document-header {
   display: flex;
   align-items: center;
   gap: var(--ui-space-1);
@@ -31,25 +29,9 @@
   background: var(--ui-color-panel);
 }
 
-.studio-product-title {
-  margin-right: var(--ui-space-2);
-  color: var(--ui-color-text);
-  font-size: var(--ui-font-size-tool);
-  line-height: var(--ui-line-height-tool);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.studio-menu-list {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: var(--ui-space-micro);
-}
-
 .ui-menu-trigger.studio-menu-trigger {
-  min-height: 24px;
-  height: 24px;
+  min-height: var(--ui-control-height);
+  height: var(--ui-control-height);
   padding: 0 var(--ui-space-1);
   border-color: transparent;
   background: transparent;
@@ -79,7 +61,6 @@
 }
 
 .studio-workspace-nav {
-  margin-left: auto;
   flex: 0 0 auto;
 }
 
@@ -94,7 +75,7 @@
 }
 
 .studio-main-toolbar-content,
-.studio-main-toolbar-tail {
+.studio-document-actions {
   display: flex;
   align-items: center;
   min-width: 0;
@@ -106,7 +87,7 @@
   overflow: hidden;
 }
 
-.studio-main-toolbar-tail {
+.studio-document-actions {
   flex: 0 0 auto;
 }
 
@@ -120,21 +101,87 @@
   background: transparent;
 }
 
-.studio-document-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ui-space-2);
-  padding: 0 var(--ui-space-2);
-  border-bottom: 1px solid var(--ui-color-border);
-  background: var(--ui-color-surface-subtle);
-}
-
 .studio-document-identity {
+  flex: 1 1 auto;
   display: flex;
   align-items: baseline;
   min-width: 0;
   gap: var(--ui-space-2);
+}
+
+.studio-document-brand {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--ui-space-2);
+}
+
+.studio-shell-canvas-toolbar {
+  grid-template-rows: var(--ui-document-header-height) minmax(0, 1fr) var(--ui-status-height);
+}
+
+.studio-shell-canvas-toolbar .studio-document-header {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  background: var(--ui-color-surface);
+}
+
+.studio-shell-canvas-toolbar .studio-document-brand {
+  grid-column: 1 / 3;
+  padding-inline: var(--ui-space-2);
+}
+
+.studio-shell-canvas-toolbar .studio-document-mode {
+  grid-column: 3;
+  justify-self: center;
+}
+
+.studio-shell-canvas-toolbar .studio-document-actions {
+  grid-column: 4 / 6;
+  justify-content: flex-end;
+  padding-inline: var(--ui-space-2);
+}
+
+.studio-shell-canvas-toolbar .studio-center-workspace {
+  display: grid;
+  grid-template-rows: var(--ui-main-toolbar-height) minmax(0, 1fr);
+}
+
+.studio-shell-canvas-toolbar .studio-main-toolbar {
+  container-type: inline-size;
+  container-name: component-tools;
+  padding-inline: var(--ui-space-3);
+  background: var(--ui-color-panel);
+}
+
+.studio-canvas-content,
+.studio-canvas-content > .canvas-area {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Hidden panels must not hide document navigation or saving. Only the header
+ * keeps a minimum lane; the canvas continues to consume the freed space. */
+.studio-shell-canvas-toolbar .studio-document-header {
+  grid-template-columns:
+    minmax(160px, var(--studio-left-width)) var(--studio-left-resizer)
+    minmax(0, 1fr)
+    var(--studio-right-resizer) minmax(240px, var(--studio-right-width));
+}
+
+@media (max-width: 800px) {
+  .studio-shell-canvas-toolbar .studio-document-header {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: var(--ui-space-2);
+  }
+
+  .studio-shell-canvas-toolbar .studio-document-brand { grid-column: 1; }
+  .studio-shell-canvas-toolbar .studio-document-mode { grid-column: 2; }
+  .studio-shell-canvas-toolbar .studio-document-actions { grid-column: 3; }
 }
 
 .studio-document-identity strong,
@@ -152,6 +199,7 @@
 }
 
 .studio-document-identity span {
+  flex: 0 0 auto;
   color: var(--ui-color-text-subtle);
   font-size: var(--ui-font-size-status);
   line-height: var(--ui-line-height-status);
@@ -300,13 +348,13 @@
   grid-template-rows: minmax(0, 1fr);
 }
 
-@media (max-width: 980px) {
-  .studio-product-title {
+@media (max-width: 700px) {
+  .studio-document-identity span {
     display: none;
   }
 
-  .studio-main-toolbar-tail > .ui-button:not(.studio-workspace-nav) {
-    padding-inline: var(--ui-space-1);
+  .studio-document-actions {
+    gap: var(--ui-space-micro);
   }
 }
 

@@ -16,6 +16,42 @@ const base = (props: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> => ({
   ...props,
 })
 
+export function RectangleIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><rect x="4" y="5" width="16" height="14" rx="1" /></svg>
+}
+
+export function EllipseIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><ellipse cx="12" cy="12" rx="8" ry="7" /></svg>
+}
+
+export function LineIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><path d="M5 19 19 5" /><path d="M4 17v3h3M17 4h3v3" /></svg>
+}
+
+export function TextIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><path d="M5 7V5h14v2M12 5v14M9 19h6" /></svg>
+}
+
+export function ImageIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></svg>
+}
+
+export function VectorIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><path d="M5 17C5 6 19 18 19 7M5 17l7-13 7 3-7 13Z" /><circle cx="5" cy="17" r="2" fill="var(--ui-color-panel)" /><circle cx="19" cy="7" r="2" fill="var(--ui-color-panel)" /></svg>
+}
+
+export function ChevronUpIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><path d="m6 14 6-6 6 6" /></svg>
+}
+
+export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><path d="m6 10 6 6 6-6" /></svg>
+}
+
+export function MoreIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)} fill="currentColor"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg>
+}
+
 export function CopyIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>

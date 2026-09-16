@@ -1,48 +1,14 @@
 import {
-  AlignBottomIcon,
-  AlignCenterXIcon,
-  AlignCenterYIcon,
-  AlignLeftIcon,
-  AlignRightIcon,
-  AlignTopIcon,
-  BringForwardIcon,
-  BringToFrontIcon,
-  DistributeHorizontalIcon,
-  DistributeVerticalIcon,
-  GroupIcon,
-  SendBackwardIcon,
-  SendToBackIcon,
-  UngroupIcon,
+  AlignBottomIcon, AlignCenterXIcon, AlignCenterYIcon, AlignLeftIcon,
+  AlignRightIcon, AlignTopIcon, DistributeHorizontalIcon, DistributeVerticalIcon,
 } from '../../components/toolbar-icons'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
 import {
-  alignBottom,
-  alignCenterX,
-  alignCenterY,
-  alignLeft,
-  alignRight,
-  alignTop,
-  distributeHorizontal,
-  distributeVertical,
-  type GeometryDeltas,
-  type GeometryItem,
+  alignBottom, alignCenterX, alignCenterY, alignLeft, alignRight, alignTop,
+  distributeHorizontal, distributeVertical, type GeometryDeltas, type GeometryItem,
 } from '../../geometry/commands'
-import { ToolbarButton, ToolbarGroup } from '../../ui'
-import {
-  applyComponentLayerGeometryDeltas,
-  createComponentLayerGeometryItems,
-} from './component-layer-geometry'
-import {
-  canGroupComponentLayers,
-  canUngroupComponentLayer,
-  groupComponentLayers,
-  ungroupComponentLayer,
-} from './component-layer-hierarchy'
-import {
-  canReorderComponentLayers,
-  reorderComponentLayers,
-  type ComponentLayerOrderCommand,
-} from './component-layer-order'
+import { MenuRoot, MenuTrigger, MenuPopup, MenuItem, ToolbarButton, ToolbarGroup } from '../../ui'
+import { applyComponentLayerGeometryDeltas, createComponentLayerGeometryItems } from './component-layer-geometry'
 
 type GeometryCommand = (items: readonly GeometryItem[]) => GeometryDeltas
 
@@ -51,40 +17,6 @@ type GeometryCommandItem = {
   command: GeometryCommand
   icon: typeof AlignLeftIcon
 }
-
-type LayerOrderCommandItem = {
-  title: string
-  message: string
-  command: ComponentLayerOrderCommand
-  icon: typeof BringToFrontIcon
-}
-
-const ORDER_COMMANDS: LayerOrderCommandItem[] = [
-  {
-    title: '置于顶层',
-    message: '已将选中图层置于同级最前',
-    command: 'bring-to-front',
-    icon: BringToFrontIcon,
-  },
-  {
-    title: '上移一层',
-    message: '已将选中图层上移一层',
-    command: 'bring-forward',
-    icon: BringForwardIcon,
-  },
-  {
-    title: '下移一层',
-    message: '已将选中图层下移一层',
-    command: 'send-backward',
-    icon: SendBackwardIcon,
-  },
-  {
-    title: '置于底层',
-    message: '已将选中图层置于同级最后',
-    command: 'send-to-back',
-    icon: SendToBackIcon,
-  },
-]
 
 const ALIGN_COMMANDS: GeometryCommandItem[] = [
   { title: '左对齐', command: alignLeft, icon: AlignLeftIcon },
@@ -100,181 +32,52 @@ type ComponentGeometryToolbarGroupProps = {
   selectedLayerIds: readonly string[]
   disabled: boolean
   onChange: (visual: ComponentVisualDefinition) => void
-  onSelectionReplace: (layerIds: readonly string[]) => void
   onApplied: (message: string) => void
 }
 
 export function ComponentGeometryToolbarGroup({
-  visual,
-  selectedLayerIds,
-  disabled,
-  onChange,
-  onSelectionReplace,
-  onApplied,
+  visual, selectedLayerIds, disabled, onChange, onApplied,
 }: ComponentGeometryToolbarGroupProps) {
   const items = createComponentLayerGeometryItems(visual, selectedLayerIds)
-  const canAlign = !disabled && items.length >= 2
-  const canDistribute = !disabled && items.length >= 3
-  const canGroup = !disabled && canGroupComponentLayers(visual, selectedLayerIds)
-  const canUngroup = !disabled && canUngroupComponentLayer(visual, selectedLayerIds)
-  const hierarchyMode = canUngroup ? 'ungroup' : 'group'
-  const hierarchyEnabled = canUngroup || canGroup
+  const commands = [
+    ...ALIGN_COMMANDS.map((item) => ({ ...item, enabled: !disabled && items.length >= 2 })),
+    { title: '水平等距分布', command: distributeHorizontal, icon: DistributeHorizontalIcon, enabled: !disabled && items.length >= 3 },
+    { title: '垂直等距分布', command: distributeVertical, icon: DistributeVerticalIcon, enabled: !disabled && items.length >= 3 },
+  ]
 
-  function applyCommand(command: GeometryCommand, message: string) {
-    if (disabled) {
-      return
-    }
-
-    const deltas = command(items)
-
-    if (Object.keys(deltas).length === 0) {
-      return
-    }
-
+  function applyCommand(item: typeof commands[number]) {
+    if (!item.enabled) return
+    const deltas = item.command(items)
+    if (Object.keys(deltas).length === 0) return
     onChange(applyComponentLayerGeometryDeltas(visual, deltas))
-    onApplied(message)
+    onApplied(`已完成${item.title}`)
   }
-
-  function applyLayerOrder(command: ComponentLayerOrderCommand, message: string) {
-    if (disabled) {
-      return
-    }
-
-    const result = reorderComponentLayers(visual, selectedLayerIds, command)
-
-    if (!result.changed) {
-      return
-    }
-
-    onChange(result.visual)
-    onApplied(message)
-  }
-
-  function groupSelection() {
-    if (!canGroup) {
-      return
-    }
-
-    const result = groupComponentLayers(visual, selectedLayerIds)
-
-    if (result.status !== 'grouped') {
-      onApplied('只能组合两个及以上同父级图层')
-      return
-    }
-
-    onChange(result.visual)
-    onSelectionReplace([result.groupId])
-    onApplied('已组合选中图层')
-  }
-
-  function ungroupSelection() {
-    if (!canUngroup) {
-      return
-    }
-
-    const groupId = selectedLayerIds[0]
-
-    if (!groupId) {
-      return
-    }
-
-    const result = ungroupComponentLayer(visual, groupId)
-
-    if (result.status === 'unsupported-transform') {
-      onApplied('当前组合包含无法无损展开的非均匀缩放与旋转')
-      return
-    }
-
-    if (result.status !== 'ungrouped') {
-      return
-    }
-
-    onChange(result.visual)
-    onSelectionReplace(result.childIds)
-    onApplied('已拆分组合')
-  }
-
-  const hierarchyTitle = hierarchyMode === 'ungroup'
-    ? '拆分组合'
-    : '组合选中图层'
 
   return (
-    <>
-      <ToolbarGroup className="canvas-tool-group component-hierarchy-tool-group">
-        <ToolbarButton
-          iconOnly
-          className="icon-button"
-          title={hierarchyTitle}
-          aria-label={hierarchyTitle}
-          disabled={!hierarchyEnabled}
-          onClick={hierarchyMode === 'ungroup' ? ungroupSelection : groupSelection}
-        >
-          {hierarchyMode === 'ungroup' ? <UngroupIcon /> : <GroupIcon />}
-        </ToolbarButton>
-      </ToolbarGroup>
-
-      <ToolbarGroup className="canvas-tool-group component-geometry-tool-group">
-        {ORDER_COMMANDS.map((item) => {
-          const Icon = item.icon
-          const enabled = !disabled && canReorderComponentLayers(
-            visual,
-            selectedLayerIds,
-            item.command,
-          )
-
-          return (
-            <ToolbarButton
-              key={item.command}
-              iconOnly
-              className="icon-button component-layer-order-command"
-              title={item.title}
-              aria-label={item.title}
-              disabled={!enabled}
-              onClick={() => applyLayerOrder(item.command, item.message)}
-            >
-              <Icon />
-            </ToolbarButton>
-          )
-        })}
-
-        {ALIGN_COMMANDS.map((item) => {
-          const Icon = item.icon
-
-          return (
-            <ToolbarButton
-              key={item.title}
-              iconOnly
-              className="icon-button"
-              title={item.title}
-              aria-label={item.title}
-              disabled={!canAlign}
-              onClick={() => applyCommand(item.command, '已完成图层对齐')}
-            >
-              <Icon />
-            </ToolbarButton>
-          )
-        })}
-        <ToolbarButton
-          iconOnly
-          className="icon-button"
-          title="水平等距分布"
-          aria-label="水平等距分布"
-          disabled={!canDistribute}
-          onClick={() => applyCommand(distributeHorizontal, '已水平等距分布图层')}
-        >
-          <DistributeHorizontalIcon />
-        </ToolbarButton>
-        <ToolbarButton
-          iconOnly
-          className="icon-button"
-          title="垂直等距分布"
-          aria-label="垂直等距分布"
-          disabled={!canDistribute}
-          onClick={() => applyCommand(distributeVertical, '已垂直等距分布图层')}
-        >
-          <DistributeVerticalIcon />
-        </ToolbarButton>
-      </ToolbarGroup>
-    </>
+    <ToolbarGroup className="canvas-tool-group component-geometry-tool-group" aria-label="对齐与分布">
+      <div className="component-geometry-buttons">
+        {commands.map((item) => (
+          <ToolbarButton
+            key={item.title} iconOnly className="icon-button"
+            title={item.title} aria-label={item.title}
+            disabled={!item.enabled} onClick={() => applyCommand(item)}
+          >
+            <item.icon />
+          </ToolbarButton>
+        ))}
+      </div>
+      <div className="component-arrange-menu">
+        <MenuRoot>
+          <MenuTrigger>对齐与分布</MenuTrigger>
+          <MenuPopup align="center">
+            {commands.map((item) => (
+              <MenuItem key={item.title} disabled={!item.enabled} onClick={() => applyCommand(item)}>
+                {item.title}
+              </MenuItem>
+            ))}
+          </MenuPopup>
+        </MenuRoot>
+      </div>
+    </ToolbarGroup>
   )
 }

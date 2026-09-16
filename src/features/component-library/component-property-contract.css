@@ -2,12 +2,12 @@
   display: grid;
   gap: 0;
   min-width: 0;
-  border-top: 1px solid #d8dde3;
+  border-top: 1px solid var(--ui-color-border);
 }
 
 .property-contract-item {
   min-width: 0;
-  border-bottom: 1px solid #d8dde3;
+  border-bottom: 1px solid var(--ui-color-border);
 }
 
 .property-contract-summary {
@@ -19,7 +19,7 @@
   min-height: 34px;
   padding: 3px 2px 3px 4px;
   border: 0;
-  color: #44505c;
+  color: var(--ui-color-text-secondary);
   background: transparent;
   cursor: pointer;
   font: inherit;
@@ -27,12 +27,12 @@
 }
 
 .property-contract-summary:hover {
-  background: #edf2f7;
+  background: var(--ui-color-surface-subtle);
 }
 
 .property-contract-item.is-open > .property-contract-summary {
-  color: #1d4ed8;
-  background: #eef5ff;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
 }
 
 .property-contract-identity {
@@ -52,24 +52,24 @@
 
 .property-contract-identity strong {
   min-width: 0;
-  color: #344054;
-  font-size: 10px;
+  color: var(--ui-color-text);
+  font-size: 12px;
   font-weight: 700;
 }
 
 .property-contract-identity code {
   min-width: 0;
-  color: #98a2b3;
+  color: var(--ui-color-text-subtle);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .property-contract-kind {
   padding: 1px 4px;
   border-radius: 3px;
-  color: #667085;
-  background: #eef1f4;
-  font-size: 8px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-subtle);
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -80,8 +80,8 @@
   justify-content: flex-end;
   gap: 4px;
   min-width: 0;
-  color: #667085;
-  font-size: 9px;
+  color: var(--ui-color-text-secondary);
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -96,17 +96,17 @@
 
 .property-contract-bindable {
   padding: 1px 4px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--ui-color-border);
   border-radius: 3px;
-  color: #1d4ed8;
-  background: #eff6ff;
-  font-size: 8px;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .property-contract-chevron {
-  color: #98a2b3;
+  color: var(--ui-color-text-subtle);
   font-size: 15px;
   line-height: 1;
   transform: rotate(0deg);
@@ -120,9 +120,9 @@
 .property-contract-detail {
   min-width: 0;
   padding: 7px 7px 8px 12px;
-  border-top: 1px solid #dbe7f5;
-  border-left: 2px solid #93c5fd;
-  background: #f8fbff;
+  border-top: 1px solid var(--ui-color-border);
+  border-left: 2px solid var(--ui-color-accent);
+  background: var(--ui-color-surface-subtle);
 }
 
 .property-contract-detail .contract-grid {
@@ -146,27 +146,27 @@
   justify-content: flex-end;
   margin-top: 6px;
   padding-top: 5px;
-  border-top: 1px solid #e4e7ec;
+  border-top: 1px solid var(--ui-color-border);
 }
 
 .property-contract-detail-actions button {
   padding: 3px 0;
   border: 0;
-  color: #b42318;
+  color: var(--ui-color-danger);
   background: transparent;
   cursor: pointer;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .property-contract-detail-actions button:hover {
-  color: #7a271a;
+  color: var(--ui-color-danger);
   text-decoration: underline;
 }
 
 .property-contract-empty {
   border: 0;
-  border-bottom: 1px solid #d8dde3;
+  border-bottom: 1px solid var(--ui-color-border);
   border-radius: 0;
 }
 

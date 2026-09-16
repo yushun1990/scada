@@ -71,11 +71,9 @@
   --ui-tree-row-height: 26px;
   --ui-inspector-group-height: 28px;
 
-  /* C2 will split the current header into menu / toolbar / document rows.
-   * These target tokens are defined now so Shell layout consumes C1 authority. */
-  --ui-menu-height: 28px;
+  /* Web editors share a document header and one editing toolbar. */
+  --ui-document-header-height: 44px;
   --ui-main-toolbar-height: 36px;
-  --ui-document-bar-height: 28px;
   --ui-status-height: 26px;
   --ui-left-dock-width: 248px;
   --ui-right-inspector-width: 320px;
@@ -84,8 +82,6 @@
   --ui-right-inspector-min-width: 280px;
   --ui-right-inspector-max-width: 440px;
 
-  /* Temporary geometry consumed by the pre-C2 shell. */
-  --ui-header-height: 56px;
   --ui-toolbar-height: var(--ui-main-toolbar-height);
 
   /* Structure comes from borders. Only floating surfaces receive a shadow. */
@@ -93,4 +89,31 @@
   --ui-shadow-floating: 0 4px 12px rgba(32, 36, 40, 0.16);
   --ui-focus-ring: 0 0 0 2px rgba(23, 105, 170, 0.24);
   --ui-focus-outline: 2px solid var(--ui-color-accent);
+}
+
+/* Component authoring theme. Root scoping also reaches Base UI portals, and
+ * automatically releases the theme when navigating to another workspace. */
+:root:has(.component-studio-shell) {
+  --ui-color-app-background: #f1f3f2;
+  --ui-color-panel: #fafbf9;
+  --ui-color-surface: #ffffff;
+  --ui-color-surface-subtle: #f2f5f3;
+  --ui-color-canvas: #e8edeb;
+  --ui-color-text: #26332f;
+  --ui-color-text-secondary: #53615b;
+  --ui-color-text-subtle: #64716a;
+  --ui-color-text-muted: #64716a;
+  --ui-color-text-disabled: #8c9891;
+  --ui-color-border: #d8e0db;
+  --ui-color-border-strong: #84958b;
+  --ui-color-accent: #137766;
+  --ui-color-accent-hover: #0d6556;
+  --ui-color-accent-pressed: #095245;
+  --ui-color-accent-soft: #e1f1e9;
+  --ui-radius-control: 5px;
+  --ui-radius-floating: 8px;
+  --ui-document-header-height: 48px;
+  --ui-main-toolbar-height: 48px;
+  --ui-shadow-floating: 0 4px 16px rgb(38 51 47 / 12%);
+  --ui-focus-ring: 0 0 0 2px rgb(19 119 102 / 22%);
 }

@@ -149,10 +149,12 @@ function CreateGeometryPreview({
   tool,
   geometry,
   artboardScale,
+  selectionColor,
 }: {
   tool: ComponentCreateTool
   geometry: ComponentCreateGeometry
   artboardScale: number
+  selectionColor: string
 }) {
   const strokeWidth = 1 / artboardScale
   const dash = [5 / artboardScale, 4 / artboardScale]
@@ -164,7 +166,7 @@ function CreateGeometryPreview({
         y={geometry.y}
         rotation={geometry.rotation}
         points={[0, geometry.height / 2, geometry.width, geometry.height / 2]}
-        stroke="#2563eb"
+        stroke={selectionColor}
         strokeWidth={strokeWidth}
         dash={dash}
         listening={false}
@@ -180,7 +182,7 @@ function CreateGeometryPreview({
         y={geometry.y + geometry.height / 2}
         radiusX={geometry.width / 2}
         radiusY={geometry.height / 2}
-        stroke="#2563eb"
+        stroke={selectionColor}
         strokeWidth={strokeWidth}
         dash={dash}
         listening={false}
@@ -195,7 +197,7 @@ function CreateGeometryPreview({
       y={geometry.y}
       width={geometry.width}
       height={geometry.height}
-      stroke="#2563eb"
+      stroke={selectionColor}
       strokeWidth={strokeWidth}
       dash={dash}
       listening={false}
@@ -234,6 +236,7 @@ export function ComponentVisualCanvas({
   const horizontalGuideRef = useRef<Konva.Line>(null)
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
   const [gridVisible, setGridVisible] = useState(true)
+  const [selectionColor, setSelectionColor] = useState('transparent')
   const [gridSize, setGridSize] = useState(COMPONENT_SNAP_GRID_SIZE)
   const [animationTimeMs, setAnimationTimeMs] = useState(0)
   const [createStart, setCreateStart] = useState<ComponentDesignPoint | null>(null)
@@ -305,6 +308,7 @@ export function ComponentVisualCanvas({
     if (!element) {
       return
     }
+    setSelectionColor(getComputedStyle(element).getPropertyValue('--ui-color-accent').trim())
 
     const updateViewport = () => {
       const next = measureCanvasViewport(element)
@@ -859,6 +863,7 @@ export function ComponentVisualCanvas({
                 {activeCreateTool && createGeometry && (
                   <Group scaleX={artboardScale} scaleY={artboardScale} listening={false}>
                     <CreateGeometryPreview
+                      selectionColor={selectionColor}
                       tool={activeCreateTool}
                       geometry={createGeometry}
                       artboardScale={artboardScale}
@@ -875,8 +880,8 @@ export function ComponentVisualCanvas({
                   keepRatio={false}
                   anchorSize={7}
                   rotateAnchorOffset={22}
-                  borderStroke="#2563eb"
-                  anchorStroke="#2563eb"
+                  borderStroke={selectionColor}
+                  anchorStroke={selectionColor}
                   anchorFill="#ffffff"
                   borderStrokeWidth={1}
                   anchorStrokeWidth={1}
@@ -904,7 +909,7 @@ export function ComponentVisualCanvas({
                   ref={verticalGuideRef}
                   visible={false}
                   points={[]}
-                  stroke="#2563eb"
+                  stroke={selectionColor}
                   strokeWidth={1}
                   dash={[4, 4]}
                   listening={false}
@@ -914,7 +919,7 @@ export function ComponentVisualCanvas({
                   ref={horizontalGuideRef}
                   visible={false}
                   points={[]}
-                  stroke="#2563eb"
+                  stroke={selectionColor}
                   strokeWidth={1}
                   dash={[4, 4]}
                   listening={false}

@@ -14,7 +14,7 @@ import type { VisualRuleOperator } from '../../component-system/visualRules'
 import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'
 import { commitStudioNavigation } from '../../editor/editor-navigation'
 import { EditorLeaveDialog } from '../../editor/EditorLeaveDialog'
-import { StudioShell, type StudioMenuDefinition } from '../../editor/StudioShell'
+import { StudioShell } from '../../editor/StudioShell'
 import { useDocumentHistory } from '../../editor/use-document-history'
 import { useEditorLeaveProtection } from '../../editor/use-editor-leave-protection'
 import { useEditorSaveState } from '../../editor/use-editor-save-state'
@@ -32,6 +32,7 @@ import {
 } from '../../ui'
 import { ComponentAttributeContractEditor } from './ComponentAttributeContractEditor'
 import { ComponentContractEditor } from './ComponentContractEditor'
+import { ComponentGroupCommand } from './ComponentLayerCommands'
 import { ComponentGeometryToolbarGroup } from './ComponentGeometryToolbarGroup'
 import { ComponentPreviewValues } from './ComponentPreviewValues'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
@@ -631,54 +632,14 @@ export function ComponentEditorPage({
     }
   }
 
-  const menus: StudioMenuDefinition[] = [
-    {
-      id: 'file',
-      label: '文件',
-      commands: [
-        {
-          id: 'save',
-          label: saveState.saving ? '保存中…' : '保存',
-          disabled: builtInReadOnly || saveState.saving || (!saveState.dirty && saveState.status !== 'error'),
-          onSelect: () => void save(),
-        },
-        { id: 'publish', label: publicationBusy ? '处理中…' : '发布', disabled: !canPublish, onSelect: () => void publishRemote() },
-        { id: 'workspace', label: '返回工作台', separatorBefore: true, onSelect: onNavigateWorkspace },
-      ],
-    },
-    {
-      id: 'edit',
-      label: '编辑',
-      commands: [
-        { id: 'undo', label: '撤销', shortcut: 'Ctrl+Z', disabled: editingDisabled || !canUndo, onSelect: undo },
-        { id: 'redo', label: '重做', shortcut: 'Ctrl+Shift+Z', disabled: editingDisabled || !canRedo, onSelect: redo },
-      ],
-    },
-    {
-      id: 'view',
-      label: '视图',
-      commands: [
-        { id: 'snap', label: snapEnabled ? '关闭吸附' : '开启吸附', disabled: !componentCanvasEditable, onSelect: () => setSnapEnabled((current) => !current) },
-      ],
-    },
-    {
-      id: 'run',
-      label: '运行',
-      commands: [
-        { id: 'design', label: '设计模式', disabled: mode === 'editor', onSelect: () => setMode('editor') },
-        { id: 'preview', label: '预览模式', disabled: mode === 'preview', onSelect: () => setMode('preview') },
-      ],
-    },
-  ]
-
   return (
     <>
       <StudioShell
         className="component-studio-shell"
+        toolbarPlacement="canvas"
         documentTitle={definition.title}
-        documentType={`Component · ${definition.type}`}
+        documentType="组件"
         dirty={saveState.dirty}
-        menus={menus}
         workspaceNavigationLabel="返回组件库工作台"
         onNavigateWorkspace={onNavigateWorkspace}
         onFocusCapture={(event) => {
@@ -687,7 +648,7 @@ export function ComponentEditorPage({
         onBlurCapture={(event) => {
           if (!editingDisabled && isTextEditingTarget(event.target)) commitTransaction()
         }}
-        mainToolbar={(
+        documentActions={(
           <>
             <Button
               variant="primary"
@@ -705,16 +666,29 @@ export function ComponentEditorPage({
             <Button disabled={!canPublish} onClick={() => void publishRemote()}>
               {publicationBusy ? '处理中…' : '发布'}
             </Button>
-            <div ref={setComponentEditToolbarHost} className="component-edit-command-host" />
+          </>
+        )}
+        mainToolbar={(
+          <>
+            <div className="component-edit-tool-group" role="group" aria-label="编辑">
+              <div ref={setComponentEditToolbarHost} className="component-edit-command-host" />
+              <ComponentGroupCommand
+                visual={component.visual}
+                selectedLayerIds={selectedLayerIds}
+                disabled={!componentCanvasEditable}
+                onChange={(visual) => updatePackage('visual', visual)}
+                onSelectionReplace={replaceLayerSelection}
+                onApplied={setMessage}
+              />
+            </div>
             <ComponentGeometryToolbarGroup
               visual={component.visual}
               selectedLayerIds={selectedLayerIds}
               disabled={!componentCanvasEditable}
               onChange={(visual) => updatePackage('visual', visual)}
-              onSelectionReplace={replaceLayerSelection}
               onApplied={setMessage}
             />
-            <div ref={setComponentViewToolbarHost} className="canvas-tool-group component-view-command-host">
+            <div ref={setComponentViewToolbarHost} className="canvas-tool-group component-view-command-host" role="group" aria-label="画布辅助">
               <ToolbarButton
                 iconOnly
                 className={`icon-button toggle-button component-snap-toggle${snapEnabled ? ' active' : ''}`}
@@ -727,7 +701,6 @@ export function ComponentEditorPage({
                 <SnapIcon />
               </ToolbarButton>
             </div>
-            <span className="component-canvas-phase">{snapStatus}</span>
           </>
         )}
         modeControl={(
@@ -746,6 +719,8 @@ export function ComponentEditorPage({
             readOnly={editingDisabled}
             selectedLayerIds={selectedLayerIds}
             primaryLayerId={primaryLayerId}
+            onSelectionReplace={replaceLayerSelection}
+            onApplied={setMessage}
             onSelectionChange={selectLayer}
             onChange={(visual) => updatePackage('visual', visual)}
           />
@@ -784,19 +759,21 @@ export function ComponentEditorPage({
         rightPanel={(
         <aside className="property-panel component-property-panel">
           <section className="semantic-inspector component-semantic-inspector" aria-label="组件配置">
-            <div className="component-inspector-context">
-              <Button
-                variant="ghost"
-                size="small"
-                aria-pressed={selectedLayerIds.length === 0 && inspectorTab === 'properties'}
-                title="编辑组件名称、尺寸、公开配置和运行属性"
-                onClick={() => {
-                  clearComponentCreateTool()
-                  selectLayer(null)
-                }}
-              >组件设置</Button>
-              <span title={inspectorContextLabel}>{inspectorContextLabel}</span>
-            </div>
+            {selectedLayerIds.length > 0 && (
+              <div className="component-inspector-context">
+                <Button
+                  variant="ghost"
+                  size="small"
+                  aria-label="组件设置"
+                  title="编辑组件名称、尺寸、公开配置和运行属性"
+                  onClick={() => {
+                    clearComponentCreateTool()
+                    selectLayer(null)
+                  }}
+                >返回组件</Button>
+                <span title={inspectorContextLabel}>{inspectorContextLabel}</span>
+              </div>
+            )}
             <Tabs
               value={inspectorTab}
               items={INSPECTOR_TABS}
@@ -852,7 +829,7 @@ export function ComponentEditorPage({
                     已选择 <strong>{selectedLayerIds.length}</strong> 个内部图层。
                   </div>
                   <p className="component-inspector-help">
-                    使用画布工具栏组合、对齐或等距分布。选择单个图层可编辑它的外观与行为。
+                    使用画布工具栏组合、对齐或分布。选择单个图层可编辑外观与行为。
                   </p>
                 </CollapsibleInspectorGroup>
               </div>
@@ -866,25 +843,6 @@ export function ComponentEditorPage({
                       definition={definition}
                       values={previewProps}
                       onChange={setPreviewProps}
-                    />
-                  </CollapsibleInspectorGroup>
-                )}
-
-                {!builtInReadOnly && (
-                  <CollapsibleInspectorGroup title="远端发布" defaultOpen={false}>
-                    <ComponentPublicationPanel
-                      configured={Boolean(publicationBaseUrl)}
-                      session={publicationSession}
-                      observation={publicationObservation}
-                      username={publicationUsername}
-                      password={publicationPassword}
-                      busy={publicationBusy}
-                      publishReady={publicationReady}
-                      onUsernameChange={setPublicationUsername}
-                      onPasswordChange={setPublicationPassword}
-                      onLogin={() => void loginPublication()}
-                      onLogout={() => void logoutPublication()}
-                      onRefreshObservation={() => void refreshPublicationObservation()}
                     />
                   </CollapsibleInspectorGroup>
                 )}
@@ -932,7 +890,7 @@ export function ComponentEditorPage({
                   <label className="property-field">
                     <span>说明</span>
                     <Textarea
-                      rows={4}
+                      rows={2}
                       value={definition.description}
                       disabled={editingDisabled}
                       onChange={(event) => updateDefinitionField('description', event.target.value)}
@@ -961,7 +919,7 @@ export function ComponentEditorPage({
                   </div>
                 </CollapsibleInspectorGroup>
 
-                <CollapsibleInspectorGroup title="公开配置 · Attributes" className="component-root-public-attributes">
+                <CollapsibleInspectorGroup title="静态配置" className="component-root-public-attributes">
                   <p className="component-inspector-help">
                     放入组态画布后可配置的固定参数，例如运行色、报警色和显示精度。
                   </p>
@@ -972,7 +930,7 @@ export function ComponentEditorPage({
                   />
                 </CollapsibleInspectorGroup>
 
-                <CollapsibleInspectorGroup title="运行属性 · Properties" className="component-root-public-properties">
+                <CollapsibleInspectorGroup title="运行属性" className="component-root-public-properties">
                   <p className="component-inspector-help">
                     可绑定设备数据的运行值，例如开关状态、温度和液位。未绑定时使用配置的默认值。
                   </p>
@@ -983,7 +941,7 @@ export function ComponentEditorPage({
                   />
                 </CollapsibleInspectorGroup>
 
-                <CollapsibleInspectorGroup title="连接锚点" className="component-anchor-group">
+                <CollapsibleInspectorGroup title="连接点" className="component-anchor-group">
                   <p className="component-inspector-help">
                     设置管线或导线可以连接到组件的哪些位置。
                   </p>
@@ -997,14 +955,25 @@ export function ComponentEditorPage({
                   </div>
                 </CollapsibleInspectorGroup>
 
-                <CollapsibleInspectorGroup title="实现边界" defaultOpen={false}>
-                  <div className="component-implementation-note">
-                    <strong>{component.visual.mode === 'native' ? 'Native Renderer' : 'Composite Visual'}</strong>
-                    <span>
-                      内部 Layer、Style、Visual Rules、Animation / Script 都属于私有实现；SCADA Workbench 只消费公开 Attributes / Properties / Actions / Events / Anchors。
-                    </span>
-                  </div>
-                </CollapsibleInspectorGroup>
+                {!builtInReadOnly && (
+                  <CollapsibleInspectorGroup title="远端发布" defaultOpen={false}>
+                    <ComponentPublicationPanel
+                      configured={Boolean(publicationBaseUrl)}
+                      session={publicationSession}
+                      observation={publicationObservation}
+                      username={publicationUsername}
+                      password={publicationPassword}
+                      busy={publicationBusy}
+                      publishReady={publicationReady}
+                      onUsernameChange={setPublicationUsername}
+                      onPasswordChange={setPublicationPassword}
+                      onLogin={() => void loginPublication()}
+                      onLogout={() => void logoutPublication()}
+                      onRefreshObservation={() => void refreshPublicationObservation()}
+                    />
+                  </CollapsibleInspectorGroup>
+                )}
+
               </div>
             )}
 
@@ -1035,7 +1004,6 @@ export function ComponentEditorPage({
               <span>{selectedLayerIds.length > 1 ? `已选 ${selectedLayerIds.length} 个图层` : inspectorContextLabel}</span>
             </span>
             <span className="studio-status-cluster">
-              <span>{saveState.status === 'error' ? '保存失败' : saveState.dirty ? '未保存' : '已保存'}</span>
               <code>{definition.size.defaultWidth} × {definition.size.defaultHeight}</code>
               <span>{snapStatus}</span>
             </span>

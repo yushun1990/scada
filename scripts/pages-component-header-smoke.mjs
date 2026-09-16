@@ -17,8 +17,8 @@ try {
 
   // C1 owns the visual skin of SegmentedControl. This integration smoke only
   // verifies that Component Editor consumes that shared primitive inside C2's
-  // single Studio toolbar and keeps both mode targets usable/non-overlapping.
-  const modeSwitch = mainToolbar.locator('.mode-switch.ui-segmented-control')
+  // document header and keeps both mode targets usable/non-overlapping.
+  const modeSwitch = shell.locator('.studio-document-header .mode-switch.ui-segmented-control')
   await modeSwitch.waitFor()
   const modeFaces = await modeSwitch.locator(':scope > .ui-segmented-item').evaluateAll((items) =>
     items.map((item) => {
@@ -53,7 +53,7 @@ try {
   const toolbarLayout = await mainToolbar.evaluate((element) => ({
     display: getComputedStyle(element).display,
     geometryButtons: Array.from(
-      element.querySelectorAll('.component-geometry-tool-group > button'),
+      element.querySelectorAll('.component-geometry-buttons > button'),
       (button) => {
         const rect = button.getBoundingClientRect()
         return { left: rect.left, right: rect.right, width: rect.width }
@@ -85,7 +85,7 @@ try {
     'C2 must not restore the legacy second component canvas toolbar',
   )
   assert.deepEqual(errors, [])
-  console.log('Component chrome browser smoke passed: Component Editor consumes the shared mode primitive inside the single Studio toolbar and geometry commands stay non-overlapping.')
+  console.log('Component chrome browser smoke passed: shared mode primitive stays in the document header and toolbar commands stay non-overlapping.')
 } finally {
   await browser.close()
 }

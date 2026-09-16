@@ -1,6 +1,6 @@
 # Generic SCADA Editor UI Architecture
 
-Status: historical editor UI architecture proposal. For the corrected visual system, dimensions, interaction rules and delivery sequence, use the [2026-09-10 UI specification](../design/industrial-designer-spec.md) and [rollout plan](../design/industrial-designer-rollout.md). Features described below are not evidence that those features are currently implemented; see the [source audit](../design/ui-audit-2026-09-10.md).
+Status: historical editor UI architecture proposal. The desktop menu taxonomy and single-document tab below are superseded by the [Web editor correction](../design/web-editor-simplification.md); they must not be used to add duplicate controls. For the corrected visual system, dimensions, interaction rules and delivery sequence, use the [current UI specification](../design/industrial-designer-spec.md) and [rollout plan](../design/industrial-designer-rollout.md). Features described below are not evidence that those features are currently implemented; see the [source audit](../design/ui-audit-2026-09-10.md).
 
 ## 1. Product posture
 

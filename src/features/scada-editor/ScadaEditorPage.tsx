@@ -65,7 +65,7 @@ import { parseSceneDocument } from '../../scene/validation'
 import { useSceneHistory } from '../../scene/use-scene-history'
 import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'
 import { EditorLeaveDialog } from '../../editor/EditorLeaveDialog'
-import { StudioShell, type StudioMenuDefinition } from '../../editor/StudioShell'
+import { StudioShell, type StudioMenuCommand } from '../../editor/StudioShell'
 import { useEditorLeaveProtection } from '../../editor/use-editor-leave-protection'
 import { useEditorSaveState } from '../../editor/use-editor-save-state'
 import {
@@ -882,83 +882,14 @@ export function ScadaEditorPage({
     : '组合选中对象'
   const hierarchyEnabled = canUngroup || canGroup
 
-  const menus: StudioMenuDefinition[] = [
+  const documentCommands: StudioMenuCommand[] = [
     {
-      id: 'file',
-      label: '文件',
-      commands: [
-        {
-          id: 'save',
-          label: saveState.saving ? '保存中…' : '保存',
-          disabled: saveState.saving || (!saveState.dirty && saveState.status !== 'error'),
-          onSelect: () => void saveScene(),
-        },
-        {
-          id: 'import',
-          label: '导入场景',
-          disabled: !designEditingEnabled,
-          onSelect: () => importInputRef.current?.click(),
-        },
-        { id: 'export', label: '导出场景', onSelect: exportScene },
-        {
-          id: 'workspace',
-          label: '返回工作台',
-          separatorBefore: true,
-          onSelect: onNavigateWorkspace,
-        },
-      ],
+      id: 'import',
+      label: '导入场景结构（高级）',
+      disabled: !designEditingEnabled,
+      onSelect: () => importInputRef.current?.click(),
     },
-    {
-      id: 'edit',
-      label: '编辑',
-      commands: [
-        { id: 'undo', label: '撤销', shortcut: 'Ctrl+Z', disabled: !designEditingEnabled || !canUndo, onSelect: undo },
-        { id: 'redo', label: '重做', shortcut: 'Ctrl+Shift+Z', disabled: !designEditingEnabled || !canRedo, onSelect: redo },
-        { id: 'duplicate', label: '复制选中对象', disabled: !designEditingEnabled || selectedNodes.length === 0, separatorBefore: true, onSelect: duplicateSelectedNodes },
-        { id: 'delete', label: '删除选中对象', disabled: !designEditingEnabled || !hasSelection, destructive: true, onSelect: deleteSelection },
-      ],
-    },
-    {
-      id: 'view',
-      label: '视图',
-      commands: [
-        { id: 'grid', label: gridVisible ? '隐藏格线' : '显示格线', onSelect: () => setGridVisible((current) => !current) },
-        { id: 'snap', label: snapSettings.gridEnabled ? '关闭网格吸附' : '开启网格吸附', onSelect: () => setSnapSettings((current) => ({ ...current, gridEnabled: !current.gridEnabled })) },
-      ],
-    },
-    {
-      id: 'insert',
-      label: '插入',
-      commands: builtInComponentRegistry.list().map(({ definition }) => ({
-        id: `insert-${definition.type}`,
-        label: definition.title,
-        disabled: !designEditingEnabled,
-        onSelect: () => addComponent(definition.type),
-      })),
-    },
-    {
-      id: 'arrange',
-      label: '排列',
-      commands: [
-        { id: hierarchyMode, label: hierarchyTitle, disabled: !designEditingEnabled || !hierarchyEnabled, onSelect: hierarchyMode === 'ungroup' ? ungroupSelectedNode : groupSelectedNodes },
-        ...alignButtons.map((item) => ({
-          id: `align-${item.mode}`,
-          label: item.title,
-          disabled: !designEditingEnabled || selectedNodes.length < 2,
-          onSelect: () => applyAlignment(item.mode),
-        })),
-        { id: 'distribute-horizontal', label: '水平等距分布', disabled: !designEditingEnabled || selectedNodes.length < 3, onSelect: () => applyDistribution('horizontal') },
-        { id: 'distribute-vertical', label: '垂直等距分布', disabled: !designEditingEnabled || selectedNodes.length < 3, onSelect: () => applyDistribution('vertical') },
-      ],
-    },
-    {
-      id: 'run',
-      label: '运行',
-      commands: [
-        { id: 'design', label: '设计模式', disabled: mode === 'editor', onSelect: () => setMode('editor') },
-        { id: 'preview', label: '预览模式', disabled: mode === 'preview', onSelect: () => setMode('preview') },
-      ],
-    },
+    { id: 'export', label: '导出场景结构（高级）', onSelect: exportScene },
   ]
 
   return (
@@ -966,12 +897,12 @@ export function ScadaEditorPage({
       <StudioShell
         className="scada-studio-shell"
         documentTitle={scene.name}
-        documentType="SCADA Work"
+        documentType="组态"
         dirty={saveState.dirty}
-        menus={menus}
+        documentCommands={documentCommands}
         workspaceNavigationLabel="返回 SCADA 作品工作台"
         onNavigateWorkspace={onNavigateWorkspace}
-        mainToolbar={(
+        documentActions={(
           <>
             <Button
               variant="primary"
@@ -986,6 +917,10 @@ export function ScadaEditorPage({
                 : saveState.status === 'error' ? '保存失败'
                 : saveState.dirty ? '未保存' : '已保存'}
             </span>
+          </>
+        )}
+        mainToolbar={(
+          <>
             <ToolbarGroup className="canvas-tool-group">
               <ToolbarButton
                 iconOnly
@@ -1479,7 +1414,6 @@ export function ScadaEditorPage({
               <span>{selectedConnection ? selectedConnection.name : selectedNodes.length > 1 ? `已选 ${selectedNodes.length} 个对象` : primaryNode?.name ?? '未选择对象'}</span>
             </span>
             <span className="studio-status-cluster">
-              <span>{saveState.status === 'error' ? '保存失败' : saveState.dirty ? '未保存' : '已保存'}</span>
               <code>{scene.width} × {scene.height}</code>
               <span>{scene.nodes.length} 个组件 · {scene.connections.length} 条连线</span>
             </span>

@@ -1,15 +1,15 @@
 .component-authoring-palette {
   display: grid;
-  gap: 8px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #dbe3ec;
+  gap: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ui-color-border);
 }
 
 .component-palette-disclosure {
   min-width: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 7px;
-  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .component-palette-summary {
@@ -17,9 +17,9 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  min-height: 32px;
+  min-height: 30px;
   padding: 0 8px;
-  color: #334155;
+  color: var(--ui-color-text);
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -31,7 +31,7 @@
 
 .component-palette-summary::before {
   width: 12px;
-  color: #94a3b8;
+  color: var(--ui-color-text-subtle);
   content: '›';
   font-size: 14px;
   line-height: 1;
@@ -55,8 +55,8 @@
 
 .component-palette-summary > small {
   grid-column: 3;
-  color: #94a3b8;
-  font-size: 9px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -64,7 +64,7 @@
   display: grid;
   gap: 8px;
   padding: 7px 8px 9px;
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid var(--ui-color-surface-subtle);
 }
 
 .component-layer-navigator {
@@ -89,7 +89,7 @@
   flex-shrink: 0;
 }
 
-.component-layer-heading-actions {
+.component-layer-dock-heading > .component-layer-heading-actions {
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -108,27 +108,30 @@
 .component-layer-search .ui-input {
   width: 100%;
   min-width: 0;
-  height: 32px;
+  height: 28px;
   padding: 0 8px;
   font-size: 12px;
 }
 
 .component-palette-grid {
   display: grid;
-  grid-template-columns: repeat(4, 34px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   justify-content: start;
 }
 
 .component-palette-item {
   display: grid;
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  min-height: 34px;
+  width: 100%;
+  min-width: 28px;
+  height: 36px;
+  min-height: 36px;
   padding: 0;
   place-items: center;
   text-align: center;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .component-palette-item[draggable='true'],
@@ -148,9 +151,14 @@
   width: 22px;
   height: 22px;
   place-items: center;
-  color: #2563eb;
+  color: var(--ui-color-text-secondary);
   font-size: 17px;
   line-height: 1;
+}
+
+.component-palette-item-symbol > svg {
+  width: 20px;
+  height: 20px;
 }
 
 .component-palette-component-list {
@@ -175,8 +183,8 @@
   height: 26px;
   place-items: center;
   border-radius: 6px;
-  color: #1d4ed8;
-  background: #eff6ff;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
   font-size: 11px;
   font-weight: 800;
 }
@@ -195,13 +203,13 @@
 }
 
 .component-palette-component-item strong {
-  color: #334155;
+  color: var(--ui-color-text);
   font-size: 11px;
 }
 
 .component-palette-component-item small {
-  color: #94a3b8;
-  font-size: 9px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
 }
 
 .component-palette-resource-library > .ui-button {
@@ -222,16 +230,16 @@
   min-width: 0;
   gap: 3px;
   padding: 4px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ui-color-border);
   border-radius: 6px;
-  color: #475569;
-  background: #ffffff;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
   cursor: pointer;
 }
 
 .component-palette-resource-item:hover:not(:disabled) {
-  border-color: #93c5fd;
-  background: #f8fbff;
+  border-color: var(--ui-color-accent);
+  background: var(--ui-color-surface-subtle);
 }
 
 .component-palette-resource-item img {
@@ -239,12 +247,12 @@
   height: 48px;
   object-fit: contain;
   border-radius: 4px;
-  background: #f8fafc;
+  background: var(--ui-color-panel);
 }
 
 .component-palette-resource-item span {
   overflow: hidden;
-  font-size: 9px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -253,29 +261,29 @@
 .component-palette-help,
 .component-palette-message {
   margin: 0;
-  color: #64748b;
+  color: var(--ui-color-text-subtle);
   font-size: 11px;
   line-height: 1.45;
 }
 
 .component-palette-empty {
-  color: #94a3b8;
+  color: var(--ui-color-text-subtle);
 }
 
 .component-palette-message {
-  color: #475569;
+  color: var(--ui-color-text-secondary);
 }
 
 .component-layer-navigator-help {
   margin: 0;
   padding-top: 2px;
-  color: #64748b;
+  color: var(--ui-color-text-subtle);
   font-size: 12px;
   line-height: 1.45;
 }
 
 .component-artboard.component-palette-drop-active {
-  box-shadow: inset 0 0 0 2px #3b82f6, 0 0 0 3px rgba(59, 130, 246, 0.12);
+  box-shadow: inset 0 0 0 2px var(--ui-color-accent);
 }
 
 @media (max-height: 700px) {
@@ -293,12 +301,14 @@
   }
 }
 
-@media (max-height: 520px) {
-  .component-editor-shell .component-layer-panel {
-    overflow: auto;
-  }
-
-  .component-layer-dock {
-    min-height: 480px;
-  }
+.component-palette-item.ui-button:hover:not(:disabled) {
+  background: var(--ui-color-surface-subtle);
+}
+.component-palette-item.ui-button[aria-pressed='true'] {
+  background: var(--ui-color-accent-soft);
+  color: var(--ui-color-accent-pressed);
+  box-shadow: none;
+}
+.component-palette-item.ui-button[aria-pressed='true'] .component-palette-item-symbol {
+  color: var(--ui-color-accent-pressed);
 }

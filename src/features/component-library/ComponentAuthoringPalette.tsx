@@ -11,6 +11,7 @@ import type {
   TextVisualLayer,
 } from '../../component-system/visual'
 import { Button, Input, Pressable } from '../../ui'
+import { RectangleIcon, EllipseIcon, LineIcon, TextIcon } from '../../components/toolbar-icons'
 import {
   appendCreatedVectorLayer,
   clearComponentCreateTool,
@@ -37,7 +38,7 @@ const PALETTE_DRAG_MIME = 'application/x-scada-component-palette'
 
 const PALETTE_PRIMITIVES: ReadonlyArray<{
   tool: ComponentCreateTool
-  symbol: string
+  icon: typeof RectangleIcon
 }> = [
   {
     tool: {
@@ -47,7 +48,7 @@ const PALETTE_PRIMITIVES: ReadonlyArray<{
       defaultWidth: 96,
       defaultHeight: 64,
     },
-    symbol: '□',
+    icon: RectangleIcon,
   },
   {
     tool: {
@@ -57,7 +58,7 @@ const PALETTE_PRIMITIVES: ReadonlyArray<{
       defaultWidth: 72,
       defaultHeight: 72,
     },
-    symbol: '○',
+    icon: EllipseIcon,
   },
   {
     tool: {
@@ -67,7 +68,7 @@ const PALETTE_PRIMITIVES: ReadonlyArray<{
       defaultWidth: 120,
       defaultHeight: 8,
     },
-    symbol: '╱',
+    icon: LineIcon,
   },
 ]
 
@@ -454,7 +455,7 @@ export function ComponentAuthoringPalette({
             </summary>
             <div className="component-palette-disclosure-body">
               <div className="component-palette-grid">
-                {PALETTE_PRIMITIVES.map(({ tool, symbol }) => {
+                {PALETTE_PRIMITIVES.map(({ tool, icon: Icon }) => {
                   const active = createTool?.primitive === tool.primitive
                   return (
                     <Button
@@ -476,7 +477,7 @@ export function ComponentAuthoringPalette({
                         primitive: tool.primitive,
                       })}
                     >
-                      <span className="component-palette-item-symbol" aria-hidden="true">{symbol}</span>
+                      <span className="component-palette-item-symbol"><Icon /></span>
                     </Button>
                   )
                 })}
@@ -490,7 +491,7 @@ export function ComponentAuthoringPalette({
                   onDoubleClick={() => placeText()}
                   onDragStart={(event) => setDragPayload(event, { kind: 'text' })}
                 >
-                  <span className="component-palette-item-symbol" aria-hidden="true">T</span>
+                  <span className="component-palette-item-symbol"><TextIcon /></span>
                 </Button>
               </div>
             </div>

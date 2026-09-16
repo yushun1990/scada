@@ -48,7 +48,7 @@ async function assertC2Boundary(group, label) {
   assert.equal(style.paddingLeft, '4px', `${label}: commands must clear the divider by one C1 spacing token`)
 }
 
-async function studioToolbar() {
+async function studioToolbar(height = 36) {
   const toolbar = page.getByRole('toolbar', { name: 'Studio 主工具栏' })
   const content = toolbar.locator('.studio-main-toolbar-content')
   await toolbar.waitFor()
@@ -59,54 +59,40 @@ async function studioToolbar() {
   ])
   assert.ok(toolbarBox, 'Studio main toolbar must be measurable')
   assert.ok(contentBox, 'Studio main toolbar content must be measurable')
-  assert.ok(toolbarBox.height <= 36.5, `Studio main toolbar must remain one 36px row, got ${toolbarBox.height}px`)
+  assert.equal(toolbarBox.height, height, `Studio main toolbar must remain one ${height}px row`)
   return { toolbar, content, toolbarBox, contentBox }
 }
 
-async function measureComponentToolbar(label) {
-  const shell = page.locator('.studio-shell.component-studio-shell')
-  await shell.waitFor()
-  const studio = await studioToolbar()
-  const editGroup = studio.content.locator(':scope > .component-edit-command-host')
-  const geometryGroup = studio.content.locator(':scope > .component-geometry-tool-group')
-  const viewGroup = studio.content.locator(':scope > .component-view-command-host')
-  const gridControl = viewGroup.locator('.grid-control')
-
-  await editGroup.waitFor()
-  await geometryGroup.waitFor()
-  await viewGroup.waitFor()
-  await gridControl.waitFor()
-
-  const [editBox, geometryBox, viewBox, gridBox] = await Promise.all([
-    editGroup.boundingBox(),
-    geometryGroup.boundingBox(),
-    viewGroup.boundingBox(),
-    gridControl.boundingBox(),
-  ])
-  assert.ok(editBox && geometryBox && viewBox && gridBox, `${label}: Component toolbar groups must be measurable`)
-  assert.ok(sameRow([editBox, geometryBox, viewBox]), `${label}: Component command families must share one Studio toolbar row`)
-  assert.ok(contains(studio.contentBox, editBox), `${label}: edit/history family must remain visible`)
-  assert.ok(contains(studio.contentBox, geometryBox), `${label}: geometry strip must remain inside toolbar content`)
-  assert.ok(contains(studio.contentBox, viewBox), `${label}: view family must remain visible`)
-  assert.ok(contains(studio.contentBox, gridBox), `${label}: grid control must remain visible`)
-
-  await assertC2Boundary(editGroup, `${label} edit/history`)
-  await assertC2Boundary(geometryGroup, `${label} geometry`)
-  await assertC2Boundary(viewGroup, `${label} view`)
-
-  const widths = await buttonWidths(geometryGroup)
-  assert.ok(widths.length > 1, `${label}: geometry strip must expose its commands`)
-  assert.ok(
-    widths.every((width) => width >= 28),
-    `${label}: geometry buttons must keep the C1 28px target, got ${widths.join(', ')}`,
-  )
-  const overflow = await geometryGroup.evaluate((element) => ({
-    clientWidth: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-  }))
-
-  console.log(`${label}: ${JSON.stringify({ editBox, geometryBox, viewBox, gridBox, widths, overflow })}`)
-  return { ...studio, editGroup, geometryGroup, viewGroup, gridControl, editBox, geometryBox, viewBox, gridBox, widths, overflow }
+async function measureComponentToolbar(label, compact = false) {
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
+  const studio = await studioToolbar(48)
+  const centerBox = await page.locator('.studio-center-workspace').boundingBox()
+  assert.equal(studio.toolbarBox.x, centerBox.x)
+  assert.equal(studio.toolbarBox.width, centerBox.width)
+  const groups = studio.content.locator(':scope > [role="group"]')
+  assert.equal(await groups.count(), 3)
+  const boxes = await Promise.all((await groups.all()).map((group) => group.boundingBox()))
+  assert.ok(sameRow(boxes), `${label}: all three command families share one row`)
+  for (const box of boxes) assert.ok(contains(studio.contentBox, box), `${label}: each group fits the canvas`)
+  const groupButton = studio.toolbar.getByRole('button', { name: '组合选中图层', exact: true })
+  assert.ok(contains(boxes[0], await groupButton.boundingBox()), 'group/ungroup belongs in the first toolbar group')
+  const geometryGroup = groups.nth(1)
+  assert.equal(await geometryGroup.locator('.component-arrange-menu').isVisible(), compact)
+  assert.equal(await geometryGroup.locator('.component-geometry-buttons').isVisible(), !compact)
+  if (compact) {
+    await geometryGroup.getByRole('button', { name: '对齐与分布', exact: true }).click()
+    assert.equal(await page.getByRole('menuitem').count(), 8)
+    await page.getByRole('menuitem', { name: '垂直等距分布', exact: true }).waitFor()
+    await page.keyboard.press('Escape')
+  } else {
+    const buttons = geometryGroup.locator('.component-geometry-buttons button')
+    assert.equal(await buttons.count(), 8)
+    for (const button of await buttons.all()) {
+      const box = await button.boundingBox()
+      assert.ok(box.width >= 28 && contains(boxes[1], box), 'alignment buttons remain visible and usable')
+    }
+  }
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
 }
 
 async function measureScadaToolbar(label) {
@@ -160,11 +146,13 @@ async function measureScadaToolbar(label) {
   return { ...studio, editGroup, geometryGroup, viewGroup, gridControl, sceneSizeControl, editBox, geometryBox, viewBox, gridBox, sceneSizeBox, widths, overflow }
 }
 
-async function assertCompactGeometryReachability(measured, finalCommand, label) {
-  assert.ok(
-    measured.overflow.scrollWidth > measured.overflow.clientWidth + 1,
-    `${label}: middle geometry strip must scroll instead of shrinking or hiding outer command families (${measured.overflow.clientWidth}/${measured.overflow.scrollWidth})`,
-  )
+async function assertCompactGeometryReachability(measured, finalCommand, label, requireOverflow = false) {
+  if (requireOverflow) {
+    assert.ok(
+      measured.overflow.scrollWidth > measured.overflow.clientWidth + 1,
+      `${label}: middle geometry strip must scroll instead of shrinking outer command families`,
+    )
+  }
   await measured.geometryGroup.evaluate((element) => {
     element.scrollLeft = element.scrollWidth
   })
@@ -198,24 +186,19 @@ try {
   )
 
   await page.screenshot({ path: 'artifacts/component-toolbar-1200.png', fullPage: true })
-  const componentDesktop = await measureComponentToolbar('Component 1200px desktop')
-  assert.ok(
-    componentDesktop.overflow.scrollWidth <= componentDesktop.overflow.clientWidth + 1,
-    'Component 1200px: geometry commands should fit without middle-strip scrolling',
-  )
-  const componentLast = componentDesktop.geometryGroup.getByRole('button', { name: '垂直等距分布' })
-  const componentLastBox = await componentLast.boundingBox()
-  assert.ok(componentLastBox && contains(componentDesktop.geometryBox, componentLastBox), 'Component 1200px: final geometry command must be visible')
-
+  await measureComponentToolbar('Component 1200px desktop')
   await page.setViewportSize({ width: 1000, height: 900 })
-  await page.waitForTimeout(100)
+  await measureComponentToolbar('Component 1000px compact desktop', true)
   await page.screenshot({ path: 'artifacts/component-toolbar-1000.png', fullPage: true })
-  const componentCompact = await measureComponentToolbar('Component 1000px compact desktop')
-  await assertCompactGeometryReachability(
-    componentCompact,
-    componentCompact.geometryGroup.getByRole('button', { name: '垂直等距分布' }),
-    'Component 1000px',
-  )
+  // At a phone-sized viewport, panel visibility provides a usable canvas.
+  for (const label of ['隐藏左侧面板', '隐藏属性面板']) {
+    await page.getByRole('button', { name: '布局', exact: true }).click()
+    await page.getByRole('menuitem', { name: label, exact: true }).click()
+  }
+  await page.setViewportSize({ width: 600, height: 900 })
+  await measureComponentToolbar('Component 600px with panels hidden')
+  await page.getByRole('button', { name: '布局', exact: true }).click()
+  await page.getByRole('menuitem', { name: '重置布局', exact: true }).click()
 
   console.log(`Opening SCADA Editor Studio toolbar regression: ${baseUrl}#/works`)
   await page.setViewportSize({ width: 1200, height: 900 })
@@ -248,8 +231,7 @@ try {
   await page.waitForTimeout(100)
   await page.screenshot({ path: 'artifacts/scada-toolbar-1000.png', fullPage: true })
   await measureScadaToolbar('SCADA 1000px compact desktop')
-  // C2's shorter SCADA command set fits at 1000px. Exercise overflow below that
-  // width instead of requiring a scrollbar when every command already fits.
+  // Document actions no longer compete with editing commands for toolbar space.
   await page.setViewportSize({ width: 900, height: 900 })
   await page.waitForTimeout(100)
   const scadaCompact = await measureScadaToolbar('SCADA 900px compact desktop')
@@ -258,9 +240,17 @@ try {
     scadaCompact.geometryGroup.getByRole('button', { name: '垂直等距分布' }),
     'SCADA 900px',
   )
+  await page.setViewportSize({ width: 600, height: 900 })
+  const scadaNarrow = await measureScadaToolbar('SCADA 600px')
+  await assertCompactGeometryReachability(
+    scadaNarrow,
+    scadaNarrow.geometryGroup.getByRole('button', { name: '垂直等距分布' }),
+    'SCADA 600px',
+    true,
+  )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages Studio toolbar smoke passed: Component and SCADA keep one Studio toolbar, stable outer command families, C1 hit targets, C2 divider boundaries, and middle-only compact overflow.')
+  console.log('Pages Studio toolbar smoke passed: Component and SCADA keep one Studio toolbar, stable outer command families, usable targets, centered Component groups with a compact alignment menu, and SCADA middle-only overflow.')
 } finally {
   await browser.close()
 }

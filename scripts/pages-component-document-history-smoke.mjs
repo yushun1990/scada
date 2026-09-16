@@ -30,7 +30,9 @@ try {
   await row('文本 1').waitFor()
   assert.equal(await rows.count(), 1, 'visual creation must produce one layer')
 
-  await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  if (await page.getByRole('button', { name: '组件设置', exact: true }).count()) {
+    await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  }
   const rootInspector = page.locator('.component-root-inspector')
   await rootInspector.waitFor()
   const titleField = rootInspector
@@ -142,7 +144,9 @@ try {
   await writePersistedComponent(page, seeded)
   await page.reload({ waitUntil: 'load' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
-  await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  if (await page.getByRole('button', { name: '组件设置', exact: true }).count()) {
+    await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  }
   await rootInspector.waitFor()
 
   const propertyItemFor = (key) => rootInspector
@@ -196,7 +200,9 @@ try {
     return item?.textContent?.includes('state')
       && !item.textContent.includes('renamedState')
   })
-  await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  if (await page.getByRole('button', { name: '组件设置', exact: true }).count()) {
+    await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  }
   await propertyItemFor('state').waitFor()
   assert.equal(await propertyItemFor('renamedState').count(), 0)
 
