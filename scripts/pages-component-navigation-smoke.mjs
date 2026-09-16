@@ -34,6 +34,7 @@ try {
     'left dock should expose the three authoring source groups without a redundant add header',
   )
   assert.equal(await button('选择').count(), 0, 'the redundant selection button should be removed')
+  assert.equal(await button('定位所选').count(), 0, 'layer navigation should not expose a redundant reveal-selection button')
 
   const paletteItems = palette.locator('.component-palette-item')
   assert.equal(await paletteItems.count(), 4, 'basic palette should expose rect, circle/ellipse, line, and text only')
@@ -79,9 +80,9 @@ try {
   await row('文本 2').click()
   await search.fill('no matching layer')
   await assertNames([])
-  await button('定位所选').click()
+  await search.press('Escape')
   await assertNames(['文本 3', 'Group 1', '文本 2', '文本 1'])
-  assert.equal(await row('文本 2').getAttribute('aria-pressed'), 'true')
+  assert.equal(await row('文本 2').getAttribute('aria-pressed'), 'true', 'clearing search restores the selected layer without a reveal action')
 
   await button('组件设置').click()
   assert.equal(await page.locator('.component-layer-row.active').count(), 0)
@@ -125,7 +126,6 @@ try {
   }
   await page.setViewportSize({ width: 1000, height: 700 })
   await row('文本 1').click()
-  await button('定位所选').click()
   const tree = page.locator('.component-layer-tree')
   const paletteBox = await palette.boundingBox()
   const scroll = await tree.evaluate((element) => ({
@@ -135,11 +135,11 @@ try {
   const lastBox = await row('文本 1').boundingBox()
   const treeBox = await tree.boundingBox()
   assert.ok(lastBox && treeBox && lastBox.y + lastBox.height <= treeBox.y + treeBox.height + 1)
-  assert.ok(paletteBox && paletteBox.y >= 0, 'revealing a layer must not scroll the Palette away')
+  assert.ok(paletteBox && paletteBox.y >= 0, 'selecting a layer must not scroll the Palette away')
   await mkdir('artifacts', { recursive: true })
   await page.screenshot({ path: 'artifacts/component-navigation-1000.png' })
   assert.deepEqual(errors, [])
-  console.log('Component navigation browser smoke passed: reorganized collapsible Palette, double-click placement, collapse/search/reveal, selection/settings, Preview history lock, transient persistence, and independent scrolling.')
+  console.log('Component navigation browser smoke passed: reorganized collapsible Palette, double-click placement, collapse/search, selection/settings, Preview history lock, transient persistence, and independent scrolling.')
 } finally {
   await browser.close()
 }
