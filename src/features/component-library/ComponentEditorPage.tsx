@@ -68,6 +68,13 @@ import {
 import './component-editor.css'
 
 type InspectorTab = 'properties' | 'actions' | 'events'
+type InspectorScope = 'component' | 'layer'
+type LayerInspectorTab = 'properties' | 'behavior'
+
+const LAYER_INSPECTOR_TABS: Array<StudioTabItem<LayerInspectorTab>> = [
+  { value: 'properties', label: '属性' },
+  { value: 'behavior', label: '行为' },
+]
 
 const INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
   { value: 'properties', label: '属性' },
@@ -312,6 +319,8 @@ export function ComponentEditorPage({
   const [selectedLayerIds, setSelectedLayerIds] = useState<readonly string[]>([])
   const [primaryLayerId, setPrimaryLayerId] = useState<string | null>(null)
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('properties')
+  const [inspectorScope, setInspectorScope] = useState<InspectorScope>('component')
+  const [layerInspectorTab, setLayerInspectorTab] = useState<LayerInspectorTab>('properties')
   const [previewProps, setPreviewProps] = useState<ComponentProps>(() =>
     createDefaultPropsFromDefinition(initial.definition),
   )
@@ -347,11 +356,13 @@ export function ComponentEditorPage({
   )
   const singleSelectedLayerId =
     selectedLayerIds.length === 1 ? primaryLayerId : null
-  const inspectorContextLabel = inspectorTab !== 'properties' || selectedLayerIds.length === 0
+  const activeInspectorScope = selectedLayerIds.length > 0 ? inspectorScope : 'component'
+  const selectionLabel = selectedLayerIds.length === 0
     ? definition.title
     : selectedLayerIds.length > 1
       ? `已选 ${selectedLayerIds.length} 个图层`
       : component.visual.layers.find((layer) => layer.id === singleSelectedLayerId)?.name
+  const inspectorContextLabel = activeInspectorScope === 'component' ? definition.title : selectionLabel
 
   useEffect(() => {
     setPreviewProps((current) => normalizePreviewProps(definition, current))
@@ -507,7 +518,7 @@ export function ComponentEditorPage({
 
     setSelectedLayerIds(nextLayerIds)
     setPrimaryLayerId(nextLayerIds[nextLayerIds.length - 1] ?? null)
-    setInspectorTab('properties')
+    setInspectorScope(nextLayerIds.length > 0 ? 'layer' : 'component')
   }
 
   function selectLayer(layerId: string | null, toggle = false) {
@@ -534,7 +545,7 @@ export function ComponentEditorPage({
       setPrimaryLayerId(layerId)
     }
 
-    setInspectorTab('properties')
+    setInspectorScope('layer')
   }
 
   async function save() {
@@ -762,30 +773,40 @@ export function ComponentEditorPage({
         rightPanel={(
         <aside className="property-panel component-property-panel">
           <section className="semantic-inspector component-semantic-inspector" aria-label="组件配置">
-            {selectedLayerIds.length > 0 && (
-              <div className="component-inspector-context">
-                <Button
-                  variant="ghost"
-                  size="small"
-                  aria-label="组件设置"
-                  title="编辑组件名称、尺寸、公开配置和运行属性"
-                  onClick={() => {
-                    clearComponentCreateTool()
-                    selectLayer(null)
-                  }}
-                >返回组件</Button>
-                <span title={inspectorContextLabel}>{inspectorContextLabel}</span>
-              </div>
+            <div className="component-inspector-scope">
+              <SegmentedControl<InspectorScope>
+                value={activeInspectorScope}
+                items={[
+                  { value: 'component', label: '当前组件' },
+                  { value: 'layer', label: '所选图层', disabled: selectedLayerIds.length === 0 },
+                ]}
+                onValueChange={(scope) => {
+                  clearComponentCreateTool()
+                  setInspectorScope(scope)
+                }}
+                ariaLabel="检查器对象"
+              />
+              <span title={inspectorContextLabel}>{inspectorContextLabel}</span>
+            </div>
+            {activeInspectorScope === 'component' ? (
+              <Tabs
+                value={inspectorTab}
+                items={INSPECTOR_TABS}
+                onValueChange={setInspectorTab}
+                ariaLabel="组件配置检查器"
+                className="component-inspector-tabs"
+              />
+            ) : (
+              <Tabs
+                value={layerInspectorTab}
+                items={LAYER_INSPECTOR_TABS}
+                onValueChange={setLayerInspectorTab}
+                ariaLabel="图层配置检查器"
+                className="component-inspector-tabs"
+              />
             )}
-            <Tabs
-              value={inspectorTab}
-              items={INSPECTOR_TABS}
-              onValueChange={setInspectorTab}
-              ariaLabel="组件配置检查器"
-              className="component-inspector-tabs"
-            />
 
-            {inspectorTab === 'properties' && singleSelectedLayerId !== null && (
+            {activeInspectorScope === 'layer' && layerInspectorTab === 'properties' && singleSelectedLayerId !== null && (
               <>
                 <ComponentVisualLayerInspector
                   visual={component.visual}
@@ -800,6 +821,14 @@ export function ComponentEditorPage({
                   selectedLayerId={singleSelectedLayerId}
                   onChange={(visual) => updatePackage('visual', visual)}
                 />
+              </>
+            )}
+
+            {activeInspectorScope === 'layer' && layerInspectorTab === 'behavior' && singleSelectedLayerId !== null && (
+              <>
+                <p className="component-inspector-help component-layer-behavior-help">
+                  用组件运行属性驱动此图层的外观和动画。公开方法与事件在“当前组件”中定义。
+                </p>
                 <div className="property-section-list component-rule-inspector">
                   <CollapsibleInspectorGroup title="视觉规则" defaultOpen={false}>
                     <ComponentVisualRuleEditor
@@ -825,7 +854,7 @@ export function ComponentEditorPage({
               </>
             )}
 
-            {inspectorTab === 'properties' && selectedLayerIds.length > 1 && (
+            {activeInspectorScope === 'layer' && selectedLayerIds.length > 1 && (
               <div className="property-section-list">
                 <CollapsibleInspectorGroup title="多选">
                   <div className="selection-summary">
@@ -838,7 +867,7 @@ export function ComponentEditorPage({
               </div>
             )}
 
-            {inspectorTab === 'properties' && selectedLayerIds.length === 0 && (
+            {activeInspectorScope === 'component' && inspectorTab === 'properties' && (
               <div className="property-section-list component-root-inspector">
                 {mode === 'preview' && component.visual.mode === 'composite' && (
                   <CollapsibleInspectorGroup title="预览数据">
@@ -980,7 +1009,7 @@ export function ComponentEditorPage({
               </div>
             )}
 
-            {inspectorTab === 'actions' && (
+            {activeInspectorScope === 'component' && inspectorTab === 'actions' && (
               <ComponentContractEditor
                 definition={definition}
                 readOnly={editingDisabled}
@@ -989,7 +1018,7 @@ export function ComponentEditorPage({
               />
             )}
 
-            {inspectorTab === 'events' && (
+            {activeInspectorScope === 'component' && inspectorTab === 'events' && (
               <ComponentContractEditor
                 definition={definition}
                 readOnly={editingDisabled}
@@ -1004,7 +1033,7 @@ export function ComponentEditorPage({
           <>
             <span className="studio-status-cluster studio-status-mode">
               <strong>{mode === 'preview' ? '预览' : '设计'}</strong>
-              <span>{selectedLayerIds.length > 1 ? `已选 ${selectedLayerIds.length} 个图层` : inspectorContextLabel}</span>
+              <span>{selectionLabel}</span>
             </span>
             <span className="studio-status-cluster">
               <code>{definition.size.defaultWidth} × {definition.size.defaultHeight}</code>

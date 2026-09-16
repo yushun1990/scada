@@ -30,8 +30,8 @@ try {
   await row('文本 1').waitFor()
   assert.equal(await rows.count(), 1, 'visual creation must produce one layer')
 
-  if (await page.getByRole('button', { name: '组件设置', exact: true }).count()) {
-    await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  if (await page.getByRole('button', { name: '当前组件', exact: true }).count()) {
+    await page.getByRole('button', { name: '当前组件', exact: true }).click()
   }
   const rootInspector = page.locator('.component-root-inspector')
   await rootInspector.waitFor()
@@ -144,8 +144,8 @@ try {
   await writePersistedComponent(page, seeded)
   await page.reload({ waitUntil: 'load' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
-  if (await page.getByRole('button', { name: '组件设置', exact: true }).count()) {
-    await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  if (await page.getByRole('button', { name: '当前组件', exact: true }).count()) {
+    await page.getByRole('button', { name: '当前组件', exact: true }).click()
   }
   await rootInspector.waitFor()
 
@@ -184,6 +184,7 @@ try {
   await propertyItemFor('renamedState').waitFor()
 
   await row('文本 1').click()
+  await page.getByRole('tab', { name: '行为', exact: true }).click()
   await page.getByText('视觉规则', { exact: true }).click()
   const rule = page.locator('.component-rule-item').filter({ hasText: 'history-rule' }).first()
   await rule.waitFor()
@@ -200,8 +201,8 @@ try {
     return item?.textContent?.includes('state')
       && !item.textContent.includes('renamedState')
   })
-  if (await page.getByRole('button', { name: '组件设置', exact: true }).count()) {
-    await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  if (await page.getByRole('button', { name: '当前组件', exact: true }).count()) {
+    await page.getByRole('button', { name: '当前组件', exact: true }).click()
   }
   await propertyItemFor('state').waitFor()
   assert.equal(await propertyItemFor('renamedState').count(), 0)
@@ -210,6 +211,7 @@ try {
   await propertyItemFor('renamedState').waitFor()
   assert.equal(await propertyItemFor('state').count(), 0)
   await row('文本 1').click()
+  await page.getByRole('tab', { name: '行为', exact: true }).click()
   await page.getByText('视觉规则', { exact: true }).click()
   await page.waitForFunction(() => {
     const item = [...document.querySelectorAll('.component-rule-item')]

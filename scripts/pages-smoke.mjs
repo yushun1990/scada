@@ -379,7 +379,7 @@ try {
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await layerRow('Animation Smoke Rect').click()
 
-  await page.getByRole('button', { name: '动画' }).click()
+  await page.getByRole('tab', { name: '行为', exact: true }).click(); await page.getByRole('button', { name: '动画' }).click()
   await page.getByRole('button', { name: '+ 添加 Spin 动画' }).click()
   assert.equal(await page.locator('.component-animation-item').count(), 1, 'spin animation added through inspector')
 

@@ -87,8 +87,8 @@ async function beforeUnloadIsBlocked() {
 }
 
 async function componentRootTitleField() {
-  if (await page.getByRole('button', { name: '组件设置', exact: true }).count()) {
-    await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  if (await page.getByRole('button', { name: '当前组件', exact: true }).count()) {
+    await page.getByRole('button', { name: '当前组件', exact: true }).click()
   }
   const rootInspector = page.locator('.component-root-inspector')
   await rootInspector.waitFor()

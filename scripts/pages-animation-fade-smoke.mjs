@@ -76,7 +76,7 @@ try {
 
   assert.deepEqual(await seedFadeAnimationFixture(), { opacity: 0.8, x: 220, y: 150, rotation: 0, scaleX: 1, scaleY: 1 }, 'fade fixture starts from stable persisted visual state')
   await page.reload({ waitUntil: 'networkidle' }); await page.locator('.studio-shell.component-studio-shell').waitFor()
-  await layerRow('Fade Animation Smoke Rect').click(); await page.getByRole('button', { name: '动画' }).click()
+  await layerRow('Fade Animation Smoke Rect').click(); await page.getByRole('tab', { name: '行为', exact: true }).click(); await page.getByRole('button', { name: '动画' }).click()
   await page.getByRole('button', { name: '+ 添加 Fade 动画' }).click()
   assert.equal(await page.locator('.component-animation-item').count(), 1, 'fade animation added through real inspector')
   await page.getByLabel('animation1 透明倍率').fill('0.1')

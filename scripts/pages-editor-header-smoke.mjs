@@ -58,8 +58,8 @@ try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await assertChrome('Component', '返回组件库工作台')
-  if (await page.getByRole('button', { name: '组件设置', exact: true }).count()) {
-    await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  if (await page.getByRole('button', { name: '当前组件', exact: true }).count()) {
+    await page.getByRole('button', { name: '当前组件', exact: true }).click()
   }
   const componentName = page.locator('.component-root-inspector .property-field')
     .filter({ has: page.locator('span', { hasText: /^名称$/ }) }).locator('input').first()

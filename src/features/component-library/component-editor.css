@@ -301,17 +301,20 @@
 }
 
 .component-semantic-inspector .ui-tabs-list.component-inspector-tabs {
+  position: sticky;
+  top: 36px;
+  z-index: 2;
   gap: 12px;
   margin: 0;
   padding: 0 8px;
   border: 0;
   border-bottom: 1px solid var(--ui-color-border);
   border-radius: 0;
-  background: transparent;
+  background: var(--ui-color-panel);
 }
 
 .component-semantic-inspector .component-inspector-tabs > .ui-tab {
-  height: 40px;
+  height: 32px;
   border-radius: 0;
   background: transparent;
   border-bottom: 2px solid transparent;
@@ -323,37 +326,30 @@
   border-bottom-color: var(--ui-color-accent);
 }
 
-.component-inspector-context {
+.component-inspector-scope {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
+  background: var(--ui-color-panel);
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 32px;
-  padding: 4px 0;
+  min-height: 36px;
+  padding: 3px 8px;
   border-bottom: 1px solid var(--ui-color-border);
-  background: var(--ui-color-panel);
 }
 
-.component-inspector-context > button {
-  flex-shrink: 0;
-  font-size: 12px;
-}
-
-.component-inspector-context > button[aria-pressed='true'] {
-  color: var(--ui-color-accent-pressed);
-  background: var(--ui-color-accent-soft);
-}
-
-.component-inspector-context > span {
+.component-inspector-scope .ui-segmented-control { flex: 0 0 auto; }
+.component-inspector-scope .ui-segmented-item { min-height: 26px; padding: 0 7px; font-size: 12px; }
+.component-inspector-scope > span {
   min-width: 0;
   overflow: hidden;
-  color: var(--ui-color-text-subtle);
-  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
 }
+.component-semantic-inspector .component-layer-behavior-help { margin: 10px 12px; }
 
 .component-semantic-inspector .inspector-tabs {
   grid-template-columns: repeat(4, minmax(0, 1fr));

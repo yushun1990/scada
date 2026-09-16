@@ -94,8 +94,8 @@ try {
   await assertNames(['文本 3', 'Group 1', '文本 2', '文本 1'])
   assert.equal(await row('文本 2').getAttribute('aria-pressed'), 'true')
 
-  await button('组件设置').click()
-  assert.equal(await page.locator('.component-layer-row.active').count(), 0)
+  await button('当前组件').click()
+  assert.equal(await page.locator('.component-layer-row.active').count(), 1, 'switching inspector scope preserves layer selection')
   await page.locator('.component-root-inspector').waitFor()
   await row('文本 2').click()
   await row('文本 2').press('Escape')

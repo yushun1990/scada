@@ -85,7 +85,7 @@ try {
   await page.keyboard.press('Escape')
   await page.screenshot({ path: 'artifacts/component-redesign-1000.png' })
   await page.setViewportSize({ width: 1366, height: 768 })
-  await button('组件设置').click()
+  await button('当前组件').click()
   await button('预览').click()
   await page.screenshot({ path: 'artifacts/component-redesign-preview-1366.png' })
   assert.equal(await button('组合选中图层').isDisabled(), true)
