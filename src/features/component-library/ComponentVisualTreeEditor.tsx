@@ -235,6 +235,7 @@ export function ComponentVisualTreeEditor({
             </IconButton>
             <strong>图层</strong>
           </div>
+          <span>{visual.mode === 'native' ? '内置组件' : `${visual.layers.length} 个图层`}</span>
         </div>
 
         {!navigatorCollapsed && (
