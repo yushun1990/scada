@@ -8,7 +8,6 @@ import {
   type VisualVectorPrimitive,
 } from '../../component-system/visual'
 import {
-  Button,
   Checkbox,
   IconButton,
   Input,
@@ -160,7 +159,6 @@ export function ComponentVisualTreeEditor({
   const [search, setSearch] = useState('')
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<ReadonlySet<string>>(() => new Set())
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(false)
-  const [revealRequest, setRevealRequest] = useState(0)
   const navigatorRef = useRef<HTMLDivElement>(null)
   const flattened = useMemo(
     // Stored sibling order is back-to-front; display the frontmost layer first.
@@ -179,14 +177,14 @@ export function ComponentVisualTreeEditor({
       if (![...current].some((id) => ancestors.has(id))) return current
       return new Set([...current].filter((id) => !ancestors.has(id)))
     })
-  }, [ancestorKey, primaryLayerId, revealRequest])
+  }, [ancestorKey, primaryLayerId])
 
   useEffect(() => {
     if (navigatorCollapsed) return
     const row = Array.from(navigatorRef.current?.querySelectorAll<HTMLElement>('[data-layer-id]') ?? [])
       .find((element) => element.dataset.layerId === primaryLayerId)
     row?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-  }, [navigatorCollapsed, primaryLayerId, primaryVisible, revealRequest])
+  }, [navigatorCollapsed, primaryLayerId, primaryVisible])
 
   useEffect(() => {
     if (primaryLayerId && !primaryLayer) onSelectionChange(null)
@@ -199,12 +197,6 @@ export function ComponentVisualTreeEditor({
   function selectNavigatorLayer(layerId: string | null, toggle = false) {
     clearComponentCreateTool()
     onSelectionChange(layerId, toggle)
-  }
-
-  function revealSelection() {
-    setNavigatorCollapsed(false)
-    setSearch('')
-    setRevealRequest((current) => current + 1)
   }
 
   function toggleGroup(layerId: string) {
@@ -230,14 +222,7 @@ export function ComponentVisualTreeEditor({
         aria-label="图层导航"
       >
         <div className="component-layer-dock-heading">
-          <div>
-            <strong>图层</strong>
-            <span>{visual.mode === 'native' ? '内置组件' : `${visual.layers.length} 个图层${selectedLayerIds.length ? ` · 已选 ${selectedLayerIds.length}` : ''}`}</span>
-          </div>
           <div className="component-layer-heading-actions">
-            <Button size="small" variant="ghost" disabled={!primaryLayer} onClick={revealSelection}>
-              定位所选
-            </Button>
             <IconButton
               size="small"
               variant="ghost"
@@ -248,7 +233,9 @@ export function ComponentVisualTreeEditor({
             >
               <span aria-hidden="true">{navigatorCollapsed ? '›' : '⌄'}</span>
             </IconButton>
+            <strong>图层</strong>
           </div>
+          <span>{visual.mode === 'native' ? '内置组件' : `${visual.layers.length} 个图层`}</span>
         </div>
 
         {!navigatorCollapsed && (

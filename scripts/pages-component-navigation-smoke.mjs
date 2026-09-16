@@ -34,6 +34,12 @@ try {
     'left dock should expose the three authoring source groups without a redundant add header',
   )
   assert.equal(await button('选择').count(), 0, 'the redundant selection button should be removed')
+  assert.equal(await button('定位所选').count(), 0, 'the redundant reveal-selection button should be removed')
+  assert.equal(
+    await page.locator('.component-layer-dock-heading > span').textContent(),
+    '0 个图层',
+    'layer count should occupy the right-side heading hint position',
+  )
 
   const paletteItems = palette.locator('.component-palette-item')
   assert.equal(await paletteItems.count(), 4, 'basic palette should expose rect, circle/ellipse, line, and text only')
@@ -61,6 +67,11 @@ try {
     await paletteButton('文本').dblclick()
     await row(`文本 ${index}`).waitFor()
   }
+  assert.equal(
+    await page.locator('.component-layer-dock-heading > span').textContent(),
+    '3 个图层',
+    'layer count should track authored layers',
+  )
   await row('文本 1').click()
   await row('文本 2').click({ modifiers: ['Control'] })
   await button('组合选中图层').click()
@@ -79,7 +90,7 @@ try {
   await row('文本 2').click()
   await search.fill('no matching layer')
   await assertNames([])
-  await button('定位所选').click()
+  await search.press('Escape')
   await assertNames(['文本 3', 'Group 1', '文本 2', '文本 1'])
   assert.equal(await row('文本 2').getAttribute('aria-pressed'), 'true')
 
@@ -125,7 +136,6 @@ try {
   }
   await page.setViewportSize({ width: 1000, height: 700 })
   await row('文本 1').click()
-  await button('定位所选').click()
   const tree = page.locator('.component-layer-tree')
   const paletteBox = await palette.boundingBox()
   const scroll = await tree.evaluate((element) => ({

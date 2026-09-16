@@ -81,8 +81,8 @@ async function measureComponentToolbar(label, compact = false) {
   assert.equal(await geometryGroup.locator('.component-geometry-buttons').isVisible(), !compact)
   if (compact) {
     await geometryGroup.getByRole('button', { name: '对齐与分布', exact: true }).click()
-    assert.equal(await page.getByRole('menuitem').count(), 8)
     await page.getByRole('menuitem', { name: '垂直等距分布', exact: true }).waitFor()
+    assert.equal(await page.getByRole('menuitem').count(), 8)
     await page.keyboard.press('Escape')
   } else {
     const buttons = geometryGroup.locator('.component-geometry-buttons button')
