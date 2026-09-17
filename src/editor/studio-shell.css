@@ -74,6 +74,18 @@
   background: var(--ui-color-panel);
 }
 
+.studio-canvas-toolbar-row {
+  display: flex;
+  gap: var(--ui-space-2);
+  min-width: 0;
+  min-height: 0;
+}
+
+.studio-canvas-toolbar-row > .studio-main-toolbar {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .studio-main-toolbar-content,
 .studio-document-actions {
   display: flex;
@@ -149,15 +161,34 @@
   grid-template-rows: var(--ui-main-toolbar-height) minmax(0, 1fr);
 }
 
-.studio-shell-canvas-toolbar .studio-main-toolbar {
+.studio-shell-canvas-toolbar .studio-canvas-toolbar-row {
+  position: relative;
   container-type: inline-size;
   container-name: component-tools;
+  background: var(--ui-color-panel);
+}
+
+.studio-shell-canvas-toolbar .studio-canvas-toolbar-row::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  content: '';
+  background: var(--ui-color-border);
+  pointer-events: none;
+}
+
+.studio-shell-canvas-toolbar .studio-main-toolbar {
   padding-inline: var(--ui-space-3);
+  border-bottom: 0;
   background: var(--ui-color-panel);
 }
 
 .studio-canvas-content,
-.studio-canvas-content > .canvas-area {
+.studio-canvas-content > .canvas-area,
+.studio-canvas-content > .component-workspace,
+.studio-canvas-content > .component-workspace > .component-work-page {
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -245,13 +276,9 @@
   grid-column: 3;
 }
 
-.studio-panel-resizer-left {
-  grid-column: 2;
-}
+.studio-panel-rail-left { grid-column: 2; }
 
-.studio-panel-resizer-right {
-  grid-column: 4;
-}
+.studio-panel-rail-right { grid-column: 4; }
 
 .studio-left-panel > .component-panel,
 .studio-right-panel > .property-panel {
@@ -266,6 +293,43 @@
 .studio-center-workspace > .canvas-area {
   width: 100%;
   height: 100%;
+}
+
+.studio-center-workspace > .component-workspace {
+  width: 100%;
+  height: 100%;
+}
+
+.studio-panel-rail {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  z-index: 4;
+  background: var(--ui-color-panel);
+}
+
+.studio-panel-rail .studio-panel-resizer { height: 100%; }
+
+.studio-panel-rail .studio-panel-toggle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  min-width: 20px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text-subtle);
+  background: var(--ui-color-panel);
+}
+
+.studio-panel-rail .studio-panel-toggle:hover {
+  color: var(--ui-color-accent);
+  border-color: var(--ui-color-accent);
+  background: var(--ui-color-accent-soft);
 }
 
 .studio-panel-resizer {
@@ -355,6 +419,105 @@
 
   .studio-document-actions {
     gap: var(--ui-space-micro);
+  }
+}
+
+/* Below the desktop editing width the canvas remains the primary surface. A
+ * dock becomes a temporary overlay and the edge rail stays available so the
+ * user can switch between creation/navigation and inspection without stacking
+ * three narrow columns into an unusable page. */
+@media (max-width: 900px) {
+  .studio-shell-canvas-toolbar .studio-workspace-grid {
+    position: relative;
+    display: block;
+  }
+
+  .studio-shell-canvas-toolbar .studio-center-workspace {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-rows: var(--ui-main-toolbar-height) minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+  }
+
+  .studio-shell-canvas-toolbar .studio-left-panel:not([hidden]),
+  .studio-shell-canvas-toolbar .studio-right-panel:not([hidden]) {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 5;
+    display: block;
+    width: min(var(--studio-left-width), calc(100% - 48px));
+    max-width: calc(100% - 48px);
+    box-shadow: var(--ui-shadow-floating);
+  }
+
+  .studio-shell-canvas-toolbar .studio-left-panel:not([hidden]) {
+    left: 0;
+    grid-column: auto;
+  }
+
+  .studio-shell-canvas-toolbar .studio-right-panel:not([hidden]) {
+    right: 0;
+    grid-column: auto;
+    width: min(var(--studio-right-width), calc(100% - 48px));
+  }
+
+  .studio-shell-canvas-toolbar .studio-left-panel > .component-panel,
+  .studio-shell-canvas-toolbar .studio-right-panel > .property-panel {
+    display: block;
+    height: 100%;
+    max-height: none;
+  }
+
+  .studio-shell-canvas-toolbar .studio-panel-rail {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 6;
+    width: 24px;
+    pointer-events: none;
+    background: transparent;
+  }
+
+  .studio-shell-canvas-toolbar .studio-panel-rail-left {
+    left: var(--studio-left-width);
+    grid-column: auto;
+  }
+
+  .studio-shell-canvas-toolbar .studio-panel-rail-right {
+    right: var(--studio-right-width);
+    grid-column: auto;
+  }
+
+  .studio-shell-canvas-toolbar .studio-panel-rail .studio-panel-toggle {
+    pointer-events: auto;
+  }
+
+  .studio-shell-canvas-toolbar .studio-panel-rail .studio-panel-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--studio-left-resizer);
+    pointer-events: auto;
+  }
+
+  .studio-shell-canvas-toolbar .studio-panel-rail-left .studio-panel-resizer {
+    right: 0;
+  }
+
+  .studio-shell-canvas-toolbar .studio-panel-rail-right .studio-panel-resizer {
+    left: 0;
+    width: var(--studio-right-resizer);
+  }
+}
+
+/* Legacy workbench rules hide the component panel below 760px. The current
+ * shell uses the overlay behavior above, so keep its content available. */
+@media (max-width: 760px) {
+  .component-studio-shell .studio-left-panel > .component-layer-panel {
+    display: block;
   }
 }
 

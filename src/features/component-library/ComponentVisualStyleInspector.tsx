@@ -45,6 +45,20 @@ const TEXT_VERTICAL_ALIGN_OPTIONS = [
   { value: 'bottom', label: '底部' },
 ]
 
+function resolveColorPickerValue(value: string) {
+  const normalized = value.trim()
+
+  if (/^#[0-9a-f]{6}$/i.test(normalized)) {
+    return normalized
+  }
+
+  if (/^#[0-9a-f]{3}$/i.test(normalized)) {
+    return `#${normalized.slice(1).split('').map((digit) => `${digit}${digit}`).join('')}`
+  }
+
+  return '#000000'
+}
+
 export function ComponentVisualStyleInspector({
   visual,
   selectedLayerId,
@@ -74,27 +88,51 @@ export function ComponentVisualStyleInspector({
         <CollapsibleInspectorGroup title="样式">
           <label className="property-field">
             <span>填充</span>
-            <Input
-              value={style.fill}
-              disabled={readOnly}
-              placeholder="#cbd5e1 / transparent"
-              onChange={(event) => updateLayer({
-                ...layer,
-                style: { ...style, fill: event.target.value },
-              })}
-            />
+            <div className="component-color-input-row">
+              <Input
+                value={style.fill}
+                disabled={readOnly}
+                placeholder="#cbd5e1 / transparent"
+                onChange={(event) => updateLayer({
+                  ...layer,
+                  style: { ...style, fill: event.target.value },
+                })}
+              />
+              <Input
+                type="color"
+                value={resolveColorPickerValue(style.fill)}
+                disabled={readOnly}
+                aria-label={`${layer.name} 填充色卡`}
+                onChange={(event) => updateLayer({
+                  ...layer,
+                  style: { ...style, fill: event.target.value },
+                })}
+              />
+            </div>
           </label>
           <label className="property-field">
             <span>描边</span>
-            <Input
-              value={style.stroke}
-              disabled={readOnly}
-              placeholder="#64748b / transparent"
-              onChange={(event) => updateLayer({
-                ...layer,
-                style: { ...style, stroke: event.target.value },
-              })}
-            />
+            <div className="component-color-input-row">
+              <Input
+                value={style.stroke}
+                disabled={readOnly}
+                placeholder="#64748b / transparent"
+                onChange={(event) => updateLayer({
+                  ...layer,
+                  style: { ...style, stroke: event.target.value },
+                })}
+              />
+              <Input
+                type="color"
+                value={resolveColorPickerValue(style.stroke)}
+                disabled={readOnly}
+                aria-label={`${layer.name} 描边色卡`}
+                onChange={(event) => updateLayer({
+                  ...layer,
+                  style: { ...style, stroke: event.target.value },
+                })}
+              />
+            </div>
           </label>
           <label className="property-field compact">
             <span>描边宽度</span>

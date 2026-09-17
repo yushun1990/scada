@@ -112,8 +112,8 @@
   --ui-color-accent-soft: #e1f1e9;
   --ui-radius-control: 5px;
   --ui-radius-floating: 8px;
-  --ui-document-header-height: 48px;
-  --ui-main-toolbar-height: 48px;
+  --ui-document-header-height: 44px;
+  --ui-main-toolbar-height: 36px;
   --ui-shadow-floating: 0 4px 16px rgb(38 51 47 / 12%);
   --ui-focus-ring: 0 0 0 2px rgb(19 119 102 / 22%);
 }

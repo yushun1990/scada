@@ -260,10 +260,10 @@ try {
 
   // With snapping enabled, the authored geometry remains unchanged throughout
   // dragmove and is committed once on pointer release. The raw pointer target
-  // puts Group 3 at (262, 190), both within the release-snap threshold of the
-  // 24-unit grid, so dragend must persist on the (264, 192) grid point. Browser
-  // pointer coordinates are pixel-quantized, so the persisted design-space
-  // coordinate may differ from that grid point by a small fraction of a unit.
+  // puts Group 3 at (286, 214), both within the release-snap threshold of the
+  // 24-unit grid. This destination is away from sibling edges, so object snap
+  // cannot legitimately win over the grid after a fractional-scale free drag.
+  // Release must persist on the (288, 216) grid point.
   await layerRow('Group 3').click()
   if ((await snapButton.getAttribute('aria-pressed')) !== 'true') {
     await snapButton.click()
@@ -273,7 +273,7 @@ try {
 
   const geometryInputs = page.locator('.component-layer-geometry-grid input')
   const dragStart = canvasPoint(group3Before.x + 48, group3Before.y + 48)
-  const dragEnd = canvasPoint(262 + 48, 190 + 48)
+  const dragEnd = canvasPoint(286 + 48, 214 + 48)
   await page.mouse.move(dragStart.x, dragStart.y)
   await page.mouse.down()
   await page.mouse.move(dragEnd.x, dragEnd.y, { steps: 6 })
@@ -290,8 +290,8 @@ try {
   )
 
   await page.mouse.up()
-  assertClose(Number(await geometryInputs.nth(0).inputValue()), 264, 'dragend snaps Group 3 x once', 0.25)
-  assertClose(Number(await geometryInputs.nth(1).inputValue()), 192, 'dragend snaps Group 3 y once', 0.25)
+  assertClose(Number(await geometryInputs.nth(0).inputValue()), 288, 'dragend snaps Group 3 x once')
+  assertClose(Number(await geometryInputs.nth(1).inputValue()), 216, 'dragend snaps Group 3 y once')
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(`Pages pointer smoke passed in ${browserName}: visual-forest Navigator, explicit Group authoring, blank-canvas selection clearing, empty-layer hit, canvas modifier selection and release-only snap are stable.`)

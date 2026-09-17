@@ -168,7 +168,7 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  padding: 32px;
+  padding: 16px;
   overflow: auto;
   place-items: center;
   background-color: var(--ui-color-canvas);
@@ -222,6 +222,39 @@
   line-height: 1.45;
 }
 
+.component-artboard-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 16px;
+  color: var(--ui-color-text-subtle);
+  pointer-events: none;
+  text-align: center;
+}
+
+.component-artboard-empty strong {
+  color: var(--ui-color-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.component-artboard-empty span {
+  color: var(--ui-color-accent);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.component-artboard-empty small {
+  max-width: 260px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .component-property-panel {
   min-height: 0;
   border-left: 1px solid var(--ui-color-border);
@@ -231,7 +264,7 @@
 .component-semantic-inspector {
   min-height: 0;
   padding: 0;
-  overflow: auto;
+  overflow: visible;
   background: var(--ui-color-panel);
 }
 
@@ -293,6 +326,24 @@
   min-height: 48px;
 }
 
+.component-semantic-inspector .component-color-input-row {
+  display: flex;
+  min-width: 0;
+  gap: 4px;
+}
+
+.component-semantic-inspector .component-color-input-row > .ui-input[type='color'] {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+}
+
+.component-semantic-inspector .component-color-input-row > .ui-input:not([type='color']) {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .component-semantic-inspector .property-field > small,
 .component-semantic-inspector .component-inspector-help {
   color: var(--ui-color-text-subtle);
@@ -301,17 +352,24 @@
 }
 
 .component-semantic-inspector .ui-tabs-list.component-inspector-tabs {
+  position: sticky;
+  top: 36px;
+  z-index: 2;
   gap: 12px;
   margin: 0;
   padding: 0 8px;
   border: 0;
   border-bottom: 1px solid var(--ui-color-border);
   border-radius: 0;
-  background: transparent;
+  background: var(--ui-color-panel);
+}
+
+.component-definition-page.component-semantic-inspector .ui-tabs-list.component-inspector-tabs {
+  position: static;
 }
 
 .component-semantic-inspector .component-inspector-tabs > .ui-tab {
-  height: 40px;
+  height: 32px;
   border-radius: 0;
   background: transparent;
   border-bottom: 2px solid transparent;
@@ -323,37 +381,30 @@
   border-bottom-color: var(--ui-color-accent);
 }
 
-.component-inspector-context {
+.component-inspector-scope {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
+  background: var(--ui-color-panel);
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 32px;
-  padding: 4px 0;
+  min-height: 36px;
+  padding: 3px 8px;
   border-bottom: 1px solid var(--ui-color-border);
-  background: var(--ui-color-panel);
 }
 
-.component-inspector-context > button {
-  flex-shrink: 0;
-  font-size: 12px;
-}
-
-.component-inspector-context > button[aria-pressed='true'] {
-  color: var(--ui-color-accent-pressed);
-  background: var(--ui-color-accent-soft);
-}
-
-.component-inspector-context > span {
+.component-inspector-scope .ui-segmented-control { flex: 0 0 auto; min-height: 28px; height: 28px; padding: 0; }
+.component-inspector-scope .ui-segmented-item { min-height: 26px; padding: 0 7px; font-size: 12px; }
+.component-inspector-scope > span {
   min-width: 0;
   overflow: hidden;
-  color: var(--ui-color-text-subtle);
-  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
 }
+.component-semantic-inspector .component-layer-behavior-help { margin: 10px 12px; }
 
 .component-semantic-inspector .inspector-tabs {
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -566,12 +617,116 @@
   cursor: default;
 }
 
-.component-layer-entry { position: relative; }
-.component-layer-row { grid-template-columns: 18px minmax(0, 1fr) auto; }
-.component-layer-row-actions {
+.component-layer-entry {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 24px 48px 24px;
+  position: relative;
+}
+.component-layer-entry.is-dragging {
+  visibility: hidden;
+}
+.component-layer-entry[data-drop-placement='front']::before,
+.component-layer-entry[data-drop-placement='back']::after {
   position: absolute;
-  right: 0;
-  top: 1px;
+  right: 3px;
+  left: 3px;
+  z-index: 1;
+  height: 2px;
+  border-radius: 999px;
+  content: '';
+  background: var(--ui-color-accent);
+  box-shadow: 0 0 0 1px var(--ui-color-accent-soft), 0 0 8px rgb(38 51 47 / 20%);
+  pointer-events: none;
+}
+.component-layer-entry[data-drop-placement='front']::before {
+  top: -2px;
+}
+.component-layer-entry[data-drop-placement='back']::after {
+  bottom: -2px;
+}
+.component-layer-row { grid-template-columns: 18px minmax(0, 1fr) auto; }
+.component-layer-state-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 24px;
+}
+.component-layer-visibility {
+  width: 24px;
+  min-width: 24px;
+  min-height: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--ui-color-text-secondary);
+  font-size: 13px;
+}
+.component-layer-state-controls > .ui-icon-button {
+  width: 24px;
+  min-width: 24px;
+  min-height: 26px;
+}
+.component-layer-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 26px;
+  color: var(--ui-color-text-subtle);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.component-layer-drag-handle:hover {
+  color: var(--ui-color-text);
+}
+.component-layer-drag-handle:active {
+  cursor: grabbing;
+}
+.component-layer-drag-handle:focus-visible {
+  outline: 2px solid var(--ui-color-accent);
+  outline-offset: -2px;
+  border-radius: var(--ui-radius-control);
+}
+.component-layer-drag-handle > svg {
+  width: 15px;
+  height: 15px;
+}
+.component-layer-drag-handle svg {
+  pointer-events: none;
+}
+.component-layer-drag-preview {
+  position: fixed;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-sizing: border-box;
+  min-width: 120px;
+  max-width: 280px;
+  padding: 2px 0;
+  color: var(--ui-color-accent-pressed);
+  opacity: 0.72;
+  filter: grayscale(0.55) blur(0.2px);
+  background: transparent;
+  border: 0;
+  pointer-events: none;
+  text-shadow: 0 1px 2px var(--ui-color-surface);
+  user-select: none;
+  white-space: nowrap;
+  will-change: top, left;
+}
+.component-layer-drag-preview .component-layer-kind {
+  color: var(--ui-color-accent);
+}
+.component-layer-drag-preview .component-layer-name {
+  min-width: 0;
+}
+.component-layer-drag-preview small {
+  color: var(--ui-color-text-subtle);
+  font-size: 10px;
+  font-weight: 700;
+}
+.component-layer-row-actions {
   display: flex;
   gap: 0;
   opacity: 0;
@@ -585,9 +740,6 @@
   opacity: 1;
   pointer-events: auto;
 }
-.component-layer-entry:hover .component-layer-row,
-.component-layer-entry:focus-within .component-layer-row,
-.component-layer-row.active { padding-right: 78px; }
 .component-layer-row-actions .ui-icon-button,
 .component-layer-row-actions .ui-menu-trigger {
   width: 24px;
@@ -604,4 +756,359 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Navigation stays in its original right-hand slot. Both compressed pages
+ * use that entire slot's width, independently of the individual segments. */
+.component-studio-shell {
+  --component-navigation-width: 112px;
+  --component-segment-collapsed: 38px;
+  --component-segment-expanded: 46px;
+  --component-workspace-motion: 360ms cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+
+.component-studio-shell .studio-center-workspace {
+  container-type: inline-size;
+  container-name: component-workspace-layout;
+}
+
+.component-studio-shell .studio-canvas-toolbar-row,
+.component-workspace {
+  display: grid;
+  transition: grid-template-columns var(--component-workspace-motion);
+}
+
+.component-workspace {
+  grid-template-columns: minmax(0, calc(100% - var(--component-navigation-width))) minmax(0, var(--component-navigation-width));
+}
+
+.component-workspace-definition {
+  grid-template-columns: minmax(0, var(--component-navigation-width)) minmax(0, calc(100% - var(--component-navigation-width)));
+}
+
+.component-studio-shell .studio-canvas-toolbar-row {
+  grid-template-columns: minmax(0, calc(100% - var(--component-navigation-width))) minmax(0, 0px) minmax(0, var(--component-navigation-width));
+}
+
+.component-studio-shell:has(.component-workspace-definition) .studio-canvas-toolbar-row {
+  grid-template-columns: minmax(0, var(--component-navigation-width)) minmax(0, calc(100% - 2 * var(--component-navigation-width))) minmax(0, var(--component-navigation-width));
+}
+
+.component-studio-shell .studio-canvas-toolbar-row > .studio-main-toolbar {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+/* The configuration toolbar expands between the canvas tools and fixed navigation. */
+.component-studio-shell .studio-canvas-toolbar-row::before {
+  content: '';
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  background: var(--ui-color-panel);
+  box-shadow: inset 1px 0 var(--ui-color-border);
+}
+
+.component-workpage-navigation {
+  position: relative;
+  z-index: 4;
+  grid-column: 3;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--component-navigation-width);
+  min-width: 0;
+  height: auto;
+  align-self: stretch;
+  box-sizing: border-box;
+  padding: 3px 6px 3px 8px;
+  border-left: 1px solid var(--ui-color-border);
+  background: transparent;
+}
+
+.component-workpage-switch {
+  width: calc(var(--component-segment-collapsed) + var(--component-segment-expanded) + 4px);
+  max-width: 100%;
+  min-width: 0;
+  min-height: var(--ui-control-height-small);
+  height: var(--ui-control-height-small);
+  gap: 0;
+  padding: 1px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 999px;
+  background: var(--ui-color-surface-subtle);
+  box-sizing: border-box;
+}
+
+.component-workpage-switch .ui-segmented-item {
+  flex: 0 1 var(--component-segment-collapsed);
+  width: auto;
+  min-width: 0;
+  height: 22px;
+  min-height: 22px;
+  gap: 4px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ui-color-text-secondary);
+  background: transparent;
+  overflow: hidden;
+  transition:
+    flex-basis var(--component-workspace-motion),
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.component-workpage-switch .ui-segmented-item.is-expanded {
+  flex-basis: var(--component-segment-expanded);
+  justify-content: center;
+}
+
+.component-workpage-switch .ui-segmented-item:hover:not(:disabled) {
+  color: var(--ui-color-text);
+  background: rgb(255 255 255 / 72%);
+}
+
+.component-workpage-switch .ui-segmented-item.is-active,
+.component-workpage-switch .ui-segmented-item[data-pressed] {
+  color: var(--ui-color-accent);
+  background: var(--ui-color-surface);
+  box-shadow: 0 1px 3px rgb(38 51 47 / 18%), 0 0 0 1px rgb(38 51 47 / 6%);
+}
+
+.component-workpage-switch .ui-segmented-item-icon,
+.component-workpage-switch .ui-segmented-item-icon svg {
+  display: block;
+}
+
+.component-workpage-switch .ui-segmented-item-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+@container component-workspace-layout (max-width: 700px) {
+  .component-studio-shell .studio-canvas-toolbar-row,
+  .component-workspace {
+    --component-navigation-width: 84px;
+    --component-segment-collapsed: 34px;
+    --component-segment-expanded: 42px;
+  }
+
+  .component-workpage-navigation {
+    padding-right: 3px;
+    padding-left: 3px;
+  }
+}
+
+/* Keep both pages mounted, including their scroll positions and canvas state. */
+.component-workspace {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--ui-color-canvas);
+}
+
+.component-work-page {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.component-workspace > .component-canvas-area {
+  display: block;
+}
+
+.component-work-page-content {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  transition: opacity var(--component-workspace-motion);
+}
+
+.component-canvas-page-content {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.component-work-page[data-active='false'] > .component-work-page-content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.component-definition-page-host {
+  border-left: 1px solid var(--ui-color-border);
+  background: var(--ui-color-panel);
+}
+
+.component-definition-page-content {
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.component-definition-page-content > .component-definition-page {
+  min-width: 320px;
+}
+
+.component-definition-page {
+  display: grid;
+  align-content: start;
+  width: min(100%, 980px);
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 24px 32px 48px;
+  box-sizing: border-box;
+}
+
+.component-definition-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 16px;
+}
+
+.component-definition-page-header > div {
+  min-width: 0;
+}
+
+.component-definition-page-header span {
+  color: var(--ui-color-accent);
+  font-size: var(--ui-font-size-status);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.component-definition-page-header h1 {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-workbench-title);
+  line-height: var(--ui-line-height-workbench-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.component-definition-page-header p {
+  max-width: 360px;
+  margin: 0;
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-tool);
+  line-height: 1.5;
+  text-align: right;
+}
+
+.component-definition-page-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-panel);
+}
+
+.component-definition-page-tabs .ui-tabs-list {
+  width: min(360px, 100%);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.component-definition-page-tabs .ui-tab {
+  height: 32px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+}
+
+.component-definition-page-tabs .ui-tab[aria-selected='true'] {
+  color: var(--ui-color-accent);
+  background: transparent;
+  border-bottom-color: var(--ui-color-accent);
+}
+
+.component-layer-inspector-shell {
+  min-height: 100%;
+  background: var(--ui-color-panel);
+}
+
+.component-layer-inspector-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  gap: 2px;
+  min-height: 52px;
+  padding: 9px 12px 8px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-panel);
+}
+
+.component-layer-inspector-header span {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-status);
+}
+
+.component-layer-inspector-header strong {
+  overflow: hidden;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.component-layer-selection-empty {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 7px;
+  min-height: 180px;
+  padding: 24px;
+  color: var(--ui-color-text-subtle);
+  text-align: center;
+}
+
+.component-layer-selection-empty strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-body);
+}
+
+.component-layer-selection-empty span,
+.component-layer-selection-empty small {
+  max-width: 240px;
+  font-size: var(--ui-font-size-tool);
+  line-height: 1.5;
+}
+
+.component-layer-selection-empty small {
+  color: var(--ui-color-text-subtle);
+}
+
+.component-layer-inspector-shell .component-inspector-tabs {
+  position: sticky;
+  top: 52px;
+  z-index: 2;
+}
+
+.component-layer-inspector-shell .component-layer-behavior-help {
+  margin: 10px 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .component-studio-shell .studio-canvas-toolbar-row,
+  .component-workspace,
+  .component-work-page-content,
+  .component-canvas-commands,
+  .component-workpage-switch,
+  .component-workpage-switch .ui-segmented-item {
+    transition: none;
+  }
 }

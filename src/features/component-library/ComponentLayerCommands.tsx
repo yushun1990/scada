@@ -1,8 +1,8 @@
 import {
-  ChevronUpIcon, ChevronDownIcon, MoreIcon, GroupIcon, UngroupIcon,
+  BringToFrontIcon, SendToBackIcon, GroupIcon, UngroupIcon,
 } from '../../components/toolbar-icons'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
-import { IconButton, MenuRoot, MenuTrigger, MenuPopup, MenuItem, ToolbarButton } from '../../ui'
+import { IconButton, ToolbarButton } from '../../ui'
 import {
   canReorderComponentLayers, reorderComponentLayers, type ComponentLayerOrderCommand,
 } from './component-layer-order'
@@ -74,24 +74,15 @@ export function ComponentLayerOrderActions({
   return (
     <div className="component-layer-row-actions" role="group" aria-label={`${layerName} 排序`}>
       <IconButton
-        size="small" variant="ghost" title="上移一层"
-        aria-label={`上移一层 · ${layerName}`} disabled={!enabled('bring-forward')}
-        onClick={() => applyOrder('bring-forward', '上移一层')}
-      ><ChevronUpIcon /></IconButton>
+        size="small" variant="ghost" title="置顶"
+        aria-label={`置顶 · ${layerName}`} disabled={!enabled('bring-to-front')}
+        onClick={() => applyOrder('bring-to-front', '置顶')}
+      ><BringToFrontIcon /></IconButton>
       <IconButton
-        size="small" variant="ghost" title="下移一层"
-        aria-label={`下移一层 · ${layerName}`} disabled={!enabled('send-backward')}
-        onClick={() => applyOrder('send-backward', '下移一层')}
-      ><ChevronDownIcon /></IconButton>
-      <MenuRoot>
-        <MenuTrigger className="component-layer-more" aria-label={`更多排序 · ${layerName}`} title="更多排序">
-          <MoreIcon />
-        </MenuTrigger>
-        <MenuPopup>
-          <MenuItem disabled={!enabled('bring-to-front')} onClick={() => applyOrder('bring-to-front', '置于顶层')}>置于顶层</MenuItem>
-          <MenuItem disabled={!enabled('send-to-back')} onClick={() => applyOrder('send-to-back', '置于底层')}>置于底层</MenuItem>
-        </MenuPopup>
-      </MenuRoot>
+        size="small" variant="ghost" title="置底"
+        aria-label={`置底 · ${layerName}`} disabled={!enabled('send-to-back')}
+        onClick={() => applyOrder('send-to-back', '置底')}
+      ><SendToBackIcon /></IconButton>
     </div>
   )
 }

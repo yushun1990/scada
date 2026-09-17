@@ -4,7 +4,10 @@ import { chromium } from 'playwright'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/')
   .replace(/\/?$/, '/')
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}),
+})
 const context = await browser.newContext({ viewport: { width: 1200, height: 900 } })
 const page = await context.newPage()
 const pageErrors = []
@@ -50,26 +53,38 @@ async function assertC2Boundary(group, label) {
 
 async function studioToolbar(height = 36) {
   const toolbar = page.getByRole('toolbar', { name: 'Studio 主工具栏' })
+  const toolbarRow = page.locator('.studio-canvas-toolbar-row')
   const content = toolbar.locator('.studio-main-toolbar-content')
   await toolbar.waitFor()
+  if (await toolbarRow.count() > 0) await toolbarRow.waitFor()
   await content.waitFor()
   const [toolbarBox, contentBox] = await Promise.all([
     toolbar.boundingBox(),
     content.boundingBox(),
   ])
+  const toolbarRowBox = await (await toolbarRow.count() > 0 ? toolbarRow.boundingBox() : null)
   assert.ok(toolbarBox, 'Studio main toolbar must be measurable')
   assert.ok(contentBox, 'Studio main toolbar content must be measurable')
   assert.equal(toolbarBox.height, height, `Studio main toolbar must remain one ${height}px row`)
-  return { toolbar, content, toolbarBox, contentBox }
+  if (toolbarRowBox) assert.equal(toolbarRowBox.height, height, `Studio toolbar row must remain one ${height}px row`)
+  return { toolbar, toolbarRow, content, toolbarBox, toolbarRowBox: toolbarRowBox ?? toolbarBox, contentBox }
 }
 
 async function measureComponentToolbar(label, compact = false) {
   await page.locator('.studio-shell.component-studio-shell').waitFor()
-  const studio = await studioToolbar(48)
+  const studio = await studioToolbar(36)
   const centerBox = await page.locator('.studio-center-workspace').boundingBox()
-  assert.equal(studio.toolbarBox.x, centerBox.x)
-  assert.equal(studio.toolbarBox.width, centerBox.width)
-  const groups = studio.content.locator(':scope > [role="group"]')
+  const workPageSwitch = page.locator('.component-workpage-navigation .component-workpage-switch')
+  const workPageSwitchBox = await workPageSwitch.boundingBox()
+  assert.ok(centerBox && workPageSwitchBox)
+  assert.equal(studio.toolbarRowBox.x, centerBox.x)
+  assert.equal(studio.toolbarRowBox.width, centerBox.width)
+  assert.equal(studio.toolbarBox.x, studio.toolbarRowBox.x)
+  assert.ok(studio.toolbarBox.width < studio.toolbarRowBox.width, `${label}: work-page switch must be outside the main toolbar`)
+  const workPageNavigationBox = await page.locator('.component-workpage-navigation').boundingBox()
+  assert.ok(workPageNavigationBox)
+  assert.ok(Math.abs(workPageNavigationBox.x - (studio.toolbarBox.x + studio.toolbarBox.width)) <= 1, `${label}: toolbar lanes must meet at the workspace divider`)
+  const groups = studio.content.locator('.component-canvas-commands > [role="group"]')
   assert.equal(await groups.count(), 3)
   const boxes = await Promise.all((await groups.all()).map((group) => group.boundingBox()))
   assert.ok(sameRow(boxes), `${label}: all three command families share one row`)
@@ -81,8 +96,8 @@ async function measureComponentToolbar(label, compact = false) {
   assert.equal(await geometryGroup.locator('.component-geometry-buttons').isVisible(), !compact)
   if (compact) {
     await geometryGroup.getByRole('button', { name: '对齐与分布', exact: true }).click()
-    assert.equal(await page.getByRole('menuitem').count(), 8)
     await page.getByRole('menuitem', { name: '垂直等距分布', exact: true }).waitFor()
+    assert.equal(await page.getByRole('menuitem').count(), 8)
     await page.keyboard.press('Escape')
   } else {
     const buttons = geometryGroup.locator('.component-geometry-buttons button')
@@ -191,14 +206,13 @@ try {
   await measureComponentToolbar('Component 1000px compact desktop', true)
   await page.screenshot({ path: 'artifacts/component-toolbar-1000.png', fullPage: true })
   // At a phone-sized viewport, panel visibility provides a usable canvas.
-  for (const label of ['隐藏左侧面板', '隐藏属性面板']) {
-    await page.getByRole('button', { name: '布局', exact: true }).click()
-    await page.getByRole('menuitem', { name: label, exact: true }).click()
+  for (const label of ['收起左侧面板', '收起右侧面板']) {
+    await page.getByRole('button', { name: label, exact: true }).click()
   }
   await page.setViewportSize({ width: 600, height: 900 })
-  await measureComponentToolbar('Component 600px with panels hidden')
-  await page.getByRole('button', { name: '布局', exact: true }).click()
-  await page.getByRole('menuitem', { name: '重置布局', exact: true }).click()
+  await measureComponentToolbar('Component 600px with panels hidden', true)
+  await page.getByRole('button', { name: '展开左侧面板', exact: true }).click()
+  await page.getByRole('button', { name: '展开右侧面板', exact: true }).click()
 
   console.log(`Opening SCADA Editor Studio toolbar regression: ${baseUrl}#/works`)
   await page.setViewportSize({ width: 1200, height: 900 })

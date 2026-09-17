@@ -62,12 +62,15 @@ jobs:
           {
             node scripts/pages-component-document-history-smoke.mjs
             node scripts/pages-component-navigation-smoke.mjs
+            node scripts/pages-component-inspector-scope-smoke.mjs
             node scripts/pages-component-primitives-smoke.mjs
+            node scripts/pages-component-palette-drop-smoke.mjs
             SCADA_BROWSER=chromium node scripts/pages-component-hit-smoke.mjs
             node scripts/pages-component-svg-drag-smoke.mjs
             node scripts/pages-component-header-smoke.mjs
             node scripts/pages-component-design-smoke.mjs
             node scripts/pages-component-arrange-smoke.mjs
+            node scripts/pages-component-group-selection-smoke.mjs
             node scripts/pages-component-toolbar-smoke.mjs
             node scripts/pages-component-package-transfer-smoke.mjs
           } 2>&1 | tee artifacts/component-browser.log

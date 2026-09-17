@@ -6,6 +6,8 @@ export type ComponentLayerOrderCommand =
   | 'send-backward'
   | 'send-to-back'
 
+export type ComponentLayerDropPlacement = 'front' | 'back'
+
 export type ReorderComponentLayersResult = {
   visual: ComponentVisualDefinition
   changed: boolean
@@ -129,4 +131,60 @@ export function canReorderComponentLayers(
   command: ComponentLayerOrderCommand,
 ) {
   return reorderComponentLayers(visual, selectedLayerIds, command).changed
+}
+
+export function moveComponentLayersToTarget(
+  visual: ComponentVisualDefinition,
+  movingLayerIds: readonly string[],
+  targetLayerId: string,
+  placement: ComponentLayerDropPlacement,
+): ReorderComponentLayersResult {
+  const resolved = resolveSelectedSiblings(visual, movingLayerIds)
+
+  if (
+    !resolved ||
+    resolved.selectedIds.has(targetLayerId) ||
+    !resolved.siblings.some((layer) => layer.id === targetLayerId)
+  ) {
+    return { visual, changed: false }
+  }
+
+  const siblingIds = resolved.siblings.map((layer) => layer.id)
+  const movingIds = siblingIds.filter((id) => resolved.selectedIds.has(id))
+  const remainingIds = siblingIds.filter((id) => !resolved.selectedIds.has(id))
+  const targetIndex = remainingIds.indexOf(targetLayerId)
+
+  if (movingIds.length === 0 || targetIndex < 0) {
+    return { visual, changed: false }
+  }
+
+  const insertionIndex = placement === 'front' ? targetIndex + 1 : targetIndex
+  const nextSiblingIds = [
+    ...remainingIds.slice(0, insertionIndex),
+    ...movingIds,
+    ...remainingIds.slice(insertionIndex),
+  ]
+
+  if (arraysEqual(siblingIds, nextSiblingIds)) {
+    return { visual, changed: false }
+  }
+
+  const siblingMap = new Map(resolved.siblings.map((layer) => [layer.id, layer]))
+  const orderedSiblings = nextSiblingIds.map((id) => siblingMap.get(id))
+  let siblingIndex = 0
+
+  const layers = visual.layers.map((layer) => {
+    if (layer.parentId !== resolved.parentId) {
+      return layer
+    }
+
+    const replacement = orderedSiblings[siblingIndex]
+    siblingIndex += 1
+    return replacement ?? layer
+  })
+
+  return {
+    changed: true,
+    visual: { ...visual, layers },
+  }
 }

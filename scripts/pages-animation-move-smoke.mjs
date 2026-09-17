@@ -126,7 +126,7 @@ try {
   await page.reload({ waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await layerRow('Move Animation Smoke Rect').click()
-  await page.getByRole('button', { name: '动画' }).click()
+  await page.getByRole('tab', { name: '行为', exact: true }).click(); await page.getByRole('button', { name: '动画' }).click()
   await page.getByRole('button', { name: '+ 添加 Move 动画' }).click()
   assert.equal(
     await page.locator('.component-animation-item').count(),

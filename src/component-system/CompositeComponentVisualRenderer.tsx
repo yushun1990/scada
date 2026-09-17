@@ -30,8 +30,9 @@ export function compositeVisualLayerNodeId(layerId: string) {
   return `${COMPOSITE_VISUAL_LAYER_NODE_PREFIX}${layerId}`
 }
 
-export function getCompositeVisualLayerId(target: Konva.Node) {
+export function getCompositeVisualLayerId(target: Konva.Node, scope: 'closest' | 'outermost' = 'closest') {
   let current: Konva.Node | null = target
+  let layerId: string | null = null
 
   while (current) {
     const id = current.id()
@@ -40,13 +41,14 @@ export function getCompositeVisualLayerId(target: Konva.Node) {
       current.hasName(COMPOSITE_VISUAL_LAYER_NODE_NAME) &&
       id.startsWith(COMPOSITE_VISUAL_LAYER_NODE_PREFIX)
     ) {
-      return id.slice(COMPOSITE_VISUAL_LAYER_NODE_PREFIX.length)
+      layerId = id.slice(COMPOSITE_VISUAL_LAYER_NODE_PREFIX.length)
+      if (scope === 'closest') return layerId
     }
 
     current = current.getParent()
   }
 
-  return null
+  return layerId
 }
 
 export type CompositeComponentVisualRendererProps = {
@@ -62,16 +64,16 @@ export type CompositeComponentVisualRendererProps = {
   // Supplying this prop opts internal layers into editor dragging. A null value
   // means no layer currently owns the full-bounds drag hit area yet.
   draggableLayerId?: string | null
-  frontLayerId?: string | null
+  nonScalingStrokes?: boolean
 }
 
 type VisualLayerNodeProps = {
   layer: ComponentVisualLayer
   childrenByParent: ReadonlyMap<string | null, readonly ComponentVisualLayer[]>
-  frontBranchIds: ReadonlySet<string>
   listening: boolean
   dragEnabled: boolean
   draggableLayerId: string | null
+  nonScalingStrokes: boolean
 }
 
 function useVisualAsset(assetRef: string) {
@@ -185,9 +187,11 @@ function VisualAssetLayer({
 function VisualVectorLayer({
   layer,
   listening,
+  nonScalingStroke,
 }: {
   layer: VectorVisualLayer
   listening: boolean
+  nonScalingStroke: boolean
 }) {
   const { width, height } = layer.transform
   const style = resolveVisualVectorStyle(layer)
@@ -202,6 +206,7 @@ function VisualVectorLayer({
         fill={fill}
         stroke={stroke}
         strokeWidth={style.strokeWidth}
+        strokeScaleEnabled={!nonScalingStroke}
         listening={listening}
         perfectDrawEnabled={false}
       />
@@ -218,6 +223,7 @@ function VisualVectorLayer({
         fill={fill}
         stroke={stroke}
         strokeWidth={style.strokeWidth}
+        strokeScaleEnabled={!nonScalingStroke}
         listening={listening}
         perfectDrawEnabled={false}
       />
@@ -234,6 +240,7 @@ function VisualVectorLayer({
         fill={fill}
         stroke={stroke}
         strokeWidth={style.strokeWidth}
+        strokeScaleEnabled={!nonScalingStroke}
         listening={listening}
         perfectDrawEnabled={false}
       />
@@ -246,6 +253,7 @@ function VisualVectorLayer({
         points={[0, height / 2, width, height / 2]}
         stroke={stroke}
         strokeWidth={style.strokeWidth}
+        strokeScaleEnabled={!nonScalingStroke}
         listening={listening}
         perfectDrawEnabled={false}
       />
@@ -258,6 +266,7 @@ function VisualVectorLayer({
       fill={fill}
       stroke={stroke}
       strokeWidth={style.strokeWidth}
+      strokeScaleEnabled={!nonScalingStroke}
       listening={listening}
       perfectDrawEnabled={false}
     />
@@ -292,23 +301,6 @@ function VisualTextLayer({
   )
 }
 
-function moveFrontBranchLast(
-  layers: readonly ComponentVisualLayer[],
-  frontBranchIds: ReadonlySet<string>,
-) {
-  const frontIndex = layers.findIndex((layer) => frontBranchIds.has(layer.id))
-
-  if (frontIndex < 0 || frontIndex === layers.length - 1) {
-    return layers
-  }
-
-  return [
-    ...layers.slice(0, frontIndex),
-    ...layers.slice(frontIndex + 1),
-    layers[frontIndex],
-  ]
-}
-
 function LayerBoundsHitArea({
   width,
   height,
@@ -339,17 +331,16 @@ function LayerBoundsHitArea({
 function VisualLayerNode({
   layer,
   childrenByParent,
-  frontBranchIds,
   listening,
   dragEnabled,
   draggableLayerId,
+  nonScalingStrokes,
 }: VisualLayerNodeProps) {
   const { transform } = layer
-  const children = moveFrontBranchLast(
-    childrenByParent.get(layer.id) ?? [],
-    frontBranchIds,
-  )
-  const draggable = listening && dragEnabled
+  const children = childrenByParent.get(layer.id) ?? []
+  // A grouped layer remains configurable through the tree, but its geometry
+  // belongs to the group until the author explicitly ungroups it.
+  const draggable = listening && dragEnabled && layer.parentId === null
   const ownsEditorBoundsHitArea = listening && dragEnabled
   const ownsFullBoundsDragHitArea = draggableLayerId === layer.id
 
@@ -380,7 +371,11 @@ function VisualLayerNode({
         <VisualAssetLayer layer={layer} listening={listening} />
       )}
       {layer.kind === 'vector' && (
-        <VisualVectorLayer layer={layer} listening={listening} />
+        <VisualVectorLayer
+          layer={layer}
+          listening={listening}
+          nonScalingStroke={nonScalingStrokes}
+        />
       )}
       {layer.kind === 'text' && (
         <VisualTextLayer layer={layer} listening={listening} />
@@ -390,10 +385,10 @@ function VisualLayerNode({
           key={child.id}
           layer={child}
           childrenByParent={childrenByParent}
-          frontBranchIds={frontBranchIds}
           listening={listening}
           dragEnabled={dragEnabled}
           draggableLayerId={draggableLayerId}
+          nonScalingStrokes={nonScalingStrokes}
         />
       ))}
       {ownsFullBoundsDragHitArea && (
@@ -422,7 +417,7 @@ export const CompositeComponentVisualRenderer = forwardRef<
     opacity,
     listening,
     draggableLayerId,
-    frontLayerId = null,
+    nonScalingStrokes = false,
   },
   ref,
 ) {
@@ -438,30 +433,6 @@ export const CompositeComponentVisualRenderer = forwardRef<
     return result
   }, [visual.layers])
 
-  const frontBranchIds = useMemo(() => {
-    const result = new Set<string>()
-
-    if (!frontLayerId) {
-      return result
-    }
-
-    const layerMap = new Map(visual.layers.map((layer) => [layer.id, layer]))
-    let layerId: string | null = frontLayerId
-
-    while (layerId) {
-      const layer = layerMap.get(layerId)
-
-      if (!layer || result.has(layer.id)) {
-        break
-      }
-
-      result.add(layer.id)
-      layerId = layer.parentId
-    }
-
-    return result
-  }, [frontLayerId, visual.layers])
-
   if (visual.mode !== 'composite') {
     return null
   }
@@ -470,10 +441,9 @@ export const CompositeComponentVisualRenderer = forwardRef<
   const scaleY = height / Math.max(1, visual.designSize.height)
   const dragEnabled = draggableLayerId !== undefined
   const activeDraggableLayerId = draggableLayerId ?? null
-  const rootLayers = moveFrontBranchLast(
-    childrenByParent.get(null) ?? [],
-    frontBranchIds,
-  )
+  // Keep the persisted sibling order authoritative. Selection is rendered by
+  // the transformer and must not change the paint order of visual layers.
+  const rootLayers = childrenByParent.get(null) ?? []
 
   return (
     <Group
@@ -494,10 +464,10 @@ export const CompositeComponentVisualRenderer = forwardRef<
           key={layer.id}
           layer={layer}
           childrenByParent={childrenByParent}
-          frontBranchIds={frontBranchIds}
           listening={listening}
           dragEnabled={dragEnabled}
           draggableLayerId={activeDraggableLayerId}
+          nonScalingStrokes={nonScalingStrokes}
         />
       ))}
     </Group>

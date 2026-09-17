@@ -101,6 +101,5 @@ export function useStudioLayoutPreferences() {
   return {
     layout,
     setLayout: updateLayout,
-    resetLayout: () => setLayout(DEFAULT_STUDIO_LAYOUT),
   }
 }

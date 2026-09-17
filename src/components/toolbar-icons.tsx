@@ -32,12 +32,73 @@ export function TextIcon(props: SVGProps<SVGSVGElement>) {
   return <svg {...base(props)}><path d="M5 7V5h14v2M12 5v14M9 19h6" /></svg>
 }
 
+export function DesignNibIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="m17.674 11.408-1.905 5.715a.6.6 0 0 1-.398.386L3.693 20.98a.6.6 0 0 1-.74-.765L6.745 8.841a.6.6 0 0 1 .34-.365l5.387-2.218a.6.6 0 0 1 .653.13l4.404 4.406a.6.6 0 0 1 .145.614M3.296 20.602l6.364-6.364" />
+      <path d="m17.792 11.056 2.828-2.829a2 2 0 0 0 0-2.828L18.5 3.277a2 2 0 0 0-2.829 0l-2.828 2.829m-1.062 6.01a1.5 1.5 0 1 0-2.121 2.122 1.5 1.5 0 0 0 2.121-2.122" />
+    </svg>
+  )
+}
+
+export function SettingsHorizontalIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth={2}>
+        <path d="M3 5h4m14 0H11m-8 7h12m6 0h-2M3 19h2m16 0H9" />
+        <circle cx="9" cy="5" r="2" />
+        <circle cx="17" cy="12" r="2" />
+        <circle cx="7" cy="19" r="2" />
+      </g>
+    </svg>
+  )
+}
+
 export function ImageIcon(props: SVGProps<SVGSVGElement>) {
   return <svg {...base(props)}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></svg>
 }
 
 export function VectorIcon(props: SVGProps<SVGSVGElement>) {
   return <svg {...base(props)}><path d="M5 17C5 6 19 18 19 7M5 17l7-13 7 3-7 13Z" /><circle cx="5" cy="17" r="2" fill="var(--ui-color-panel)" /><circle cx="19" cy="7" r="2" fill="var(--ui-color-panel)" /></svg>
+}
+
+export function EyeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M2.5 12s3.2-5 9.5-5 9.5 5 9.5 5-3.2 5-9.5 5-9.5-5-9.5-5Z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </svg>
+  )
+}
+
+export function EyeOffIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="m3 3 18 18" />
+      <path d="M10.6 7.2A10 10 0 0 1 12 7c6.3 0 9.5 5 9.5 5a16 16 0 0 1-3.1 3.2M6.3 6.4C3.7 8.1 2.5 12 2.5 12s3.2 5 9.5 5a9.7 9.7 0 0 0 2.2-.3" />
+    </svg>
+  )
+}
+
+export function DragHandleIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="8" cy="6" r="1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="6" r="1" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="18" r="1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="18" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><path d="m14 6-6 6 6 6" /></svg>
+}
+
+export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return <svg {...base(props)}><path d="m10 6 6 6-6 6" /></svg>
 }
 
 export function ChevronUpIcon(props: SVGProps<SVGSVGElement>) {
@@ -97,11 +158,9 @@ export function UngroupIcon(props: SVGProps<SVGSVGElement>) {
 export function BringToFrontIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <rect x="4" y="9" width="10" height="10" rx="1.5" opacity="0.55" />
-      <rect x="8" y="5" width="10" height="10" rx="1.5" />
-      <path d="M20 14V4" />
-      <path d="m17.5 6.5 2.5-2.5 2.5 2.5" />
-      <path d="M17 2h6" opacity="0.7" />
+      <path d="M5 5h14" />
+      <path d="M12 19V7" />
+      <path d="m8.5 10.5 3.5-3.5 3.5 3.5" />
     </svg>
   )
 }
@@ -131,11 +190,9 @@ export function SendBackwardIcon(props: SVGProps<SVGSVGElement>) {
 export function SendToBackIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <rect x="4" y="9" width="10" height="10" rx="1.5" />
-      <rect x="8" y="5" width="10" height="10" rx="1.5" opacity="0.55" />
-      <path d="M20 4v10" />
-      <path d="m17.5 11.5 2.5 2.5 2.5-2.5" />
-      <path d="M17 17h6" opacity="0.7" />
+      <path d="M5 19h14" />
+      <path d="M12 5v12" />
+      <path d="m8.5 13.5 3.5 3.5 3.5-3.5" />
     </svg>
   )
 }
