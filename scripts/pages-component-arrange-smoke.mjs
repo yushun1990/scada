@@ -51,31 +51,31 @@ try {
   await assertOrder(['文本 1', '文本 2', '文本 3'], 'Palette append order is the initial top-level sibling z-order')
 
   await layerRow('文本 1').click()
-  assert.equal(await rowButton('文本 1', '上移一层').isEnabled(), true)
-  assert.equal(await rowButton('文本 1', '下移一层').isDisabled(), true)
-  assert.equal(await rowButton('文本 1', '置于顶层').isEnabled(), true)
-  assert.equal(await rowButton('文本 1', '置于底层').isDisabled(), true)
-  await rowButton('文本 1', '置于顶层').click()
+  assert.equal(await rowButton('文本 1', '上移').isEnabled(), true)
+  assert.equal(await rowButton('文本 1', '下移').isDisabled(), true)
+  assert.equal(await rowButton('文本 1', '置顶').isEnabled(), true)
+  assert.equal(await rowButton('文本 1', '置底').isDisabled(), true)
+  await rowButton('文本 1', '置顶').click()
   await assertOrder(['文本 2', '文本 3', '文本 1'], 'bring-to-front moves the selection to the final sibling slot')
 
-  await rowButton('文本 1', '下移一层').click()
+  await rowButton('文本 1', '下移').click()
   await assertOrder(['文本 2', '文本 1', '文本 3'], 'send-backward moves the selection one sibling step')
 
-  await rowButton('文本 1', '置于底层').click()
+  await rowButton('文本 1', '置底').click()
   await assertOrder(['文本 1', '文本 2', '文本 3'], 'send-to-back moves the selection to the first sibling slot')
 
-  await rowButton('文本 1', '上移一层').click()
+  await rowButton('文本 1', '上移').click()
   await assertOrder(['文本 2', '文本 1', '文本 3'], 'bring-forward moves the selection one sibling step')
 
   await selectLayers(['文本 2', '文本 1'])
   assert.equal(await page.locator('.component-layer-row.active').count(), 2)
-  await rowButton('文本 1', '置于顶层').click()
+  await rowButton('文本 1', '置顶').click()
   await assertOrder(
     ['文本 3', '文本 2', '文本 1'],
     'multi-selection moves as a block while preserving selected sibling order',
   )
 
-  await rowButton('文本 1', '置于底层').click()
+  await rowButton('文本 1', '置底').click()
   await assertOrder(
     ['文本 2', '文本 1', '文本 3'],
     'multi-selection send-to-back preserves selected sibling order',
@@ -98,10 +98,10 @@ try {
 
   await layerRow('文本 1').click()
   await page.getByRole('button', { name: '预览', exact: true }).click()
-  for (const commandName of ['上移一层', '下移一层']) {
+  for (const commandName of ['上移', '下移']) {
     assert.equal(await rowButton('文本 1', commandName).isDisabled(), true, `${commandName} is disabled in preview`)
   }
-  for (const commandName of ['置于顶层', '置于底层']) {
+  for (const commandName of ['置顶', '置底']) {
     assert.equal(await rowButton('文本 1', commandName).isDisabled(), true)
   }
 

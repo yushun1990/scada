@@ -1,23 +1,38 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
-import { RectangleIcon, EllipseIcon, LineIcon, TextIcon, GroupIcon, ImageIcon, VectorIcon } from '../../components/toolbar-icons'
+import {
+  DragHandleIcon,
+  EllipseIcon,
+  EyeIcon,
+  EyeOffIcon,
+  GroupIcon,
+  ImageIcon,
+  LineIcon,
+  RectangleIcon,
+  TextIcon,
+  VectorIcon,
+} from '../../components/toolbar-icons'
 import {
   type ComponentVisualDefinition,
   type ComponentVisualLayer,
   type VisualLayerKind,
-  type VisualVectorPrimitive,
 } from '../../component-system/visual'
 import {
-  Checkbox,
   IconButton,
   Input,
   NumberInput,
   Pressable,
-  Select,
   Textarea,
 } from '../../ui'
 import { ComponentAuthoringPalette } from './ComponentAuthoringPalette'
 import { ComponentLayerOrderActions } from './ComponentLayerCommands'
+import { moveComponentLayersToTarget } from './component-layer-order'
 import { ComponentVisualAssetImportControl } from './ComponentVisualAssetImportControl'
 import { componentLayerAncestorIds, componentNavigatorRows } from './component-layer-navigation'
 import { clearComponentCreateTool } from './component-create-mode'
@@ -63,6 +78,44 @@ type LayerInspectorContentProps = Omit<ComponentVisualLayerInspectorProps, 'sele
   layer: ComponentVisualLayer
 }
 
+type LayerReorderDragState = {
+  layerIds: readonly string[]
+  pointerId: number
+  startY: number
+  lastClientY: number
+  dropZones: readonly LayerReorderDropZone[]
+  sourceTop: number
+  sourceBottom: number
+  height: number
+  offsetX: number
+  offsetY: number
+  width: number
+  active: boolean
+  targetLayerId: string | null
+  targetPlacement: 'front' | 'back'
+}
+
+type LayerReorderDropZone = {
+  layerId: string
+  top: number
+  height: number
+}
+
+type LayerReorderDropTarget = {
+  targetLayerId: string
+  placement: 'front' | 'back'
+}
+
+type LayerReorderPointerPreview = Pick<
+  LayerReorderDragState,
+  'layerIds' | 'offsetX' | 'offsetY' | 'width' | 'height'
+> & {
+  clientX: number
+  clientY: number
+}
+
+const LAYER_REORDER_TARGET_CROSSING_RATIO = 0.5
+
 const LAYER_KIND_LABELS: Array<[VisualLayerKind, string]> = [
   ['group', 'Group'],
   ['svg', 'SVG'],
@@ -70,16 +123,6 @@ const LAYER_KIND_LABELS: Array<[VisualLayerKind, string]> = [
   ['vector', '矢量图形'],
   ['text', '文本'],
 ]
-
-const VECTOR_PRIMITIVES: Array<[VisualVectorPrimitive, string]> = [
-  ['rect', '矩形'],
-  ['circle', '圆形'],
-  ['ellipse', '椭圆'],
-  ['line', '线'],
-  ['path', 'Path'],
-]
-
-const VECTOR_PRIMITIVE_OPTIONS = VECTOR_PRIMITIVES.map(([value, label]) => ({ value, label }))
 
 export function layerKindLabel(kind: VisualLayerKind) {
   return LAYER_KIND_LABELS.find(([candidate]) => candidate === kind)?.[1] ?? kind
@@ -95,26 +138,6 @@ function LayerIcon({ layer }: { layer: ComponentVisualLayer }) {
     if (layer.primitive === 'line') return <LineIcon />
   }
   return <VectorIcon />
-}
-
-function collectDescendantIds(
-  layers: readonly ComponentVisualLayer[],
-  rootId: string,
-) {
-  const ids = new Set<string>()
-  const queue = [rootId]
-
-  while (queue.length > 0) {
-    const current = queue.shift()
-    if (!current || ids.has(current)) continue
-
-    ids.add(current)
-    for (const layer of layers) {
-      if (layer.parentId === current) queue.push(layer.id)
-    }
-  }
-
-  return ids
 }
 
 function replaceLayer(
@@ -161,11 +184,18 @@ export function ComponentVisualTreeEditor({
   const [search, setSearch] = useState('')
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<ReadonlySet<string>>(() => new Set())
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(false)
+  const [layerReorderPreview, setLayerReorderPreview] = useState<ComponentVisualDefinition | null>(null)
+  const [layerReorderDropTarget, setLayerReorderDropTarget] = useState<LayerReorderDropTarget | null>(null)
+  const [layerReorderPointer, setLayerReorderPointer] = useState<LayerReorderPointerPreview | null>(null)
   const navigatorRef = useRef<HTMLDivElement>(null)
+  const layerReorderDragRef = useRef<LayerReorderDragState | null>(null)
+  const layerReorderPointerRef = useRef<LayerReorderPointerPreview | null>(null)
+  const layerReorderPreviewRef = useRef<HTMLDivElement>(null)
+  const displayedVisual = layerReorderPreview ?? visual
   const flattened = useMemo(
     // Stored sibling order is back-to-front; display the frontmost layer first.
-    () => componentNavigatorRows([...visual.layers].reverse(), collapsedGroupIds, search),
-    [visual.layers, collapsedGroupIds, search],
+    () => componentNavigatorRows([...displayedVisual.layers].reverse(), collapsedGroupIds, search),
+    [displayedVisual.layers, collapsedGroupIds, search],
   )
   const ancestorKey = JSON.stringify(componentLayerAncestorIds(visual.layers, primaryLayerId))
   const primaryVisible = flattened.some(({ layer }) => layer.id === primaryLayerId)
@@ -209,6 +239,357 @@ export function ComponentVisualTreeEditor({
       return next
     })
   }
+
+  function updateLayerVisibility(layerId: string, visible: boolean) {
+    if (readOnly) return
+
+    onChange({
+      ...visual,
+      layers: visual.layers.map((layer) =>
+        layer.id === layerId ? { ...layer, visible } : layer,
+      ),
+    })
+  }
+
+  function resolveLayerReorderIds(layerId: string) {
+    const draggedLayer = visual.layers.find((layer) => layer.id === layerId)
+    if (!draggedLayer) return null
+
+    return selectedLayerIds.includes(layerId)
+      ? selectedLayerIds.filter((selectedId) =>
+          visual.layers.find((layer) => layer.id === selectedId)?.parentId === draggedLayer.parentId,
+        )
+      : [layerId]
+  }
+
+  function startLayerReorder(event: PointerEvent<HTMLSpanElement>, layerId: string) {
+    if (readOnly || event.button !== 0) return
+
+    const layerIds = resolveLayerReorderIds(layerId)
+    if (!layerIds) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const entryBounds = event.currentTarget
+      .closest<HTMLElement>('[data-layer-id]')
+      ?.getBoundingClientRect()
+    const draggedLayer = visual.layers.find((layer) => layer.id === layerId)
+    const layerEntries = Array.from(
+      navigatorRef.current?.querySelectorAll<HTMLElement>('[data-layer-id]') ?? [],
+    )
+    const movingBounds = layerEntries
+      .filter((element) => layerIds.includes(element.dataset.layerId ?? ''))
+      .map((element) => element.getBoundingClientRect())
+    const sourceTop = movingBounds.length > 0
+      ? Math.min(...movingBounds.map((bounds) => bounds.top))
+      : entryBounds?.top ?? event.clientY - 14
+    const sourceBottom = movingBounds.length > 0
+      ? Math.max(...movingBounds.map((bounds) => bounds.bottom))
+      : entryBounds?.bottom ?? sourceTop + 28
+    const dropZones = layerEntries
+      .map((element) => {
+        const candidateId = element.dataset.layerId ?? ''
+        const candidate = visual.layers.find((layer) => layer.id === candidateId)
+        if (!candidate || candidate.parentId !== draggedLayer?.parentId || layerIds.includes(candidateId)) {
+          return null
+        }
+
+        const bounds = element.getBoundingClientRect()
+        return {
+          layerId: candidateId,
+          top: bounds.top,
+          height: bounds.height,
+        }
+      })
+      .filter((zone): zone is LayerReorderDropZone => zone !== null)
+    layerReorderPointerRef.current = null
+    setLayerReorderDropTarget(null)
+    setLayerReorderPreview(null)
+    setLayerReorderPointer(null)
+    layerReorderDragRef.current = {
+      layerIds,
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      lastClientY: event.clientY,
+      dropZones,
+      sourceTop,
+      sourceBottom,
+      height: Math.max(1, sourceBottom - sourceTop),
+      offsetX: entryBounds ? event.clientX - entryBounds.left : 0,
+      offsetY: entryBounds ? event.clientY - entryBounds.top : 14,
+      width: entryBounds?.width ?? 240,
+      active: false,
+      targetLayerId: null,
+      targetPlacement: 'back',
+    }
+  }
+
+  function resolveLayerReorderTarget(
+    clientY: number,
+    dragState: LayerReorderDragState,
+    direction: 'up' | 'down' | null = null,
+  ) {
+    const { dropZones } = dragState
+    if (dropZones.length === 0) return null
+
+    const draggedTop = clientY - dragState.offsetY
+    const draggedBottom = draggedTop + dragState.height
+    const overlaps = ({ top, height }: LayerReorderDropZone) => (
+      draggedTop <= top + height && draggedBottom >= top
+    )
+    const crossedTargetHalf = ({ top, height }: LayerReorderDropZone) => {
+      const midpoint = top + height * LAYER_REORDER_TARGET_CROSSING_RATIO
+      return direction === 'down'
+        ? draggedBottom >= midpoint
+        : direction === 'up'
+          ? draggedTop <= midpoint
+          : false
+    }
+    const currentTarget = dragState.targetLayerId
+      ? dropZones.find(({ layerId }) => layerId === dragState.targetLayerId)
+      : undefined
+    const currentTargetResult = currentTarget && overlaps(currentTarget)
+      ? {
+          targetLayerId: dragState.targetLayerId!,
+          placement: dragState.targetPlacement,
+        }
+      : null
+
+    if (direction === 'down') {
+      // Switch at the first pixel of contact. Choosing the lowest overlapping
+      // row also lets the dragged layer pass through several rows smoothly.
+      const nextEntry = dropZones
+        .filter(({ top }) => top >= dragState.sourceBottom)
+        .filter(crossedTargetHalf)
+        .at(-1)
+      if (nextEntry) {
+        return {
+          targetLayerId: nextEntry.layerId,
+          placement: 'back' as const,
+        }
+      }
+      return currentTargetResult
+    }
+
+    if (direction === 'up') {
+      // Rows are cached in visual order. Walking from the top picks the next
+      // row reached by the moving top edge when rows overlap each other.
+      const nextEntry = dropZones
+        .filter(({ top, height }) => top + height <= dragState.sourceTop)
+        .find(crossedTargetHalf)
+      if (nextEntry) {
+        return {
+          targetLayerId: nextEntry.layerId,
+          placement: 'front' as const,
+        }
+      }
+      return currentTargetResult
+    }
+
+    if (currentTarget) {
+      return {
+        targetLayerId: dragState.targetLayerId!,
+        placement: dragState.targetPlacement,
+      }
+    }
+
+    return null
+  }
+
+  function moveLayerReorderAt(pointerId: number, clientX: number, clientY: number) {
+    const dragState = layerReorderDragRef.current
+    if (!dragState || dragState.pointerId !== pointerId) return
+
+    const movedEnough = Math.abs(clientY - dragState.startY) >= 4
+    const direction = clientY < dragState.lastClientY
+      ? 'up'
+      : clientY > dragState.lastClientY
+        ? 'down'
+        : null
+
+    const nextDragState = {
+      ...dragState,
+      lastClientY: clientY,
+      active: dragState.active || movedEnough,
+    }
+    layerReorderDragRef.current = nextDragState
+
+    if (nextDragState.active) {
+      updateLayerReorderPointer(nextDragState, clientX, clientY)
+      updateLayerReorderPreview(nextDragState, clientY, direction)
+    }
+  }
+
+  function updateLayerReorderPointer(
+    dragState: LayerReorderDragState,
+    clientX: number,
+    clientY: number,
+  ) {
+    const nextPointer: LayerReorderPointerPreview = {
+      layerIds: dragState.layerIds,
+      clientX,
+      clientY,
+      offsetX: dragState.offsetX,
+      offsetY: dragState.offsetY,
+      width: dragState.width,
+      height: dragState.height,
+    }
+    const shouldPublish = layerReorderPointerRef.current === null
+    layerReorderPointerRef.current = nextPointer
+
+    const previewElement = layerReorderPreviewRef.current
+    if (previewElement) {
+      previewElement.style.left = `${Math.round(clientX - dragState.offsetX)}px`
+      previewElement.style.top = `${Math.round(clientY - dragState.offsetY)}px`
+    } else if (shouldPublish) {
+      setLayerReorderPointer(nextPointer)
+    }
+  }
+
+  function finishLayerReorderAt(pointerId: number, clientY: number) {
+    const dragState = layerReorderDragRef.current
+    if (!dragState || dragState.pointerId !== pointerId) return
+
+    if (readOnly || !dragState.active) {
+      cancelLayerReorder()
+      return
+    }
+
+    const direction = clientY < dragState.lastClientY
+      ? 'up'
+      : clientY > dragState.lastClientY
+        ? 'down'
+        : null
+    const target = resolveLayerReorderTarget(clientY, dragState, direction)
+    if (!target) {
+      cancelLayerReorder()
+      return
+    }
+
+    commitLayerReorder(dragState, target.targetLayerId, target.placement)
+  }
+
+  function finishLayerReorder(event: PointerEvent<HTMLSpanElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    finishLayerReorderAt(event.pointerId, event.clientY)
+  }
+
+  useEffect(() => {
+    function moveCapturedLayerReorder(event: globalThis.PointerEvent) {
+      if (layerReorderDragRef.current?.pointerId !== event.pointerId) return
+      event.preventDefault()
+      moveLayerReorderAt(event.pointerId, event.clientX, event.clientY)
+    }
+
+    function finishCapturedLayerReorder(event: globalThis.PointerEvent) {
+      if (layerReorderDragRef.current?.pointerId !== event.pointerId) return
+      finishLayerReorderAt(event.pointerId, event.clientY)
+    }
+
+    function cancelCapturedLayerReorder(event: globalThis.PointerEvent) {
+      if (layerReorderDragRef.current?.pointerId !== event.pointerId) return
+      cancelLayerReorder()
+    }
+
+    window.addEventListener('pointermove', moveCapturedLayerReorder, { passive: false })
+    window.addEventListener('pointerup', finishCapturedLayerReorder)
+    window.addEventListener('pointercancel', cancelCapturedLayerReorder)
+    return () => {
+      window.removeEventListener('pointermove', moveCapturedLayerReorder)
+      window.removeEventListener('pointerup', finishCapturedLayerReorder)
+      window.removeEventListener('pointercancel', cancelCapturedLayerReorder)
+    }
+  }, [readOnly, visual])
+
+  function resolveLayerReorderPreview(
+    sourceVisual: ComponentVisualDefinition,
+    targetLayerId: string | null,
+    placement: 'front' | 'back',
+    layerIds: readonly string[],
+  ) {
+    if (!targetLayerId) return
+    return moveComponentLayersToTarget(sourceVisual, layerIds, targetLayerId, placement)
+  }
+
+  function updateLayerReorderPreview(
+    dragState: LayerReorderDragState,
+    clientY: number,
+    direction: 'up' | 'down' | null,
+  ) {
+    const target = resolveLayerReorderTarget(clientY, dragState, direction)
+    const nextDragState = {
+      ...dragState,
+      targetLayerId: target?.targetLayerId ?? null,
+      targetPlacement: target?.placement ?? dragState.targetPlacement,
+    }
+    layerReorderDragRef.current = nextDragState
+
+    if (!target) {
+      setLayerReorderDropTarget(null)
+      setLayerReorderPreview(null)
+      return
+    }
+
+    setLayerReorderDropTarget(target)
+
+    const sourceVisual = visual
+    const result = resolveLayerReorderPreview(
+      sourceVisual,
+      target.targetLayerId,
+      target.placement,
+      dragState.layerIds,
+    )
+    if (!result) return
+
+    if (result.changed) {
+      setLayerReorderPreview(result.visual)
+    } else {
+      setLayerReorderPreview(null)
+    }
+  }
+
+  function commitLayerReorder(
+    dragState: LayerReorderDragState,
+    targetLayerId: string,
+    placement: 'front' | 'back',
+  ) {
+    const sourceVisual = visual
+    const result = resolveLayerReorderPreview(
+      sourceVisual,
+      targetLayerId,
+      placement,
+      dragState.layerIds,
+    )
+    const finalVisual = result?.changed ? result.visual : sourceVisual
+    const changed = finalVisual.layers.some((layer, index) => layer.id !== visual.layers[index]?.id)
+
+    layerReorderDragRef.current = null
+    layerReorderPointerRef.current = null
+    setLayerReorderDropTarget(null)
+    setLayerReorderPreview(null)
+    setLayerReorderPointer(null)
+    if (!changed) return
+
+    onChange(finalVisual)
+    onSelectionReplace(dragState.layerIds)
+    onApplied('已调整图层层级')
+  }
+
+  function cancelLayerReorder() {
+    layerReorderDragRef.current = null
+    layerReorderPointerRef.current = null
+    setLayerReorderDropTarget(null)
+    setLayerReorderPreview(null)
+    setLayerReorderPointer(null)
+  }
+
+  const renderedLayerReorderPointer = layerReorderPointerRef.current ?? layerReorderPointer
+  const draggedLayers = renderedLayerReorderPointer
+    ? visual.layers.filter((layer) => renderedLayerReorderPointer.layerIds.includes(layer.id))
+    : []
 
   return (
     <div className="component-layer-dock">
@@ -263,12 +644,15 @@ export function ComponentVisualTreeEditor({
             )}
 
             <div className="component-layer-tree" ref={navigatorRef}>
-              {visual.mode === 'composite' && flattened.map(({ layer, depth, hasChildren }) => (
+              {displayedVisual.mode === 'composite' && flattened.map(({ layer, depth, hasChildren }) => (
                 <div
                   key={layer.id}
-                  className="component-layer-entry"
+                  className={`component-layer-entry${renderedLayerReorderPointer?.layerIds.includes(layer.id) ? ' is-dragging' : ''}${layerReorderDropTarget?.targetLayerId === layer.id ? ' is-drop-target' : ''}`}
                   style={{ paddingLeft: `${depth * 14}px` }}
                   data-layer-id={layer.id}
+                  data-drop-placement={layerReorderDropTarget?.targetLayerId === layer.id
+                    ? layerReorderDropTarget.placement
+                    : undefined}
                 >
                   {hasChildren ? (
                     <IconButton
@@ -292,10 +676,20 @@ export function ComponentVisualTreeEditor({
                   >
                     <span className="component-layer-kind" aria-hidden="true"><LayerIcon layer={layer} /></span>
                     <span className="component-layer-name">{layer.name}</span>
-                    {!layer.visible && <small>隐藏</small>}
                   </Pressable>
+                  <div className="component-layer-state-controls">
+                    <IconButton
+                      className="component-layer-visibility"
+                      size="small"
+                      variant="ghost"
+                      aria-label={layer.visible ? `隐藏 · ${layer.name}` : `显示 · ${layer.name}`}
+                      title={layer.visible ? '隐藏' : '显示'}
+                      disabled={readOnly}
+                      onClick={() => updateLayerVisibility(layer.id, !layer.visible)}
+                    >{layer.visible ? <EyeIcon /> : <EyeOffIcon />}</IconButton>
+                  </div>
                   <ComponentLayerOrderActions
-                    visual={visual}
+                    visual={displayedVisual}
                     layerId={layer.id}
                     layerName={layer.name}
                     selectedLayerIds={selectedLayerIds}
@@ -304,6 +698,16 @@ export function ComponentVisualTreeEditor({
                     onSelectionReplace={onSelectionReplace}
                     onApplied={onApplied}
                   />
+                  <span
+                    className="component-layer-drag-handle"
+                    role="button"
+                    tabIndex={readOnly ? -1 : 0}
+                    aria-label={`拖动调整层级 · ${layer.name}`}
+                    title="按住拖动调整层级"
+                    onPointerDown={(event) => startLayerReorder(event, layer.id)}
+                    onPointerUp={finishLayerReorder}
+                    onPointerCancel={cancelLayerReorder}
+                  ><DragHandleIcon /></span>
                 </div>
               ))}
 
@@ -326,6 +730,24 @@ export function ComponentVisualTreeEditor({
               <p className="component-layer-navigator-help">
                 上方图层显示在前 · Ctrl / ⌘ 点击多选
               </p>
+            )}
+
+            {renderedLayerReorderPointer && draggedLayers.length > 0 && (
+              <div
+                ref={layerReorderPreviewRef}
+                className="component-layer-drag-preview"
+                aria-hidden="true"
+                style={{
+                  top: `${Math.round(renderedLayerReorderPointer.clientY - renderedLayerReorderPointer.offsetY)}px`,
+                  left: `${Math.round(renderedLayerReorderPointer.clientX - renderedLayerReorderPointer.offsetX)}px`,
+                  width: `${Math.round(renderedLayerReorderPointer.width)}px`,
+                  height: `${Math.round(renderedLayerReorderPointer.height)}px`,
+                }}
+              >
+                <span className="component-layer-kind"><LayerIcon layer={draggedLayers[0]} /></span>
+                <span className="component-layer-name">{draggedLayers[0].name}</span>
+                {draggedLayers.length > 1 && <small>+ {draggedLayers.length - 1}</small>}
+              </div>
             )}
           </>
         )}
@@ -406,10 +828,6 @@ function LayerInspectorContent({
   onChange,
 }: LayerInspectorContentProps) {
   const geometryReadOnly = readOnly || layer.parentId !== null
-  const descendantIds = collectDescendantIds(visual.layers, layer.id)
-  const parentOptions = visual.layers.filter(
-    (candidate) => candidate.kind === 'group' && !descendantIds.has(candidate.id),
-  )
 
   function updateLayers(layers: readonly ComponentVisualLayer[]) {
     onChange({ ...visual, layers })
@@ -470,22 +888,6 @@ function LayerInspectorContent({
             onChange={(event) => updateLayer({ ...layer, name: event.target.value } as ComponentVisualLayer)}
           />
         </label>
-        <label className="property-field">
-          <span>父级</span>
-          <Select
-            value={layer.parentId ?? ''}
-            disabled={geometryReadOnly}
-            ariaLabel={`${layer.name} 父级`}
-            options={[
-              { value: '', label: '顶层' },
-              ...parentOptions.map((group) => ({ value: group.id, label: group.name })),
-            ]}
-            onValueChange={(value) => updateLayer({
-              ...layer,
-              parentId: value || null,
-            } as ComponentVisualLayer)}
-          />
-        </label>
       </CollapsibleInspectorGroup>
 
       <CollapsibleInspectorGroup title="几何">
@@ -498,9 +900,9 @@ function LayerInspectorContent({
             ['y', 'Y'],
             ['width', 'W'],
             ['height', 'H'],
-            ['rotation', '旋转'],
             ['scaleX', 'Scale X'],
             ['scaleY', 'Scale Y'],
+            ['rotation', '旋转'],
           ] as Array<[keyof ComponentVisualLayer['transform'], string]>).map(([field, label]) => (
             <label key={field} className="property-field compact">
               <span>{label}</span>
@@ -513,27 +915,6 @@ function LayerInspectorContent({
             </label>
           ))}
         </div>
-      </CollapsibleInspectorGroup>
-
-      <CollapsibleInspectorGroup title="显示" className="inspector-toggle-group">
-        <Checkbox
-          className="checkbox-field property-toggle"
-          checked={layer.visible}
-          disabled={readOnly}
-          label="可见"
-          onCheckedChange={(checked) => updateLayer({ ...layer, visible: checked } as ComponentVisualLayer)}
-        />
-        <label className="property-field compact">
-          <span>透明度</span>
-          <NumberInput
-            min="0"
-            max="1"
-            step="0.05"
-            value={layer.opacity}
-            disabled={readOnly}
-            onChange={(event) => updateLayer({ ...layer, opacity: Number(event.target.value) } as ComponentVisualLayer)}
-          />
-        </label>
       </CollapsibleInspectorGroup>
 
       {(layer.kind === 'svg' || layer.kind === 'image') && (
@@ -567,33 +948,17 @@ function LayerInspectorContent({
         </CollapsibleInspectorGroup>
       )}
 
-      {layer.kind === 'vector' && (
-        <CollapsibleInspectorGroup title="矢量图形">
+      {layer.kind === 'vector' && layer.primitive === 'path' && (
+        <CollapsibleInspectorGroup title="Path">
           <label className="property-field">
-            <span>图元</span>
-            <Select
-              value={layer.primitive}
+            <span>Path Data</span>
+            <Textarea
+              rows={4}
+              value={layer.pathData ?? ''}
               disabled={geometryReadOnly}
-              ariaLabel={`${layer.name} 图元类型`}
-              options={VECTOR_PRIMITIVE_OPTIONS}
-              onValueChange={(value) => updateLayer({
-                ...layer,
-                primitive: value as VisualVectorPrimitive,
-                pathData: value === 'path' ? layer.pathData ?? '' : undefined,
-              })}
+              onChange={(event) => updateLayer({ ...layer, pathData: event.target.value })}
             />
           </label>
-          {layer.primitive === 'path' && (
-            <label className="property-field">
-              <span>Path Data</span>
-              <Textarea
-                rows={4}
-                value={layer.pathData ?? ''}
-                disabled={geometryReadOnly}
-                onChange={(event) => updateLayer({ ...layer, pathData: event.target.value })}
-              />
-            </label>
-          )}
         </CollapsibleInspectorGroup>
       )}
 

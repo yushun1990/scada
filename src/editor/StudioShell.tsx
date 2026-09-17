@@ -1,5 +1,7 @@
 import {
+  useEffect,
   useRef,
+  useState,
   type CSSProperties,
   type FocusEventHandler,
   type KeyboardEvent,
@@ -38,6 +40,7 @@ type StudioShellProps = {
   documentActions: ReactNode
   documentCommands?: StudioMenuCommand[]
   mainToolbar: ReactNode
+  toolbarAside?: ReactNode
   toolbarPlacement?: 'full-width' | 'canvas'
   modeControl?: ReactNode
   leftPanel: ReactNode
@@ -63,6 +66,23 @@ function clampPanelWidth(side: PanelSide, value: number) {
   return side === 'left'
     ? Math.min(360, Math.max(208, value))
     : Math.min(440, Math.max(280, value))
+}
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia(query).matches,
+  )
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query)
+    const update = () => setMatches(mediaQuery.matches)
+
+    update()
+    mediaQuery.addEventListener('change', update)
+    return () => mediaQuery.removeEventListener('change', update)
+  }, [query])
+
+  return matches
 }
 
 function StudioPanelResizeHandle({
@@ -181,6 +201,7 @@ export function StudioShell({
   documentActions,
   documentCommands = [],
   mainToolbar,
+  toolbarAside,
   toolbarPlacement = 'full-width',
   modeControl,
   leftPanel,
@@ -194,6 +215,38 @@ export function StudioShell({
   className = '',
 }: StudioShellProps) {
   const { layout, setLayout } = useStudioLayoutPreferences()
+  const canvasToolbar = toolbarPlacement === 'canvas'
+  const narrowViewport = useMediaQuery('(max-width: 900px)')
+  const compactPanels = canvasToolbar && narrowViewport
+
+  useEffect(() => {
+    if (!compactPanels || !layout.leftVisible || !layout.rightVisible) return
+
+    // A narrow canvas has one overlay lane. Keep the creation/navigation panel
+    // available when a desktop preference had both docks open.
+    setLayout((current) => ({ ...current, rightVisible: false }))
+  }, [compactPanels, layout.leftVisible, layout.rightVisible, setLayout])
+
+  function togglePanel(side: PanelSide) {
+    setLayout((current) => {
+      const visible = side === 'left' ? current.leftVisible : current.rightVisible
+      if (!compactPanels || visible) {
+        return {
+          ...current,
+          ...(side === 'left'
+            ? { leftVisible: !visible }
+            : { rightVisible: !visible }),
+        }
+      }
+
+      return {
+        ...current,
+        leftVisible: side === 'left',
+        rightVisible: side === 'right',
+      }
+    })
+  }
+
   const shellStyle = {
     '--studio-left-width': layout.leftVisible ? `${layout.leftWidth}px` : '0px',
     '--studio-left-resizer': layout.leftVisible ? '6px' : '24px',
@@ -201,7 +254,6 @@ export function StudioShell({
     '--studio-right-resizer': layout.rightVisible ? '6px' : '24px',
   } as CSSProperties
 
-  const canvasToolbar = toolbarPlacement === 'canvas'
   const toolbar = (
     <Toolbar className="studio-main-toolbar" aria-label="Studio 主工具栏">
       <div className="studio-main-toolbar-content">{mainToolbar}</div>
@@ -254,17 +306,25 @@ export function StudioShell({
           side="left"
           visible={layout.leftVisible}
           width={layout.leftWidth}
-          onToggle={() => setLayout((current) => ({ ...current, leftVisible: !current.leftVisible }))}
+          onToggle={() => togglePanel('left')}
           onWidthChange={(leftWidth) => setLayout((current) => ({ ...current, leftWidth }))}
         />
         <main className="studio-center-workspace" aria-label={`${documentTitle} 编辑区`}>
-          {canvasToolbar ? <>{toolbar}<div className="studio-canvas-content">{center}</div></> : center}
+          {canvasToolbar ? (
+            <>
+              <div className="studio-canvas-toolbar-row">
+                {toolbar}
+                {toolbarAside}
+              </div>
+              <div className="studio-canvas-content">{center}</div>
+            </>
+          ) : center}
         </main>
         <StudioPanelRail
           side="right"
           visible={layout.rightVisible}
           width={layout.rightWidth}
-          onToggle={() => setLayout((current) => ({ ...current, rightVisible: !current.rightVisible }))}
+          onToggle={() => togglePanel('right')}
           onWidthChange={(rightWidth) => setLayout((current) => ({ ...current, rightWidth }))}
         />
         <aside id="studio-right-panel" className="studio-right-panel" aria-label="属性面板" hidden={!layout.rightVisible}>

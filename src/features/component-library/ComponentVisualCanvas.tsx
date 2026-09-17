@@ -52,6 +52,11 @@ import {
   deleteComponentLayers,
 } from './component-layer-hierarchy'
 import {
+  createComponentLayerLocalMatrix,
+  decomposeComponentLayerMatrix,
+  multiplyComponentLayerMatrices,
+} from './component-layer-transform'
+import {
   layerKindLabel,
   type ComponentLayerSelectionChange,
   type ComponentWorkbenchMode,
@@ -79,12 +84,39 @@ type ComponentVisualCanvasProps = {
   onUndo: () => void
   onRedo: () => void
   onSelectionChange: ComponentLayerSelectionChange
+  onSelectionReplace: (layerIds: readonly string[]) => void
   onChange: (visual: ComponentVisualDefinition) => void
 }
 
 type CanvasViewport = {
   width: number
   height: number
+}
+
+type CanvasPoint = {
+  x: number
+  y: number
+}
+
+type MarqueeState = {
+  start: CanvasPoint
+  current: CanvasPoint
+  additive: boolean
+}
+
+type MarqueeSession = MarqueeState & {
+  active: boolean
+}
+
+type LayerPositionSnapshot = {
+  x: number
+  y: number
+}
+
+type LayerDragSession = {
+  draggedLayerId: string
+  layerIds: string[]
+  initialTransforms: Record<string, LayerPositionSnapshot>
 }
 
 const TRANSFORMER_ANCHORS = [
@@ -99,6 +131,116 @@ const TRANSFORMER_ANCHORS = [
 ]
 
 const WORKBENCH_ARTBOARD_FIT_GUTTER = 4
+const MARQUEE_THRESHOLD = 4
+
+function normalizeMarquee(marquee: MarqueeState) {
+  return {
+    x: Math.min(marquee.start.x, marquee.current.x),
+    y: Math.min(marquee.start.y, marquee.current.y),
+    width: Math.abs(marquee.current.x - marquee.start.x),
+    height: Math.abs(marquee.current.y - marquee.start.y),
+  }
+}
+
+function hasSelectionModifier(event: MouseEvent) {
+  return Boolean(event.shiftKey || event.ctrlKey || event.metaKey)
+}
+
+type ComponentLayerTransform = ComponentVisualDefinition['layers'][number]['transform']
+
+function applyResizeDeltaToLayerTransforms(
+  visual: ComponentVisualDefinition,
+  layer: ComponentVisualDefinition['layers'][number],
+  resizeScaleX: number,
+  resizeScaleY: number,
+) {
+  if (resizeScaleX <= 0 || resizeScaleY <= 0) {
+    return null
+  }
+
+  const transforms = new Map<string, ComponentLayerTransform>()
+
+  if (layer.kind === 'group') {
+    const childScaleMatrix = {
+      a: resizeScaleX,
+      b: 0,
+      c: 0,
+      d: resizeScaleY,
+      e: 0,
+      f: 0,
+    }
+
+    for (const child of visual.layers) {
+      if (child.parentId !== layer.id) {
+        continue
+      }
+
+      const nextChildTransform = decomposeComponentLayerMatrix(
+        multiplyComponentLayerMatrices(
+          childScaleMatrix,
+          createComponentLayerLocalMatrix(child),
+        ),
+        child.transform,
+      )
+
+      if (!nextChildTransform) {
+        return null
+      }
+
+      transforms.set(child.id, nextChildTransform)
+    }
+  }
+
+  transforms.set(layer.id, {
+    ...layer.transform,
+    width: layer.transform.width * resizeScaleX,
+    height: layer.transform.height * resizeScaleY,
+  })
+
+  return transforms
+}
+
+function boundsIntersect(
+  first: { x: number; y: number; width: number; height: number },
+  second: { x: number; y: number; width: number; height: number },
+) {
+  return !(
+    first.x + first.width < second.x ||
+    first.x > second.x + second.width ||
+    first.y + first.height < second.y ||
+    first.y > second.y + second.height
+  )
+}
+
+function getLayerFallbackBounds(
+  layer: ComponentVisualDefinition['layers'][number],
+  artboardScale: number,
+) {
+  const { x, y, width, height, rotation, scaleX, scaleY } = layer.transform
+  const radians = (rotation * Math.PI) / 180
+  const cosine = Math.cos(radians)
+  const sine = Math.sin(radians)
+  const scaledWidth = width * scaleX * artboardScale
+  const scaledHeight = height * scaleY * artboardScale
+  const points = [
+    { x: 0, y: 0 },
+    { x: scaledWidth, y: 0 },
+    { x: scaledWidth, y: scaledHeight },
+    { x: 0, y: scaledHeight },
+  ].map((point) => ({
+    x: x * artboardScale + point.x * cosine - point.y * sine,
+    y: y * artboardScale + point.x * sine + point.y * cosine,
+  }))
+  const xs = points.map((point) => point.x)
+  const ys = points.map((point) => point.y)
+
+  return {
+    x: Math.min(...xs),
+    y: Math.min(...ys),
+    width: Math.max(...xs) - Math.min(...xs),
+    height: Math.max(...ys) - Math.min(...ys),
+  }
+}
 
 function isInsideTransformer(
   target: Konva.Node,
@@ -225,6 +367,7 @@ export function ComponentVisualCanvas({
   onUndo,
   onRedo,
   onSelectionChange,
+  onSelectionReplace,
   onChange,
 }: ComponentVisualCanvasProps) {
   const createTool = useComponentCreateTool()
@@ -243,6 +386,10 @@ export function ComponentVisualCanvas({
   const [createCurrent, setCreateCurrent] = useState<ComponentDesignPoint | null>(null)
   const [createConstrainAspectRatio, setCreateConstrainAspectRatio] = useState(false)
   const [managedSvgHighlightPoints, setManagedSvgHighlightPoints] = useState<number[]>([])
+  const [marquee, setMarquee] = useState<MarqueeState | null>(null)
+  const marqueeSessionRef = useRef<MarqueeSession | null>(null)
+  const pendingLayerSelectionRef = useRef<readonly string[] | null>(null)
+  const layerDragSessionRef = useRef<LayerDragSession | null>(null)
   const selectedLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
   const selectedVisibleLayerIds = useMemo(
     () => selectedLayerIds.filter((layerId) =>
@@ -422,6 +569,8 @@ export function ComponentVisualCanvas({
     }
   }, [isEditable, snapEnabled])
 
+  useEffect(() => () => clearMarqueeSession(), [])
+
   useEffect(() => {
     if (isEditable) return
     setCreateStart(null)
@@ -508,35 +657,58 @@ export function ComponentVisualCanvas({
       !Number.isFinite(node.rotation()) ||
       !Number.isFinite(scaleX) ||
       !Number.isFinite(scaleY) ||
+      !Number.isFinite(layer.transform.scaleX) ||
+      !Number.isFinite(layer.transform.scaleY) ||
+      Math.abs(layer.transform.scaleX) < 0.001 ||
+      Math.abs(layer.transform.scaleY) < 0.001 ||
       Math.abs(scaleX) < 0.001 ||
       Math.abs(scaleY) < 0.001
     ) {
       return
     }
 
+    const resizeScaleX = scaleX / layer.transform.scaleX
+    const resizeScaleY = scaleY / layer.transform.scaleY
+    const normalizedTransforms = applyResizeDeltaToLayerTransforms(
+      visual,
+      layer,
+      resizeScaleX,
+      resizeScaleY,
+    )
+    const nextLayerTransform = normalizedTransforms?.get(layerId)
+
+    if (nextLayerTransform) {
+      node.scaleX(nextLayerTransform.scaleX)
+      node.scaleY(nextLayerTransform.scaleY)
+    }
+
     onChange({
       ...visual,
-      layers: visual.layers.map((candidate) =>
-        candidate.id === layerId
-          ? {
-              ...candidate,
-              transform: {
-                ...candidate.transform,
-                x: node.x(),
-                y: node.y(),
-                rotation: node.rotation(),
-                scaleX,
-                scaleY,
-              },
-            }
-          : candidate,
-      ),
+      layers: visual.layers.map((candidate) => {
+        const normalizedTransform = normalizedTransforms?.get(candidate.id)
+
+        if (candidate.id === layerId) {
+          return {
+            ...candidate,
+            transform: {
+              ...(nextLayerTransform ?? candidate.transform),
+              x: node.x(),
+              y: node.y(),
+              rotation: node.rotation(),
+            },
+          }
+        }
+
+        return normalizedTransform
+          ? { ...candidate, transform: normalizedTransform }
+          : candidate
+      }),
     })
   }
 
   function resolveLayerNode(target: Konva.Node) {
     const stage = stageRef.current
-    const layerId = getCompositeVisualLayerId(target)
+    const layerId = getCompositeVisualLayerId(target, 'outermost')
 
     return stage && layerId ? findLayerNode(stage, layerId) : undefined
   }
@@ -584,18 +756,126 @@ export function ComponentVisualCanvas({
     verticalGuide?.getLayer()?.batchDraw()
   }
 
-  function beginLayerDrag() {
-    clearSnapGuides()
-    setManagedSvgHighlightPoints([])
+  function getMovableLayerIds(layerIds: readonly string[]) {
+    const selectedIds = new Set(layerIds)
+
+    return visual.layers
+      .filter((layer) =>
+        layer.parentId === null &&
+        layer.visible &&
+        selectedIds.has(layer.id),
+      )
+      .map((layer) => layer.id)
   }
 
-  function previewLayerSnap(target: Konva.Node) {
+  function beginLayerDrag(target: Konva.Node) {
+    clearSnapGuides()
+    setManagedSvgHighlightPoints([])
+
+    if (!isEditable || layerDragSessionRef.current) {
+      return
+    }
+
+    const draggedLayerId = getCompositeVisualLayerId(target, 'outermost')
+    if (!draggedLayerId) {
+      return
+    }
+
+    const draggedLayer = visual.layers.find((layer) => layer.id === draggedLayerId)
+
+    if (!draggedLayer || draggedLayer.parentId !== null) {
+      return
+    }
+
+    let selectedIds = pendingLayerSelectionRef.current ?? selectedLayerIds
+
+    if (!selectedIds.includes(draggedLayerId)) {
+      selectedIds = [draggedLayerId]
+      onSelectionReplace(selectedIds)
+    }
+
+    const layerIds = getMovableLayerIds(selectedIds)
+    const initialTransforms: Record<string, LayerPositionSnapshot> = {}
+    const stage = stageRef.current
+
+    for (const layerId of layerIds) {
+      const node = stage ? findLayerNode(stage, layerId) : undefined
+
+      if (!node) {
+        continue
+      }
+
+      initialTransforms[layerId] = {
+        x: node.x(),
+        y: node.y(),
+      }
+    }
+
+    if (!initialTransforms[draggedLayerId]) {
+      pendingLayerSelectionRef.current = null
+      return
+    }
+
+    layerDragSessionRef.current = {
+      draggedLayerId,
+      layerIds: Object.keys(initialTransforms),
+      initialTransforms,
+    }
+
+    for (const layerId of Object.keys(initialTransforms)) {
+      if (layerId === draggedLayerId) {
+        continue
+      }
+
+      const node = stage ? findLayerNode(stage, layerId) : undefined
+      node?.draggable(false)
+    }
+    pendingLayerSelectionRef.current = null
+  }
+
+  function previewLayerDrag(target: Konva.Node) {
+    const session = layerDragSessionRef.current
+
+    if (!session) {
+      return
+    }
+
+    const draggedTransform = session.initialTransforms[session.draggedLayerId]
+    const draggedNode = resolveLayerNode(target)
+
+    if (!draggedTransform || !draggedNode) {
+      return
+    }
+
+    if (getCompositeVisualLayerId(draggedNode, 'outermost') !== session.draggedLayerId) {
+      return
+    }
+
+    const delta = {
+      x: draggedNode.x() - draggedTransform.x,
+      y: draggedNode.y() - draggedTransform.y,
+    }
+    const stage = stageRef.current
+
+    for (const layerId of session.layerIds) {
+      const node = stage ? findLayerNode(stage, layerId) : undefined
+      const initial = session.initialTransforms[layerId]
+
+      if (!node || !initial || node === draggedNode) {
+        continue
+      }
+
+      node.position({
+        x: initial.x + delta.x,
+        y: initial.y + delta.y,
+      })
+    }
+
     if (!isEditable || !snapEnabled) {
       clearSnapGuides()
       return
     }
 
-    const stage = stageRef.current
     const node = resolveLayerNode(target)
 
     if (!stage || !node) {
@@ -604,36 +884,236 @@ export function ComponentVisualCanvas({
     }
 
     renderSnapGuides(
-      computeComponentLayerSnap(stage, node, visual, artboardScale, gridSize),
+      computeComponentLayerSnap(
+        stage,
+        node,
+        visual,
+        artboardScale,
+        gridSize,
+        session.layerIds,
+      ),
     )
   }
 
   function finishLayerDrag(target: Konva.Node) {
+    const session = layerDragSessionRef.current
     const stage = stageRef.current
     const node = resolveLayerNode(target)
 
-    if (!node) {
+    if (!session || !stage || !node) {
       clearSnapGuides()
+      layerDragSessionRef.current = null
       return
     }
 
-    if (stage && isEditable && snapEnabled) {
+    if (getCompositeVisualLayerId(node, 'outermost') !== session.draggedLayerId) {
+      return
+    }
+
+    const draggedTransform = session.initialTransforms[session.draggedLayerId]
+    const rawDelta = draggedTransform
+      ? {
+          x: node.x() - draggedTransform.x,
+          y: node.y() - draggedTransform.y,
+        }
+      : { x: 0, y: 0 }
+    let snapCorrection = { x: 0, y: 0 }
+
+    if (isEditable && snapEnabled && draggedTransform) {
+      const beforeSnap = { x: node.x(), y: node.y() }
       applyComponentLayerSnap(
         node,
-        computeComponentLayerSnap(stage, node, visual, artboardScale, gridSize),
+        computeComponentLayerSnap(
+          stage,
+          node,
+          visual,
+          artboardScale,
+          gridSize,
+          session.layerIds,
+        ),
       )
+      snapCorrection = {
+        x: node.x() - beforeSnap.x,
+        y: node.y() - beforeSnap.y,
+      }
+    }
+
+    const updates = new Map<string, LayerPositionSnapshot>()
+
+    for (const layerId of session.layerIds) {
+      const initial = session.initialTransforms[layerId]
+      const currentNode = findLayerNode(stage, layerId)
+
+      if (!initial || !currentNode) {
+        continue
+      }
+
+      if (currentNode !== node) {
+        currentNode.position({
+          x: initial.x + rawDelta.x + snapCorrection.x,
+          y: initial.y + rawDelta.y + snapCorrection.y,
+        })
+      }
+
+      updates.set(layerId, {
+        x: currentNode.x(),
+        y: currentNode.y(),
+      })
+    }
+
+    for (const layerId of session.layerIds) {
+      findLayerNode(stage, layerId)?.draggable(true)
+    }
+
+    if (updates.size > 0) {
+      onChange({
+        ...visual,
+        layers: visual.layers.map((layer) => {
+          const transform = updates.get(layer.id)
+
+          return transform
+            ? { ...layer, transform: { ...layer.transform, ...transform } }
+            : layer
+        }),
+      })
     }
 
     clearSnapGuides()
-    commitLayerTransform(node)
+    layerDragSessionRef.current = null
+    pendingLayerSelectionRef.current = null
   }
 
   function handlePointerTarget(target: Konva.Node, toggle = false) {
     if (!isEditable || activeCreateTool || isInsideTransformer(target, transformerRef.current)) {
+      return false
+    }
+
+    const layerId = getCompositeVisualLayerId(target, 'outermost')
+
+    if (!layerId) {
+      return false
+    }
+
+    const alreadySelected = selectedLayerIds.includes(layerId)
+    const nextSelection = toggle
+      ? alreadySelected
+        ? selectedLayerIds.filter((id) => id !== layerId)
+        : [...selectedLayerIds, layerId]
+      : alreadySelected
+        ? [...selectedLayerIds.filter((id) => id !== layerId), layerId]
+        : [layerId]
+
+    pendingLayerSelectionRef.current = nextSelection
+    onSelectionReplace(nextSelection)
+    return true
+  }
+
+  function getStagePointer() {
+    const pointer = stageRef.current?.getPointerPosition()
+
+    return pointer
+      ? { x: pointer.x, y: pointer.y }
+      : null
+  }
+
+  function clearMarqueeSession() {
+    marqueeSessionRef.current = null
+    setMarquee(null)
+  }
+
+  function beginMarqueeCandidate(nativeEvent: MouseEvent) {
+    if (!isEditable || activeCreateTool || nativeEvent.button !== 0) {
       return
     }
 
-    onSelectionChange(getCompositeVisualLayerId(target, 'outermost'), toggle)
+    const start = getStagePointer()
+
+    if (!start) {
+      return
+    }
+
+    clearMarqueeSession()
+    marqueeSessionRef.current = {
+      start,
+      current: start,
+      additive: hasSelectionModifier(nativeEvent),
+      active: false,
+    }
+  }
+
+  function updateMarquee() {
+    const session = marqueeSessionRef.current
+    const current = getStagePointer()
+
+    if (!session || !current) {
+      return
+    }
+
+    const movedEnough =
+      Math.abs(current.x - session.start.x) >= MARQUEE_THRESHOLD ||
+      Math.abs(current.y - session.start.y) >= MARQUEE_THRESHOLD
+    const nextSession: MarqueeSession = {
+      ...session,
+      current,
+      active: session.active || movedEnough,
+    }
+
+    marqueeSessionRef.current = nextSession
+    setMarquee(
+      nextSession.active
+        ? {
+            start: nextSession.start,
+            current: nextSession.current,
+            additive: nextSession.additive,
+          }
+        : null,
+    )
+  }
+
+  function finishMarquee() {
+    const session = marqueeSessionRef.current
+
+    clearMarqueeSession()
+
+    if (!session) {
+      return false
+    }
+
+    if (!session.active) {
+      if (!session.additive) {
+        onSelectionReplace([])
+      }
+      return true
+    }
+
+    const selectionBounds = normalizeMarquee(session)
+    const stage = stageRef.current
+    const matchedIds = stage
+      ? visual.layers
+          .filter((layer) => layer.parentId === null && layer.visible)
+          .filter((layer) => {
+            const node = findLayerNode(stage, layer.id)
+            if (!node) {
+              return false
+            }
+
+            const renderedBounds = node.getClientRect({ relativeTo: stage })
+            const layerBounds =
+              renderedBounds.width > 0 && renderedBounds.height > 0
+                ? renderedBounds
+                : getLayerFallbackBounds(layer, artboardScale)
+
+            return boundsIntersect(selectionBounds, layerBounds)
+          })
+          .map((layer) => layer.id)
+      : []
+
+    onSelectionReplace(
+      session.additive
+        ? Array.from(new Set([...selectedLayerIds, ...matchedIds]))
+        : matchedIds,
+    )
+    return true
   }
 
   function commitSelectedTransform() {
@@ -815,117 +1295,163 @@ export function ComponentVisualCanvas({
           }}
         >
           {isComposite ? (
-            <Stage
-              ref={stageRef}
-              width={artboardWidth}
-              height={artboardHeight}
-              listening={isEditable}
-              onMouseDown={(event) => {
-                if (activeCreateTool && event.evt.button !== 0) return
-                if (beginCreate(event.evt.shiftKey)) return
-                handlePointerTarget(
-                  event.target,
-                  event.evt.shiftKey || event.evt.ctrlKey || event.evt.metaKey,
-                )
-              }}
-              onMouseMove={(event) => updateCreate(event.evt.shiftKey)}
-              onMouseUp={(event) => finishCreate(event.evt.shiftKey)}
-              onTouchStart={(event) => {
-                if (beginCreate()) return
-                handlePointerTarget(event.target)
-              }}
-              onTouchMove={() => updateCreate()}
-              onTouchEnd={() => finishCreate()}
-              onDragStart={beginLayerDrag}
-              onDragMove={(event) => previewLayerSnap(event.target)}
-              onDragEnd={(event) => finishLayerDrag(event.target)}
-            >
-              <Layer listening={isEditable}>
-                <CompositeComponentVisualRenderer
-                  visual={renderedVisual}
-                  x={0}
-                  y={0}
-                  width={artboardWidth}
-                  height={artboardHeight}
-                  rotation={0}
-                  visible
-                  opacity={1}
-                  listening={isEditable}
-                  draggableLayerId={isEditable && !activeCreateTool ? primaryLayerId : undefined}
-                  frontLayerId={isEditable && !activeCreateTool ? primaryLayerId : null}
-                />
-                {activeCreateTool && createGeometry && (
-                  <Group scaleX={artboardScale} scaleY={artboardScale} listening={false}>
-                    <CreateGeometryPreview
-                      selectionColor={selectionColor}
-                      tool={activeCreateTool}
-                      geometry={createGeometry}
-                      artboardScale={artboardScale}
-                    />
-                  </Group>
-                )}
-                <Transformer
-                  ref={transformerRef}
-                  visible={isEditable && !activeCreateTool && selectedVisibleLayerIds.length > 0}
-                  enabledAnchors={canTransformSelection ? TRANSFORMER_ANCHORS : []}
-                  resizeEnabled={canTransformSelection}
-                  rotateEnabled={canTransformSelection}
-                  flipEnabled={false}
-                  keepRatio={false}
-                  anchorSize={7}
-                  rotateAnchorOffset={22}
-                  borderStroke={selectionColor}
-                  anchorStroke={selectionColor}
-                  anchorFill="#ffffff"
-                  borderStrokeWidth={1}
-                  anchorStrokeWidth={1}
-                  boundBoxFunc={(oldBox, newBox) =>
-                    Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4
-                      ? oldBox
-                      : newBox
+            <>
+              {visual.layers.length === 0 && (
+                <div className="component-artboard-empty" aria-label="空组件画布">
+                  <strong>{mode === 'preview' ? '暂无视觉内容' : '开始设计'}</strong>
+                  <span>{mode === 'preview' ? '空组件' : '从左侧添加图元'}</span>
+                  <small>
+                    {mode === 'preview'
+                      ? '当前组件没有可预览的图层。'
+                      : '双击图元居中添加，或拖动图元到画布中的位置。'}
+                  </small>
+                </div>
+              )}
+              <Stage
+                ref={stageRef}
+                width={artboardWidth}
+                height={artboardHeight}
+                listening={isEditable}
+                onMouseDown={(event) => {
+                  if (activeCreateTool && event.evt.button !== 0) return
+                  if (beginCreate(event.evt.shiftKey)) return
+
+                  if (isInsideTransformer(event.target, transformerRef.current)) {
+                    return
                   }
-                  onTransformEnd={commitSelectedTransform}
-                />
-              </Layer>
-              <Layer listening={false}>
-                {managedSvgHighlightPoints.length === 8 && (
+
+                  if (!handlePointerTarget(
+                    event.target,
+                    event.evt.shiftKey || event.evt.ctrlKey || event.evt.metaKey,
+                  )) {
+                    beginMarqueeCandidate(event.evt)
+                  }
+                }}
+                onMouseMove={(event) => {
+                  updateCreate(event.evt.shiftKey)
+                  updateMarquee()
+                }}
+                onTouchStart={(event) => {
+                  if (beginCreate()) return
+                  if (!handlePointerTarget(event.target)) {
+                    onSelectionReplace([])
+                  }
+                }}
+                onTouchMove={() => updateCreate()}
+                onTouchEnd={() => finishCreate()}
+                onMouseUp={(event) => {
+                  if (!finishMarquee()) {
+                    finishCreate(event.evt.shiftKey)
+                    if (!layerDragSessionRef.current) {
+                      pendingLayerSelectionRef.current = null
+                    }
+                  }
+                }}
+                onMouseLeave={() => clearMarqueeSession()}
+                onDragStart={(event) => beginLayerDrag(event.target)}
+                onDragMove={(event) => previewLayerDrag(event.target)}
+                onDragEnd={(event) => finishLayerDrag(event.target)}
+              >
+                <Layer listening={isEditable}>
+                  <CompositeComponentVisualRenderer
+                    visual={renderedVisual}
+                    x={0}
+                    y={0}
+                    width={artboardWidth}
+                    height={artboardHeight}
+                    rotation={0}
+                    visible
+                    opacity={1}
+                    listening={isEditable}
+                    draggableLayerId={isEditable && !activeCreateTool ? primaryLayerId : undefined}
+                    nonScalingStrokes={isEditable}
+                  />
+                  {activeCreateTool && createGeometry && (
+                    <Group scaleX={artboardScale} scaleY={artboardScale} listening={false}>
+                      <CreateGeometryPreview
+                        selectionColor={selectionColor}
+                        tool={activeCreateTool}
+                        geometry={createGeometry}
+                        artboardScale={artboardScale}
+                      />
+                    </Group>
+                  )}
+                  <Transformer
+                    ref={transformerRef}
+                    visible={isEditable && !activeCreateTool && selectedVisibleLayerIds.length > 0}
+                    enabledAnchors={canTransformSelection ? TRANSFORMER_ANCHORS : []}
+                    resizeEnabled={canTransformSelection}
+                    rotateEnabled={canTransformSelection}
+                    flipEnabled={false}
+                    ignoreStroke={isEditable}
+                    keepRatio={false}
+                    anchorSize={7}
+                    rotateAnchorOffset={22}
+                    borderStroke={selectionColor}
+                    anchorStroke={selectionColor}
+                    anchorFill="#ffffff"
+                    borderStrokeWidth={1}
+                    anchorStrokeWidth={1}
+                    boundBoxFunc={(oldBox, newBox) =>
+                      Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4
+                        ? oldBox
+                        : newBox
+                    }
+                    onTransformEnd={commitSelectedTransform}
+                  />
+                </Layer>
+                <Layer listening={false}>
+                  {managedSvgHighlightPoints.length === 8 && (
+                    <Line
+                      points={managedSvgHighlightPoints}
+                      closed
+                      stroke="#7c3aed"
+                      strokeWidth={1.5}
+                      dash={[5, 3]}
+                      listening={false}
+                      perfectDrawEnabled={false}
+                    />
+                  )}
                   <Line
-                    points={managedSvgHighlightPoints}
-                    closed
-                    stroke="#7c3aed"
-                    strokeWidth={1.5}
-                    dash={[5, 3]}
+                    ref={verticalGuideRef}
+                    visible={false}
+                    points={[]}
+                    stroke={selectionColor}
+                    strokeWidth={1}
+                    dash={[4, 4]}
                     listening={false}
                     perfectDrawEnabled={false}
                   />
-                )}
-                <Line
-                  ref={verticalGuideRef}
-                  visible={false}
-                  points={[]}
-                  stroke={selectionColor}
-                  strokeWidth={1}
-                  dash={[4, 4]}
-                  listening={false}
-                  perfectDrawEnabled={false}
-                />
-                <Line
-                  ref={horizontalGuideRef}
-                  visible={false}
-                  points={[]}
-                  stroke={selectionColor}
-                  strokeWidth={1}
-                  dash={[4, 4]}
-                  listening={false}
-                  perfectDrawEnabled={false}
-                />
-              </Layer>
-            </Stage>
+                  <Line
+                    ref={horizontalGuideRef}
+                    visible={false}
+                    points={[]}
+                    stroke={selectionColor}
+                    strokeWidth={1}
+                    dash={[4, 4]}
+                    listening={false}
+                    perfectDrawEnabled={false}
+                  />
+                  {marquee && (
+                    <Rect
+                      name="component-selection-marquee"
+                      {...normalizeMarquee(marquee)}
+                      fill="rgba(19, 119, 102, 0.12)"
+                      stroke={selectionColor}
+                      strokeWidth={1}
+                      dash={[5, 4]}
+                      listening={false}
+                      perfectDrawEnabled={false}
+                    />
+                  )}
+                </Layer>
+              </Stage>
+            </>
           ) : (
             <div className="component-artboard-placeholder">
               <strong>{componentTitle}</strong>
-              <span>Native Renderer</span>
-              <small>内置组件继续使用可信 Native Renderer，不反向解析其内部图层。</small>
+              <span>内置组件</span>
+              <small>内部图形只读；可在右侧查看配置，或切换到预览。</small>
             </div>
           )}
         </div>

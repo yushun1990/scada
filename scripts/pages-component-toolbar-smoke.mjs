@@ -4,7 +4,10 @@ import { chromium } from 'playwright'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/')
   .replace(/\/?$/, '/')
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}),
+})
 const context = await browser.newContext({ viewport: { width: 1200, height: 900 } })
 const page = await context.newPage()
 const pageErrors = []
@@ -50,26 +53,38 @@ async function assertC2Boundary(group, label) {
 
 async function studioToolbar(height = 36) {
   const toolbar = page.getByRole('toolbar', { name: 'Studio 主工具栏' })
+  const toolbarRow = page.locator('.studio-canvas-toolbar-row')
   const content = toolbar.locator('.studio-main-toolbar-content')
   await toolbar.waitFor()
+  if (await toolbarRow.count() > 0) await toolbarRow.waitFor()
   await content.waitFor()
   const [toolbarBox, contentBox] = await Promise.all([
     toolbar.boundingBox(),
     content.boundingBox(),
   ])
+  const toolbarRowBox = await (await toolbarRow.count() > 0 ? toolbarRow.boundingBox() : null)
   assert.ok(toolbarBox, 'Studio main toolbar must be measurable')
   assert.ok(contentBox, 'Studio main toolbar content must be measurable')
   assert.equal(toolbarBox.height, height, `Studio main toolbar must remain one ${height}px row`)
-  return { toolbar, content, toolbarBox, contentBox }
+  if (toolbarRowBox) assert.equal(toolbarRowBox.height, height, `Studio toolbar row must remain one ${height}px row`)
+  return { toolbar, toolbarRow, content, toolbarBox, toolbarRowBox: toolbarRowBox ?? toolbarBox, contentBox }
 }
 
 async function measureComponentToolbar(label, compact = false) {
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   const studio = await studioToolbar(36)
   const centerBox = await page.locator('.studio-center-workspace').boundingBox()
-  assert.equal(studio.toolbarBox.x, centerBox.x)
-  assert.equal(studio.toolbarBox.width, centerBox.width)
-  const groups = studio.content.locator(':scope > [role="group"]')
+  const workPageSwitch = page.locator('.component-workpage-navigation .component-workpage-switch')
+  const workPageSwitchBox = await workPageSwitch.boundingBox()
+  assert.ok(centerBox && workPageSwitchBox)
+  assert.equal(studio.toolbarRowBox.x, centerBox.x)
+  assert.equal(studio.toolbarRowBox.width, centerBox.width)
+  assert.equal(studio.toolbarBox.x, studio.toolbarRowBox.x)
+  assert.ok(studio.toolbarBox.width < studio.toolbarRowBox.width, `${label}: work-page switch must be outside the main toolbar`)
+  const workPageNavigationBox = await page.locator('.component-workpage-navigation').boundingBox()
+  assert.ok(workPageNavigationBox)
+  assert.ok(Math.abs(workPageNavigationBox.x - (studio.toolbarBox.x + studio.toolbarBox.width)) <= 1, `${label}: toolbar lanes must meet at the workspace divider`)
+  const groups = studio.content.locator('.component-canvas-commands > [role="group"]')
   assert.equal(await groups.count(), 3)
   const boxes = await Promise.all((await groups.all()).map((group) => group.boundingBox()))
   assert.ok(sameRow(boxes), `${label}: all three command families share one row`)

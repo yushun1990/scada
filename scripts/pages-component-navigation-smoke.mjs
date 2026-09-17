@@ -94,12 +94,12 @@ try {
   await assertNames(['文本 3', 'Group 1', '文本 2', '文本 1'])
   assert.equal(await row('文本 2').getAttribute('aria-pressed'), 'true')
 
-  await button('当前组件').click()
-  assert.equal(await page.locator('.component-layer-row.active').count(), 1, 'switching inspector scope preserves layer selection')
+  await button('Coding 开发').click()
   await page.locator('.component-root-inspector').waitFor()
+  assert.equal(await page.locator('.component-layer-row.active').count(), 1, 'switching central work page preserves layer selection')
   await row('文本 2').click()
   await row('文本 2').press('Escape')
-  await page.locator('.component-root-inspector').waitFor()
+  await button('图形化设计').click()
   assert.equal(await page.locator('.component-layer-row.active').count(), 0)
 
   // Both history stacks are populated so Preview cannot pass by having nothing to undo.
