@@ -2376,7 +2376,10 @@ export function ComponentVisualCanvas({
                     listening={isEditable}
                     draggableLayerId={isEditable && !activeCreateTool ? primaryLayerId : undefined}
                     dragEnabled={isEditable && !activeCreateTool}
-                    nonScalingStrokes={isEditable}
+                    // Stroke-width compensation is a viewing property of the
+                    // fitted artboard: keep it on in preview so switching
+                    // 设计/预览 never changes apparent stroke weight.
+                    nonScalingStrokes={isComposite}
                   />
                   {activeCreateTool && createGeometry && (
                     <Group scaleX={artboardScale} scaleY={artboardScale} listening={false}>
