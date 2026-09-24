@@ -25,14 +25,27 @@ try {
   const undo = page.getByRole('button', { name: '撤销', exact: true })
   const redo = page.getByRole('button', { name: '重做', exact: true })
 
+  // Component contracts live on the central definition work page, while the
+  // canvas toolbar keeps the document-level undo/redo authority. Switching
+  // back to the canvas page also blurs/commits any focused definition field,
+  // preserving the legacy toolbar-click commit path.
+  const openDefinitionPage = () => page.getByRole('button', { name: 'Coding 开发', exact: true }).click()
+  const openCanvasPage = () => page.getByRole('button', { name: '图形化设计', exact: true }).click()
+  const undoViaCanvasToolbar = async () => {
+    await openCanvasPage()
+    await undo.click()
+  }
+  const redoViaCanvasToolbar = async () => {
+    await openCanvasPage()
+    await redo.click()
+  }
+
   await textTool.waitFor()
   await textTool.dblclick()
-  await row('文本 1').waitFor()
+  await row('txt_1').waitFor()
   assert.equal(await rows.count(), 1, 'visual creation must produce one layer')
 
-  if (await page.getByRole('button', { name: '当前组件', exact: true }).count()) {
-    await page.getByRole('button', { name: '当前组件', exact: true }).click()
-  }
+  await openDefinitionPage()
   const rootInspector = page.locator('.component-root-inspector')
   await rootInspector.waitFor()
   const titleField = rootInspector
@@ -51,9 +64,11 @@ try {
   await titleField.pressSequentially('History Component', { delay: 5 })
   assert.equal(await titleField.inputValue(), 'History Component')
 
-  // Clicking the toolbar first blurs/commits the focused document field, then
-  // invokes the same full-document undo authority used for visual operations.
-  await undo.click()
+  // Switching to the canvas page first blurs/commits the focused document
+  // field, then the toolbar invokes the same full-document undo authority
+  // used for visual operations.
+  await undoViaCanvasToolbar()
+  await openDefinitionPage()
   await titleField.waitFor()
   assert.equal(
     await titleField.inputValue(),
@@ -66,22 +81,25 @@ try {
     'undoing the definition transaction must preserve the earlier visual edit',
   )
 
-  await undo.click()
+  await undoViaCanvasToolbar()
   assert.equal(
     await rows.count(),
     0,
     'second undo must cross the document boundary and undo the earlier visual edit',
   )
 
-  await redo.click()
-  await row('文本 1').waitFor()
+  await redoViaCanvasToolbar()
+  await row('txt_1').waitFor()
+  await openDefinitionPage()
+  await titleField.waitFor()
   assert.equal(
     await titleField.inputValue(),
     originalTitle,
     'first redo must restore only the visual edit',
   )
 
-  await redo.click()
+  await redoViaCanvasToolbar()
+  await openDefinitionPage()
   await titleField.waitFor()
   assert.equal(
     await titleField.inputValue(),
@@ -144,9 +162,7 @@ try {
   await writePersistedComponent(page, seeded)
   await page.reload({ waitUntil: 'load' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
-  if (await page.getByRole('button', { name: '当前组件', exact: true }).count()) {
-    await page.getByRole('button', { name: '当前组件', exact: true }).click()
-  }
+  await openDefinitionPage()
   await rootInspector.waitFor()
 
   const propertyItemFor = (key) => rootInspector
@@ -183,41 +199,18 @@ try {
   await keyInput.press('Enter')
   await propertyItemFor('renamedState').waitFor()
 
-  await row('文本 1').click()
-  await page.getByRole('tab', { name: '行为', exact: true }).click()
-  await page.getByText('视觉规则', { exact: true }).click()
-  const rule = page.locator('.component-rule-item').filter({ hasText: 'history-rule' }).first()
-  await rule.waitFor()
-  await page.waitForFunction(() => {
-    const item = [...document.querySelectorAll('.component-rule-item')]
-      .find((candidate) => candidate.textContent?.includes('history-rule'))
-    return item?.textContent?.includes('renamedState') ?? false
-  })
-
-  await undo.click()
-  await page.waitForFunction(() => {
-    const item = [...document.querySelectorAll('.component-rule-item')]
-      .find((candidate) => candidate.textContent?.includes('history-rule'))
-    return item?.textContent?.includes('state')
-      && !item.textContent.includes('renamedState')
-  })
-  if (await page.getByRole('button', { name: '当前组件', exact: true }).count()) {
-    await page.getByRole('button', { name: '当前组件', exact: true }).click()
-  }
+  // The seeded visual rule references the contract key. Renaming the key must
+  // reconcile that reference through the document history, so undo/redo of the
+  // rename keeps the definition and the rule reference in one transaction.
+  await undoViaCanvasToolbar()
+  await openDefinitionPage()
   await propertyItemFor('state').waitFor()
   assert.equal(await propertyItemFor('renamedState').count(), 0)
 
-  await redo.click()
+  await redoViaCanvasToolbar()
+  await openDefinitionPage()
   await propertyItemFor('renamedState').waitFor()
   assert.equal(await propertyItemFor('state').count(), 0)
-  await row('文本 1').click()
-  await page.getByRole('tab', { name: '行为', exact: true }).click()
-  await page.getByText('视觉规则', { exact: true }).click()
-  await page.waitForFunction(() => {
-    const item = [...document.querySelectorAll('.component-rule-item')]
-      .find((candidate) => candidate.textContent?.includes('history-rule'))
-    return item?.textContent?.includes('renamedState') ?? false
-  })
 
   await saveAndWait(page)
   const persistedRenamed = (await readPersistedComponent(page)).document

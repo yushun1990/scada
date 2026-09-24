@@ -17,8 +17,25 @@ function layerRow(name) {
   return page.locator('.component-layer-row', { hasText: name }).first()
 }
 
+// The right-panel geometry inspector trails the Navigator selection by one
+// React render; wait until the clicked row is active and the input values
+// settle before touching them, otherwise fills and readbacks can land on the
+// previously selected layer.
+async function waitForInspectorSelection(name) {
+  await page.locator('.component-layer-row.active').filter({ hasText: name }).first().waitFor()
+  const inputs = page.locator('.component-layer-geometry-grid input')
+  let previous = await inputs.nth(0).inputValue()
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await page.waitForTimeout(60)
+    const current = await inputs.nth(0).inputValue()
+    if (current === previous) return
+    previous = current
+  }
+}
+
 async function setGeometry(name, x, y, width, height) {
   await layerRow(name).click()
+  await waitForInspectorSelection(name)
   const inputs = page.locator('.component-layer-geometry-grid input')
   assert.equal(await inputs.count(), 7, `geometry inspector missing for ${name}`)
   await inputs.nth(0).fill(String(x))
@@ -29,6 +46,7 @@ async function setGeometry(name, x, y, width, height) {
 
 async function readGeometry(name) {
   await layerRow(name).click()
+  await waitForInspectorSelection(name)
   const inputs = page.locator('.component-layer-geometry-grid input')
   return {
     x: Number(await inputs.nth(0).inputValue()),
@@ -86,13 +104,13 @@ try {
       const before = new Set(existingNames)
       return [...document.querySelectorAll('.component-layer-name')].some((node) => {
         const name = node.textContent?.trim() ?? ''
-        return name.startsWith('文本 ') && !before.has(name)
+        return name.startsWith('txt_') && !before.has(name)
       })
     }, [...beforeNames])
 
     const createdName = (await page.locator('.component-layer-name').allTextContents())
       .map((name) => name.trim())
-      .find((name) => name.startsWith('文本 ') && !beforeNames.has(name))
+      .find((name) => name.startsWith('txt_') && !beforeNames.has(name))
 
     assert.ok(createdName, 'text creation must expose a new Navigator layer name')
     return createdName
@@ -117,8 +135,8 @@ try {
   await setGeometry(bottomFixtureA, 48, 48, 128, 128)
   const bottomFixtureB = await addTextFixtureLayer()
   await setGeometry(bottomFixtureB, 48, 48, 128, 128)
-  await groupLayers([bottomFixtureA, bottomFixtureB], 'Group 1')
-  await setGeometry('Group 1', 48, 48, 128, 128)
+  await groupLayers([bottomFixtureA, bottomFixtureB], 'grp_1')
+  await setGeometry('grp_1', 48, 48, 128, 128)
 
   // Empty sibling Group placed exactly over the visible bottom Group. Empty
   // Groups remain a valid persisted/legacy structure, but the fixture reaches
@@ -127,8 +145,8 @@ try {
   await setGeometry(overlayFixtureA, 48, 48, 128, 128)
   const overlayFixtureB = await addTextFixtureLayer()
   await setGeometry(overlayFixtureB, 48, 48, 128, 128)
-  await groupLayers([overlayFixtureA, overlayFixtureB], 'Group 2')
-  await setGeometry('Group 2', 48, 48, 128, 128)
+  await groupLayers([overlayFixtureA, overlayFixtureB], 'grp_2')
+  await setGeometry('grp_2', 48, 48, 128, 128)
   await deleteLayer(overlayFixtureA)
   await deleteLayer(overlayFixtureB)
 
@@ -139,8 +157,8 @@ try {
   await setGeometry(modifierFixtureA, 240, 48, 96, 96)
   const modifierFixtureB = await addTextFixtureLayer()
   await setGeometry(modifierFixtureB, 240, 48, 96, 96)
-  await groupLayers([modifierFixtureA, modifierFixtureB], 'Group 3')
-  await setGeometry('Group 3', 240, 48, 96, 96)
+  await groupLayers([modifierFixtureA, modifierFixtureB], 'grp_3')
+  await setGeometry('grp_3', 240, 48, 96, 96)
   await deleteLayer(modifierFixtureA)
   await deleteLayer(modifierFixtureB)
 
@@ -173,7 +191,7 @@ try {
   // discoverable by its geometry even though it draws no pixels.
   await clearLayerSelection()
   assert.equal(
-    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    await layerRow('grp_2').evaluate((node) => node.classList.contains('active')),
     false,
     'empty overlay must start unselected',
   )
@@ -181,12 +199,12 @@ try {
   await page.mouse.click(overlayCenter.x, overlayCenter.y)
 
   assert.equal(
-    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    await layerRow('grp_2').evaluate((node) => node.classList.contains('active')),
     true,
     'clicking an unselected empty overlay Group on canvas must select that Group',
   )
   assert.equal(
-    await layerRow('Group 1').evaluate((node) => node.classList.contains('active')),
+    await layerRow('grp_1').evaluate((node) => node.classList.contains('active')),
     false,
     'bottom Group must not steal the first canvas click through the empty overlay Group',
   )
@@ -199,7 +217,7 @@ try {
   // A second click while selected must still stay on the empty Group.
   await page.mouse.click(overlayCenter.x, overlayCenter.y)
   assert.equal(
-    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    await layerRow('grp_2').evaluate((node) => node.classList.contains('active')),
     true,
     'clicking inside the selected empty overlay Group must keep that Group selected',
   )
@@ -207,9 +225,9 @@ try {
   // Drag from the same blank area with snapping disabled. This verifies the
   // Konva hit target itself, not only React selection state: only the empty
   // overlay Group may move.
-  const bottomBefore = await readGeometry('Group 1')
-  const overlayBefore = await readGeometry('Group 2')
-  await layerRow('Group 2').click()
+  const bottomBefore = await readGeometry('grp_1')
+  const overlayBefore = await readGeometry('grp_2')
+  await layerRow('grp_2').click()
   const snapButton = page.getByRole('button', { name: '吸附' })
   if ((await snapButton.getAttribute('aria-pressed')) === 'true') {
     await snapButton.click()
@@ -220,8 +238,8 @@ try {
   await page.mouse.move(overlayCenter.x + 24 * scaleX, overlayCenter.y + 16 * scaleY, { steps: 4 })
   await page.mouse.up()
 
-  const bottomAfter = await readGeometry('Group 1')
-  const overlayAfter = await readGeometry('Group 2')
+  const bottomAfter = await readGeometry('grp_1')
+  const overlayAfter = await readGeometry('grp_2')
   assert.equal(bottomAfter.x, bottomBefore.x, 'dragging selected empty overlay must not move bottom Group x')
   assert.equal(bottomAfter.y, bottomBefore.y, 'dragging selected empty overlay must not move bottom Group y')
   assert.ok(
@@ -233,26 +251,30 @@ try {
   // selection state. Start with no internal selection, click Group 2, then
   // Ctrl-click Group 3 directly on the canvas.
   const group2Center = canvasPoint(overlayAfter.x + 64, overlayAfter.y + 64)
-  const group3Before = await readGeometry('Group 3')
+  const group3Before = await readGeometry('grp_3')
   const group3Center = canvasPoint(group3Before.x + 48, group3Before.y + 48)
   await clearLayerSelection()
   await page.mouse.click(group2Center.x, group2Center.y)
+  await page.locator('.component-layer-row.active').filter({ hasText: 'grp_2' }).first().waitFor()
   await page.keyboard.down('Control')
   await page.mouse.click(group3Center.x, group3Center.y)
   await page.keyboard.up('Control')
 
+  // Selection state settles asynchronously after the canvas click; wait for
+  // both rows before counting instead of asserting an immediate snapshot.
+  await page.locator('.component-layer-row.active').filter({ hasText: 'grp_3' }).first().waitFor()
   assert.equal(
     await page.locator('.component-layer-row.active').count(),
     2,
     'canvas Ctrl-click must create a two-layer shared selection',
   )
   assert.equal(
-    await layerRow('Group 2').evaluate((node) => node.classList.contains('active')),
+    await layerRow('grp_2').evaluate((node) => node.classList.contains('active')),
     true,
     'canvas selection must be reflected by Group 2 in the Navigator',
   )
   assert.equal(
-    await layerRow('Group 3').evaluate((node) => node.classList.contains('active')),
+    await layerRow('grp_3').evaluate((node) => node.classList.contains('active')),
     true,
     'canvas modifier selection must be reflected by Group 3 in the Navigator',
   )
@@ -264,7 +286,7 @@ try {
   // 24-unit grid. This destination is away from sibling edges, so object snap
   // cannot legitimately win over the grid after a fractional-scale free drag.
   // Release must persist on the (288, 216) grid point.
-  await layerRow('Group 3').click()
+  await layerRow('grp_3').click()
   if ((await snapButton.getAttribute('aria-pressed')) !== 'true') {
     await snapButton.click()
   }
@@ -290,6 +312,12 @@ try {
   )
 
   await page.mouse.up()
+  // The snap commit lands asynchronously after pointer release; wait for the
+  // geometry input to leave the pre-drag value before asserting the snap.
+  await page.waitForFunction((previousX) => {
+    const input = document.querySelectorAll('.component-layer-geometry-grid input')[0]
+    return input instanceof HTMLInputElement && Number(input.value) !== previousX
+  }, group3Before.x)
   assertClose(Number(await geometryInputs.nth(0).inputValue()), 288, 'dragend snaps Group 3 x once')
   assertClose(Number(await geometryInputs.nth(1).inputValue()), 216, 'dragend snaps Group 3 y once')
 

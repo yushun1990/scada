@@ -104,6 +104,7 @@ import {
   type SegmentedControlItem,
   type StudioTabItem,
 } from '../../ui'
+import { ColorPickerInput } from '../component-library/ColorPickerInput'
 
 type InspectorTab = 'properties' | 'actions' | 'events'
 type LeftDockTab = 'components' | 'layers'
@@ -1193,19 +1194,19 @@ export function ScadaEditorPage({
                   <div className="property-grid">
                     <label className="property-field compact">
                       <span>颜色</span>
-                      <Input
-                        className="color-input"
-                        type="color"
+                      <ColorPickerInput
                         value={selectedConnection.style.stroke}
                         disabled={!designEditingEnabled}
-                        onChange={(event) => {
-                          const stroke = event.target.value
+                        ariaLabel="连接线颜色"
+                        placeholder="#2563eb"
+                        clearValue="transparent"
+                        onChange={(stroke) => {
                           updateConnection(selectedConnection.id, (connection) => ({
                             ...connection,
                             style: { ...connection.style, stroke },
                           }))
+                          commitScene()
                         }}
-                        onBlur={commitScene}
                       />
                     </label>
                     <label className="property-field compact">

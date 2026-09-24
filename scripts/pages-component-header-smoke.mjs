@@ -3,7 +3,10 @@ import { chromium } from 'playwright'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/').replace(/\/?$/, '/')
 const browser = await chromium.launch({ headless: true })
-const page = await browser.newPage({ viewport: { width: 1200, height: 800 } })
+// The geometry command group collapses into the compact arrange menu below the
+// ~700px container breakpoint; keep the viewport wide enough for the full
+// 28px button targets this smoke asserts.
+const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
 const errors = []
 page.on('pageerror', (error) => errors.push(error.message))
 

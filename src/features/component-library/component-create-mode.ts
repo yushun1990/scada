@@ -4,7 +4,7 @@ import type {
   VectorVisualLayer,
 } from '../../component-system/visual'
 
-export type DrawableVisualPrimitive = 'rect' | 'ellipse' | 'line'
+export type DrawableVisualPrimitive = 'rect' | 'ellipse' | 'line' | 'polygon' | 'arc' | 'scale'
 
 export type ComponentCreateTool = {
   kind: 'vector'
@@ -12,6 +12,12 @@ export type ComponentCreateTool = {
   label: string
   defaultWidth: number
   defaultHeight: number
+  initialStyle?: Partial<VectorVisualLayer['style']>
+  initialSides?: number
+  initialAngle?: number
+  initialInnerRadiusRatio?: number
+  initialScaleMode?: 'auto' | 'fixed'
+  initialTickSpacing?: number
 }
 
 export type ComponentDesignPoint = {
@@ -79,6 +85,9 @@ export function isDrawableVisualPrimitive(
   return primitive === 'rect'
     || primitive === 'ellipse'
     || primitive === 'line'
+    || primitive === 'polygon'
+    || primitive === 'arc'
+    || primitive === 'scale'
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -154,7 +163,7 @@ export function resolveComponentCreateGeometry(
     }
   }
 
-  if (tool.primitive === 'ellipse' && constrainAspectRatio) {
+  if ((tool.primitive === 'ellipse' || tool.primitive === 'polygon' || tool.primitive === 'arc') && constrainAspectRatio) {
     return constrainedSquareGeometry(start, dx, dy, designWidth, designHeight)
   }
 
@@ -174,12 +183,23 @@ export function resolveComponentCreateGeometry(
   }
 }
 
-function nextVectorLayerId(visual: ComponentVisualDefinition) {
-  const ids = new Set(visual.layers.map((layer) => layer.id))
+function nextVectorLayerName(visual: ComponentVisualDefinition, primitive: DrawableVisualPrimitive) {
+  const existing = new Set(visual.layers.flatMap((layer) => [layer.id, layer.name]))
+  const prefix = primitive === 'rect'
+    ? 'rect'
+    : primitive === 'ellipse'
+      ? 'circ'
+      : primitive === 'polygon'
+        ? 'poly'
+        : primitive === 'arc'
+          ? 'arc'
+          : primitive === 'scale'
+            ? 'scale'
+            : 'line'
   let index = 1
 
-  while (ids.has(`vector${index}`)) index += 1
-  return `vector${index}`
+  while (existing.has(`${prefix}_${index}`)) index += 1
+  return `${prefix}_${index}`
 }
 
 export function appendCreatedVectorLayer(
@@ -191,11 +211,28 @@ export function appendCreatedVectorLayer(
     return { visual, layerId: null as string | null }
   }
 
-  const id = nextVectorLayerId(visual)
-  const suffix = id.replace(/\D+/g, '')
+  const name = nextVectorLayerName(visual, tool.primitive)
+  const defaultLineStyle = {
+    fill: 'transparent',
+    stroke: '#64748b',
+    strokeWidth: 2,
+    lineCap: 'round' as const,
+    startMarker: 'none' as const,
+    endMarker: 'none' as const,
+    dash: 'solid' as const,
+  }
+
+  const defaultScaleStyle = {
+    fill: 'transparent',
+    stroke: '#94a3b8',
+    strokeWidth: 1.5,
+    lineCap: 'butt' as const,
+    dash: 'solid' as const,
+  }
+
   const layer: VectorVisualLayer = {
-    id,
-    name: `${tool.label} ${suffix}`.trim(),
+    id: name,
+    name,
     kind: 'vector',
     parentId: null,
     transform: {
@@ -203,13 +240,36 @@ export function appendCreatedVectorLayer(
       scaleX: 1,
       scaleY: 1,
     },
+    origin: 'top-left',
     visible: true,
     opacity: 1,
     primitive: tool.primitive,
+    sides: tool.primitive === 'polygon' ? (tool.initialSides ?? 3) : undefined,
+    angle: tool.primitive === 'arc' ? (tool.initialAngle ?? 270) : undefined,
+    innerRadiusRatio: tool.primitive === 'arc' ? (tool.initialInnerRadiusRatio ?? 0) : undefined,
+    scaleMode: tool.primitive === 'scale' ? (tool.initialScaleMode ?? 'auto') : undefined,
+    tickSpacing: tool.primitive === 'scale' ? (tool.initialTickSpacing ?? 24) : undefined,
+    subDivisions: tool.primitive === 'scale' ? 2 : undefined,
+    tickLength: tool.primitive === 'scale' ? 12 : undefined,
+    subTickLength: tool.primitive === 'scale' ? 6 : undefined,
+    tickPlacement: tool.primitive === 'scale' ? 'right' : undefined,
+    showAxis: tool.primitive === 'scale' ? true : undefined,
+    showLabels: tool.primitive === 'scale' ? false : undefined,
+    labelStart: tool.primitive === 'scale' ? 0 : undefined,
+    minTickValue: tool.primitive === 'scale' ? 1 : undefined,
+    labelDirection: tool.primitive === 'scale' ? 'bottomUp' : undefined,
+    labelFontSize: tool.primitive === 'scale' ? 10 : undefined,
+    labelDecimals: tool.primitive === 'scale' ? 0 : undefined,
+    style: tool.primitive === 'line'
+      ? { ...defaultLineStyle, ...tool.initialStyle }
+      : tool.primitive === 'scale'
+        ? { ...defaultScaleStyle, ...tool.initialStyle }
+        : tool.initialStyle ? { fill: '#cbd5e1', stroke: '#64748b', strokeWidth: 1, ...tool.initialStyle } : undefined,
   }
 
   return {
     visual: { ...visual, layers: [...visual.layers, layer] },
-    layerId: id,
+    layerId: name,
   }
 }
+

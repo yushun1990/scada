@@ -17,6 +17,8 @@ const unsafeStyledSvg = `
 `.trim()
 
 const styledSvg = `
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg
   xmlns="http://www.w3.org/2000/svg"
   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
@@ -74,7 +76,7 @@ function selectedAssetReplacementControl() {
 
 async function waitForAssetInputReady() {
   await page.waitForFunction(() => {
-    const input = document.querySelector('.component-palette-resource-input')
+    const input = document.querySelector('.component-palette-resource-library .component-palette-resource-input')
     return input instanceof HTMLInputElement && !input.disabled && input.value === ''
   })
 }

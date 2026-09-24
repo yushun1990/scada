@@ -33,7 +33,7 @@ try {
   // history. Establish that identity before exercising drop undo/redo.
   await saveAndWait(page)
   const source = (name) => palette.getByRole('button', { name, exact: true })
-  for (const [index, name] of ['矩形', '圆/椭圆', '线段', '文本'].entries()) {
+  for (const [index, name] of ['矩形', '圆/椭圆', '直线', '文本'].entries()) {
     console.log(`Dragging ${name}`)
     await dragToArtboard(source(name))
     await expectLayerCount(index + 1)
@@ -58,7 +58,7 @@ try {
     context.fillRect(0, 0, 60, 40)
     return canvas.toDataURL('image/png').split(',')[1]
   })
-  await page.locator('.component-palette-resource-input').setInputFiles([
+  await page.locator('.component-palette-resource-library .component-palette-resource-input').setInputFiles([
     { name: 'drop-vector.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="#137766"/></svg>') },
     { name: 'drop-image.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') },
   ])

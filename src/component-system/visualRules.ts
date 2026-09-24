@@ -12,6 +12,8 @@ import {
   updateManagedSvgElementPresentation,
   type ManagedSvgPresentationField,
 } from './managedSvgAuthoring'
+import { serializeManagedSvgDataUrl } from './managedSvg'
+import { applyThemeToManagedSvgDocument } from './managedSvgTheme'
 import {
   cloneComponentVisual,
   resolveVisualAssetStyle,
@@ -52,7 +54,12 @@ export type VisualRuleTargetField =
   | 'style.align'
   | 'style.verticalAlign'
   | 'style.lineHeight'
+  | 'style.backgroundColor'
+  | 'style.borderColor'
+  | 'style.borderWidth'
+  | 'style.borderVisible'
   | 'style.fit'
+  | 'svg.themeState'
 
 export type VisualRuleValueSource = {
   namespace: 'attribute' | 'property'
@@ -191,7 +198,14 @@ function targetAcceptsValue(
   }
 
   if (layer.kind === 'text') {
-    if (target === 'style.fill' || target === 'style.fontFamily') return typeof value === 'string'
+    if (
+      target === 'style.fill' ||
+      target === 'style.fontFamily' ||
+      target === 'style.backgroundColor' ||
+      target === 'style.borderColor'
+    ) return typeof value === 'string'
+    if (target === 'style.borderVisible') return typeof value === 'boolean'
+    if (target === 'style.borderWidth') return typeof value === 'number' && value >= 0
     if (target === 'style.fontSize' || target === 'style.lineHeight') {
       return typeof value === 'number' && value > 0
     }
@@ -208,6 +222,10 @@ function targetAcceptsValue(
 
   if ((layer.kind === 'svg' || layer.kind === 'image') && target === 'style.fit') {
     return typeof value === 'string' && ASSET_FITS.has(value as VisualAssetFit)
+  }
+
+  if (layer.kind === 'svg' && target === 'svg.themeState') {
+    return typeof value === 'string' && value.trim().length > 0
   }
 
   return false
@@ -292,9 +310,16 @@ export function visualRuleTargetsForLayer(layer: ComponentVisualLayer): VisualRu
       'style.align',
       'style.verticalAlign',
       'style.lineHeight',
+      'style.backgroundColor',
+      'style.borderColor',
+      'style.borderWidth',
+      'style.borderVisible',
     ]
   }
-  if (layer.kind === 'svg' || layer.kind === 'image') {
+  if (layer.kind === 'svg') {
+    return [...common, 'style.fit', 'svg.themeState']
+  }
+  if (layer.kind === 'image') {
     return [...common, 'style.fit']
   }
   return common
@@ -463,6 +488,16 @@ function applyRuleTarget(
     const style = resolveVisualTextStyle(layer)
     const field = target.slice('style.'.length) as keyof typeof style
     return { ...layer, style: { ...style, [field]: value } }
+  }
+
+  if (layer.kind === 'svg' && target === 'svg.themeState') {
+    if (!layer.document) return layer
+    const document = applyThemeToManagedSvgDocument(layer.document, String(value))
+    return {
+      ...layer,
+      document,
+      assetRef: serializeManagedSvgDataUrl(document),
+    }
   }
 
   if (layer.kind === 'svg' || layer.kind === 'image') {

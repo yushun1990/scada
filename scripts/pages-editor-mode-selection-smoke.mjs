@@ -21,6 +21,9 @@ async function waitForSaveStatus(text) {
 
 async function scenePointAt(clientX, clientY) {
   await page.mouse.move(clientX, clientY)
+  // The pointer readout trails the mousemove by a frame; let it settle before
+  // sampling or the mapping inherits the previous position's coordinates.
+  await page.waitForTimeout(60)
   const text = await page.locator('.pointer-position').textContent()
   const match = /^X\s+(-?\d+)\s+Y\s+(-?\d+)$/.exec(text?.trim() ?? '')
   return match ? { x: Number(match[1]), y: Number(match[2]) } : null
@@ -85,9 +88,13 @@ async function resolveSceneToClientMapping() {
 }
 
 async function clickSceneNode(sceneNode, toClient, { shift = false } = {}) {
+  // The fixture tank graphic fills only the left portion of its component box
+  // (the body occupies roughly x 15..165 of a 320px design), so the box center
+  // lands on transparent canvas. Click the painted body region instead — the
+  // scene uses precise hit testing and empty areas must stay unselectable.
   const center = toClient(
-    sceneNode.transform.x + sceneNode.transform.width / 2,
-    sceneNode.transform.y + sceneNode.transform.height / 2,
+    sceneNode.transform.x + sceneNode.transform.width * 0.28,
+    sceneNode.transform.y + sceneNode.transform.height * 0.55,
   )
   const canvas = await page.locator('.konva-host canvas').first().boundingBox()
   assert.ok(canvas && center.x > canvas.x && center.x < canvas.x + canvas.width

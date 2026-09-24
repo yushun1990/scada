@@ -3,16 +3,20 @@
   --ui-font-sans: system-ui, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
   --ui-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
-  --ui-font-size-status: 11px;
-  --ui-line-height-status: 16px;
-  --ui-font-size-tool: 12px;
-  --ui-line-height-tool: 18px;
-  --ui-font-size-body: 13px;
-  --ui-line-height-body: 20px;
-  --ui-font-size-title: 13px;
-  --ui-line-height-title: 20px;
-  --ui-font-size-workbench-title: 18px;
-  --ui-line-height-workbench-title: 24px;
+  --ui-font-size-caption: 10px;
+  --ui-line-height-caption: 14px;
+  --ui-font-size-compact: 11px;
+  --ui-line-height-compact: 16px;
+  --ui-font-size-status: 12px;
+  --ui-line-height-status: 18px;
+  --ui-font-size-tool: 13px;
+  --ui-line-height-tool: 20px;
+  --ui-font-size-body: 14px;
+  --ui-line-height-body: 22px;
+  --ui-font-size-title: 14px;
+  --ui-line-height-title: 22px;
+  --ui-font-size-workbench-title: 20px;
+  --ui-line-height-workbench-title: 26px;
   --ui-font-size-page-title: var(--ui-font-size-workbench-title);
 
   /* One neutral light palette and one interaction accent. */
@@ -75,12 +79,12 @@
   --ui-document-header-height: 44px;
   --ui-main-toolbar-height: 36px;
   --ui-status-height: 26px;
-  --ui-left-dock-width: 248px;
-  --ui-right-inspector-width: 320px;
-  --ui-left-dock-min-width: 208px;
-  --ui-left-dock-max-width: 360px;
-  --ui-right-inspector-min-width: 280px;
-  --ui-right-inspector-max-width: 440px;
+  --ui-left-dock-width: 360px;
+  --ui-right-inspector-width: 360px;
+  --ui-left-dock-min-width: 280px;
+  --ui-left-dock-max-width: 500px;
+  --ui-right-inspector-min-width: 300px;
+  --ui-right-inspector-max-width: 500px;
 
   --ui-toolbar-height: var(--ui-main-toolbar-height);
 

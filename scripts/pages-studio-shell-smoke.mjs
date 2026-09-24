@@ -39,6 +39,7 @@ async function shellGeometry() {
       canvas: box('.studio-canvas-content'),
       header: box('.studio-document-header'),
       toolbar: box('.studio-main-toolbar'),
+      toolbarNavigation: box('.component-workpage-navigation'),
       status: box('.studio-status-bar'),
       left: box('.studio-left-panel:not([hidden])'),
       center: box('.studio-center-workspace'),
@@ -70,7 +71,13 @@ async function assertShellGeometry({ panels = true } = {}) {
     closeTo(geometry.center.y, geometry.header.y + geometry.header.height)
     closeTo(geometry.canvas.y, geometry.toolbar.y + geometry.toolbar.height)
     closeTo(geometry.toolbar.x, geometry.center.x)
-    closeTo(geometry.toolbar.width, geometry.center.width)
+    // The component studio reserves a trailing navigation slot inside the
+    // toolbar row for the work-page switch; the toolbar plus that slot must
+    // still account for the full center workspace width.
+    closeTo(
+      geometry.toolbar.width + (geometry.toolbarNavigation ? geometry.toolbarNavigation.width : 0),
+      geometry.center.width,
+    )
   } else {
     closeTo(geometry.center.y, geometry.toolbar.y + geometry.toolbar.height)
   }
@@ -86,12 +93,26 @@ async function assertShellGeometry({ panels = true } = {}) {
   return geometry
 }
 
+async function waitForShellGeometrySettled() {
+  // Panel and toolbar geometry eases over ~360ms (--component-workspace-motion);
+  // sample until two consecutive reads agree before asserting exact boxes.
+  let previous = JSON.stringify(await shellGeometry())
+  for (let attempt = 0; attempt < 12; attempt++) {
+    await page.waitForTimeout(100)
+    const current = JSON.stringify(await shellGeometry())
+    if (current === previous) return
+    previous = current
+  }
+}
+
 async function assertPanelVisibilityLayout() {
   for (const action of ['收起左侧面板', '收起右侧面板', '展开左侧面板', '展开右侧面板']) {
     await page.getByRole('button', { name: action, exact: true }).click()
     assert.equal(await page.locator('.studio-panel-toggle:focus').count(), 1, 'collapse keeps a reachable keyboard focus')
+    await waitForShellGeometrySettled()
     await assertShellGeometry({ panels: false })
   }
+  await waitForShellGeometrySettled()
   await assertShellGeometry()
 }
 
@@ -104,8 +125,8 @@ try {
 
   assert.equal(await page.getByRole('button', { name: '布局', exact: true }).count(), 0, 'panel controls belong at the sidebar edges')
   let geometry = await assertShellGeometry()
-  closeTo(geometry.left.width, 248)
-  closeTo(geometry.right.width, 320)
+  closeTo(geometry.left.width, 360)
+  closeTo(geometry.right.width, 360)
   assert.ok(await page.getByRole('button', { name: '保存', exact: true }).isVisible())
   assert.ok(await page.getByRole('button', { name: '设计', exact: true }).isVisible())
   assert.ok(await page.locator('.studio-right-panel .semantic-inspector').isVisible())
@@ -143,15 +164,15 @@ try {
 
   await page.getByRole('button', { name: '展开右侧面板', exact: true }).click()
   await page.locator('.studio-panel-resizer-left').press('Enter')
-  await page.waitForTimeout(100)
+  await waitForShellGeometrySettled()
   geometry = await assertShellGeometry()
-  closeTo(geometry.left.width, 248)
-  closeTo(geometry.right.width, 320)
+  closeTo(geometry.left.width, 360)
+  closeTo(geometry.right.width, 360)
 
   await page.setViewportSize({ width: 1440, height: 900 })
   geometry = await assertShellGeometry()
-  closeTo(geometry.left.width, 248)
-  closeTo(geometry.right.width, 320)
+  closeTo(geometry.left.width, 360)
+  closeTo(geometry.right.width, 360)
   await page.setViewportSize({ width: 1366, height: 768 })
   await assertShellGeometry()
 
@@ -176,8 +197,8 @@ try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await waitForStudioShell('.studio-shell.component-studio-shell')
   geometry = await assertShellGeometry()
-  closeTo(geometry.left.width, 248)
-  closeTo(geometry.right.width, 320)
+  closeTo(geometry.left.width, 360)
+  closeTo(geometry.right.width, 360)
   const editHost = page.locator('.component-edit-command-host')
   const viewHost = page.locator('.component-view-command-host')
   await editHost.getByRole('button', { name: '撤销' }).waitFor()

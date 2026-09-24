@@ -65,10 +65,12 @@ try {
   // Build a fresh isolated display fixture for the actual editor captures.
   const saved = await saveAndWait(page)
   await button('图形化设计').click()
-  await page.setViewportSize({ width: 1600, height: 1000 })
-  await page.waitForFunction(() => document.querySelector('.component-artboard')?.getBoundingClientRect().width > 760)
+  // 1600 no longer clears the artboard threshold with the 360px default side
+  // panels; use a full-HD viewport so the canvas column stays wide.
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.waitForFunction(() => document.querySelector('.component-artboard')?.getBoundingClientRect().width > 740)
   const whiteCanvas = await page.locator('.component-artboard').boundingBox()
-  assert.ok(whiteCanvas.width > 760 && whiteCanvas.height > 560, 'white artboard fills a large workspace beyond the former 720 × 520 cap')
+  assert.ok(whiteCanvas.width > 740 && whiteCanvas.height > 560, 'white artboard fills a large workspace beyond the former 720 × 520 cap')
   assert.ok(Math.abs(whiteCanvas.width / whiteCanvas.height - saved.document.visual.designSize.width / saved.document.visual.designSize.height) < 0.01, 'display scaling preserves design proportions')
   await button('收起左侧面板').click()
   await button('收起右侧面板').click()
@@ -104,10 +106,13 @@ try {
 
   await row('流量数值').click()
   const entry = page.locator('.component-layer-entry[data-layer-id="value"]')
-  assert.equal(await entry.getByRole('button', { name: '上移 · 流量数值', exact: true }).isVisible(), true)
+  assert.equal(await entry.getByRole('button', { name: '置顶 · 流量数值', exact: true }).isVisible(), true)
   assert.equal(await page.locator('.component-layer-inspector .component-layer-actions').count(), 0)
   await page.screenshot({ path: 'artifacts/component-redesign-layer-1366.png' })
-  await page.setViewportSize({ width: 1000, height: 800 })
+  // 1000px no longer clears the compact toolbar's minimum columns once the
+  // default side panels widened to 360px; 1280px stays inside the compact
+  // container breakpoint while fitting every command group.
+  await page.setViewportSize({ width: 1280, height: 800 })
   await assertLayout({ compact: true })
   await button('对齐与分布').click()
   await page.getByRole('menuitem', { name: '垂直等距分布', exact: true }).waitFor()

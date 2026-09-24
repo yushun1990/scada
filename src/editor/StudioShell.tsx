@@ -64,8 +64,8 @@ type DragState = {
 
 function clampPanelWidth(side: PanelSide, value: number) {
   return side === 'left'
-    ? Math.min(360, Math.max(208, value))
-    : Math.min(440, Math.max(280, value))
+    ? Math.min(500, Math.max(260, value))
+    : Math.min(500, Math.max(300, value))
 }
 
 function useMediaQuery(query: string) {
@@ -132,11 +132,11 @@ function StudioPanelResizeHandle({
     } else if (event.key === 'ArrowRight') {
       next = width + (side === 'left' ? step : -step)
     } else if (event.key === 'Home') {
-      next = side === 'left' ? 208 : 280
+      next = side === 'left' ? 260 : 300
     } else if (event.key === 'End') {
-      next = side === 'left' ? 360 : 440
+      next = 500
     } else if (event.key === 'Enter') {
-      next = side === 'left' ? 248 : 320
+      next = 360
     }
 
     if (next === null) return
@@ -144,8 +144,8 @@ function StudioPanelResizeHandle({
     onWidthChange(clampPanelWidth(side, next))
   }
 
-  const min = side === 'left' ? 208 : 280
-  const max = side === 'left' ? 360 : 440
+  const min = side === 'left' ? 260 : 300
+  const max = 500
 
   return (
     <div
@@ -158,7 +158,7 @@ function StudioPanelResizeHandle({
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={Math.round(width)}
-      onDoubleClick={() => onWidthChange(side === 'left' ? 248 : 320)}
+      onDoubleClick={() => onWidthChange(360)}
       onPointerDown={beginDrag}
       onPointerMove={updateDrag}
       onPointerUp={finishDrag}
@@ -178,7 +178,7 @@ function StudioPanelRail({ side, visible, width, onToggle, onWidthChange }: {
   const label = `${visible ? '收起' : '展开'}${side === 'left' ? '左' : '右'}侧面板`
   const pointsLeft = side === 'left' ? visible : !visible
   return (
-    <div className={`studio-panel-rail studio-panel-rail-${side}`}>
+    <div className={`studio-panel-rail studio-panel-rail-${side}${visible ? ' is-visible' : ' is-collapsed'}`}>
       {visible && <StudioPanelResizeHandle side={side} width={width} onWidthChange={onWidthChange} />}
       <IconButton
         className="studio-panel-toggle"
@@ -271,7 +271,6 @@ export function StudioShell({
         <div className="studio-document-brand">
           <Button
             variant="ghost"
-            size="small"
             className="studio-workspace-nav"
             title={workspaceNavigationLabel}
             aria-label={workspaceNavigationLabel}
@@ -279,6 +278,9 @@ export function StudioShell({
           >
             工作台
           </Button>
+          <span className="studio-document-brand-divider" aria-hidden="true">
+            /
+          </span>
           <div className="studio-document-identity" title={`${documentTitle} · ${documentType}`}>
             <strong aria-label={`${documentTitle}${dirty ? '，未保存' : ''}`}>
               {documentTitle}{dirty ? ' *' : ''}

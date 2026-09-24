@@ -72,6 +72,18 @@ async function studioToolbar(height = 36) {
 
 async function measureComponentToolbar(label, compact = false) {
   await page.locator('.studio-shell.component-studio-shell').waitFor()
+  // Toolbar and navigation lanes ease over ~360ms after viewport changes;
+  // sample until both boxes stop moving so paired measurements agree.
+  let previous = ''
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const current = JSON.stringify(await page.evaluate(() => {
+      const read = (selector) => document.querySelector(selector)?.getBoundingClientRect().width ?? -1
+      return [read('.studio-main-toolbar'), read('.component-workpage-navigation')]
+    }))
+    if (current === previous) break
+    previous = current
+    await page.waitForTimeout(100)
+  }
   const studio = await studioToolbar(36)
   const centerBox = await page.locator('.studio-center-workspace').boundingBox()
   const workPageSwitch = page.locator('.component-workpage-navigation .component-workpage-switch')
@@ -200,11 +212,15 @@ try {
     'C2 must not restore a second Component canvas toolbar',
   )
 
+  // With the 360px default side panels, 1200px already lands inside the
+  // toolbar's compact container breakpoint; start wide for the full toolbar
+  // and use 1200px as the compact case that still fits every command group.
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await page.screenshot({ path: 'artifacts/component-toolbar-1600.png', fullPage: true })
+  await measureComponentToolbar('Component 1600px desktop')
+  await page.setViewportSize({ width: 1200, height: 900 })
+  await measureComponentToolbar('Component 1200px compact desktop', true)
   await page.screenshot({ path: 'artifacts/component-toolbar-1200.png', fullPage: true })
-  await measureComponentToolbar('Component 1200px desktop')
-  await page.setViewportSize({ width: 1000, height: 900 })
-  await measureComponentToolbar('Component 1000px compact desktop', true)
-  await page.screenshot({ path: 'artifacts/component-toolbar-1000.png', fullPage: true })
   // At a phone-sized viewport, panel visibility provides a usable canvas.
   for (const label of ['收起左侧面板', '收起右侧面板']) {
     await page.getByRole('button', { name: label, exact: true }).click()

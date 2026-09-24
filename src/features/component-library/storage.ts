@@ -1,6 +1,7 @@
 import { builtInComponentRegistrations } from '../../component-system/builtins'
 import { createEmptyCompositeVisual, createNativeVisual } from '../../component-system/visual'
 import { browserPersistence, ensureBrowserPersistenceReady } from '../../storage/browser-persistence'
+import { sampleStorageTankEntry } from './sample-tank'
 import {
   COMPONENT_PACKAGE_VERSION,
   cloneComponentDefinition,
@@ -132,6 +133,13 @@ export async function prepareComponentLibrary() {
     )
   }
   invalidInstalledRemoteRecordIds = installedResult.invalidRecordIds
+
+  if (!customCache.has(sampleStorageTankEntry.id)) {
+    customCache.set(
+      sampleStorageTankEntry.id,
+      cloneComponentLibraryEntry(sampleStorageTankEntry),
+    )
+  }
 
   customCacheReady = true
   refreshRuntimeActivation()

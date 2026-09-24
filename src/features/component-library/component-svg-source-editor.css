@@ -1,0 +1,1044 @@
+/* SVG Source Code Editor Styles */
+
+.component-svg-source-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+  flex: 1;
+  min-height: 0;
+}
+
+.component-svg-header-code-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-secondary);
+  border-radius: var(--ui-radius-control);
+}
+
+.component-svg-header-code-btn:hover {
+  color: var(--ui-color-primary);
+  background: var(--ui-color-surface-subtle);
+}
+
+.component-svg-tags-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+}
+
+.component-svg-tag-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+  flex: 1;
+  min-height: 0;
+}
+
+.component-svg-tag-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--ui-font-size-status);
+  color: var(--ui-color-text-muted);
+  padding-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.component-svg-tag-list-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+}
+
+.component-svg-tag-list-count {
+  font-weight: 600;
+  color: var(--ui-color-text);
+}
+
+.component-svg-tag-search-btn {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text-secondary);
+}
+
+.component-svg-tag-search-btn:hover,
+.component-svg-tag-search-btn.is-active {
+  color: var(--ui-color-accent);
+  background: var(--ui-color-accent-soft);
+}
+
+.component-svg-tag-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+  margin-bottom: var(--ui-space-2);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.component-svg-tag-search-input {
+  flex: 1;
+  font-size: 11px;
+}
+
+.component-svg-tag-search-clear {
+  position: absolute;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0;
+  font-size: 10px;
+  color: var(--ui-color-text-muted);
+}
+
+.component-svg-tag-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+}
+
+.component-svg-tag-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--ui-color-surface-subtle);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  transition: border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.component-svg-tag-card.is-interactive {
+  cursor: pointer;
+}
+
+.component-svg-tag-card:hover {
+  border-color: var(--ui-color-accent);
+}
+
+.component-svg-tag-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.component-svg-type-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: var(--ui-font-mono);
+  font-weight: 600;
+}
+
+.component-svg-type-pill.is-id {
+  background: rgba(25, 118, 210, 0.12);
+  color: #1976d2;
+}
+
+.component-svg-type-pill.is-class {
+  background: rgba(142, 36, 170, 0.12);
+  color: #8e24aa;
+}
+
+.component-svg-tag-name {
+  font-size: var(--ui-font-size-tool);
+  color: var(--ui-color-text);
+  font-family: var(--ui-font-mono);
+}
+
+.component-svg-tag-associated-classes {
+  font-family: var(--ui-font-mono);
+  font-size: 11px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-subtle);
+  padding: 1px 5px;
+  border-radius: var(--ui-radius-control);
+}
+
+.component-svg-tag-meta {
+  font-size: var(--ui-font-size-status);
+  color: var(--ui-color-text-muted);
+  margin-left: auto;
+}
+
+.component-svg-tag-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding-top: 3px;
+  border-top: 1px dashed var(--ui-color-border);
+}
+
+.component-svg-tag-description {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  padding: 2px 6px;
+  border-radius: var(--ui-radius-control);
+  border-left: 2px solid var(--ui-color-accent);
+  line-height: 1.4;
+}
+
+.component-svg-tag-desc-icon {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.component-svg-tag-desc-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.component-svg-tag-search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 80px;
+  gap: 4px;
+  padding: var(--ui-space-3) var(--ui-space-1);
+  font-size: var(--ui-font-size-status);
+  color: var(--ui-color-text-muted);
+  text-align: center;
+}
+
+.component-svg-tag-signature {
+  font-family: var(--ui-font-mono);
+  font-size: 11px;
+  color: var(--ui-color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.component-svg-tag-copy-action {
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  color: var(--ui-color-primary);
+  flex-shrink: 0;
+}
+
+.component-svg-empty-tags-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1;
+  min-height: 100px;
+  padding: var(--ui-space-3) var(--ui-space-2);
+  border: 1px dashed var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface-subtle);
+  gap: var(--ui-space-2);
+}
+
+.component-svg-empty-icon-wrap {
+  color: var(--ui-color-text-disabled);
+}
+
+.component-svg-empty-tags-text {
+  margin: 0;
+  font-size: var(--ui-font-size-status);
+  line-height: 1.5;
+  color: var(--ui-color-text-muted);
+}
+
+.component-svg-empty-tags-btn {
+  margin-top: 2px;
+  font-size: var(--ui-font-size-status);
+}
+
+.component-svg-source-message {
+  color: var(--ui-color-success);
+  font-size: var(--ui-font-size-status);
+  line-height: var(--ui-line-height-status);
+}
+
+/* Large Window Mode Dialog Styles ----------------------------------------- */
+
+.component-svg-modal-popup {
+  width: min(1080px, 94vw);
+  height: min(800px, 90vh);
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--ui-space-4);
+  gap: var(--ui-space-3);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.component-svg-modal-popup.is-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  border: none;
+  inset: 0;
+  position: fixed;
+  z-index: 302;
+}
+
+.component-svg-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  padding-bottom: var(--ui-space-2);
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.component-svg-modal-title-area {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ui-space-2);
+}
+
+.component-svg-modal-title {
+  margin: 0;
+  font-size: var(--ui-font-size-workbench-title);
+  line-height: var(--ui-line-height-workbench-title);
+  font-weight: 600;
+}
+
+.component-svg-modal-subtitle {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-status);
+  line-height: var(--ui-line-height-status);
+}
+
+.component-svg-modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
+.component-svg-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--ui-radius-control);
+}
+
+.component-svg-modal-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ui-space-3);
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  .component-svg-modal-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+}
+
+.component-svg-code-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  overflow: hidden;
+}
+
+.component-svg-code-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ui-space-1) var(--ui-space-2);
+  background: var(--ui-color-surface-subtle);
+  border-bottom: 1px solid var(--ui-color-border);
+  font-size: var(--ui-font-size-tool);
+  color: var(--ui-color-text-secondary);
+  font-weight: 500;
+}
+
+.component-svg-code-pane-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
+.component-svg-code-highlight-badge {
+  font-size: var(--ui-font-size-status);
+  font-weight: 600;
+  color: var(--ui-color-accent);
+  background: var(--ui-color-accent-soft);
+  padding: 1px 8px;
+  border-radius: var(--ui-radius-control);
+}
+
+.component-svg-editor-container {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.component-svg-line-numbers {
+  width: 44px;
+  flex-shrink: 0;
+  padding: var(--ui-space-2) 0;
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-font-size-tool);
+  line-height: 20px;
+  color: var(--ui-color-text-disabled);
+  background: var(--ui-color-surface-subtle);
+  border-right: 1px solid var(--ui-color-border);
+  text-align: right;
+  user-select: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.component-svg-line-number {
+  height: 20px;
+  line-height: 20px;
+  padding-right: 6px;
+  box-sizing: border-box;
+  text-align: right;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.component-svg-line-number.is-highlighted {
+  background: var(--ui-color-accent-soft);
+  color: var(--ui-color-accent);
+  font-weight: 700;
+  border-left: 2px solid var(--ui-color-accent);
+}
+
+.component-svg-textarea-wrapper {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.component-svg-code-highlight-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--ui-color-accent-soft);
+  border-left: 3px solid var(--ui-color-accent);
+  pointer-events: none;
+  z-index: 0;
+  box-sizing: border-box;
+  transition: top 0.08s ease-out, height 0.08s ease-out;
+}
+
+.component-svg-modal-textarea {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-font-size-tool);
+  line-height: 20px;
+  padding: var(--ui-space-2);
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow: auto;
+  tab-size: 2;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.component-svg-modal-textarea:focus-visible {
+  outline: none;
+}
+
+.component-svg-code-pane-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-1) var(--ui-space-2);
+  background: var(--ui-color-surface-subtle);
+  border-top: 1px solid var(--ui-color-border);
+  min-height: 36px;
+  box-sizing: border-box;
+}
+
+.component-svg-refactor-button {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.component-svg-code-pane-hint {
+  font-size: var(--ui-font-size-status);
+  color: var(--ui-color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes component-svg-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.component-svg-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  border: 2px solid var(--ui-color-border);
+  border-top-color: var(--ui-color-primary);
+  border-radius: 50%;
+  animation: component-svg-spin 0.8s linear infinite;
+  vertical-align: -1px;
+}
+
+/* Preview Pane ------------------------------------------------------------- */
+
+.component-svg-preview-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  overflow: hidden;
+}
+
+.component-svg-preview-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ui-space-1) var(--ui-space-2);
+  background: var(--ui-color-surface-subtle);
+  border-bottom: 1px solid var(--ui-color-border);
+  font-size: var(--ui-font-size-tool);
+  color: var(--ui-color-text-secondary);
+  font-weight: 500;
+}
+
+.component-svg-preview-pane-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
+.component-svg-preview-tip {
+  font-size: var(--ui-font-size-status);
+  font-weight: normal;
+  color: var(--ui-color-accent);
+  background: var(--ui-color-accent-soft);
+  padding: 1px 6px;
+  border-radius: var(--ui-radius-control);
+}
+
+.component-svg-preview-pane-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
+.component-svg-toggle-markers-btn {
+  font-size: var(--ui-font-size-status);
+  padding: 1px 8px;
+  height: 24px;
+}
+
+/* Class Dynamic Style Simulation Bar ---------------------------------------- */
+
+.component-svg-class-style-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+  padding: var(--ui-space-1) var(--ui-space-2);
+  background: var(--ui-color-surface);
+  border-bottom: 1px solid var(--ui-color-border);
+  flex-shrink: 0;
+}
+
+.component-svg-class-style-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+  flex-wrap: wrap;
+}
+
+.component-svg-class-style-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+}
+
+.component-svg-class-style-label {
+  font-size: var(--ui-font-size-status);
+  font-weight: 500;
+  color: var(--ui-color-text-secondary);
+}
+
+.component-svg-class-presets-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.component-svg-preset-btn {
+  height: 22px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.component-svg-preset-btn.is-bake {
+  color: var(--ui-color-accent);
+  border-color: var(--ui-color-accent);
+}
+
+.component-svg-master-color-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--ui-color-surface-subtle);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  padding: 1px 6px;
+  margin-left: 2px;
+}
+
+.component-svg-master-color-text {
+  font-size: 11px;
+  color: var(--ui-color-text-secondary);
+  user-select: none;
+}
+
+.component-svg-class-items-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  max-height: 72px;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+
+.component-svg-class-item-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--ui-color-surface-subtle);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  padding: 1px 6px;
+  font-size: 11px;
+  cursor: default;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.component-svg-class-item-chip:hover {
+  border-color: var(--ui-color-accent);
+  background-color: var(--ui-color-surface);
+}
+
+.component-svg-class-item-chip.is-overridden {
+  border-color: var(--ui-color-accent);
+  background-color: var(--ui-color-accent-soft);
+}
+
+.component-svg-class-chip-pill {
+  font-family: var(--ui-font-mono);
+  font-weight: 600;
+  color: var(--ui-color-accent);
+}
+
+.component-svg-class-chip-count {
+  font-size: 10px;
+  color: var(--ui-color-text-subtle);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 9px;
+  padding: 0 4px;
+  line-height: 14px;
+}
+
+.component-svg-class-color-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 2px;
+}
+
+.component-svg-class-color-input {
+  width: 18px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  padding: 0 !important;
+  border: 1px solid var(--ui-color-border) !important;
+  border-radius: var(--ui-radius-control) !important;
+  cursor: pointer;
+  background: transparent !important;
+  vertical-align: middle;
+}
+
+.component-svg-class-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.component-svg-class-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 1px;
+}
+
+.component-svg-class-color-hex {
+  font-family: var(--ui-font-mono);
+  font-size: 10px;
+  color: var(--ui-color-text-secondary);
+  user-select: all;
+}
+
+.component-svg-preview-viewport {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ui-space-4);
+  overflow: auto;
+  min-height: 0;
+  position: relative;
+  /* Checkerboard pattern for transparency */
+  background-color: var(--ui-color-surface-subtle);
+  background-image:
+    linear-gradient(45deg, #e4e7eb 25%, transparent 25%),
+    linear-gradient(-45deg, #e4e7eb 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e4e7eb 75%),
+    linear-gradient(-45deg, transparent 75%, #e4e7eb 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+.component-svg-preview-graphic-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.component-svg-preview-graphic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.component-svg-preview-graphic svg {
+  width: 100%;
+  height: 100%;
+  max-width: min(100%, 520px);
+  max-height: min(100%, 520px);
+  display: block;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.12));
+}
+
+.component-svg-preview-graphic [data-scada-tag] {
+  cursor: pointer;
+  transition: outline 0.12s ease, filter 0.12s ease;
+}
+
+.component-svg-preview-graphic [data-scada-tag]:hover {
+  outline: 2px dashed var(--ui-color-accent);
+  outline-offset: 2px;
+}
+
+.component-svg-preview-graphic [data-scada-tag][data-scada-active-highlight='true'],
+.component-svg-preview-graphic [data-scada-tag].is-active-highlight {
+  outline: 2px solid var(--ui-color-accent);
+  outline-offset: 3px;
+  filter: drop-shadow(0 0 6px var(--ui-color-accent-soft));
+}
+
+.component-svg-preview-markers-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.component-svg-preview-marker {
+  position: absolute;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  font-family: var(--ui-font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-accent);
+  border-radius: var(--ui-radius-control);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  user-select: none;
+  transform: translate(-50%, -50%);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+  white-space: nowrap;
+}
+
+.component-svg-preview-marker:hover,
+.component-svg-preview-marker.is-hovered {
+  background: var(--ui-color-accent-soft);
+  border-color: var(--ui-color-accent);
+  transform: translate(-50%, -50%) scale(1.08);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  z-index: 8;
+}
+
+.component-svg-preview-marker.is-selected {
+  background: var(--ui-color-accent);
+  color: #ffffff;
+  border-color: var(--ui-color-accent);
+  transform: translate(-50%, -50%) scale(1.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 9;
+}
+
+.component-svg-preview-marker.is-selected .component-svg-marker-id,
+.component-svg-preview-marker.is-selected .component-svg-marker-class {
+  color: #ffffff;
+}
+
+.component-svg-marker-id {
+  font-weight: 600;
+  color: var(--ui-color-accent);
+}
+
+.component-svg-marker-class {
+  color: var(--ui-color-text-secondary);
+  font-size: 10px;
+}
+
+.component-svg-preview-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ui-space-1);
+  padding: var(--ui-space-3);
+  text-align: center;
+  color: var(--ui-color-danger);
+  background: var(--ui-color-surface);
+  border: 1px dashed var(--ui-color-danger);
+  border-radius: var(--ui-radius-control);
+  font-size: var(--ui-font-size-tool);
+}
+
+/* Floating Tag Card in Live Preview */
+
+.component-svg-tag-floating-card {
+  position: absolute;
+  bottom: var(--ui-space-3);
+  right: var(--ui-space-3);
+  width: 280px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-floating);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: component-svg-floating-in 0.15s ease-out;
+}
+
+@keyframes component-svg-floating-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.component-svg-tag-floating-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ui-space-2) var(--ui-space-3);
+  background: var(--ui-color-surface-subtle);
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.component-svg-tag-floating-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+  font-size: var(--ui-font-size-tool);
+  font-weight: 600;
+  color: var(--ui-color-text);
+}
+
+.component-svg-tag-floating-tagname {
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-font-size-status);
+  color: var(--ui-color-accent);
+  background: var(--ui-color-accent-soft);
+  padding: 1px 4px;
+  border-radius: var(--ui-radius-control);
+}
+
+.component-svg-tag-existing-badge {
+  font-family: var(--ui-font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: var(--ui-radius-control);
+  font-weight: 500;
+}
+
+.component-svg-tag-existing-badge.is-id {
+  color: var(--ui-color-accent);
+  background: var(--ui-color-accent-soft);
+  border: 1px solid var(--ui-color-accent);
+}
+
+.component-svg-tag-existing-badge.is-class {
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-subtle);
+  border: 1px solid var(--ui-color-border);
+}
+
+.component-svg-tag-existing-badge.is-desc {
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface-subtle);
+  border: 1px solid var(--ui-color-border);
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.component-svg-tag-floating-close {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  min-width: 22px;
+  font-size: 11px;
+}
+
+.component-svg-tag-floating-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-3);
+}
+
+.component-svg-tag-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.component-svg-tag-label {
+  font-size: var(--ui-font-size-status);
+  color: var(--ui-color-text-secondary);
+  font-weight: 500;
+}
+
+.component-svg-tag-floating-error {
+  font-size: 11px;
+  color: var(--ui-color-danger);
+}
+
+.component-svg-tag-floating-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+  padding-top: var(--ui-space-1);
+}
+
+/* Modal Footer ------------------------------------------------------------- */
+
+.component-svg-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  padding-top: var(--ui-space-2);
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.component-svg-modal-status-info {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  font-size: var(--ui-font-size-status);
+  color: var(--ui-color-text-secondary);
+}
+
+.component-svg-modal-status-valid {
+  color: var(--ui-color-success);
+  font-weight: 500;
+}
+
+.component-svg-modal-status-message {
+  color: var(--ui-color-success);
+  font-weight: 500;
+}
+
+.component-svg-modal-status-invalid {
+  color: var(--ui-color-danger);
+  font-weight: 500;
+}
+
+.component-svg-modal-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+}

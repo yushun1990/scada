@@ -23,17 +23,17 @@ const requiredTokens = new Map([
   ['--ui-color-success', '#287a45'],
   ['--ui-color-warning', '#9a6700'],
   ['--ui-color-danger', '#b42318'],
-  ['--ui-font-size-status', '11px'],
-  ['--ui-font-size-tool', '12px'],
-  ['--ui-font-size-body', '13px'],
-  ['--ui-font-size-workbench-title', '18px'],
+  ['--ui-font-size-status', '12px'],
+  ['--ui-font-size-tool', '13px'],
+  ['--ui-font-size-body', '14px'],
+  ['--ui-font-size-workbench-title', '20px'],
   ['--ui-radius-control', '2px'],
   ['--ui-radius-floating', '4px'],
   ['--ui-control-height', '28px'],
   ['--ui-control-height-small', '26px'],
   ['--ui-status-height', '26px'],
-  ['--ui-left-dock-width', '248px'],
-  ['--ui-right-inspector-width', '320px'],
+  ['--ui-left-dock-width', '360px'],
+  ['--ui-right-inspector-width', '360px'],
 ])
 
 const violations = []

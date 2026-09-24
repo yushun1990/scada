@@ -8,10 +8,27 @@ import {
 import type {
   ComponentVisualDefinition,
   ComponentVisualLayer,
+  GroupVisualLayer,
+  ImageVisualLayer,
+  SvgVisualLayer,
   TextVisualLayer,
 } from '../../component-system/visual'
-import { Button, Input, Pressable } from '../../ui'
-import { RectangleIcon, EllipseIcon, LineIcon, TextIcon } from '../../components/toolbar-icons'
+import type { VisualRule } from '../../component-system/visualRules'
+import {
+  Button,
+  DialogContent,
+  DialogDescription,
+  DialogRoot,
+  DialogTitle,
+  Input,
+  Pressable,
+} from '../../ui'
+import {
+  EllipseIcon,
+  LineIcon,
+  RectangleIcon,
+  TextIcon,
+} from '../../components/toolbar-icons'
 import {
   appendCreatedVectorLayer,
   clearComponentCreateTool,
@@ -26,19 +43,54 @@ import {
   listComponentVisualAssetResources,
   type ComponentVisualAssetResource,
 } from './component-visual-asset-library'
-import { listComponentDefinitions, type ComponentLibraryEntry } from './storage'
+import {
+  listComponentDefinitions,
+  saveComponentDefinitionAsync,
+  type ComponentLibraryEntry,
+} from './storage'
 import {
   applyImportedVisualAsset,
   importLocalVisualAsset,
   LOCAL_VISUAL_ASSET_ACCEPT,
 } from './visual-asset-import'
+import {
+  createMultiImageComponent,
+  suggestMultiImageComponentTitle,
+} from './component-multi-image-create'
 import type { ComponentLayerSelectionChange } from './ComponentVisualTreeEditor'
 
-const PALETTE_DRAG_MIME = 'application/x-scada-component-palette'
+function PolygonIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <polygon points="12 3 22 21 2 21" />
+    </svg>
+  )
+}
+
+function ArcIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 21a9 9 0 1 1 9-9" />
+    </svg>
+  )
+}
+
+function ScaleIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M6 3v18" />
+      <path d="M6 5h8" />
+      <path d="M6 9h5" />
+      <path d="M6 13h8" />
+      <path d="M6 17h5" />
+      <path d="M6 21h8" />
+    </svg>
+  )
+}
 
 const PALETTE_PRIMITIVES: ReadonlyArray<{
   tool: ComponentCreateTool
-  icon: typeof RectangleIcon
+  icon: (props: React.SVGProps<SVGSVGElement>) => React.JSX.Element
 }> = [
   {
     tool: {
@@ -63,17 +115,52 @@ const PALETTE_PRIMITIVES: ReadonlyArray<{
   {
     tool: {
       kind: 'vector',
+      primitive: 'polygon',
+      label: '多边形',
+      defaultWidth: 80,
+      defaultHeight: 80,
+      initialSides: 3,
+    },
+    icon: PolygonIcon,
+  },
+  {
+    tool: {
+      kind: 'vector',
+      primitive: 'arc',
+      label: '圆弧/扇形',
+      defaultWidth: 80,
+      defaultHeight: 80,
+      initialAngle: 270,
+      initialInnerRadiusRatio: 0,
+    },
+    icon: ArcIcon,
+  },
+  {
+    tool: {
+      kind: 'vector',
       primitive: 'line',
-      label: '线段',
+      label: '直线',
       defaultWidth: 120,
       defaultHeight: 8,
     },
     icon: LineIcon,
   },
+  {
+    tool: {
+      kind: 'vector',
+      primitive: 'scale',
+      label: '刻度标尺',
+      defaultWidth: 28,
+      defaultHeight: 140,
+    },
+    icon: ScaleIcon,
+  },
 ]
 
+const PALETTE_DRAG_MIME = 'application/x-scada-component-palette'
+
 type PaletteDragPayload =
-  | { kind: 'primitive'; primitive: ComponentCreateTool['primitive'] }
+  | { kind: 'primitive'; primitive: ComponentCreateTool['primitive']; label?: string }
   | { kind: 'text' }
   | { kind: 'component'; componentId: string }
   | { kind: 'resource'; resourceId: string }
@@ -92,9 +179,20 @@ function parseDragPayload(value: string): PaletteDragPayload | null {
     if (parsed.kind === 'text') return { kind: 'text' }
     if (
       parsed.kind === 'primitive'
-      && (parsed.primitive === 'rect' || parsed.primitive === 'ellipse' || parsed.primitive === 'line')
+      && (
+        parsed.primitive === 'rect' ||
+        parsed.primitive === 'ellipse' ||
+        parsed.primitive === 'line' ||
+        parsed.primitive === 'polygon' ||
+        parsed.primitive === 'arc' ||
+        parsed.primitive === 'scale'
+      )
     ) {
-      return { kind: 'primitive', primitive: parsed.primitive }
+      return {
+        kind: 'primitive',
+        primitive: parsed.primitive,
+        label: typeof parsed.label === 'string' ? parsed.label : undefined,
+      }
     }
     if (parsed.kind === 'component' && typeof parsed.componentId === 'string') {
       return { kind: 'component', componentId: parsed.componentId }
@@ -124,11 +222,11 @@ function currentComponentIdFromHash() {
   }
 }
 
-function nextTextLayerId(layers: readonly ComponentVisualLayer[]) {
-  const ids = new Set(layers.map((layer) => layer.id))
+function nextTextLayerName(layers: readonly ComponentVisualLayer[]) {
+  const existing = new Set(layers.flatMap((layer) => [layer.id, layer.name]))
   let index = 1
-  while (ids.has(`text${index}`)) index += 1
-  return `text${index}`
+  while (existing.has(`txt_${index}`)) index += 1
+  return `txt_${index}`
 }
 
 function uniqueImportedLayerId(
@@ -148,6 +246,17 @@ function uniqueImportedLayerId(
 
 function cloneLayer<T extends ComponentVisualLayer>(layer: T): T {
   return structuredClone(layer)
+}
+
+function getComponentPreviewAsset(component: ComponentLibraryEntry): string | null {
+  if (component.visual.mode !== 'composite') return null
+  const imageLayers = component.visual.layers.filter(
+    (layer): layer is ImageVisualLayer | SvgVisualLayer =>
+      (layer.kind === 'image' || layer.kind === 'svg') && Boolean(layer.assetRef),
+  )
+  if (imageLayers.length === 0) return null
+  const visible = imageLayers.find((layer) => layer.visible)
+  return (visible ?? imageLayers[0])?.assetRef ?? null
 }
 
 function placeComponentVisualCopy(
@@ -174,18 +283,20 @@ function placeComponentVisualCopy(
   const maxY = Math.max(...rootLayers.map((layer) => layer.transform.y + layer.transform.height))
   const boundsWidth = Math.max(1, maxX - minX)
   const boundsHeight = Math.max(1, maxY - minY)
-  const requestedX = point.x - (minX + boundsWidth / 2)
-  const requestedY = point.y - (minY + boundsHeight / 2)
-  const minOffsetX = -minX
-  const minOffsetY = -minY
-  const maxOffsetX = target.designSize.width - maxX
-  const maxOffsetY = target.designSize.height - maxY
-  const offsetX = boundsWidth <= target.designSize.width
-    ? Math.min(maxOffsetX, Math.max(minOffsetX, requestedX))
-    : requestedX
-  const offsetY = boundsHeight <= target.designSize.height
-    ? Math.min(maxOffsetY, Math.max(minOffsetY, requestedY))
-    : requestedY
+
+  // 1. Calculate auto-fit scale (keep within 80% of canvas)
+  const maxAllowedWidth = Math.max(16, target.designSize.width * 0.8)
+  const maxAllowedHeight = Math.max(16, target.designSize.height * 0.8)
+  const scale = Math.min(1, maxAllowedWidth / boundsWidth, maxAllowedHeight / boundsHeight)
+
+  const effectiveWidth = Math.max(1, Math.round(boundsWidth * scale))
+  const effectiveHeight = Math.max(1, Math.round(boundsHeight * scale))
+
+  // 2. Position: Center at point, clamp within artboard bounds
+  const targetX = point.x - effectiveWidth / 2
+  const targetY = point.y - effectiveHeight / 2
+  const clampX = Math.max(0, Math.min(Math.max(0, target.designSize.width - effectiveWidth), targetX))
+  const clampY = Math.max(0, Math.min(Math.max(0, target.designSize.height - effectiveHeight), targetY))
 
   const usedIds = new Set(target.layers.map((layer) => layer.id))
   const idMap = new Map<string, string>()
@@ -193,31 +304,79 @@ function placeComponentVisualCopy(
     idMap.set(layer.id, uniqueImportedLayerId(layer.id, usedIds))
   }
 
-  const copiedLayers = source.visual.layers.map((sourceLayer) => {
+  // 3. Encapsulate into a group
+  const groupId = uniqueImportedLayerId('group', usedIds)
+  const group: GroupVisualLayer = {
+    id: groupId,
+    name: source.definition.title,
+    kind: 'group',
+    parentId: null,
+    transform: {
+      x: clampX,
+      y: clampY,
+      width: effectiveWidth,
+      height: effectiveHeight,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+    },
+    visible: true,
+    opacity: 1,
+  }
+
+  const copiedLayers: ComponentVisualLayer[] = source.visual.layers.map((sourceLayer) => {
     const layer = cloneLayer(sourceLayer)
     const mappedId = idMap.get(sourceLayer.id)!
-    const mappedParentId = sourceLayer.parentId
-      ? idMap.get(sourceLayer.parentId) ?? null
-      : null
+    const isRoot = sourceLayer.parentId === null
+    const mappedParentId = isRoot ? groupId : (idMap.get(sourceLayer.parentId!) ?? groupId)
 
     return {
       ...layer,
       id: mappedId,
-      name: `${source.definition.title} · ${sourceLayer.name}`,
+      name: sourceLayer.name,
       parentId: mappedParentId,
-      transform: sourceLayer.parentId === null
+      transform: isRoot
         ? {
             ...layer.transform,
-            x: layer.transform.x + offsetX,
-            y: layer.transform.y + offsetY,
+            x: Math.round((sourceLayer.transform.x - minX) * scale),
+            y: Math.round((sourceLayer.transform.y - minY) * scale),
+            width: Math.max(1, Math.round(sourceLayer.transform.width * scale)),
+            height: Math.max(1, Math.round(sourceLayer.transform.height * scale)),
           }
-        : layer.transform,
+        : {
+            ...layer.transform,
+            x: Math.round(sourceLayer.transform.x * scale),
+            y: Math.round(sourceLayer.transform.y * scale),
+            width: Math.max(1, Math.round(sourceLayer.transform.width * scale)),
+            height: Math.max(1, Math.round(sourceLayer.transform.height * scale)),
+          },
     } as ComponentVisualLayer
   })
 
+  // 4. Map Visual Rules
+  const usedRuleIds = new Set((target.rules ?? []).map((r) => r.id))
+  const copiedRules: VisualRule[] = (source.visual.rules ?? []).map((sourceRule) => {
+    const mappedLayerId = idMap.get(sourceRule.layerId)
+    if (!mappedLayerId) return null
+    let candidate = sourceRule.id
+    while (usedRuleIds.has(candidate)) {
+      candidate = `r_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+    }
+    usedRuleIds.add(candidate)
+    return {
+      ...structuredClone(sourceRule),
+      id: candidate,
+      layerId: mappedLayerId,
+    }
+  }).filter((r): r is VisualRule => r !== null)
+
   return {
-    visual: { ...target, layers: [...target.layers, ...copiedLayers] },
-    rootIds: rootLayers.map((layer) => idMap.get(layer.id)!).filter(Boolean),
+    visual: {
+      ...target,
+      layers: [...target.layers, group, ...copiedLayers],
+      rules: [...(target.rules ?? []), ...copiedRules],
+    },
+    rootIds: [groupId],
   }
 }
 
@@ -237,10 +396,16 @@ export function ComponentAuthoringPalette({
 }: ComponentAuthoringPaletteProps) {
   const createTool = useComponentCreateTool()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const multiImageInputRef = useRef<HTMLInputElement>(null)
   const [components, setComponents] = useState<ComponentLibraryEntry[]>([])
   const [resources, setResources] = useState<ComponentVisualAssetResource[]>([])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [namingModalOpen, setNamingModalOpen] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [pendingTitle, setPendingTitle] = useState('')
+  const [namingError, setNamingError] = useState<string | null>(null)
+
   const currentComponentId = useMemo(currentComponentIdFromHash, [])
   const editableComponents = useMemo(
     () => components.filter((component) =>
@@ -293,10 +458,10 @@ export function ComponentAuthoringPalette({
     if (readOnly || visual.mode !== 'composite') return
     const width = Math.min(120, visual.designSize.width)
     const height = Math.min(36, visual.designSize.height)
-    const id = nextTextLayerId(visual.layers)
+    const name = nextTextLayerName(visual.layers)
     const layer: TextVisualLayer = {
-      id,
-      name: `文本 ${id.replace(/\D+/g, '') || ''}`.trim(),
+      id: name,
+      name,
       kind: 'text',
       parentId: null,
       transform: {
@@ -318,7 +483,7 @@ export function ComponentAuthoringPalette({
       opacity: 1,
       text: 'Text',
     }
-    commitVisual({ ...visual, layers: [...visual.layers, layer] }, id)
+    commitVisual({ ...visual, layers: [...visual.layers, layer] }, name)
   }
 
   function placeResource(resource: ComponentVisualAssetResource, point?: ComponentDesignPoint) {
@@ -401,7 +566,9 @@ export function ComponentAuthoringPalette({
         return
       }
       if (payload.kind === 'primitive') {
-        const item = PALETTE_PRIMITIVES.find(({ tool }) => tool.primitive === payload.primitive)
+        const item = PALETTE_PRIMITIVES.find(({ tool }) =>
+          payload.label ? tool.label === payload.label : tool.primitive === payload.primitive,
+        )
         if (item) placePrimitive(item.tool, point)
         return
       }
@@ -444,6 +611,43 @@ export function ComponentAuthoringPalette({
     }
   }
 
+  async function createMultiImageComponentFromFiles(files: readonly File[], title?: string) {
+    if (files.length < 2 || readOnly || busy) return
+    setBusy(true)
+    setMessage('')
+    try {
+      const assets = []
+      for (const file of files) {
+        assets.push(await importLocalVisualAsset(file))
+      }
+
+      const result = createMultiImageComponent(assets, { title })
+      await saveComponentDefinitionAsync(result.component)
+
+      const nextComponents = await listComponentDefinitions()
+      setComponents(nextComponents)
+
+      const warning = result.sizeDeviationWarning
+        ? ` · ${result.sizeDeviationWarning}`
+        : ''
+      setMessage(`已创建组件“${result.component.definition.title}”（${assets.length} 张图片）${warning}`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '多图组件创建失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function handleConfirmCreateMultiImage() {
+    const trimmed = pendingTitle.trim()
+    if (!trimmed) {
+      setNamingError('组件名称不能为空')
+      return
+    }
+    setNamingModalOpen(false)
+    void createMultiImageComponentFromFiles(pendingFiles, trimmed)
+  }
+
   return (
     <section className="component-authoring-palette" aria-label="组件创作素材">
       {visual.mode === 'composite' ? (
@@ -456,10 +660,10 @@ export function ComponentAuthoringPalette({
             <div className="component-palette-disclosure-body">
               <div className="component-palette-grid">
                 {PALETTE_PRIMITIVES.map(({ tool, icon: Icon }) => {
-                  const active = createTool?.primitive === tool.primitive
+                  const active = createTool?.label === tool.label
                   return (
                     <Button
-                      key={tool.primitive}
+                      key={tool.label}
                       size="small"
                       className={`component-palette-item${active ? ' create-tool-active' : ''}`}
                       disabled={readOnly}
@@ -475,6 +679,7 @@ export function ComponentAuthoringPalette({
                       onDragStart={(event) => setDragPayload(event, {
                         kind: 'primitive',
                         primitive: tool.primitive,
+                        label: tool.label,
                       })}
                     >
                       <span className="component-palette-item-symbol"><Icon /></span>
@@ -503,31 +708,81 @@ export function ComponentAuthoringPalette({
               <small>{editableComponents.length} 个可复用</small>
             </summary>
             <div className="component-palette-disclosure-body">
+              <Input
+                ref={multiImageInputRef}
+                className="component-palette-resource-input"
+                type="file"
+                hidden
+                multiple
+                tabIndex={-1}
+                accept={LOCAL_VISUAL_ASSET_ACCEPT}
+                disabled={readOnly || busy}
+                onChange={(event) => {
+                  const files = Array.from(event.currentTarget.files ?? [])
+                  event.currentTarget.value = ''
+                  if (files.length < 2) {
+                    setMessage('多图组件至少需要选择 2 张图片')
+                    return
+                  }
+                  const suggested = suggestMultiImageComponentTitle(
+                    files.map((f) => f.name),
+                    components.map((c) => c.definition.title),
+                  )
+                  setPendingFiles(files)
+                  setPendingTitle(suggested)
+                  setNamingError(null)
+                  setNamingModalOpen(true)
+                }}
+              />
+              <Button
+                size="small"
+                disabled={readOnly || busy}
+                onClick={() => multiImageInputRef.current?.click()}
+              >
+                {busy ? '处理中…' : '+ 多图组件'}
+              </Button>
               {editableComponents.length > 0 ? (
-                <div className="component-palette-component-list">
-                  {editableComponents.map((component) => (
-                    <Button
-                      key={component.id}
-                      size="small"
-                      className="component-palette-component-item"
-                      disabled={readOnly}
-                      draggable={!readOnly}
-                      title="双击居中复制；也可拖到画布任意位置。复制后是当前组件自身的可编辑视觉。"
-                      onDoubleClick={() => placeComponent(component)}
-                      onDragStart={(event) => setDragPayload(event, {
-                        kind: 'component',
-                        componentId: component.id,
-                      })}
-                    >
-                      <span className="component-palette-component-icon" aria-hidden="true">
-                        {component.definition.title.slice(0, 1).toUpperCase()}
-                      </span>
-                      <span>
-                        <strong>{component.definition.title}</strong>
-                        <small>{component.visual.layers.length} 图层</small>
-                      </span>
-                    </Button>
-                  ))}
+                <div className="component-palette-component-grid">
+                  {editableComponents.map((component) => {
+                    const previewAsset = getComponentPreviewAsset(component)
+                    return (
+                      <Pressable
+                        key={component.id}
+                        className="component-palette-component-card"
+                        disabled={readOnly}
+                        draggable={!readOnly}
+                        title={`${component.definition.title} · 双击居中复制，或拖到画布`}
+                        onDoubleClick={() => placeComponent(component)}
+                        onDragStart={(event) => setDragPayload(event, {
+                          kind: 'component',
+                          componentId: component.id,
+                        })}
+                      >
+                        <div className="component-palette-component-card-preview">
+                          {previewAsset ? (
+                            <img
+                              src={previewAsset}
+                              alt=""
+                              draggable={false}
+                            />
+                          ) : (
+                            <span
+                              className="component-palette-component-card-fallback"
+                              aria-hidden="true"
+                            >
+                              {component.definition.title.slice(0, 1).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className="component-palette-component-card-title"
+                          title={component.definition.title}
+                        >
+                          {component.definition.title}
+                        </span>
+                      </Pressable>
+                    )
+                  })}
                 </div>
               ) : (
                 <p className="component-palette-empty">保存过的 Composite 组件会显示在这里。</p>
@@ -601,6 +856,52 @@ export function ComponentAuthoringPalette({
           内置组件可查看和预览，不能添加内部图元。
         </div>
       )}
+
+      {/* 创建多图组件命名对话框 */}
+      <DialogRoot open={namingModalOpen} onOpenChange={setNamingModalOpen}>
+        <DialogContent className="component-palette-dialog-popup">
+          <DialogTitle>新建多图组件</DialogTitle>
+          <DialogDescription>
+            已选择 {pendingFiles.length} 张图片，请输入此组件的名称：
+          </DialogDescription>
+          <Input
+            autoFocus
+            value={pendingTitle}
+            aria-label="多图组件名称"
+            placeholder="组件名称，例如：水泵状态组件"
+            onChange={(e) => {
+              setPendingTitle(e.target.value)
+              if (namingError) setNamingError(null)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleConfirmCreateMultiImage()
+              }
+            }}
+          />
+          {namingError && (
+            <p className="component-palette-dialog-error">{namingError}</p>
+          )}
+          <div className="component-palette-dialog-actions">
+            <Button
+              variant="ghost"
+              size="small"
+              onClick={() => setNamingModalOpen(false)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="primary"
+              size="small"
+              disabled={busy}
+              onClick={handleConfirmCreateMultiImage}
+            >
+              {busy ? '创建中…' : '创建组件'}
+            </Button>
+          </div>
+        </DialogContent>
+      </DialogRoot>
     </section>
   )
 }

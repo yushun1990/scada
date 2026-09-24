@@ -48,6 +48,19 @@ async function seedScaleAnimationFixture() {
     visible: true, opacity: 1, primitive: 'rect',
     style: { fill: '#7c3aed', stroke: '#4c1d95', strokeWidth: 2 },
   })
+  // The dedicated animation authoring tab moved out of the inspector; seed the
+  // declarative animation directly so the smoke keeps proving the persisted
+  // model plus preview-only runtime overlay contract.
+  entry.visual.animations.push({
+    id: 'scale-animation-smoke',
+    kind: 'scale',
+    enabled: true,
+    layerId: 'scale-animation-smoke-layer',
+    scaleXMultiplier: 1.8,
+    scaleYMultiplier: 0.6,
+    timing: { durationMs: 800, delayMs: 20, iterations: 'infinite', direction: 'alternate', easing: 'ease-in-out' },
+    activation: { kind: 'property', propertyKey: 'running', operator: 'equals', compareValue: true },
+  })
   await writePersistedComponent(page, entry)
   return { scaleX: 1, scaleY: 1, x: 220, y: 150 }
 }
@@ -68,7 +81,7 @@ try {
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-palette-item[aria-label="文本"]').dblclick()
-  await layerRow('文本 1').waitFor()
+  await layerRow('txt_1').waitFor()
   await page.getByRole('button', { name: '保存' }).click()
   await page.waitForFunction(() => window.location.hash !== '#/components/new')
   const savedUrl = page.url()
@@ -76,21 +89,8 @@ try {
   assert.deepEqual(await seedScaleAnimationFixture(), { scaleX: 1, scaleY: 1, x: 220, y: 150 }, 'scale fixture starts from stable persisted geometry')
   await page.reload({ waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
-  await layerRow('Scale Animation Smoke Rect').click()
-  await page.getByRole('tab', { name: '行为', exact: true }).click(); await page.getByRole('button', { name: '动画' }).click()
-  await page.getByRole('button', { name: '+ 添加 Scale 动画' }).click()
-  assert.equal(await page.locator('.component-animation-item').count(), 1, 'scale animation added through real inspector')
+  await clearLayerSelection()
 
-  await page.getByLabel('animation1 X 缩放倍率').fill('1.8')
-  await page.getByLabel('animation1 Y 缩放倍率').fill('0.6')
-  await page.getByLabel('animation1 周期').fill('800')
-  await page.getByLabel('animation1 延迟').fill('20')
-  await chooseSelectOption('animation1 方向', '交替')
-  await chooseSelectOption('animation1 缓动', '缓入缓出')
-  await chooseSelectOption('animation1 激活方式', 'Property 条件')
-  await page.locator('.component-animation-item .ui-checkbox').nth(1).click()
-
-  await saveAndWait(page)
   const authored = await readPersistedScaleState()
   assert.equal(authored.x, 220); assert.equal(authored.y, 150); assert.equal(authored.scaleX, 1); assert.equal(authored.scaleY, 1)
   assert.equal(authored.scale?.kind, 'scale')
@@ -107,7 +107,11 @@ try {
   await page.getByRole('button', { name: '预览' }).click(); await page.waitForTimeout(120)
   const inactiveFrameA = await readSceneCanvasDataUrl(); await page.waitForTimeout(260); const inactiveFrameB = await readSceneCanvasDataUrl()
   assert.equal(inactiveFrameA, inactiveFrameB, 'property=false must keep authored scale inactive')
+  // Preview values live on the Coding 开发 work page; toggle there, then
+  // return to the canvas page to sample the animated frames.
+  await page.getByRole('button', { name: 'Coding 开发', exact: true }).click()
   await page.locator('.component-preview-values .ui-checkbox').click(); await page.waitForTimeout(120)
+  await page.getByRole('button', { name: '图形化设计', exact: true }).click(); await page.waitForTimeout(120)
   const activeFrameA = await readSceneCanvasDataUrl(); await page.waitForTimeout(300); const activeFrameB = await readSceneCanvasDataUrl()
   assert.notEqual(activeFrameA, activeFrameB, 'property=true must visibly activate authored scale')
   const persistedAfterPreview = await readPersistedScaleState()

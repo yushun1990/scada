@@ -711,3 +711,33 @@
   background: var(--ui-color-accent-soft);
   box-shadow: none;
 }
+
+/* Popover ------------------------------------------------------------------ */
+.ui-popover-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.ui-popover-positioner {
+  z-index: 200;
+}
+
+.ui-popover-popup {
+  min-width: 180px;
+  max-height: min(380px, var(--available-height));
+  overflow: auto;
+  padding: var(--ui-space-2);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-floating);
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow-floating);
+}

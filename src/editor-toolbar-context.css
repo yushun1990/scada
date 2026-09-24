@@ -45,21 +45,46 @@
   overflow: hidden;
 }
 
+.component-studio-shell .component-canvas-commands-rail {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 .component-studio-shell .component-canvas-commands {
   display: grid;
   grid-template-columns: minmax(150px, 1fr) minmax(238px, 1.8fr) minmax(112px, 1fr);
   gap: 8px;
-  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  transition: opacity var(--component-workspace-motion);
+  overflow: hidden;
+  transition:
+    grid-template-columns var(--component-workspace-motion),
+    gap var(--component-workspace-motion),
+    opacity var(--component-workspace-motion);
 }
 
-.component-canvas-commands[data-active='false'] {
-  opacity: 0;
+.component-studio-shell .component-canvas-commands[data-active='false'] {
+  grid-template-columns: minmax(0, 1fr) 0px 0px;
+  gap: 0;
+  opacity: 0.72;
   pointer-events: none;
+}
+
+.component-studio-shell .component-canvas-commands[data-active='false'] > [role='group']:not(.component-edit-tool-group) {
+  opacity: 0;
+  overflow: hidden;
+  min-width: 0;
+  width: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.component-studio-shell .component-canvas-commands[data-active='false'] > [role='group'] + [role='group']::before {
+  opacity: 0;
 }
 
 /* Keep the original toolbar frame and the separate navigation divider. */
@@ -78,19 +103,42 @@
 }
 
 .component-studio-shell .studio-canvas-toolbar-row > .studio-main-toolbar {
-  padding-inline: var(--ui-space-3);
+  --component-toolbar-padding-inline: var(--ui-space-3);
+  padding-inline: var(--component-toolbar-padding-inline);
   overflow: hidden;
   background: transparent;
 }
 
 .component-studio-shell .component-canvas-commands > [role='group'],
-.component-studio-shell .component-edit-command-host,
 .component-studio-shell .component-geometry-buttons {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 2px;
   min-width: 0;
+}
+
+.component-studio-shell .component-canvas-commands > .component-edit-tool-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.component-studio-shell .component-edit-command-host {
+  display: contents;
+}
+
+.component-studio-shell .component-edit-command-host > :first-child {
+  margin-left: auto;
+}
+
+.component-studio-shell .component-edit-tool-group > :last-child {
+  margin-right: auto;
 }
 
 .component-studio-shell .component-canvas-commands > [role='group'] + [role='group'] {
@@ -117,6 +165,7 @@
 
 .component-studio-shell .studio-main-toolbar .icon-button {
   flex: 0 0 28px;
+  flex-shrink: 0;
   border-color: transparent;
   background: transparent;
   color: var(--ui-color-text-secondary);
@@ -177,7 +226,8 @@
 
 @container component-tools (max-width: 610px) {
   .component-studio-shell.studio-shell-canvas-toolbar .studio-main-toolbar {
-    padding-inline: var(--ui-space-2);
+    --component-toolbar-padding-inline: var(--ui-space-2);
+    padding-inline: var(--component-toolbar-padding-inline);
   }
   .component-studio-shell .component-canvas-commands {
     grid-template-columns: minmax(150px, 1fr) minmax(73px, 1fr) minmax(96px, 1fr);
@@ -189,7 +239,8 @@
 
 @container component-tools (max-width: 480px) {
   .component-studio-shell.studio-shell-canvas-toolbar .studio-main-toolbar {
-    padding-inline: var(--ui-space-1);
+    --component-toolbar-padding-inline: var(--ui-space-1);
+    padding-inline: var(--component-toolbar-padding-inline);
   }
 
   .component-studio-shell .component-canvas-commands {
@@ -199,7 +250,8 @@
 
 @container component-tools (min-width: 611px) and (max-width: 700px) {
   .component-studio-shell.studio-shell-canvas-toolbar .studio-main-toolbar {
-    padding-inline: var(--ui-space-2);
+    --component-toolbar-padding-inline: var(--ui-space-2);
+    padding-inline: var(--component-toolbar-padding-inline);
   }
 
   .component-studio-shell .component-canvas-commands {

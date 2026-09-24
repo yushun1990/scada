@@ -23,8 +23,24 @@ async function selectLayers(names) {
   }
 }
 
+// The right-panel geometry inspector trails the Navigator selection by one
+// React render; wait until the clicked row is active and the input values
+// settle before touching them, otherwise reads land on the previous layer.
+async function waitForInspectorSelection(name) {
+  await page.locator('.component-layer-row.active').filter({ hasText: name }).first().waitFor()
+  const inputs = page.locator('.component-layer-geometry-grid input')
+  let previous = await inputs.nth(0).inputValue()
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await page.waitForTimeout(60)
+    const current = await inputs.nth(0).inputValue()
+    if (current === previous) return
+    previous = current
+  }
+}
+
 async function setGeometry(name, x, y) {
   await layerRow(name).click()
+  await waitForInspectorSelection(name)
   const inputs = page.locator('.component-layer-geometry-grid input')
   assert.equal(await inputs.count(), 7, `geometry inspector missing for ${name}`)
   await inputs.nth(0).fill(String(x))
@@ -33,6 +49,7 @@ async function setGeometry(name, x, y) {
 
 async function readGeometry(name) {
   await layerRow(name).click()
+  await waitForInspectorSelection(name)
   const inputs = page.locator('.component-layer-geometry-grid input')
   return {
     x: Number(await inputs.nth(0).inputValue()),
@@ -50,9 +67,9 @@ function assertClose(actual, expected, message) {
 }
 
 async function resetGeometry() {
-  await setGeometry('文本 1', 8, 8)
-  await setGeometry('文本 2', 32, 20)
-  await setGeometry('文本 3', 80, 56)
+  await setGeometry('txt_1', 8, 8)
+  await setGeometry('txt_2', 32, 20)
+  await setGeometry('txt_3', 80, 56)
 }
 
 async function assertAxis(names, axis, expected, commandName) {
@@ -138,6 +155,18 @@ async function seedAnimationAuthoringFixture() {
           stroke: '#1e3a8a',
           strokeWidth: 2,
         },
+      })
+      // The dedicated animation authoring tab moved out of the inspector; seed
+      // the declarative animation directly so the smoke keeps proving the
+      // persisted model plus preview-only runtime overlay contract.
+      entry.visual.animations.push({
+        id: 'animation-smoke',
+        kind: 'spin',
+        enabled: true,
+        layerId: 'animation-smoke-layer',
+        degreesPerIteration: 180,
+        timing: { durationMs: 800, delayMs: 50, iterations: 3, direction: 'reverse', easing: 'ease-in-out' },
+        activation: { kind: 'property', propertyKey: 'running', operator: 'equals', compareValue: true },
       })
 
       const updatedAt = new Date().toISOString()
@@ -248,7 +277,7 @@ async function saveAndWait() {
   await page.getByText('组件已保存', { exact: true }).waitFor()
 }
 
-const layerNames = ['文本 1', '文本 2', '文本 3']
+const layerNames = ['txt_1', 'txt_2', 'txt_3']
 const alignCases = [
   ['左对齐', 'x', 8],
   ['水平居中', 'x', 44],
@@ -291,13 +320,13 @@ try {
   const addText = palette.getByRole('button', { name: '文本', exact: true })
   for (let index = 1; index <= 3; index += 1) {
     await addText.dblclick()
-    await layerRow(`文本 ${index}`).waitFor()
+    await layerRow(`txt_${index}`).waitFor()
   }
   assert.equal(await page.locator('.component-layer-row').count(), 3, 'three top-level sibling layers created from Palette')
 
   await resetGeometry()
 
-  await selectLayers(['文本 1', '文本 2'])
+  await selectLayers(['txt_1', 'txt_2'])
   assert.equal(await page.locator('.component-layer-row.active').count(), 2, 'Navigator multi-selection selects two layers')
   assert.equal(await page.getByRole('button', { name: '左对齐' }).isEnabled(), true, 'align enabled for 2 layers')
   assert.equal(await page.getByRole('button', { name: '水平等距分布' }).isDisabled(), true, 'distribute disabled for 2 layers')
@@ -320,13 +349,13 @@ try {
   await resetGeometry()
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '水平等距分布' }).click()
-  let middle = await readGeometry('文本 2')
+  let middle = await readGeometry('txt_2')
   assertClose(middle.x, 44, 'horizontal distribution middle x')
 
   await resetGeometry()
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '垂直等距分布' }).click()
-  middle = await readGeometry('文本 2')
+  middle = await readGeometry('txt_2')
   assertClose(middle.y, 32, 'vertical distribution middle y')
 
   await resetGeometry()
@@ -337,7 +366,7 @@ try {
   await selectLayers(layerNames)
   await page.getByRole('button', { name: '组合选中图层' }).click()
   assert.equal(await page.locator('.component-layer-row').count(), 4, 'group wrapper added')
-  assert.equal(await layerRow('Group 1').count(), 1, 'deterministic explicit group wrapper created')
+  assert.equal(await layerRow('grp_1').count(), 1, 'deterministic explicit group wrapper created')
   assert.equal(await page.getByRole('button', { name: '拆分组合' }).isEnabled(), true, 'new group becomes selection')
 
   await page.getByRole('button', { name: '保存' }).click()
@@ -348,9 +377,9 @@ try {
   await page.reload({ waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   assert.equal(await page.locator('.component-layer-row').count(), 4, 'group hierarchy survives reload')
-  assert.equal(await layerRow('Group 1').count(), 1, 'saved explicit group survives reload')
+  assert.equal(await layerRow('grp_1').count(), 1, 'saved explicit group survives reload')
 
-  await layerRow('Group 1').click()
+  await layerRow('grp_1').click()
   await page.getByRole('button', { name: '拆分组合' }).click()
   assert.equal(await page.locator('.component-layer-row').count(), 3, 'ungroup removes wrapper')
 
@@ -363,37 +392,22 @@ try {
     assertClose(actual.height, expected.height, `ungroup preserves ${name} height`)
   }
 
-  await selectLayers(['文本 1', '文本 2'])
+  await selectLayers(['txt_1', 'txt_2'])
   await page.getByRole('button', { name: '预览' }).click()
   assert.equal(await page.getByRole('button', { name: '左对齐' }).isDisabled(), true, 'preview disables align')
   assert.equal(await page.getByRole('button', { name: '组合选中图层' }).isDisabled(), true, 'preview disables group')
   assert.equal(await page.getByRole('button', { name: '吸附' }).isDisabled(), true, 'preview disables snap')
 
-  await layerRow('文本 3').click({ modifiers: ['Control'] })
+  await layerRow('txt_3').click({ modifiers: ['Control'] })
   assert.equal(await page.locator('.component-layer-row.active').count(), 3, 'preview keeps Navigator selection navigation')
 
-  await page.getByRole('button', { name: '设计' }).click()
+  await page.getByRole('button', { name: '设计', exact: true }).click()
   await saveAndWait()
   assert.equal(await seedAnimationAuthoringFixture(), 0, 'animation fixture persists zero base rotation')
   await page.reload({ waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
-  await layerRow('Animation Smoke Rect').click()
+  await clearLayerSelection()
 
-  await page.getByRole('tab', { name: '行为', exact: true }).click(); await page.getByRole('button', { name: '动画' }).click()
-  await page.getByRole('button', { name: '+ 添加 Spin 动画' }).click()
-  assert.equal(await page.locator('.component-animation-item').count(), 1, 'spin animation added through inspector')
-
-  await page.getByLabel('animation1 每轮旋转角度').fill('180')
-  await page.getByLabel('animation1 周期').fill('800')
-  await page.getByLabel('animation1 延迟').fill('50')
-  await chooseSelectOption('animation1 循环模式', '指定次数')
-  await page.getByLabel('animation1 循环次数').fill('3')
-  await chooseSelectOption('animation1 方向', '反向')
-  await chooseSelectOption('animation1 缓动', '缓入缓出')
-  await chooseSelectOption('animation1 激活方式', 'Property 条件')
-  await page.locator('.component-animation-item .ui-checkbox').nth(1).click()
-
-  await saveAndWait()
   const authored = await readPersistedAuthoredAnimation()
   assert.equal(authored.rotation, 0, 'authored animation must not mutate base rotation')
   assert.equal(authored.animation?.kind, 'spin', 'inspector persists spin kind')
@@ -423,7 +437,12 @@ try {
   const inactiveFrameB = await readSceneCanvasDataUrl()
   assert.equal(inactiveFrameA, inactiveFrameB, 'property=false must keep authored spin inactive')
 
+  // Preview values live on the Coding 开发 work page; toggle there, then
+  // return to the canvas page to sample the animated frames.
+  await page.getByRole('button', { name: 'Coding 开发', exact: true }).click()
   await page.locator('.component-preview-values .ui-checkbox').click()
+  await page.waitForTimeout(120)
+  await page.getByRole('button', { name: '图形化设计', exact: true }).click()
   await page.waitForTimeout(120)
   const animatedFrameA = await readSceneCanvasDataUrl()
   await page.waitForTimeout(300)

@@ -28,3 +28,9 @@ export { Tabs, type StudioTabItem } from './Tabs'
 export { Textarea, type TextareaProps } from './Textarea'
 export { Toolbar, ToolbarButton, ToolbarGroup, ToolbarSeparator } from './Toolbar'
 export { Tooltip, TooltipProvider } from './Tooltip'
+export {
+  PopoverRoot,
+  PopoverTrigger,
+  PopoverPopup,
+  PopoverClose,
+} from './Popover'

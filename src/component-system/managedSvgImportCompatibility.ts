@@ -213,7 +213,9 @@ function shouldDiscardMetadataElement(element: Element) {
 
 function stripCompatibilityMetadataAttribute(attribute: Attr) {
   const lowerName = attribute.name.toLowerCase()
-  if (lowerName === 'class') return true
+  if (lowerName === 'class') return false
+  if (lowerName === 'description' || lowerName === 'data-description') return false
+  if (lowerName.startsWith('data-scada-')) return false
   if (lowerName.startsWith('data-')) return true
   if (lowerName.startsWith('aria-')) return true
   if (lowerName === 'role' || lowerName === 'focusable' || lowerName === 'tabindex') return true
@@ -274,6 +276,44 @@ function normalizeStylesAndMetadata(document: Document) {
   }
 }
 
+const BENIGN_SVG_DOCTYPE_PATTERN =
+  /<!DOCTYPE\s+svg(?:\s+(?:PUBLIC\s+(?:"[^"]*"|'[^']*')(?:\s+(?:"[^"]*"|'[^']*'))?|SYSTEM\s+(?:"[^"]*"|'[^']*')))?\s*>/i
+
+export function stripBenignSvgDoctype(source: string): string {
+  if (!/<!DOCTYPE/i.test(source)) {
+    if (/<!ENTITY/i.test(source)) {
+      throw new Error('SVG 不允许 DTD / ENTITY')
+    }
+    return source
+  }
+
+  if (/<!ENTITY/i.test(source) || /<!DOCTYPE[^>]*\[/i.test(source)) {
+    throw new Error('SVG 不允许 DTD / ENTITY')
+  }
+
+  const match = BENIGN_SVG_DOCTYPE_PATTERN.exec(source)
+  if (!match) {
+    throw new Error('SVG 包含不受支持的 DTD 声明')
+  }
+
+  const svgIndex = source.search(/<svg\b/i)
+  if (svgIndex === -1 || match.index > svgIndex) {
+    throw new Error('SVG DTD 声明位置无效')
+  }
+
+  const prologPrefix = source.slice(0, match.index).replace(/<!--[\s\S]*?-->/g, '').trim()
+  if (prologPrefix.length > 0) {
+    throw new Error('SVG DTD 声明位置无效')
+  }
+
+  const stripped = source.slice(0, match.index) + source.slice(match.index + match[0].length)
+  if (/<!DOCTYPE/i.test(stripped)) {
+    throw new Error('SVG 不允许重复的 DTD 声明')
+  }
+
+  return stripped
+}
+
 export function parseManagedSvgSourceWithCompatibility(source: string): ManagedSvgImportResult {
   if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') {
     throw new Error('当前环境不支持 SVG XML 兼容解析')
@@ -283,16 +323,15 @@ export function parseManagedSvgSourceWithCompatibility(source: string): ManagedS
   if (!normalizedSource) {
     throw new Error('SVG 文件为空')
   }
-  if (/<!DOCTYPE|<!ENTITY/i.test(normalizedSource)) {
-    throw new Error('SVG 不允许 DTD / ENTITY')
-  }
 
   const withoutXmlDeclaration = normalizedSource.replace(/^<\?xml\s[^?]*\?>\s*/i, '')
   if (/<\?(?!xml\b)/i.test(withoutXmlDeclaration)) {
     throw new Error('SVG 不允许处理指令')
   }
 
-  const parsed = new DOMParser().parseFromString(withoutXmlDeclaration, 'image/svg+xml')
+  const sanitizedSource = stripBenignSvgDoctype(withoutXmlDeclaration)
+
+  const parsed = new DOMParser().parseFromString(sanitizedSource, 'image/svg+xml')
   if (parsed.querySelector('parsererror')) {
     throw new Error('SVG XML 格式无效')
   }

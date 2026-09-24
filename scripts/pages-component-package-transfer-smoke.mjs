@@ -55,7 +55,7 @@ try {
   await exportPage.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await exportPage.locator('.studio-shell.component-studio-shell').waitFor()
   await exportPage.locator('.component-palette-item[aria-label="文本"]').dblclick()
-  await exportPage.locator('.component-layer-row', { hasText: '文本 1' }).waitFor()
+  await exportPage.locator('.component-layer-row', { hasText: 'txt_1' }).waitFor()
   await exportPage.getByRole('button', { name: '保存' }).click()
   await exportPage.waitForFunction(() => window.location.hash !== '#/components/new')
 

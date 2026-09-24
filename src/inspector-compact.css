@@ -86,8 +86,8 @@
   gap: 3px 6px;
   min-height: 27px;
   margin: 0;
-  color: #535b64;
-  font-size: 10px;
+  color: var(--ui-color-text-secondary, #535b64);
+  font-size: 11px;
 }
 
 .property-field > span:first-child {
@@ -95,18 +95,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ui-color-text-secondary, #535b64);
 }
 
 .property-field input,
 .property-field select,
-.property-field textarea {
+.property-field textarea,
+.property-field .ui-select-trigger,
+.property-field .ui-input {
   grid-column: 2;
   min-width: 0;
   width: 100%;
   min-height: 27px;
+  height: 27px;
   padding: 3px 6px;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .property-field textarea {
@@ -118,9 +124,9 @@
 .property-field small {
   grid-column: 2;
   margin: -1px 0 1px;
-  color: #9299a2;
-  font-size: 8px;
-  line-height: 1.3;
+  color: var(--ui-color-text-subtle, #9299a2);
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .property-field input.color-input {
@@ -154,7 +160,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .checkbox-field {
@@ -180,7 +186,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -197,7 +203,7 @@
   align-items: center;
   gap: 7px;
   border-bottom: 1px solid #e7e9ec;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .scene-inspector-summary div:last-child {
@@ -205,7 +211,7 @@
 }
 
 .scene-inspector-summary code {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .property-summary.compact-summary {
@@ -219,25 +225,25 @@
 
 .component-inspector-help,
 .component-layer-help {
-  font-size: 8px;
-  line-height: 1.35;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 .component-readonly-note {
   padding: 5px 6px;
   border-radius: 3px;
-  font-size: 8px;
-  line-height: 1.35;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 .component-implementation-note {
   gap: 2px;
-  font-size: 8px;
-  line-height: 1.35;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 .component-implementation-note strong {
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .component-layer-inspector-title {

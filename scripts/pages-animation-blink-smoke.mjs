@@ -56,6 +56,17 @@ async function seedBlinkAnimationFixture() {
     visible: true, opacity: 0.9, primitive: 'rect',
     style: { fill: '#dc2626', stroke: '#7f1d1d', strokeWidth: 2 },
   })
+  // The dedicated animation authoring tab moved out of the inspector; seed the
+  // declarative animation directly so the smoke keeps proving the persisted
+  // model plus preview-only runtime overlay contract.
+  entry.visual.animations.push({
+    id: 'blink-animation-smoke',
+    kind: 'blink',
+    enabled: true,
+    layerId: 'blink-animation-smoke-layer',
+    timing: { durationMs: 500, delayMs: 20, iterations: 'infinite', direction: 'normal', easing: 'linear' },
+    activation: { kind: 'property', propertyKey: 'alarm', operator: 'equals', compareValue: true },
+  })
   await writePersistedComponent(page, entry)
   return { visible: true, opacity: 0.9, x: 220, y: 150, rotation: 0, scaleX: 1, scaleY: 1 }
 }
@@ -77,23 +88,15 @@ try {
   await page.goto(componentUrl, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-palette-item[aria-label="文本"]').dblclick()
-  await layerRow('文本 1').waitFor()
+  await layerRow('txt_1').waitFor()
   await page.getByRole('button', { name: '保存' }).click()
   await page.waitForFunction(() => window.location.hash !== '#/components/new')
   const savedUrl = page.url()
 
   assert.deepEqual(await seedBlinkAnimationFixture(), { visible: true, opacity: 0.9, x: 220, y: 150, rotation: 0, scaleX: 1, scaleY: 1 }, 'blink fixture starts from stable persisted visual state')
   await page.reload({ waitUntil: 'networkidle' }); await page.locator('.studio-shell.component-studio-shell').waitFor()
-  await layerRow('Blink Animation Smoke Lamp').click(); await page.getByRole('tab', { name: '行为', exact: true }).click(); await page.getByRole('button', { name: '动画' }).click()
-  await page.getByRole('button', { name: '+ 添加 Blink 动画' }).click()
-  assert.equal(await page.locator('.component-animation-item').count(), 1, 'blink animation added through real inspector')
-  await page.getByLabel('animation1 周期').fill('500')
-  await page.getByLabel('animation1 延迟').fill('20')
-  assert.equal(await page.getByRole('combobox', { name: 'animation1 缓动' }).isDisabled(), true, 'Blink exposes stepped timing by disabling irrelevant easing authoring')
-  await chooseSelectOption('animation1 激活方式', 'Property 条件')
-  await page.locator('.component-animation-item .ui-checkbox').nth(1).click()
+  await clearLayerSelection()
 
-  await saveAndWait(page)
   const authored = await readPersistedBlinkState()
   assert.equal(authored.x, 220); assert.equal(authored.y, 150); assert.equal(authored.rotation, 0)
   assert.equal(authored.scaleX, 1); assert.equal(authored.scaleY, 1); assert.equal(authored.opacity, 0.9); assert.equal(authored.visible, true)
@@ -107,7 +110,11 @@ try {
   await page.getByRole('button', { name: '预览' }).click(); await page.waitForTimeout(100)
   const inactiveFrames = await sampleCanvasFrames(4, 180)
   assert.equal(new Set(inactiveFrames).size, 1, 'property=false must keep authored blink inactive')
+  // Preview values live on the Coding 开发 work page; toggle there, then
+  // return to the canvas page to sample the animated frames.
+  await page.getByRole('button', { name: 'Coding 开发', exact: true }).click()
   await page.locator('.component-preview-values .ui-checkbox').click(); await page.waitForTimeout(80)
+  await page.getByRole('button', { name: '图形化设计', exact: true }).click(); await page.waitForTimeout(120)
   const activeFrames = await sampleCanvasFrames(5, 160)
   assert.ok(new Set(activeFrames).size > 1, 'property=true must visibly alternate the authored Blink visibility gate')
   const persistedAfterPreview = await readPersistedBlinkState()

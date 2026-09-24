@@ -87,8 +87,10 @@ async function beforeUnloadIsBlocked() {
 }
 
 async function componentRootTitleField() {
-  if (await page.getByRole('button', { name: '当前组件', exact: true }).count()) {
-    await page.getByRole('button', { name: '当前组件', exact: true }).click()
+  // Component contracts live on the central Coding 开发 work page.
+  const workPageSwitch = page.getByRole('button', { name: 'Coding 开发', exact: true })
+  if (await workPageSwitch.count()) {
+    await workPageSwitch.click()
   }
   const rootInspector = page.locator('.component-root-inspector')
   await rootInspector.waitFor()

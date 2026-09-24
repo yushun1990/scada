@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type Konva from 'konva'
-import { Ellipse, Group, Layer, Line, Rect, Stage, Transformer } from 'react-konva'
+import { Arc, Circle, Ellipse, Group, Layer, Line, Rect, RegularPolygon, Stage, Text, Transformer } from 'react-konva'
 import {
   COMPOSITE_VISUAL_LAYER_NODE_NAME,
   CompositeComponentVisualRenderer,
@@ -16,7 +16,12 @@ import type {
   ComponentAttributeValues,
   ComponentPropertyFallbackValues,
 } from '../../component-system/definition'
-import type { ComponentVisualDefinition } from '../../component-system/visual'
+import {
+  resolveVisualVectorStyle,
+  type ComponentVisualDefinition,
+  type VectorVisualLayer,
+} from '../../component-system/visual'
+import { calculateOriginOffset } from '../../component-system/CompositeComponentVisualRenderer'
 import { resolveComponentVisualRules } from '../../component-system/visualRules'
 import {
   CopyIcon,
@@ -268,16 +273,21 @@ function findLayerNode(stage: Konva.Stage, layerId: string) {
 }
 
 function measureCanvasViewport(element: HTMLDivElement): CanvasViewport {
+  const container = element.closest<HTMLDivElement>('.component-workspace')
   const style = window.getComputedStyle(element)
   const horizontalPadding =
     Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight)
   const verticalPadding =
     Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom)
 
+  const effectiveWidth = element.clientWidth < 200 && container
+    ? Math.max(container.clientWidth - 112, 1)
+    : element.clientWidth
+
   return {
     width: Math.max(
       1,
-      element.clientWidth - horizontalPadding - WORKBENCH_ARTBOARD_FIT_GUTTER,
+      effectiveWidth - horizontalPadding - WORKBENCH_ARTBOARD_FIT_GUTTER,
     ),
     height: Math.max(
       1,
@@ -332,18 +342,884 @@ function CreateGeometryPreview({
     )
   }
 
+  if (tool.primitive === 'polygon') {
+    return (
+      <RegularPolygon
+        x={geometry.x + geometry.width / 2}
+        y={geometry.y + geometry.height / 2}
+        sides={tool.initialSides ?? 3}
+        radius={Math.min(geometry.width, geometry.height) / 2}
+        stroke={selectionColor}
+        strokeWidth={strokeWidth}
+        dash={dash}
+        listening={false}
+        perfectDrawEnabled={false}
+      />
+    )
+  }
+
+  if (tool.primitive === 'arc') {
+    const outerRadius = Math.min(geometry.width, geometry.height) / 2
+    const innerRadius = outerRadius * (tool.initialInnerRadiusRatio ?? 0)
+    return (
+      <Arc
+        x={geometry.x + geometry.width / 2}
+        y={geometry.y + geometry.height / 2}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius}
+        angle={tool.initialAngle ?? 270}
+        stroke={selectionColor}
+        strokeWidth={strokeWidth}
+        dash={dash}
+        listening={false}
+        perfectDrawEnabled={false}
+      />
+    )
+  }
+
   return (
     <Rect
       x={geometry.x}
       y={geometry.y}
       width={geometry.width}
       height={geometry.height}
+      cornerRadius={tool.initialStyle?.cornerRadius}
       stroke={selectionColor}
       strokeWidth={strokeWidth}
       dash={dash}
       listening={false}
       perfectDrawEnabled={false}
     />
+  )
+}
+
+const LINE_OVERLAY_NODE_NAME = 'line-interaction-overlay'
+
+function isInsideLineOverlay(target: Konva.Node | null) {
+  let current: Konva.Node | null = target
+  while (current) {
+    if (current.hasName(LINE_OVERLAY_NODE_NAME)) return true
+    current = current.getParent()
+  }
+  return false
+}
+
+function getLineEndpoints(transform: VectorVisualLayer['transform']) {
+  const { x, y, width, height, rotation, scaleX, scaleY } = transform
+  const rad = (rotation * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  const halfH = height / 2
+
+  const p1 = {
+    x: x - sin * halfH * scaleY,
+    y: y + cos * halfH * scaleY,
+  }
+
+  const p2 = {
+    x: x + cos * width * scaleX - sin * halfH * scaleY,
+    y: y + sin * width * scaleX + cos * halfH * scaleY,
+  }
+
+  return { p1, p2 }
+}
+
+function getLineDesignVertices(layer: VectorVisualLayer): { x: number; y: number }[] {
+  if (layer.points && layer.points.length >= 4) {
+    const { x, y, rotation, scaleX, scaleY } = layer.transform
+    const rad = (rotation * Math.PI) / 180
+    const cos = Math.cos(rad)
+    const sin = Math.sin(rad)
+    const result: { x: number; y: number }[] = []
+    for (let i = 0; i < layer.points.length; i += 2) {
+      const lx = layer.points[i] * scaleX
+      const ly = layer.points[i + 1] * scaleY
+      result.push({
+        x: x + lx * cos - ly * sin,
+        y: y + lx * sin + ly * cos,
+      })
+    }
+    return result
+  }
+  const { p1, p2 } = getLineEndpoints(layer.transform)
+  return [p1, p2]
+}
+
+function normalizePolylineLayer(
+  layer: VectorVisualLayer,
+  vertices: { x: number; y: number }[],
+): VectorVisualLayer {
+  const xs = vertices.map((v) => v.x)
+  const ys = vertices.map((v) => v.y)
+  const minX = Math.min(...xs)
+  const minY = Math.min(...ys)
+  const maxX = Math.max(...xs)
+  const maxY = Math.max(...ys)
+  const strokeWidth = layer.style?.strokeWidth ?? 2
+  const width = Math.max(8, maxX - minX)
+  const height = Math.max(8, maxY - minY, strokeWidth * 2)
+
+  const points: number[] = []
+  for (const v of vertices) {
+    points.push(Math.round((v.x - minX) * 100) / 100, Math.round((v.y - minY) * 100) / 100)
+  }
+
+  return {
+    ...layer,
+    transform: {
+      ...layer.transform,
+      x: Math.round(minX * 100) / 100,
+      y: Math.round(minY * 100) / 100,
+      width,
+      height,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+    },
+    points,
+  }
+}
+
+function convertTwoVerticesToLineLayer(
+  layer: VectorVisualLayer,
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+): VectorVisualLayer {
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const newWidth = Math.max(4, Math.hypot(dx, dy))
+  const newRotation = (Math.atan2(dy, dx) * 180) / Math.PI
+  const newRad = (newRotation * Math.PI) / 180
+  const strokeWidth = layer.style?.strokeWidth ?? 2
+  const halfH = Math.max(4, strokeWidth)
+  const newX = p1.x + Math.sin(newRad) * halfH
+  const newY = p1.y - Math.cos(newRad) * halfH
+
+  return {
+    ...layer,
+    transform: {
+      ...layer.transform,
+      x: Math.round(newX * 100) / 100,
+      y: Math.round(newY * 100) / 100,
+      width: Math.round(newWidth * 100) / 100,
+      height: halfH * 2,
+      rotation: Math.round(newRotation * 100) / 100,
+      scaleX: 1,
+      scaleY: 1,
+    },
+    points: undefined,
+  }
+}
+
+function projectPointToLineSegments(
+  vertices: { x: number; y: number }[],
+  click: { x: number; y: number },
+) {
+  if (vertices.length < 2) return null
+  let bestDist = Infinity
+  let bestSeg = 0
+  let bestPoint = { x: click.x, y: click.y }
+
+  for (let i = 0; i < vertices.length - 1; i++) {
+    const a = vertices[i]
+    const b = vertices[i + 1]
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const lenSq = dx * dx + dy * dy
+    if (lenSq < 1e-6) continue
+
+    const t = Math.max(0, Math.min(1, ((click.x - a.x) * dx + (click.y - a.y) * dy) / lenSq))
+    const projX = a.x + t * dx
+    const projY = a.y + t * dy
+    const dist = Math.hypot(click.x - projX, click.y - projY)
+
+    if (dist < bestDist) {
+      bestDist = dist
+      bestSeg = i
+      bestPoint = {
+        x: Math.round(projX * 100) / 100,
+        y: Math.round(projY * 100) / 100,
+      }
+    }
+  }
+
+  return {
+    segmentIndex: bestSeg,
+    point: bestPoint,
+    distance: bestDist,
+  }
+}
+
+function snapAngleToCardinal(
+  fromPoint: { x: number; y: number },
+  toPoint: { x: number; y: number },
+  toleranceDeg = 4,
+): { x: number; y: number } {
+  const dx = toPoint.x - fromPoint.x
+  const dy = toPoint.y - fromPoint.y
+  const dist = Math.hypot(dx, dy)
+  if (dist < 1e-3) return toPoint
+
+  const deg = (Math.atan2(dy, dx) * 180) / Math.PI
+  const cardinals = [0, 45, 90, 135, 180, -45, -90, -135, -180]
+  for (const card of cardinals) {
+    if (Math.abs(deg - card) <= toleranceDeg) {
+      const rad = (card * Math.PI) / 180
+      return {
+        x: fromPoint.x + Math.cos(rad) * dist,
+        y: fromPoint.y + Math.sin(rad) * dist,
+      }
+    }
+  }
+  return toPoint
+}
+
+type LineInteractionOverlayProps = {
+  layer: VectorVisualLayer
+  artboardScale: number
+  selectionColor: string
+  gridSize: number
+  snapEnabled: boolean
+  onPreviewChange: (previewLayer: VectorVisualLayer | null) => void
+  onCommit: (committedLayer: VectorVisualLayer) => void
+}
+
+function LineInteractionOverlay({
+  layer,
+  artboardScale,
+  selectionColor,
+  gridSize,
+  snapEnabled,
+  onPreviewChange,
+  onCommit,
+}: LineInteractionOverlayProps) {
+  const [thicknessDragging, setThicknessDragging] = useState<number | null>(null)
+
+  const isPolyline = Boolean(layer.points && layer.points.length >= 4)
+  const vertices = useMemo(() => getLineDesignVertices(layer), [layer])
+
+  const strokeWidth = layer.style?.strokeWidth ?? 2
+  const handleDist = Math.max(14 / artboardScale, strokeWidth / 2 + 10 / artboardScale)
+  const anchorRadius = 6 / artboardScale
+  const strokeW = 1.5 / artboardScale
+  const squareSize = 8 / artboardScale
+
+  // Find longest segment for thickness handle
+  let longestSegIdx = 0
+  let maxSegLen = 0
+  for (let i = 0; i < vertices.length - 1; i++) {
+    const d = Math.hypot(vertices[i + 1].x - vertices[i].x, vertices[i + 1].y - vertices[i].y)
+    if (d > maxSegLen) {
+      maxSegLen = d
+      longestSegIdx = i
+    }
+  }
+  const sa = vertices[longestSegIdx] ?? { x: 0, y: 0 }
+  const sb = vertices[longestSegIdx + 1] ?? { x: 10, y: 0 }
+  const segMid = { x: (sa.x + sb.x) / 2, y: (sa.y + sb.y) / 2 }
+  const segLen = Math.max(1, maxSegLen)
+  const segNormal = {
+    x: -(sb.y - sa.y) / segLen,
+    y: (sb.x - sa.x) / segLen,
+  }
+
+  const pTop = {
+    x: segMid.x + segNormal.x * handleDist,
+    y: segMid.y + segNormal.y * handleDist,
+  }
+  const pBottom = {
+    x: segMid.x - segNormal.x * handleDist,
+    y: segMid.y - segNormal.y * handleDist,
+  }
+
+  // Flatten vertices for dashed guide
+  const guidePoints = useMemo(() => vertices.flatMap((v) => [v.x, v.y]), [vertices])
+
+  // 2-point line specific handles
+  const p1 = vertices[0] ?? { x: 0, y: 0 }
+  const p2 = vertices[1] ?? { x: 0, y: 0 }
+  const halfH = layer.transform.height / 2
+
+  function handleEndDragMove(e: Konva.KonvaEventObject<DragEvent>) {
+    e.cancelBubble = true
+    const stage = e.target.getStage()
+    if (!stage) return
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return
+
+    let curX = pointer.x / artboardScale
+    let curY = pointer.y / artboardScale
+
+    if (e.evt.shiftKey) {
+      const dx = curX - p1.x
+      const dy = curY - p1.y
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+      const snappedAngle = Math.round(angle / 15) * 15
+      const snappedRad = (snappedAngle * Math.PI) / 180
+      const dist = Math.hypot(dx, dy)
+      curX = p1.x + Math.cos(snappedRad) * dist
+      curY = p1.y + Math.sin(snappedRad) * dist
+    }
+
+    const dx = curX - p1.x
+    const dy = curY - p1.y
+    const newWidth = Math.max(4, Math.hypot(dx, dy))
+    const newRotation = (Math.atan2(dy, dx) * 180) / Math.PI
+    const newRad = (newRotation * Math.PI) / 180
+
+    const newX = p1.x + Math.sin(newRad) * halfH
+    const newY = p1.y - Math.cos(newRad) * halfH
+
+    const nextLayer: VectorVisualLayer = {
+      ...layer,
+      transform: {
+        ...layer.transform,
+        x: newX,
+        y: newY,
+        width: newWidth,
+        rotation: newRotation,
+        scaleX: 1,
+        scaleY: 1,
+      },
+    }
+    onPreviewChange(nextLayer)
+  }
+
+  function handleEndDragEnd(e: Konva.KonvaEventObject<DragEvent>) {
+    e.cancelBubble = true
+    e.target.position({ x: 0, y: 0 })
+    const stage = e.target.getStage()
+    if (!stage) {
+      onPreviewChange(null)
+      return
+    }
+    const pointer = stage.getPointerPosition()
+    if (!pointer) {
+      onPreviewChange(null)
+      return
+    }
+
+    let curX = pointer.x / artboardScale
+    let curY = pointer.y / artboardScale
+
+    if (snapEnabled) {
+      const cardinalSnapped = snapAngleToCardinal(p1, { x: curX, y: curY }, 4)
+      if (cardinalSnapped.x !== curX || cardinalSnapped.y !== curY) {
+        curX = cardinalSnapped.x
+        curY = cardinalSnapped.y
+      } else {
+        curX = Math.round(curX / gridSize) * gridSize
+        curY = Math.round(curY / gridSize) * gridSize
+      }
+    }
+
+    if (e.evt.shiftKey) {
+      const dx = curX - p1.x
+      const dy = curY - p1.y
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+      const snappedAngle = Math.round(angle / 15) * 15
+      const snappedRad = (snappedAngle * Math.PI) / 180
+      const dist = Math.hypot(dx, dy)
+      curX = p1.x + Math.cos(snappedRad) * dist
+      curY = p1.y + Math.sin(snappedRad) * dist
+    }
+
+    const dx = curX - p1.x
+    const dy = curY - p1.y
+    const newWidth = Math.max(4, Math.hypot(dx, dy))
+    const newRotation = (Math.atan2(dy, dx) * 180) / Math.PI
+    const newRad = (newRotation * Math.PI) / 180
+
+    const newX = p1.x + Math.sin(newRad) * halfH
+    const newY = p1.y - Math.cos(newRad) * halfH
+
+    const nextLayer: VectorVisualLayer = {
+      ...layer,
+      transform: {
+        ...layer.transform,
+        x: newX,
+        y: newY,
+        width: newWidth,
+        rotation: newRotation,
+        scaleX: 1,
+        scaleY: 1,
+      },
+    }
+    onPreviewChange(null)
+    onCommit(nextLayer)
+  }
+
+  function handleStartDragMove(e: Konva.KonvaEventObject<DragEvent>) {
+    e.cancelBubble = true
+    const stage = e.target.getStage()
+    if (!stage) return
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return
+
+    let curX = pointer.x / artboardScale
+    let curY = pointer.y / artboardScale
+
+    if (e.evt.shiftKey) {
+      const dx = p2.x - curX
+      const dy = p2.y - curY
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+      const snappedAngle = Math.round(angle / 15) * 15
+      const snappedRad = (snappedAngle * Math.PI) / 180
+      const dist = Math.hypot(dx, dy)
+      curX = p2.x - Math.cos(snappedRad) * dist
+      curY = p2.y - Math.sin(snappedRad) * dist
+    }
+
+    const dx = p2.x - curX
+    const dy = p2.y - curY
+    const newWidth = Math.max(4, Math.hypot(dx, dy))
+    const newRotation = (Math.atan2(dy, dx) * 180) / Math.PI
+    const newRad = (newRotation * Math.PI) / 180
+
+    const newX = curX + Math.sin(newRad) * halfH
+    const newY = curY - Math.cos(newRad) * halfH
+
+    const nextLayer: VectorVisualLayer = {
+      ...layer,
+      transform: {
+        ...layer.transform,
+        x: newX,
+        y: newY,
+        width: newWidth,
+        rotation: newRotation,
+        scaleX: 1,
+        scaleY: 1,
+      },
+    }
+    onPreviewChange(nextLayer)
+  }
+
+  function handleStartDragEnd(e: Konva.KonvaEventObject<DragEvent>) {
+    e.cancelBubble = true
+    e.target.position({ x: 0, y: 0 })
+    const stage = e.target.getStage()
+    if (!stage) {
+      onPreviewChange(null)
+      return
+    }
+    const pointer = stage.getPointerPosition()
+    if (!pointer) {
+      onPreviewChange(null)
+      return
+    }
+
+    let curX = pointer.x / artboardScale
+    let curY = pointer.y / artboardScale
+
+    if (snapEnabled) {
+      const cardinalSnapped = snapAngleToCardinal(p2, { x: curX, y: curY }, 4)
+      if (cardinalSnapped.x !== curX || cardinalSnapped.y !== curY) {
+        curX = cardinalSnapped.x
+        curY = cardinalSnapped.y
+      } else {
+        curX = Math.round(curX / gridSize) * gridSize
+        curY = Math.round(curY / gridSize) * gridSize
+      }
+    }
+
+    if (e.evt.shiftKey) {
+      const dx = p2.x - curX
+      const dy = p2.y - curY
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+      const snappedAngle = Math.round(angle / 15) * 15
+      const snappedRad = (snappedAngle * Math.PI) / 180
+      const dist = Math.hypot(dx, dy)
+      curX = p2.x - Math.cos(snappedRad) * dist
+      curY = p2.y - Math.sin(snappedRad) * dist
+    }
+
+    const dx = p2.x - curX
+    const dy = p2.y - curY
+    const newWidth = Math.max(4, Math.hypot(dx, dy))
+    const newRotation = (Math.atan2(dy, dx) * 180) / Math.PI
+    const newRad = (newRotation * Math.PI) / 180
+
+    const newX = curX + Math.sin(newRad) * halfH
+    const newY = curY - Math.cos(newRad) * halfH
+
+    const nextLayer: VectorVisualLayer = {
+      ...layer,
+      transform: {
+        ...layer.transform,
+        x: newX,
+        y: newY,
+        width: newWidth,
+        rotation: newRotation,
+        scaleX: 1,
+        scaleY: 1,
+      },
+    }
+    onPreviewChange(null)
+    onCommit(nextLayer)
+  }
+
+  function handleVertexDragMove(index: number, e: Konva.KonvaEventObject<DragEvent>) {
+    e.cancelBubble = true
+    const stage = e.target.getStage()
+    if (!stage) return
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return
+
+    const curX = pointer.x / artboardScale
+    const curY = pointer.y / artboardScale
+
+    const nextVertices = vertices.map((v, i) => (i === index ? { x: curX, y: curY } : v))
+    const preview = normalizePolylineLayer(layer, nextVertices)
+    onPreviewChange(preview)
+  }
+
+  function handleVertexDragEnd(index: number, e: Konva.KonvaEventObject<DragEvent>) {
+    e.cancelBubble = true
+    e.target.position({ x: 0, y: 0 })
+    const stage = e.target.getStage()
+    if (!stage) {
+      onPreviewChange(null)
+      return
+    }
+    const pointer = stage.getPointerPosition()
+    if (!pointer) {
+      onPreviewChange(null)
+      return
+    }
+
+    let curX = pointer.x / artboardScale
+    let curY = pointer.y / artboardScale
+
+    if (snapEnabled) {
+      curX = Math.round(curX / gridSize) * gridSize
+      curY = Math.round(curY / gridSize) * gridSize
+    }
+
+    const nextVertices = vertices.map((v, i) => (i === index ? { x: curX, y: curY } : v))
+    const committed = normalizePolylineLayer(layer, nextVertices)
+    onPreviewChange(null)
+    onCommit(committed)
+  }
+
+  function handleVertexDblClick(index: number) {
+    if (vertices.length <= 2) return
+    if (index === 0 || index === vertices.length - 1) return
+    const nextVertices = vertices.filter((_, i) => i !== index)
+    if (nextVertices.length === 2) {
+      const converted = convertTwoVerticesToLineLayer(layer, nextVertices[0], nextVertices[1])
+      onCommit(converted)
+    } else {
+      const normalized = normalizePolylineLayer(layer, nextVertices)
+      onCommit(normalized)
+    }
+  }
+
+  function handleThicknessDragMove(e: Konva.KonvaEventObject<DragEvent>) {
+    e.cancelBubble = true
+    const stage = e.target.getStage()
+    if (!stage) return
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return
+
+    const curX = pointer.x / artboardScale
+    const curY = pointer.y / artboardScale
+
+    const vx = curX - segMid.x
+    const vy = curY - segMid.y
+    const perpDist = Math.abs(vx * segNormal.x + vy * segNormal.y)
+    let nextStrokeWidth = Math.max(1, Math.round(perpDist * 2))
+
+    if (e.evt.shiftKey) {
+      nextStrokeWidth = Math.max(1, Math.round(nextStrokeWidth / 2) * 2)
+    }
+
+    setThicknessDragging(nextStrokeWidth)
+
+    if (isPolyline) {
+      const nextLayer: VectorVisualLayer = {
+        ...layer,
+        style: {
+          ...resolveVisualVectorStyle(layer),
+          strokeWidth: nextStrokeWidth,
+        },
+      }
+      onPreviewChange(nextLayer)
+    } else {
+      const nextHeight = Math.max(8, nextStrokeWidth * 2)
+      const rad = (layer.transform.rotation * Math.PI) / 180
+      const nextX = p1.x + Math.sin(rad) * (nextHeight / 2)
+      const nextY = p1.y - Math.cos(rad) * (nextHeight / 2)
+
+      const nextLayer: VectorVisualLayer = {
+        ...layer,
+        transform: {
+          ...layer.transform,
+          x: nextX,
+          y: nextY,
+          height: nextHeight,
+        },
+        style: {
+          ...resolveVisualVectorStyle(layer),
+          strokeWidth: nextStrokeWidth,
+        },
+      }
+      onPreviewChange(nextLayer)
+    }
+  }
+
+  function handleThicknessDragEnd(e: Konva.KonvaEventObject<DragEvent>) {
+    e.cancelBubble = true
+    e.target.position({ x: 0, y: 0 })
+    setThicknessDragging(null)
+    const stage = e.target.getStage()
+    if (!stage) {
+      onPreviewChange(null)
+      return
+    }
+    const pointer = stage.getPointerPosition()
+    if (!pointer) {
+      onPreviewChange(null)
+      return
+    }
+
+    const curX = pointer.x / artboardScale
+    const curY = pointer.y / artboardScale
+
+    const vx = curX - segMid.x
+    const vy = curY - segMid.y
+    const perpDist = Math.abs(vx * segNormal.x + vy * segNormal.y)
+    let nextStrokeWidth = Math.max(1, Math.round(perpDist * 2))
+
+    if (e.evt.shiftKey) {
+      nextStrokeWidth = Math.max(1, Math.round(nextStrokeWidth / 2) * 2)
+    }
+
+    if (isPolyline) {
+      const nextLayer: VectorVisualLayer = {
+        ...layer,
+        style: {
+          ...resolveVisualVectorStyle(layer),
+          strokeWidth: nextStrokeWidth,
+        },
+      }
+      onPreviewChange(null)
+      onCommit(nextLayer)
+    } else {
+      const nextHeight = Math.max(8, nextStrokeWidth * 2)
+      const rad = (layer.transform.rotation * Math.PI) / 180
+      const nextX = p1.x + Math.sin(rad) * (nextHeight / 2)
+      const nextY = p1.y - Math.cos(rad) * (nextHeight / 2)
+
+      const nextLayer: VectorVisualLayer = {
+        ...layer,
+        transform: {
+          ...layer.transform,
+          x: nextX,
+          y: nextY,
+          height: nextHeight,
+        },
+        style: {
+          ...resolveVisualVectorStyle(layer),
+          strokeWidth: nextStrokeWidth,
+        },
+      }
+      onPreviewChange(null)
+      onCommit(nextLayer)
+    }
+  }
+
+  return (
+    <Group name={LINE_OVERLAY_NODE_NAME}>
+      {/* Dashed guide between endpoints / vertices */}
+      <Line
+        points={guidePoints}
+        stroke={selectionColor}
+        strokeWidth={1 / artboardScale}
+        dash={[4 / artboardScale, 4 / artboardScale]}
+        listening={false}
+      />
+      {/* Dashed perpendicular guide across midpoint for thickness */}
+      <Line
+        points={[pTop.x, pTop.y, pBottom.x, pBottom.y]}
+        stroke={selectionColor}
+        strokeWidth={1 / artboardScale}
+        opacity={0.6}
+        dash={[2 / artboardScale, 2 / artboardScale]}
+        listening={false}
+      />
+
+      {/* Handles */}
+      {isPolyline ? (
+        vertices.map((v, index) => (
+          <Group key={index} x={v.x} y={v.y}>
+            <Circle
+              x={0}
+              y={0}
+              radius={anchorRadius}
+              fill="#ffffff"
+              stroke={selectionColor}
+              strokeWidth={strokeW}
+              hitStrokeWidth={18 / artboardScale}
+              draggable
+              onDragStart={(e) => {
+                e.cancelBubble = true
+              }}
+              onDragMove={(e) => handleVertexDragMove(index, e)}
+              onDragEnd={(e) => handleVertexDragEnd(index, e)}
+              onDblClick={(e) => {
+                e.cancelBubble = true
+                handleVertexDblClick(index)
+              }}
+              onDblTap={(e) => {
+                e.cancelBubble = true
+                handleVertexDblClick(index)
+              }}
+              onMouseEnter={(e) => {
+                const st = e.target.getStage()
+                if (st) st.container().style.cursor = 'crosshair'
+              }}
+              onMouseLeave={(e) => {
+                const st = e.target.getStage()
+                if (st) st.container().style.cursor = 'default'
+              }}
+            />
+          </Group>
+        ))
+      ) : (
+        <>
+          {/* P1 Start Handle */}
+          <Group x={p1.x} y={p1.y}>
+            <Circle
+              x={0}
+              y={0}
+              radius={anchorRadius}
+              fill="#ffffff"
+              stroke={selectionColor}
+              strokeWidth={strokeW}
+              hitStrokeWidth={18 / artboardScale}
+              draggable
+              onDragStart={(e) => {
+                e.cancelBubble = true
+              }}
+              onDragMove={handleStartDragMove}
+              onDragEnd={handleStartDragEnd}
+              onMouseEnter={(e) => {
+                const st = e.target.getStage()
+                if (st) st.container().style.cursor = 'crosshair'
+              }}
+              onMouseLeave={(e) => {
+                const st = e.target.getStage()
+                if (st) st.container().style.cursor = 'default'
+              }}
+            />
+          </Group>
+          {/* P2 End Handle */}
+          <Group x={p2.x} y={p2.y}>
+            <Circle
+              x={0}
+              y={0}
+              radius={anchorRadius}
+              fill="#ffffff"
+              stroke={selectionColor}
+              strokeWidth={strokeW}
+              hitStrokeWidth={18 / artboardScale}
+              draggable
+              onDragStart={(e) => {
+                e.cancelBubble = true
+              }}
+              onDragMove={handleEndDragMove}
+              onDragEnd={handleEndDragEnd}
+              onMouseEnter={(e) => {
+                const st = e.target.getStage()
+                if (st) st.container().style.cursor = 'crosshair'
+              }}
+              onMouseLeave={(e) => {
+                const st = e.target.getStage()
+                if (st) st.container().style.cursor = 'default'
+              }}
+            />
+          </Group>
+        </>
+      )}
+
+      {/* Top Thickness Handle */}
+      <Group x={pTop.x} y={pTop.y}>
+        <Rect
+          x={-squareSize / 2}
+          y={-squareSize / 2}
+          width={squareSize}
+          height={squareSize}
+          fill="#ffffff"
+          stroke={selectionColor}
+          strokeWidth={strokeW}
+          hitStrokeWidth={18 / artboardScale}
+          draggable
+          onDragStart={(e) => {
+            e.cancelBubble = true
+          }}
+          onDragMove={handleThicknessDragMove}
+          onDragEnd={handleThicknessDragEnd}
+          onMouseEnter={(e) => {
+            const st = e.target.getStage()
+            if (st) st.container().style.cursor = 'ns-resize'
+          }}
+          onMouseLeave={(e) => {
+            const st = e.target.getStage()
+            if (st) st.container().style.cursor = 'default'
+          }}
+        />
+      </Group>
+      {/* Bottom Thickness Handle */}
+      <Group x={pBottom.x} y={pBottom.y}>
+        <Rect
+          x={-squareSize / 2}
+          y={-squareSize / 2}
+          width={squareSize}
+          height={squareSize}
+          fill="#ffffff"
+          stroke={selectionColor}
+          strokeWidth={strokeW}
+          hitStrokeWidth={18 / artboardScale}
+          draggable
+          onDragStart={(e) => {
+            e.cancelBubble = true
+          }}
+          onDragMove={handleThicknessDragMove}
+          onDragEnd={handleThicknessDragEnd}
+          onMouseEnter={(e) => {
+            const st = e.target.getStage()
+            if (st) st.container().style.cursor = 'ns-resize'
+          }}
+          onMouseLeave={(e) => {
+            const st = e.target.getStage()
+            if (st) st.container().style.cursor = 'default'
+          }}
+        />
+      </Group>
+      {/* Live Width Badge */}
+      {thicknessDragging !== null && (
+        <Group x={segMid.x} y={segMid.y - handleDist - 16 / artboardScale} listening={false}>
+          <Rect
+            x={-24 / artboardScale}
+            y={-10 / artboardScale}
+            width={48 / artboardScale}
+            height={20 / artboardScale}
+            cornerRadius={4 / artboardScale}
+            fill="#1e293b"
+            opacity={0.9}
+          />
+          <Text
+            text={`${thicknessDragging}px`}
+            x={-24 / artboardScale}
+            y={-5 / artboardScale}
+            width={48 / artboardScale}
+            align="center"
+            fontSize={11 / artboardScale}
+            fill="#ffffff"
+          />
+        </Group>
+      )}
+    </Group>
   )
 }
 
@@ -375,6 +1251,7 @@ export function ComponentVisualCanvas({
   const canvasHostRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
+  const lineOverlayGroupRef = useRef<Konva.Group>(null)
   const verticalGuideRef = useRef<Konva.Line>(null)
   const horizontalGuideRef = useRef<Konva.Line>(null)
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport | null>(null)
@@ -397,6 +1274,25 @@ export function ComponentVisualCanvas({
     ),
     [selectedLayerIds, visual.layers],
   )
+  const selectedLineLayer = useMemo(() => {
+    if (selectedVisibleLayerIds.length !== 1) return null
+    const layer = visual.layers.find((candidate) => candidate.id === selectedVisibleLayerIds[0])
+    return layer && layer.kind === 'vector' && layer.primitive === 'line' ? layer : null
+  }, [selectedVisibleLayerIds, visual.layers])
+  const isSingleLineSelected = Boolean(selectedLineLayer)
+
+  const [linePreviewLayer, setLinePreviewLayer] = useState<VectorVisualLayer | null>(null)
+
+  const visualWithLinePreview = useMemo(() => {
+    if (!linePreviewLayer) return visual
+    return {
+      ...visual,
+      layers: visual.layers.map((layer) =>
+        layer.id === linePreviewLayer.id ? linePreviewLayer : layer,
+      ),
+    }
+  }, [visual, linePreviewLayer])
+
   const activeManagedSvgSelection =
     selectedLayerIds.length === 1 &&
     primaryLayerId !== null &&
@@ -404,17 +1300,17 @@ export function ComponentVisualCanvas({
       ? managedSvgSelection
       : null
   const ruleResolvedVisual = mode === 'preview'
-    ? resolveComponentVisualRules(visual, {
+    ? resolveComponentVisualRules(visualWithLinePreview, {
         attributes: attributeValues,
         properties: propertyValues,
       })
-    : visual
+    : visualWithLinePreview
   const renderedVisual = mode === 'preview'
     ? applyVisualAnimationOverlay(
         ruleResolvedVisual,
         evaluateVisualAnimations(ruleResolvedVisual, propertyValues, animationTimeMs),
       )
-    : visual
+    : visualWithLinePreview
   const visualDesignWidth = visual.designSize.width
   const visualDesignHeight = visual.designSize.height
   // Fit the white artboard to the available workspace without changing design coordinates.
@@ -430,7 +1326,11 @@ export function ComponentVisualCanvas({
   const isEditable = isComposite && mode === 'editor' && !readOnly
   const activeCreateTool = isEditable ? createTool : null
   const showDesignGrid = isComposite && mode === 'editor' && gridVisible
-  const canTransformSelection = selectedLayerIds.length === 1 && !activeCreateTool && selectedLayer?.parentId === null
+  const canTransformSelection =
+    selectedLayerIds.length === 1 &&
+    !activeCreateTool &&
+    selectedLayer?.parentId === null &&
+    !isSingleLineSelected
   const createGeometry = activeCreateTool && createStart && createCurrent
     ? resolveComponentCreateGeometry(
         activeCreateTool,
@@ -451,6 +1351,10 @@ export function ComponentVisualCanvas({
     setSelectionColor(getComputedStyle(element).getPropertyValue('--ui-color-accent').trim())
 
     const updateViewport = () => {
+      if (element.clientWidth < 200) {
+        return
+      }
+
       const next = measureCanvasViewport(element)
 
       setCanvasViewport((current) =>
@@ -497,7 +1401,7 @@ export function ComponentVisualCanvas({
       return
     }
 
-    const selectedNodes = isEditable && !activeCreateTool
+    const selectedNodes = isEditable && !activeCreateTool && !isSingleLineSelected
       ? selectedVisibleLayerIds.flatMap((layerId) => {
           const node = findLayerNode(stage, layerId)
           return node ? [node] : []
@@ -506,7 +1410,7 @@ export function ComponentVisualCanvas({
 
     transformer.nodes(selectedNodes)
     transformer.getLayer()?.batchDraw()
-  }, [activeCreateTool, artboardScale, isEditable, selectedVisibleLayerIds, visual.layers])
+  }, [activeCreateTool, artboardScale, isEditable, isSingleLineSelected, selectedVisibleLayerIds, visual.layers])
 
   useLayoutEffect(() => {
     const clearHighlight = () => {
@@ -682,20 +1586,45 @@ export function ComponentVisualCanvas({
       node.scaleY(nextLayerTransform.scaleY)
     }
 
-    onChange({
+    const nextVisual: ComponentVisualDefinition = {
       ...visual,
       layers: visual.layers.map((candidate) => {
         const normalizedTransform = normalizedTransforms?.get(candidate.id)
 
         if (candidate.id === layerId) {
+          const nextWidth = nextLayerTransform?.width ?? candidate.transform.width
+          const nextHeight = nextLayerTransform?.height ?? candidate.transform.height
+          const { offsetX, offsetY } = calculateOriginOffset(
+            candidate.origin,
+            nextWidth,
+            nextHeight,
+          )
+          const updatedTransform = {
+            ...(nextLayerTransform ?? candidate.transform),
+            x: node.x() - offsetX,
+            y: node.y() - offsetY,
+            rotation: node.rotation(),
+          }
+
+          if (candidate.kind === 'vector') {
+            const currentStrokeWidth = candidate.style?.strokeWidth ?? 2
+            const nextStrokeWidth =
+              candidate.primitive === 'line' && Math.abs(resizeScaleY - 1) > 0.01
+                ? Math.max(1, Math.round(currentStrokeWidth * resizeScaleY * 10) / 10)
+                : candidate.style?.strokeWidth
+
+            return {
+              ...candidate,
+              transform: updatedTransform,
+              ...(nextStrokeWidth !== undefined
+                ? { style: { ...resolveVisualVectorStyle(candidate), strokeWidth: nextStrokeWidth } }
+                : {}),
+            }
+          }
+
           return {
             ...candidate,
-            transform: {
-              ...(nextLayerTransform ?? candidate.transform),
-              x: node.x(),
-              y: node.y(),
-              rotation: node.rotation(),
-            },
+            transform: updatedTransform,
           }
         }
 
@@ -703,7 +1632,9 @@ export function ComponentVisualCanvas({
           ? { ...candidate, transform: normalizedTransform }
           : candidate
       }),
-    })
+    }
+
+    onChange(nextVisual)
   }
 
   function resolveLayerNode(target: Konva.Node) {
@@ -771,6 +1702,10 @@ export function ComponentVisualCanvas({
   function beginLayerDrag(target: Konva.Node) {
     clearSnapGuides()
     setManagedSvgHighlightPoints([])
+
+    if (lineOverlayGroupRef.current) {
+      lineOverlayGroupRef.current.position({ x: 0, y: 0 })
+    }
 
     if (!isEditable || layerDragSessionRef.current) {
       return
@@ -857,6 +1792,13 @@ export function ComponentVisualCanvas({
     }
     const stage = stageRef.current
 
+    if (lineOverlayGroupRef.current && session.draggedLayerId === selectedLineLayer?.id) {
+      lineOverlayGroupRef.current.position({
+        x: delta.x * artboardScale,
+        y: delta.y * artboardScale,
+      })
+    }
+
     for (const layerId of session.layerIds) {
       const node = stage ? findLayerNode(stage, layerId) : undefined
       const initial = session.initialTransforms[layerId]
@@ -896,6 +1838,10 @@ export function ComponentVisualCanvas({
   }
 
   function finishLayerDrag(target: Konva.Node) {
+    if (lineOverlayGroupRef.current) {
+      lineOverlayGroupRef.current.position({ x: 0, y: 0 })
+    }
+
     const session = layerDragSessionRef.current
     const stage = stageRef.current
     const node = resolveLayerNode(target)
@@ -955,9 +1901,16 @@ export function ComponentVisualCanvas({
         })
       }
 
+      const targetLayer = visual.layers.find((l) => l.id === layerId)
+      const { offsetX, offsetY } = calculateOriginOffset(
+        targetLayer?.origin,
+        targetLayer?.transform.width ?? 0,
+        targetLayer?.transform.height ?? 0,
+      )
+
       updates.set(layerId, {
-        x: currentNode.x(),
-        y: currentNode.y(),
+        x: currentNode.x() - offsetX,
+        y: currentNode.y() - offsetY,
       })
     }
 
@@ -966,7 +1919,7 @@ export function ComponentVisualCanvas({
     }
 
     if (updates.size > 0) {
-      onChange({
+      const nextVisual: ComponentVisualDefinition = {
         ...visual,
         layers: visual.layers.map((layer) => {
           const transform = updates.get(layer.id)
@@ -975,7 +1928,8 @@ export function ComponentVisualCanvas({
             ? { ...layer, transform: { ...layer.transform, ...transform } }
             : layer
         }),
-      })
+      }
+      onChange(nextVisual)
     }
 
     clearSnapGuides()
@@ -984,7 +1938,12 @@ export function ComponentVisualCanvas({
   }
 
   function handlePointerTarget(target: Konva.Node, toggle = false) {
-    if (!isEditable || activeCreateTool || isInsideTransformer(target, transformerRef.current)) {
+    if (
+      !isEditable ||
+      activeCreateTool ||
+      isInsideTransformer(target, transformerRef.current) ||
+      isInsideLineOverlay(target)
+    ) {
       return false
     }
 
@@ -1006,6 +1965,52 @@ export function ComponentVisualCanvas({
     pendingLayerSelectionRef.current = nextSelection
     onSelectionReplace(nextSelection)
     return true
+  }
+
+  function handleCanvasDblClick(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
+    if (!isEditable || activeCreateTool) return
+    const stage = stageRef.current
+    if (!stage) return
+
+    let targetLayer: VectorVisualLayer | null = null
+    const layerId = getCompositeVisualLayerId(event.target, 'closest')
+    if (layerId) {
+      const candidate = visual.layers.find((l) => l.id === layerId)
+      if (candidate && candidate.kind === 'vector' && candidate.primitive === 'line') {
+        targetLayer = candidate
+      }
+    } else if (isInsideLineOverlay(event.target) && selectedLineLayer) {
+      targetLayer = selectedLineLayer
+    }
+
+    if (!targetLayer) return
+
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return
+
+    const clickDesign = {
+      x: pointer.x / artboardScale,
+      y: pointer.y / artboardScale,
+    }
+
+    const vertices = getLineDesignVertices(targetLayer)
+    const projection = projectPointToLineSegments(vertices, clickDesign)
+    if (!projection || projection.distance > 30 / artboardScale) {
+      return
+    }
+
+    const newVertices = [
+      ...vertices.slice(0, projection.segmentIndex + 1),
+      projection.point,
+      ...vertices.slice(projection.segmentIndex + 1),
+    ]
+
+    const normalized = normalizePolylineLayer(targetLayer, newVertices)
+    onChange({
+      ...visual,
+      layers: visual.layers.map((l) => (l.id === normalized.id ? normalized : l)),
+    })
+    onSelectionReplace([normalized.id])
   }
 
   function getStagePointer() {
@@ -1311,12 +2316,16 @@ export function ComponentVisualCanvas({
                 ref={stageRef}
                 width={artboardWidth}
                 height={artboardHeight}
+                pixelRatio={typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1}
                 listening={isEditable}
                 onMouseDown={(event) => {
                   if (activeCreateTool && event.evt.button !== 0) return
                   if (beginCreate(event.evt.shiftKey)) return
 
-                  if (isInsideTransformer(event.target, transformerRef.current)) {
+                  if (
+                    isInsideTransformer(event.target, transformerRef.current) ||
+                    isInsideLineOverlay(event.target)
+                  ) {
                     return
                   }
 
@@ -1351,6 +2360,8 @@ export function ComponentVisualCanvas({
                 onDragStart={(event) => beginLayerDrag(event.target)}
                 onDragMove={(event) => previewLayerDrag(event.target)}
                 onDragEnd={(event) => finishLayerDrag(event.target)}
+                onDblClick={(event) => handleCanvasDblClick(event)}
+                onDblTap={(event) => handleCanvasDblClick(event)}
               >
                 <Layer listening={isEditable}>
                   <CompositeComponentVisualRenderer
@@ -1364,6 +2375,7 @@ export function ComponentVisualCanvas({
                     opacity={1}
                     listening={isEditable}
                     draggableLayerId={isEditable && !activeCreateTool ? primaryLayerId : undefined}
+                    dragEnabled={isEditable && !activeCreateTool}
                     nonScalingStrokes={isEditable}
                   />
                   {activeCreateTool && createGeometry && (
@@ -1378,7 +2390,12 @@ export function ComponentVisualCanvas({
                   )}
                   <Transformer
                     ref={transformerRef}
-                    visible={isEditable && !activeCreateTool && selectedVisibleLayerIds.length > 0}
+                    visible={
+                      isEditable &&
+                      !activeCreateTool &&
+                      selectedVisibleLayerIds.length > 0 &&
+                      !isSingleLineSelected
+                    }
                     enabledAnchors={canTransformSelection ? TRANSFORMER_ANCHORS : []}
                     resizeEnabled={canTransformSelection}
                     rotateEnabled={canTransformSelection}
@@ -1399,6 +2416,31 @@ export function ComponentVisualCanvas({
                     }
                     onTransformEnd={commitSelectedTransform}
                   />
+                  {isEditable && !activeCreateTool && isSingleLineSelected && selectedLineLayer && (
+                    <Group ref={lineOverlayGroupRef} scaleX={artboardScale} scaleY={artboardScale}>
+                      <LineInteractionOverlay
+                        layer={
+                          linePreviewLayer && linePreviewLayer.id === selectedLineLayer.id
+                            ? linePreviewLayer
+                            : selectedLineLayer
+                        }
+                        artboardScale={artboardScale}
+                        selectionColor={selectionColor}
+                        gridSize={gridSize}
+                        snapEnabled={snapEnabled}
+                        onPreviewChange={setLinePreviewLayer}
+                        onCommit={(committedLayer) => {
+                          setLinePreviewLayer(null)
+                          onChange({
+                            ...visual,
+                            layers: visual.layers.map((l) =>
+                              l.id === committedLayer.id ? committedLayer : l,
+                            ),
+                          })
+                        }}
+                      />
+                    </Group>
+                  )}
                 </Layer>
                 <Layer listening={false}>
                   {managedSvgHighlightPoints.length === 8 && (

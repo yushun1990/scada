@@ -21,8 +21,10 @@ import {
 import {
   type ComponentVisualDefinition,
   type ComponentVisualLayer,
+  type VisualAnchorOrigin,
   type VisualLayerKind,
 } from '../../component-system/visual'
+import { recomputeBoundLinesInVisual } from '../../component-system/component-line-routing'
 import {
   IconButton,
   Input,
@@ -81,9 +83,12 @@ type LayerInspectorContentProps = Omit<ComponentVisualLayerInspectorProps, 'sele
 type LayerReorderDragState = {
   layerIds: readonly string[]
   pointerId: number
+  startX: number
   startY: number
+  lastClientX: number
   lastClientY: number
   dropZones: readonly LayerReorderDropZone[]
+  sourceLeft: number
   sourceTop: number
   sourceBottom: number
   height: number
@@ -112,9 +117,10 @@ type LayerReorderPointerPreview = Pick<
 > & {
   clientX: number
   clientY: number
+  sourceLeft: number
+  startX: number
+  tilt: number
 }
-
-const LAYER_REORDER_TARGET_CROSSING_RATIO = 0.5
 
 const LAYER_KIND_LABELS: Array<[VisualLayerKind, string]> = [
   ['group', 'Group'],
@@ -124,11 +130,24 @@ const LAYER_KIND_LABELS: Array<[VisualLayerKind, string]> = [
   ['text', '文本'],
 ]
 
+function ScaleIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 3v18" />
+      <path d="M6 5h8" />
+      <path d="M6 9h5" />
+      <path d="M6 13h8" />
+      <path d="M6 17h5" />
+      <path d="M6 21h8" />
+    </svg>
+  )
+}
+
 export function layerKindLabel(kind: VisualLayerKind) {
   return LAYER_KIND_LABELS.find(([candidate]) => candidate === kind)?.[1] ?? kind
 }
 
-function LayerIcon({ layer }: { layer: ComponentVisualLayer }) {
+export function LayerIcon({ layer }: { layer: ComponentVisualLayer }) {
   if (layer.kind === 'text') return <TextIcon />
   if (layer.kind === 'group') return <GroupIcon />
   if (layer.kind === 'image') return <ImageIcon />
@@ -136,8 +155,26 @@ function LayerIcon({ layer }: { layer: ComponentVisualLayer }) {
     if (layer.primitive === 'rect') return <RectangleIcon />
     if (layer.primitive === 'circle' || layer.primitive === 'ellipse') return <EllipseIcon />
     if (layer.primitive === 'line') return <LineIcon />
+    if (layer.primitive === 'scale') return <ScaleIcon />
   }
   return <VectorIcon />
+}
+
+export function layerKindBadgeText(layer: ComponentVisualLayer): string {
+  if (layer.kind === 'vector') {
+    if (layer.primitive === 'rect') return 'RECT'
+    if (layer.primitive === 'circle' || layer.primitive === 'ellipse') return 'CIRC'
+    if (layer.primitive === 'line') return 'LINE'
+    if (layer.primitive === 'scale') return 'SCALE'
+    if (layer.primitive === 'polygon') return 'POLY'
+    if (layer.primitive === 'arc') return 'ARC'
+    return 'PATH'
+  }
+  if (layer.kind === 'text') return 'TXT'
+  if (layer.kind === 'group') return 'GRP'
+  if (layer.kind === 'image') return 'IMG'
+  if (layer.kind === 'svg') return 'SVG'
+  return 'LAYER'
 }
 
 function replaceLayer(
@@ -148,27 +185,6 @@ function replaceLayer(
   return layers.map((layer) => layer.id === layerId ? nextLayer : layer)
 }
 
-function LayerIdInput({
-  value,
-  disabled,
-  onCommit,
-}: {
-  value: string
-  disabled: boolean
-  onCommit: (nextId: string) => void
-}) {
-  return (
-    <Input
-      key={value}
-      defaultValue={value}
-      disabled={disabled}
-      onBlur={(event) => onCommit(event.target.value)}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur()
-      }}
-    />
-  )
-}
 
 export function ComponentVisualTreeEditor({
   visual,
@@ -184,18 +200,16 @@ export function ComponentVisualTreeEditor({
   const [search, setSearch] = useState('')
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<ReadonlySet<string>>(() => new Set())
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(false)
-  const [layerReorderPreview, setLayerReorderPreview] = useState<ComponentVisualDefinition | null>(null)
   const [layerReorderDropTarget, setLayerReorderDropTarget] = useState<LayerReorderDropTarget | null>(null)
   const [layerReorderPointer, setLayerReorderPointer] = useState<LayerReorderPointerPreview | null>(null)
   const navigatorRef = useRef<HTMLDivElement>(null)
   const layerReorderDragRef = useRef<LayerReorderDragState | null>(null)
   const layerReorderPointerRef = useRef<LayerReorderPointerPreview | null>(null)
   const layerReorderPreviewRef = useRef<HTMLDivElement>(null)
-  const displayedVisual = layerReorderPreview ?? visual
   const flattened = useMemo(
     // Stored sibling order is back-to-front; display the frontmost layer first.
-    () => componentNavigatorRows([...displayedVisual.layers].reverse(), collapsedGroupIds, search),
-    [displayedVisual.layers, collapsedGroupIds, search],
+    () => componentNavigatorRows([...visual.layers].reverse(), collapsedGroupIds, search),
+    [visual.layers, collapsedGroupIds, search],
   )
   const ancestorKey = JSON.stringify(componentLayerAncestorIds(visual.layers, primaryLayerId))
   const primaryVisible = flattened.some(({ layer }) => layer.id === primaryLayerId)
@@ -305,14 +319,16 @@ export function ComponentVisualTreeEditor({
       .filter((zone): zone is LayerReorderDropZone => zone !== null)
     layerReorderPointerRef.current = null
     setLayerReorderDropTarget(null)
-    setLayerReorderPreview(null)
     setLayerReorderPointer(null)
     layerReorderDragRef.current = {
       layerIds,
       pointerId: event.pointerId,
+      startX: event.clientX,
       startY: event.clientY,
+      lastClientX: event.clientX,
       lastClientY: event.clientY,
       dropZones,
+      sourceLeft: entryBounds?.left ?? 0,
       sourceTop,
       sourceBottom,
       height: Math.max(1, sourceBottom - sourceTop),
@@ -328,96 +344,85 @@ export function ComponentVisualTreeEditor({
   function resolveLayerReorderTarget(
     clientY: number,
     dragState: LayerReorderDragState,
-    direction: 'up' | 'down' | null = null,
-  ) {
+  ): LayerReorderDropTarget | null {
     const { dropZones } = dragState
     if (dropZones.length === 0) return null
 
-    const draggedTop = clientY - dragState.offsetY
-    const draggedBottom = draggedTop + dragState.height
-    const overlaps = ({ top, height }: LayerReorderDropZone) => (
-      draggedTop <= top + height && draggedBottom >= top
-    )
-    const crossedTargetHalf = ({ top, height }: LayerReorderDropZone) => {
-      const midpoint = top + height * LAYER_REORDER_TARGET_CROSSING_RATIO
-      return direction === 'down'
-        ? draggedBottom >= midpoint
-        : direction === 'up'
-          ? draggedTop <= midpoint
-          : false
-    }
-    const currentTarget = dragState.targetLayerId
-      ? dropZones.find(({ layerId }) => layerId === dragState.targetLayerId)
-      : undefined
-    const currentTargetResult = currentTarget && overlaps(currentTarget)
-      ? {
-          targetLayerId: dragState.targetLayerId!,
-          placement: dragState.targetPlacement,
-        }
-      : null
+    const cursorY = clientY
 
-    if (direction === 'down') {
-      // Switch at the first pixel of contact. Choosing the lowest overlapping
-      // row also lets the dragged layer pass through several rows smoothly.
-      const nextEntry = dropZones
-        .filter(({ top }) => top >= dragState.sourceBottom)
-        .filter(crossedTargetHalf)
-        .at(-1)
-      if (nextEntry) {
-        return {
-          targetLayerId: nextEntry.layerId,
-          placement: 'back' as const,
-        }
-      }
-      return currentTargetResult
-    }
-
-    if (direction === 'up') {
-      // Rows are cached in visual order. Walking from the top picks the next
-      // row reached by the moving top edge when rows overlap each other.
-      const nextEntry = dropZones
-        .filter(({ top, height }) => top + height <= dragState.sourceTop)
-        .find(crossedTargetHalf)
-      if (nextEntry) {
-        return {
-          targetLayerId: nextEntry.layerId,
-          placement: 'front' as const,
-        }
-      }
-      return currentTargetResult
-    }
-
-    if (currentTarget) {
+    if (cursorY < dropZones[0].top + dropZones[0].height / 2) {
       return {
-        targetLayerId: dragState.targetLayerId!,
-        placement: dragState.targetPlacement,
+        targetLayerId: dropZones[0].layerId,
+        placement: 'front',
       }
     }
 
-    return null
+    const lastZone = dropZones[dropZones.length - 1]
+    if (cursorY >= lastZone.top + lastZone.height / 2) {
+      return {
+        targetLayerId: lastZone.layerId,
+        placement: 'back',
+      }
+    }
+
+    for (const zone of dropZones) {
+      if (cursorY >= zone.top && cursorY < zone.top + zone.height) {
+        const isTopHalf = cursorY < zone.top + zone.height / 2
+        return {
+          targetLayerId: zone.layerId,
+          placement: isTopHalf ? 'front' : 'back',
+        }
+      }
+    }
+
+    let closestZone = dropZones[0]
+    let minDistance = Math.abs(cursorY - (closestZone.top + closestZone.height / 2))
+    for (let i = 1; i < dropZones.length; i++) {
+      const zone = dropZones[i]
+      const dist = Math.abs(cursorY - (zone.top + zone.height / 2))
+      if (dist < minDistance) {
+        minDistance = dist
+        closestZone = zone
+      }
+    }
+
+    const isTopHalf = cursorY < closestZone.top + closestZone.height / 2
+    return {
+      targetLayerId: closestZone.layerId,
+      placement: isTopHalf ? 'front' : 'back',
+    }
   }
 
   function moveLayerReorderAt(pointerId: number, clientX: number, clientY: number) {
     const dragState = layerReorderDragRef.current
     if (!dragState || dragState.pointerId !== pointerId) return
 
-    const movedEnough = Math.abs(clientY - dragState.startY) >= 4
-    const direction = clientY < dragState.lastClientY
-      ? 'up'
-      : clientY > dragState.lastClientY
-        ? 'down'
-        : null
+    const movedEnough = Math.abs(clientY - dragState.startY) >= 3 || Math.abs(clientX - dragState.startX) >= 3
 
     const nextDragState = {
       ...dragState,
+      lastClientX: clientX,
       lastClientY: clientY,
       active: dragState.active || movedEnough,
     }
     layerReorderDragRef.current = nextDragState
 
     if (nextDragState.active) {
+      const container = navigatorRef.current
+      if (container) {
+        const rect = container.getBoundingClientRect()
+        const scrollThreshold = 28
+        if (clientY < rect.top + scrollThreshold && container.scrollTop > 0) {
+          const factor = Math.min(1, (rect.top + scrollThreshold - clientY) / scrollThreshold)
+          container.scrollTop -= Math.round(6 * factor)
+        } else if (clientY > rect.bottom - scrollThreshold && container.scrollTop < container.scrollHeight - container.clientHeight) {
+          const factor = Math.min(1, (clientY - (rect.bottom - scrollThreshold)) / scrollThreshold)
+          container.scrollTop += Math.round(6 * factor)
+        }
+      }
+
       updateLayerReorderPointer(nextDragState, clientX, clientY)
-      updateLayerReorderPreview(nextDragState, clientY, direction)
+      updateLayerReorderPreview(nextDragState, clientY)
     }
   }
 
@@ -426,22 +431,32 @@ export function ComponentVisualTreeEditor({
     clientX: number,
     clientY: number,
   ) {
+    const deltaX = clientX - dragState.startX
+    const dampedDeltaX = Math.tanh(deltaX / 70) * 16
+    const currentLeft = Math.round(dragState.sourceLeft + dampedDeltaX)
+    const currentTop = Math.round(clientY - dragState.offsetY)
+    const tilt = Math.max(-2.5, Math.min(2.5, -0.8 + deltaX * 0.035))
+
     const nextPointer: LayerReorderPointerPreview = {
       layerIds: dragState.layerIds,
       clientX,
       clientY,
+      sourceLeft: dragState.sourceLeft,
+      startX: dragState.startX,
       offsetX: dragState.offsetX,
       offsetY: dragState.offsetY,
       width: dragState.width,
       height: dragState.height,
+      tilt,
     }
     const shouldPublish = layerReorderPointerRef.current === null
     layerReorderPointerRef.current = nextPointer
 
     const previewElement = layerReorderPreviewRef.current
     if (previewElement) {
-      previewElement.style.left = `${Math.round(clientX - dragState.offsetX)}px`
-      previewElement.style.top = `${Math.round(clientY - dragState.offsetY)}px`
+      previewElement.style.left = `${currentLeft}px`
+      previewElement.style.top = `${currentTop}px`
+      previewElement.style.transform = `rotate(${tilt.toFixed(2)}deg) scale(1.025)`
     } else if (shouldPublish) {
       setLayerReorderPointer(nextPointer)
     }
@@ -456,12 +471,7 @@ export function ComponentVisualTreeEditor({
       return
     }
 
-    const direction = clientY < dragState.lastClientY
-      ? 'up'
-      : clientY > dragState.lastClientY
-        ? 'down'
-        : null
-    const target = resolveLayerReorderTarget(clientY, dragState, direction)
+    const target = resolveLayerReorderTarget(clientY, dragState)
     if (!target) {
       cancelLayerReorder()
       return
@@ -494,13 +504,21 @@ export function ComponentVisualTreeEditor({
       cancelLayerReorder()
     }
 
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape' && layerReorderDragRef.current?.active) {
+        cancelLayerReorder()
+      }
+    }
+
     window.addEventListener('pointermove', moveCapturedLayerReorder, { passive: false })
     window.addEventListener('pointerup', finishCapturedLayerReorder)
     window.addEventListener('pointercancel', cancelCapturedLayerReorder)
+    window.addEventListener('keydown', handleKeyDown)
     return () => {
       window.removeEventListener('pointermove', moveCapturedLayerReorder)
       window.removeEventListener('pointerup', finishCapturedLayerReorder)
       window.removeEventListener('pointercancel', cancelCapturedLayerReorder)
+      window.removeEventListener('keydown', handleKeyDown)
     }
   }, [readOnly, visual])
 
@@ -517,9 +535,8 @@ export function ComponentVisualTreeEditor({
   function updateLayerReorderPreview(
     dragState: LayerReorderDragState,
     clientY: number,
-    direction: 'up' | 'down' | null,
   ) {
-    const target = resolveLayerReorderTarget(clientY, dragState, direction)
+    const target = resolveLayerReorderTarget(clientY, dragState)
     const nextDragState = {
       ...dragState,
       targetLayerId: target?.targetLayerId ?? null,
@@ -529,11 +546,8 @@ export function ComponentVisualTreeEditor({
 
     if (!target) {
       setLayerReorderDropTarget(null)
-      setLayerReorderPreview(null)
       return
     }
-
-    setLayerReorderDropTarget(target)
 
     const sourceVisual = visual
     const result = resolveLayerReorderPreview(
@@ -542,12 +556,11 @@ export function ComponentVisualTreeEditor({
       target.placement,
       dragState.layerIds,
     )
-    if (!result) return
 
-    if (result.changed) {
-      setLayerReorderPreview(result.visual)
+    if (result && result.changed) {
+      setLayerReorderDropTarget(target)
     } else {
-      setLayerReorderPreview(null)
+      setLayerReorderDropTarget(null)
     }
   }
 
@@ -564,12 +577,11 @@ export function ComponentVisualTreeEditor({
       dragState.layerIds,
     )
     const finalVisual = result?.changed ? result.visual : sourceVisual
-    const changed = finalVisual.layers.some((layer, index) => layer.id !== visual.layers[index]?.id)
+    const changed = Boolean(result?.changed)
 
     layerReorderDragRef.current = null
     layerReorderPointerRef.current = null
     setLayerReorderDropTarget(null)
-    setLayerReorderPreview(null)
     setLayerReorderPointer(null)
     if (!changed) return
 
@@ -582,7 +594,6 @@ export function ComponentVisualTreeEditor({
     layerReorderDragRef.current = null
     layerReorderPointerRef.current = null
     setLayerReorderDropTarget(null)
-    setLayerReorderPreview(null)
     setLayerReorderPointer(null)
   }
 
@@ -644,7 +655,7 @@ export function ComponentVisualTreeEditor({
             )}
 
             <div className="component-layer-tree" ref={navigatorRef}>
-              {displayedVisual.mode === 'composite' && flattened.map(({ layer, depth, hasChildren }) => (
+              {visual.mode === 'composite' && flattened.map(({ layer, depth, hasChildren }) => (
                 <div
                   key={layer.id}
                   className={`component-layer-entry${renderedLayerReorderPointer?.layerIds.includes(layer.id) ? ' is-dragging' : ''}${layerReorderDropTarget?.targetLayerId === layer.id ? ' is-drop-target' : ''}`}
@@ -689,7 +700,7 @@ export function ComponentVisualTreeEditor({
                     >{layer.visible ? <EyeIcon /> : <EyeOffIcon />}</IconButton>
                   </div>
                   <ComponentLayerOrderActions
-                    visual={displayedVisual}
+                    visual={visual}
                     layerId={layer.id}
                     layerName={layer.name}
                     selectedLayerIds={selectedLayerIds}
@@ -739,14 +750,22 @@ export function ComponentVisualTreeEditor({
                 aria-hidden="true"
                 style={{
                   top: `${Math.round(renderedLayerReorderPointer.clientY - renderedLayerReorderPointer.offsetY)}px`,
-                  left: `${Math.round(renderedLayerReorderPointer.clientX - renderedLayerReorderPointer.offsetX)}px`,
+                  left: `${Math.round(renderedLayerReorderPointer.sourceLeft + Math.tanh((renderedLayerReorderPointer.clientX - renderedLayerReorderPointer.startX) / 70) * 16)}px`,
                   width: `${Math.round(renderedLayerReorderPointer.width)}px`,
                   height: `${Math.round(renderedLayerReorderPointer.height)}px`,
+                  transform: `rotate(${renderedLayerReorderPointer.tilt.toFixed(2)}deg) scale(1.025)`,
                 }}
               >
-                <span className="component-layer-kind"><LayerIcon layer={draggedLayers[0]} /></span>
+                <span className="component-layer-drag-preview-handle" aria-hidden="true">
+                  <DragHandleIcon />
+                </span>
+                <span className="component-layer-kind" aria-hidden="true">
+                  <LayerIcon layer={draggedLayers[0]} />
+                </span>
                 <span className="component-layer-name">{draggedLayers[0].name}</span>
-                {draggedLayers.length > 1 && <small>+ {draggedLayers.length - 1}</small>}
+                {draggedLayers.length > 1 && (
+                  <span className="component-layer-drag-badge">+{draggedLayers.length - 1}</span>
+                )}
               </div>
             )}
           </>
@@ -820,6 +839,18 @@ export function ComponentVisualLayerInspector(props: ComponentVisualLayerInspect
   return <LayerInspectorContent {...props} layer={layer} />
 }
 
+const PIVOT_POINTS: readonly { origin: VisualAnchorOrigin; label: string }[] = [
+  { origin: 'top-left', label: 'Top-Left (左上角)' },
+  { origin: 'top-center', label: 'Top-Center (顶部居中)' },
+  { origin: 'top-right', label: 'Top-Right (右上角)' },
+  { origin: 'center-left', label: 'Center-Left (左侧居中)' },
+  { origin: 'center', label: 'Center (几何中心)' },
+  { origin: 'center-right', label: 'Center-Right (右侧居中)' },
+  { origin: 'bottom-left', label: 'Bottom-Left (左下角)' },
+  { origin: 'bottom-center', label: 'Bottom-Center (底部居中，自底向上生长)' },
+  { origin: 'bottom-right', label: 'Bottom-Right (右下角)' },
+]
+
 function LayerInspectorContent({
   visual,
   readOnly,
@@ -830,34 +861,11 @@ function LayerInspectorContent({
   const geometryReadOnly = readOnly || layer.parentId !== null
 
   function updateLayers(layers: readonly ComponentVisualLayer[]) {
-    onChange({ ...visual, layers })
+    onChange(recomputeBoundLinesInVisual({ ...visual, layers }))
   }
 
   function updateLayer(nextLayer: ComponentVisualLayer) {
     updateLayers(replaceLayer(visual.layers, layer.id, nextLayer))
-  }
-
-  function renameLayer(nextValue: string) {
-    if (readOnly) return
-
-    const nextId = nextValue.trim()
-    if (
-      !nextId ||
-      nextId === layer.id ||
-      visual.layers.some((candidate) => candidate.id === nextId)
-    ) return
-
-    const previousId = layer.id
-    updateLayers(visual.layers.map((candidate) => {
-      if (candidate.id === previousId) {
-        return { ...candidate, id: nextId } as ComponentVisualLayer
-      }
-      if (candidate.parentId === previousId) {
-        return { ...candidate, parentId: nextId } as ComponentVisualLayer
-      }
-      return candidate
-    }))
-    onSelectionChange(nextId)
   }
 
   function updateTransform(
@@ -873,51 +881,114 @@ function LayerInspectorContent({
   }
 
   return (
-    <div className="property-section-list component-layer-inspector">
-      <CollapsibleInspectorGroup title="图层">
-
-        <label className="property-field">
-          <span>ID</span>
-          <LayerIdInput value={layer.id} disabled={readOnly} onCommit={renameLayer} />
-        </label>
-        <label className="property-field">
-          <span>名称</span>
-          <Input
-            value={layer.name}
-            disabled={readOnly}
-            onChange={(event) => updateLayer({ ...layer, name: event.target.value } as ComponentVisualLayer)}
-          />
-        </label>
-      </CollapsibleInspectorGroup>
-
+    <div className="component-layer-inspector">
       <CollapsibleInspectorGroup title="几何">
         {layer.parentId !== null && (
           <p className="component-inspector-help">组合内图层可配置属性与行为；修改位置、尺寸或形状前请先拆分组合。</p>
         )}
-        <div className="property-grid component-layer-geometry-grid">
-          {([
-            ['x', 'X'],
-            ['y', 'Y'],
-            ['width', 'W'],
-            ['height', 'H'],
-            ['scaleX', 'Scale X'],
-            ['scaleY', 'Scale Y'],
-            ['rotation', '旋转'],
-          ] as Array<[keyof ComponentVisualLayer['transform'], string]>).map(([field, label]) => (
-            <label key={field} className="property-field compact">
-              <span>{label}</span>
+        <div className="component-layer-geometry">
+          <div className="property-grid component-layer-geometry-grid">
+            <label className="property-field compact">
+              <span>X</span>
               <NumberInput
-                step={field.startsWith('scale') ? '0.1' : '1'}
-                value={layer.transform[field]}
+                step="1"
+                value={layer.transform.x}
                 disabled={geometryReadOnly}
-                onChange={(event) => updateTransform(field, Number(event.target.value))}
+                onChange={(event) => updateTransform('x', Number(event.target.value))}
               />
             </label>
-          ))}
+            <label className="property-field compact">
+              <span>Y</span>
+              <NumberInput
+                step="1"
+                value={layer.transform.y}
+                disabled={geometryReadOnly}
+                onChange={(event) => updateTransform('y', Number(event.target.value))}
+              />
+            </label>
+            <label className="property-field compact">
+              <span>W</span>
+              <NumberInput
+                min="1"
+                step="1"
+                value={layer.transform.width}
+                disabled={geometryReadOnly}
+                onChange={(event) => updateTransform('width', Number(event.target.value))}
+              />
+            </label>
+            <label className="property-field compact">
+              <span>H</span>
+              <NumberInput
+                min="1"
+                step="1"
+                value={layer.transform.height}
+                disabled={geometryReadOnly}
+                onChange={(event) => updateTransform('height', Number(event.target.value))}
+              />
+            </label>
+            <label className="property-field compact">
+              <span>Sx</span>
+              <NumberInput
+                step="0.1"
+                value={layer.transform.scaleX}
+                disabled={geometryReadOnly}
+                onChange={(event) => updateTransform('scaleX', Number(event.target.value))}
+              />
+            </label>
+            <label className="property-field compact">
+              <span>Sy</span>
+              <NumberInput
+                step="0.1"
+                value={layer.transform.scaleY}
+                disabled={geometryReadOnly}
+                onChange={(event) => updateTransform('scaleY', Number(event.target.value))}
+              />
+            </label>
+            <label className="property-field compact">
+              <span>R</span>
+              <NumberInput
+                step="1"
+                value={layer.transform.rotation}
+                disabled={geometryReadOnly}
+                onChange={(event) => updateTransform('rotation', Number(event.target.value))}
+              />
+            </label>
+            <div className="property-field compact component-pivot-field">
+              <span title="变换参考原点 (Transform Origin)">O</span>
+              <div
+                className="component-pivot-matrix"
+                role="radiogroup"
+                aria-label={`${layer.name} 变换参考原点 (Transform Origin)`}
+              >
+                {PIVOT_POINTS.map(({ origin, label }) => {
+                  const isSelected = (layer.origin ?? 'top-left') === origin
+                  return (
+                    <Pressable
+                      key={origin}
+                      type="button"
+                      disabled={geometryReadOnly}
+                      className={`component-pivot-cell ${isSelected ? 'is-active' : ''}`}
+                      title={label}
+                      aria-label={label}
+                      aria-checked={isSelected}
+                      role="radio"
+                      onClick={() =>
+                        updateLayer({
+                          ...layer,
+                          origin,
+                        })
+                      }
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </CollapsibleInspectorGroup>
 
-      {(layer.kind === 'svg' || layer.kind === 'image') && (
+
+      {layer.kind === 'image' && (
         <CollapsibleInspectorGroup title="资源">
           <ComponentVisualAssetImportControl
             visual={visual}
@@ -931,20 +1002,14 @@ function LayerInspectorContent({
             <span>资源引用</span>
             <Input
               value={layer.assetRef}
-              disabled={geometryReadOnly || (layer.kind === 'svg' && Boolean(layer.document))}
-              placeholder={layer.kind === 'svg' ? 'assets/pump-body.svg' : 'assets/vendor-logo.png'}
+              disabled={geometryReadOnly}
+              placeholder="assets/vendor-logo.png"
               onChange={(event) => updateLayer({ ...layer, assetRef: event.target.value })}
             />
           </label>
-          {layer.kind === 'svg' && layer.document ? (
-            <p className="component-inspector-help">
-              选中 SVG 内部元素可编辑它的外观和几何属性，资源内容会自动更新。更换整张图请使用“替换文件”。
-            </p>
-          ) : (
-            <p className="component-inspector-help">
-              旧资源引用保持兼容；通过“替换文件”可转换为自包含的正常本地资源。
-            </p>
-          )}
+          <p className="component-inspector-help">
+            旧资源引用保持兼容；通过“替换文件”可转换为自包含的正常本地资源。
+          </p>
         </CollapsibleInspectorGroup>
       )}
 
@@ -957,20 +1022,6 @@ function LayerInspectorContent({
               value={layer.pathData ?? ''}
               disabled={geometryReadOnly}
               onChange={(event) => updateLayer({ ...layer, pathData: event.target.value })}
-            />
-          </label>
-        </CollapsibleInspectorGroup>
-      )}
-
-      {layer.kind === 'text' && (
-        <CollapsibleInspectorGroup title="文本">
-          <label className="property-field">
-            <span>内容</span>
-            <Textarea
-              rows={4}
-              value={layer.text}
-              disabled={readOnly}
-              onChange={(event) => updateLayer({ ...layer, text: event.target.value })}
             />
           </label>
         </CollapsibleInspectorGroup>

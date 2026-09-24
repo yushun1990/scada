@@ -257,6 +257,57 @@ export function AlignBottomIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function TextAlignLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 6h16M4 12h10M4 18h14" />
+    </svg>
+  )
+}
+
+export function TextAlignCenterIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 6h16M7 12h10M5 18h14" />
+    </svg>
+  )
+}
+
+export function TextAlignRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 6h16M10 12h10M6 18h14" />
+    </svg>
+  )
+}
+
+export function TextAlignTopIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 4h18" strokeWidth={2} />
+      <path d="M6 9h12M6 14h7" />
+    </svg>
+  )
+}
+
+export function TextAlignMiddleIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 4h18M3 20h18" opacity={0.35} strokeDasharray="2 2" />
+      <path d="M5 10h14M7 14h10" />
+    </svg>
+  )
+}
+
+export function TextAlignBottomIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 20h18" strokeWidth={2} />
+      <path d="M6 10h7M6 15h12" />
+    </svg>
+  )
+}
+
 export function DistributeHorizontalIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
@@ -314,6 +365,32 @@ export function RedoIcon(props: SVGProps<SVGSVGElement>) {
     <svg {...base(props)}>
       <path d="m15 14 5-5-5-5" />
       <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </svg>
+  )
+}
+
+export function EditIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  )
+}
+
+export function CheckIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}
+
+export function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   )
 }

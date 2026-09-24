@@ -58,8 +58,10 @@ try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await assertChrome('Component', '返回组件库工作台')
-  if (await page.getByRole('button', { name: '当前组件', exact: true }).count()) {
-    await page.getByRole('button', { name: '当前组件', exact: true }).click()
+  // Component contracts live on the central Coding 开发 work page.
+  const workPageSwitch = page.getByRole('button', { name: 'Coding 开发', exact: true })
+  if (await workPageSwitch.count()) {
+    await workPageSwitch.click()
   }
   const componentName = page.locator('.component-root-inspector .property-field')
     .filter({ has: page.locator('span', { hasText: /^名称$/ }) }).locator('input').first()

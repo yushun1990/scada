@@ -131,11 +131,11 @@ const emptyVisual: ComponentVisualDefinition = {
 }
 
 const first = appendCreatedVectorLayer(emptyVisual, rectTool, clickRect)
-assert.equal(first.layerId, 'vector1')
+assert.equal(first.layerId, 'rect_1')
 assert.equal(first.visual.layers.length, 1)
 const firstLayer = first.visual.layers[0]
 assert.equal(firstLayer?.kind, 'vector')
-assert.equal(firstLayer?.name, '矩形 1')
+assert.equal(firstLayer?.name, 'rect_1')
 if (firstLayer?.kind === 'vector') {
   assert.equal(firstLayer.primitive, 'rect')
   assert.deepEqual(firstLayer.transform, {
@@ -146,10 +146,11 @@ if (firstLayer?.kind === 'vector') {
 }
 
 const second = appendCreatedVectorLayer(first.visual, ellipseTool, ellipse)
-assert.equal(second.layerId, 'vector2')
+assert.equal(second.layerId, 'circ_1')
 assert.equal(second.visual.layers.length, 2)
 const secondLayer = second.visual.layers[1]
 assert.equal(secondLayer?.kind, 'vector')
+assert.equal(secondLayer?.name, 'circ_1')
 if (secondLayer?.kind === 'vector') {
   assert.equal(secondLayer.primitive, 'ellipse')
 }

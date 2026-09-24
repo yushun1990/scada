@@ -31,6 +31,7 @@ jobs:
           npx --yes tsx scripts/check-visual-runtime.ts
           npx --yes tsx scripts/check-managed-svg-assets.ts
           node scripts/check-managed-svg-parser-authority.mjs
+          npx --yes tsx scripts/check-managed-svg-doctype-compatibility.ts
           npx --yes tsx scripts/check-managed-svg-authoring.ts
           npx --yes tsx scripts/check-managed-svg-visual-rules.ts
           npx --yes tsx scripts/check-managed-svg-portability.ts

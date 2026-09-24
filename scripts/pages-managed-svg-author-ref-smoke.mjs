@@ -90,13 +90,15 @@ try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
 
+  // Component contracts live on the central Coding 开发 work page.
+  await page.getByRole('button', { name: 'Coding 开发', exact: true }).click()
   const publicProperties = page.locator('.component-root-public-properties')
   await publicProperties.waitFor()
   await publicProperties.getByRole('button', { name: '+ 添加属性', exact: true }).click()
   await publicProperties.locator('.property-contract-item').waitFor()
 
   const importControl = globalAssetImportControl(page)
-  const input = importControl.locator('input[type="file"]')
+  const input = importControl.locator('.component-palette-resource-library input[type="file"]')
   await input.waitFor({ state: 'attached' })
   await input.setInputFiles({
     name: 'ux1.3-author-ref.svg',

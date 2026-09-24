@@ -6,6 +6,7 @@ type CollapsibleInspectorGroupProps = {
   children: ReactNode
   defaultOpen?: boolean
   className?: string
+  extra?: ReactNode
 }
 
 export function CollapsibleInspectorGroup({
@@ -13,6 +14,7 @@ export function CollapsibleInspectorGroup({
   children,
   defaultOpen = true,
   className = '',
+  extra,
 }: CollapsibleInspectorGroupProps) {
   const [open, setOpen] = useState(defaultOpen)
   const classes = [
@@ -31,6 +33,14 @@ export function CollapsibleInspectorGroup({
       >
         <span className="inspector-group-chevron" aria-hidden="true">›</span>
         <span className="inspector-group-title">{title}</span>
+        {extra && (
+          <span
+            className="inspector-group-extra"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {extra}
+          </span>
+        )}
       </Pressable>
 
       {open && <div className="inspector-group-content">{children}</div>}
