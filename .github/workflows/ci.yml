@@ -44,6 +44,7 @@ jobs:
           npx --yes tsx scripts/check-controlled-script-protocol.ts
           npx --yes tsx scripts/check-controlled-script-engine-contract.ts
           npx --yes tsx scripts/check-portable-execution-boundary.ts
+          npx --yes tsx scripts/check-component-capability-consistency.ts
           npx --yes tsx scripts/check-scada-behavior-contract.ts
           npx --yes tsx scripts/check-component-authority-migration.ts
           npx --yes tsx scripts/check-built-in-authority-migration.ts

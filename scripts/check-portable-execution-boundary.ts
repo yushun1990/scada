@@ -113,8 +113,13 @@ assert.equal(
     (localParse.entry.definition.actions.start as unknown as Record<string, unknown>),
   false,
 )
+assert.throws(
+  () => serializeComponentLibraryDocument(localParse.entry),
+  /尚无已接受的 Action\/Event 运行契约/,
+  'a migrated declaration is retained for cleanup but cannot remain ready',
+)
 const canonicalLocalDocument = JSON.parse(
-  serializeComponentLibraryDocument(localParse.entry),
+  serializeComponentLibraryDocument({ ...localParse.entry, status: 'draft' }),
 ) as Record<string, unknown>
 assert.equal(
   'implementation' in
@@ -230,5 +235,5 @@ assert.doesNotMatch(
 )
 
 console.log(
-  'Portable execution boundary checks passed: current definitions reject Action source, legacy local/package inputs strip it with diagnostics, canonical serializers cannot re-emit it, implementationDraft remains inert, and component authoring contains no eval/new Function path.',
+  'Portable execution boundary checks passed: current definitions reject Action source, legacy local/package inputs strip it with diagnostics, retained declarations require draft cleanup, canonical serializers cannot re-emit source, implementationDraft remains inert, and component authoring contains no eval/new Function path.',
 )

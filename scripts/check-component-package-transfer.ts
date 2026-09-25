@@ -56,8 +56,30 @@ assert.deepEqual(
     kind: 'ready',
     componentType: portableSource.definition.type,
     title: portableSource.definition.title,
+    importStatus: 'ready',
   },
   'fresh component type is ready for explicit local import',
+)
+
+const legacyRuntimeContractPackage = {
+  ...componentPackage,
+  definition: {
+    ...componentPackage.definition,
+    actions: { start: { title: 'Start' } },
+  },
+}
+assert.deepEqual(
+  planComponentPackageImport(legacyRuntimeContractPackage, {
+    components: [],
+    installedRemoteComponents: [],
+  }),
+  {
+    kind: 'ready',
+    componentType: portableSource.definition.type,
+    title: portableSource.definition.title,
+    importStatus: 'draft',
+  },
+  'legacy Action/Event packages remain importable for cleanup but never enter ready activation',
 )
 
 const builtInCollision = planComponentPackageImport(componentPackage, {

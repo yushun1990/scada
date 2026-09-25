@@ -42,6 +42,10 @@ import { ComponentPreviewValues } from './ComponentPreviewValues'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
 import { ComponentPublicationPanel } from './ComponentPublicationPanel'
 import {
+  inspectPortableUserComponentCapability,
+  portableUserComponentCapabilityMessage,
+} from './portable-user-component-capability'
+import {
   ComponentPublicationClientError,
   HttpComponentPublicationClient,
   loadComponentPublicationObservation,
@@ -75,18 +79,24 @@ import {
 import './component-editor.css'
 
 type InspectorTab = 'properties' | 'actions' | 'events'
-type LayerInspectorTab = 'properties' | 'actions'
+type LayerInspectorTab = 'properties' | 'behaviors'
 type ComponentWorkPage = 'canvas' | 'definition'
 
 const LAYER_INSPECTOR_TABS: Array<StudioTabItem<LayerInspectorTab>> = [
   { value: 'properties', label: '属性' },
-  { value: 'actions', label: '方法' },
+  { value: 'behaviors', label: '行为' },
 ]
 
-const INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
+const TRUSTED_INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
   { value: 'properties', label: '属性' },
   { value: 'actions', label: '方法' },
   { value: 'events', label: '事件' },
+]
+
+const PORTABLE_INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
+  { value: 'properties', label: '属性' },
+  { value: 'actions', label: '方法（未开放）' },
+  { value: 'events', label: '事件（未开放）' },
 ]
 
 const MODE_ITEMS: Array<SegmentedControlItem<ComponentWorkbenchMode>> = [
@@ -358,7 +368,16 @@ export function ComponentEditorPage({
       ? `松开时吸附 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
       : `自由定位 · 网格 ${COMPONENT_SNAP_GRID_SIZE}`
   const { definition } = component
-  const publicationReady = !builtInReadOnly && component.status === 'ready'
+  const portableCapability = inspectPortableUserComponentCapability(definition)
+  const publicationReady =
+    !builtInReadOnly && component.status === 'ready' && portableCapability.activatable
+  const statusOptions = STATUS_OPTIONS.map((option) => ({
+    ...option,
+    disabled:
+      option.value === 'ready' &&
+      !builtInReadOnly &&
+      !portableCapability.activatable,
+  }))
   const canPublish = Boolean(
     publicationClient
     && remotePublicationRepository
@@ -496,6 +515,19 @@ export function ComponentEditorPage({
       return { ...current, [key]: value }
     })
     setMessage('')
+  }
+
+  function updateStatus(status: ComponentStatus) {
+    if (status === 'ready' && !builtInReadOnly && !portableCapability.activatable) {
+      setWorkPage('definition')
+      setInspectorTab(portableCapability.actionKeys.length > 0 ? 'actions' : 'events')
+      setMessage(
+        `无法标记为可用：${portableUserComponentCapabilityMessage(portableCapability)}`,
+      )
+      return
+    }
+
+    updatePackage('status', status)
   }
 
   function updateDefinition(nextDefinition: ComponentDefinition) {
@@ -781,21 +813,27 @@ export function ComponentEditorPage({
                 </div>
               )}
 
-              {layerInspectorTab === 'actions' && (
+              {layerInspectorTab === 'behaviors' && (
                 <div className="component-layer-inspector-body">
                   <ComponentLayerMethodInspector
                     layer={selectedLayer}
                     definition={definition}
                     visual={component.visual}
                     readOnly={editingDisabled}
-                    onUpdateVisual={(nextVisual) => updatePackage('visual', nextVisual)}
                     onUpdateLayer={(updatedLayer) => {
                       const layers = component.visual.layers.map((l) =>
                         l.id === updatedLayer.id ? updatedLayer : l,
                       )
                       updatePackage('visual', { ...component.visual, layers })
                     }}
-                    onUpdateDefinition={updateDefinition}
+                    onBindContract={(nextDefinition, nextVisual) => {
+                      mutateComponent((current) => ({
+                        ...current,
+                        definition: nextDefinition,
+                        visual: nextVisual,
+                      }))
+                      setMessage('已绑定声明式 SVG 主题行为')
+                    }}
                   />
                 </div>
               )}
@@ -814,12 +852,12 @@ export function ComponentEditorPage({
             <span>组件定义</span>
             <h1>{definition.title}</h1>
           </div>
-          <p>编辑组件基本信息、公开属性、方法与事件。内部图层仍固定显示在右侧检查器。</p>
+          <p>编辑组件基本信息与公开数据契约。可移植用户组件的 Action/Event 暂不开放；内部图层仍固定显示在右侧检查器。</p>
         </header>
         <div className="component-definition-page-tabs">
           <Tabs
             value={inspectorTab}
-            items={INSPECTOR_TABS}
+            items={builtInReadOnly ? TRUSTED_INSPECTOR_TABS : PORTABLE_INSPECTOR_TABS}
             onValueChange={setInspectorTab}
             ariaLabel="组件定义配置"
             className="component-inspector-tabs"
@@ -874,10 +912,15 @@ export function ComponentEditorPage({
                   value={component.status}
                   disabled={editingDisabled}
                   ariaLabel="组件状态"
-                  options={STATUS_OPTIONS}
-                  onValueChange={(value) => updatePackage('status', value as ComponentStatus)}
+                  options={statusOptions}
+                  onValueChange={(value) => updateStatus(value as ComponentStatus)}
                 />
               </label>
+              {!builtInReadOnly && !portableCapability.activatable && (
+                <p className="component-inspector-help" role="status">
+                  当前含有旧 Action/Event 声明，不能激活、导出或发布。请在“方法（未开放）”或“事件（未开放）”页删除这些声明。
+                </p>
+              )}
               <label className="property-field">
                 <span>说明</span>
                 <Textarea
@@ -940,6 +983,7 @@ export function ComponentEditorPage({
                 <ComponentContractEditor
                   definition={definition}
                   readOnly={editingDisabled}
+                  portableUser={!builtInReadOnly}
                   tab="anchors"
                   onChange={updateDefinition}
                 />
@@ -971,6 +1015,7 @@ export function ComponentEditorPage({
           <ComponentContractEditor
             definition={definition}
             readOnly={editingDisabled}
+            portableUser={!builtInReadOnly}
             tab="actions"
             onChange={updateDefinition}
           />
@@ -980,6 +1025,7 @@ export function ComponentEditorPage({
           <ComponentContractEditor
             definition={definition}
             readOnly={editingDisabled}
+            portableUser={!builtInReadOnly}
             tab="events"
             onChange={updateDefinition}
           />

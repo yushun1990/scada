@@ -386,78 +386,161 @@ export function applyThemeToManagedSvgDocument(
   }
 }
 
-export type SvgLayerMethodDefinition = {
-  name: string
-  title: string
+export type SvgThemeBindingState = {
+  state: Exclude<SvgThemePresetKey, 'default'>
+  label: string
   description: string
-  parameter?: {
-    name: string
-    title: string
-    kind: 'select' | 'color' | 'string'
-    options?: readonly { label: string; value: string }[]
-  }
 }
 
-export const SVG_LAYER_BUILTIN_METHODS: readonly SvgLayerMethodDefinition[] = [
+export const SVG_THEME_BINDING_STATES: readonly SvgThemeBindingState[] = [
   {
-    name: 'setThemeState',
-    title: '设置运行状态',
-    description: '切换指定状态（运行/报警/预警/待机/离线）',
-    parameter: {
-      name: 'state',
-      title: '状态',
-      kind: 'select',
-      options: [
-        { label: '默认原色', value: 'default' },
-        { label: '运行态 (绿)', value: 'running' },
-        { label: '报警态 (红)', value: 'alarm' },
-        { label: '预警态 (黄)', value: 'warning' },
-        { label: '待机态 (蓝)', value: 'standby' },
-        { label: '离线态 (灰)', value: 'offline' },
-      ],
-    },
+    state: 'running',
+    label: '运行态',
+    description: 'Property 为 running 时应用绿色运行主题',
   },
   {
-    name: 'setRunning',
+    state: 'alarm',
+    label: '报警态',
+    description: 'Property 为 alarm 时应用红色报警主题',
+  },
+  {
+    state: 'warning',
+    label: '预警态',
+    description: 'Property 为 warning 时应用黄色预警主题',
+  },
+  {
+    state: 'standby',
+    label: '待机态',
+    description: 'Property 为 standby 时应用蓝色待机主题',
+  },
+  {
+    state: 'offline',
+    label: '离线态',
+    description: 'Property 为 offline 时应用灰色离线主题',
+  },
+]
+
+const SVG_THEME_PROPERTY_OPTIONS = [
+  { label: '默认原色', value: 'default' },
+  ...SVG_THEME_BINDING_STATES.map(({ state, label }) => ({ label, value: state })),
+] as const
+
+const LEGACY_SVG_THEME_ACTION_DEFINITIONS: Readonly<
+  Record<string, ComponentActionDefinition>
+> = {
+  setThemeState: {
+    title: '设置运行状态',
+    description: '切换指定状态（运行/报警/预警/待机/离线）',
+    parameters: [
+      {
+        name: 'state',
+        title: '状态',
+        kind: 'select',
+        options: [
+          { label: '默认原色', value: 'default' },
+          { label: '运行态 (绿)', value: 'running' },
+          { label: '报警态 (红)', value: 'alarm' },
+          { label: '预警态 (黄)', value: 'warning' },
+          { label: '待机态 (蓝)', value: 'standby' },
+          { label: '离线态 (灰)', value: 'offline' },
+        ],
+      },
+    ],
+  },
+  setRunning: {
     title: '设为运行态',
     description: '切换至正常运行态 (绿色)',
   },
-  {
-    name: 'setAlarm',
+  setAlarm: {
     title: '设为报警态',
     description: '切换至故障报警态 (红色)',
   },
-  {
-    name: 'setWarning',
+  setWarning: {
     title: '设为预警态',
     description: '切换至异常预警态 (黄色)',
   },
-  {
-    name: 'setStandby',
+  setStandby: {
     title: '设为待机态',
     description: '切换至就绪待机态 (蓝色)',
   },
-  {
-    name: 'setOffline',
+  setOffline: {
     title: '设为离线态',
     description: '切换至设备离线态 (灰色)',
   },
-  {
-    name: 'resetTheme',
+  resetTheme: {
     title: '恢复默认原色',
     description: '恢复出厂默认外观原色',
   },
-]
+}
+
+function actionMatches(
+  actual: ComponentActionDefinition,
+  expected: ComponentActionDefinition,
+) {
+  return (
+    actual.title === expected.title &&
+    actual.description === expected.description &&
+    JSON.stringify(actual.parameters ?? []) ===
+      JSON.stringify(expected.parameters ?? [])
+  )
+}
+
+function removeLegacySvgThemeActions(definition: ComponentDefinition) {
+  const removedActionKeys: string[] = []
+  const actions = Object.fromEntries(
+    Object.entries(definition.actions).filter(([key, action]) => {
+      const legacy = LEGACY_SVG_THEME_ACTION_DEFINITIONS[key]
+      const remove = Boolean(legacy && actionMatches(action, legacy))
+      if (remove) removedActionKeys.push(key)
+      return !remove
+    }),
+  )
+
+  return { actions, removedActionKeys }
+}
+
+function propertySupportsSvgTheme(property: ComponentPropertyDefinition) {
+  if (property.kind !== 'select') return false
+  const values = new Set((property.options ?? []).map((option) => option.value))
+  return SVG_THEME_PROPERTY_OPTIONS.every((option) => values.has(option.value))
+}
+
+function resolveThemePropertyKey(
+  layerId: string,
+  definition: ComponentDefinition,
+  visual: ComponentVisualDefinition,
+) {
+  const existingRule = (visual.rules ?? []).find(
+    (rule) => rule.layerId === layerId && rule.target === 'svg.themeState',
+  )
+  if (
+    existingRule &&
+    definition.properties[existingRule.propertyKey] &&
+    propertySupportsSvgTheme(definition.properties[existingRule.propertyKey])
+  ) {
+    return existingRule.propertyKey
+  }
+
+  for (const candidate of ['state', 'themeState']) {
+    const property = definition.properties[candidate]
+    if (!property || propertySupportsSvgTheme(property)) return candidate
+  }
+
+  let index = 2
+  while (definition.properties[`themeState${index}`]) index += 1
+  return `themeState${index}`
+}
 
 export function generateComponentSvgThemeBindings(
   layerId: string,
   definition: ComponentDefinition,
   visual: ComponentVisualDefinition,
-): { definition: ComponentDefinition; visual: ComponentVisualDefinition } {
-  let statePropertyKey = 'state'
-  if (definition.properties[statePropertyKey] && definition.properties[statePropertyKey].kind !== 'select') {
-    statePropertyKey = 'themeState'
-  }
+): {
+  definition: ComponentDefinition
+  visual: ComponentVisualDefinition
+  removedLegacyActionKeys: readonly string[]
+} {
+  const statePropertyKey = resolveThemePropertyKey(layerId, definition, visual)
 
   const propertyDef: ComponentPropertyDefinition = {
     title: '运行状态',
@@ -465,47 +548,12 @@ export function generateComponentSvgThemeBindings(
     defaultValue: 'default',
     description: '驱动水泵/设备矢量图层的语义运行状态高保真光影',
     bindable: true,
-    options: [
-      { label: '默认原色', value: 'default' },
-      { label: '运行态', value: 'running' },
-      { label: '报警态', value: 'alarm' },
-      { label: '预警态', value: 'warning' },
-      { label: '待机态', value: 'standby' },
-      { label: '离线态', value: 'offline' },
-    ],
-  }
-
-  const nextActions: Record<string, ComponentActionDefinition> = { ...definition.actions }
-  for (const method of SVG_LAYER_BUILTIN_METHODS) {
-    nextActions[method.name] = {
-      title: method.title,
-      description: method.description,
-      ...(method.parameter
-        ? {
-            parameters: [
-              {
-                name: method.parameter.name,
-                title: method.parameter.title,
-                kind: method.parameter.kind,
-                options: method.parameter.options,
-              },
-            ],
-          }
-        : {}),
-    }
+    options: SVG_THEME_PROPERTY_OPTIONS,
   }
 
   const existingRules = (visual.rules ?? []).filter(
     (rule) => !(rule.layerId === layerId && rule.target === 'svg.themeState'),
   )
-
-  const states: Array<{ state: SvgThemePresetKey; name: string }> = [
-    { state: 'running', name: '运行态' },
-    { state: 'alarm', name: '报警态' },
-    { state: 'warning', name: '预警态' },
-    { state: 'standby', name: '待机态' },
-    { state: 'offline', name: '离线态' },
-  ]
 
   let ruleIndex = 1
   const existingIds = new Set(existingRules.map((r) => r.id))
@@ -518,7 +566,7 @@ export function generateComponentSvgThemeBindings(
     return id
   }
 
-  const generatedRules: VisualRule[] = states.map((item) => ({
+  const generatedRules: VisualRule[] = SVG_THEME_BINDING_STATES.map((item) => ({
     id: getUniqueRuleId(`rule_theme_${item.state}`),
     enabled: true,
     propertyKey: statePropertyKey,
@@ -528,19 +576,21 @@ export function generateComponentSvgThemeBindings(
     target: 'svg.themeState' as const,
     value: item.state,
   }))
+  const legacyActionMigration = removeLegacySvgThemeActions(definition)
 
   return {
     definition: {
       ...definition,
       properties: {
         ...definition.properties,
-        [statePropertyKey]: propertyDef,
+        [statePropertyKey]: definition.properties[statePropertyKey] ?? propertyDef,
       },
-      actions: nextActions,
+      actions: legacyActionMigration.actions,
     },
     visual: {
       ...visual,
       rules: [...existingRules, ...generatedRules],
     },
+    removedLegacyActionKeys: legacyActionMigration.removedActionKeys,
   }
 }

@@ -1,6 +1,10 @@
 import type { ComponentRegistration } from '../../component-system/registration'
 import { ComponentRegistry } from '../../component-system/registry'
 import type { ComponentLibraryEntry } from './component-document'
+import {
+  inspectPortableUserComponentCapability,
+  portableUserComponentCapabilityMessage,
+} from './portable-user-component-capability'
 
 export type UserComponentActivationDiagnostic = {
   packageId: string
@@ -22,13 +26,6 @@ type UserComponentActivationControllerOptions = {
   registry: ComponentRegistry
   builtInRegistrations: readonly ComponentRegistration[]
   createRegistration: (entry: ComponentLibraryEntry) => ComponentRegistration
-}
-
-function runtimeContractIsDeclarative(entry: ComponentLibraryEntry) {
-  return (
-    Object.keys(entry.definition.actions).length === 0 &&
-    Object.keys(entry.definition.events).length === 0
-  )
 }
 
 function collisionTypes(entries: readonly ComponentLibraryEntry[]) {
@@ -96,12 +93,13 @@ export function createUserComponentActivationController({
         continue
       }
 
-      if (!runtimeContractIsDeclarative(entry)) {
+      const capability = inspectPortableUserComponentCapability(entry.definition)
+      if (!capability.activatable) {
         diagnostics.push({
           packageId: entry.id,
           componentType,
           kind: 'runtime-contract',
-          message: `User component ${componentType} declares Actions/Events but has no accepted executable implementation contract`,
+          message: portableUserComponentCapabilityMessage(capability),
         })
         continue
       }

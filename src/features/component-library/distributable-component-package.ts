@@ -22,6 +22,10 @@ import {
   serializeComponentLibraryDocument,
   type ComponentLibraryEntry,
 } from './component-document'
+import {
+  assertPortableUserComponentActivatable,
+  inspectPortableUserComponentCapability,
+} from './portable-user-component-capability'
 
 /**
  * Version of the transport-neutral distributable artifact.
@@ -236,6 +240,7 @@ export function createDistributableComponentPackage(
   // Reuse the accepted local document codec as the preflight gate before local
   // metadata is removed from the transport-neutral artifact.
   serializeComponentLibraryDocument(entry)
+  assertPortableUserComponentActivatable(entry.definition)
   assertPortableVisualResources(entry.visual)
 
   return {
@@ -300,12 +305,20 @@ export function distributableComponentPackageToLibraryEntry(
 
   const cloned = cloneDistributableComponentPackage(normalized)
 
+  // Legacy transport artifacts may still carry declaration-only Actions or
+  // Events. Preserve them for explicit cleanup, but never import such an
+  // artifact as an activatable ready component.
+  const status: ComponentLibraryEntry['status'] =
+    inspectPortableUserComponentCapability(cloned.definition).activatable
+      ? 'ready'
+      : 'draft'
+
   return {
     version: COMPONENT_PACKAGE_VERSION,
     id: metadata.id,
     definition: cloned.definition,
     visual: cloned.visual,
-    status: 'ready',
+    status,
     implementationDraft: cloned.implementationDraft,
     updatedAt: metadata.updatedAt,
     builtIn: false,
