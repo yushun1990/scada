@@ -59,8 +59,6 @@ export type ComponentActionDefinition = {
   description?: string
   /** Ordered parameters map directly to ordered DSL/runtime Action arguments. */
   parameters?: readonly ComponentActionParameterDefinition[]
-  /** Action implementation code or script */
-  implementation?: string
 }
 
 export type ComponentEventPayloadFieldDefinition = ComponentContractValueDefinition & {

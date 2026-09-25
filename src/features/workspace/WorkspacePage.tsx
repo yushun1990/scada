@@ -14,7 +14,7 @@ import {
 } from '../../storage/browser-persistence'
 import {
   createDistributableComponentPackage,
-  parseDistributableComponentPackageDocument,
+  parseDistributableComponentPackageDocumentWithDiagnostics,
   serializeDistributableComponentPackage,
 } from '../component-library/distributable-component-package'
 import {
@@ -201,12 +201,13 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
     if (!file) return
 
     try {
-      const componentPackage = parseDistributableComponentPackageDocument(
+      const parsed = parseDistributableComponentPackageDocumentWithDiagnostics(
         await file.text(),
       )
-      if (!componentPackage) {
+      if (!parsed) {
         throw new Error('组件包无效或版本不受支持')
       }
+      const { componentPackage, diagnostics } = parsed
 
       const plan = await inspectDistributableComponentImport(componentPackage)
       if (plan.kind === 'collision') {
@@ -214,8 +215,11 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
         return
       }
 
+      const migrationNotice = diagnostics.length > 0
+        ? `\n\n安全迁移：已移除 ${diagnostics.length} 个旧 Action implementation 源码（${diagnostics.map((diagnostic) => diagnostic.actionKey).join('、')}）。公开签名保留，但源码不会执行。`
+        : ''
       const confirmed = window.confirm(
-        `确认导入组件“${plan.title}”？\n\n类型：${plan.componentType}\n\n导入后会作为新的本地可编辑组件保存并进入正常运行时激活流程。`,
+        `确认导入组件“${plan.title}”？\n\n类型：${plan.componentType}${migrationNotice}\n\n导入后会作为新的本地可编辑组件保存并进入正常运行时激活流程。`,
       )
       if (!confirmed) {
         setMessage(`已取消导入 ${file.name}`)
@@ -224,7 +228,11 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
 
       const imported = await importDistributableComponentPackage(componentPackage)
       await refresh()
-      setMessage(`已导入组件 ${imported.definition.title}`)
+      setMessage(
+        diagnostics.length > 0
+          ? `已导入组件 ${imported.definition.title}；旧 Action 源码已安全移除`
+          : `已导入组件 ${imported.definition.title}`,
+      )
       openComponent(imported.id)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '组件导入失败')

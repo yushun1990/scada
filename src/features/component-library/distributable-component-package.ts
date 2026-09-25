@@ -6,6 +6,10 @@ import {
   parseLegacyComponentDefinition,
 } from '../../component-system/versioned-component-definition'
 import {
+  migrateLegacyPortableActionImplementations,
+  type PortableActionMigrationDiagnostic,
+} from '../../component-system/portable-action-migration'
+import {
   assertComponentVisualDefinition,
   cloneComponentVisual,
   type ComponentVisualDefinition,
@@ -34,6 +38,11 @@ export type DistributableComponentPackage = {
   visual: ComponentVisualDefinition
   implementationDraft: string
 }
+
+export type DistributableComponentPackageParseResult = Readonly<{
+  componentPackage: DistributableComponentPackage
+  diagnostics: readonly PortableActionMigrationDiagnostic[]
+}>
 
 export type DistributableComponentImportMetadata = Readonly<{
   id: string
@@ -184,13 +193,29 @@ function parseLegacyDistributableComponentPackage(
  * provable by the shared migration authority (for example bindable Properties).
  * Ambiguous V1 fields fail closed rather than being silently reclassified.
  */
+export function parseDistributableComponentPackageWithDiagnostics(
+  value: unknown,
+): DistributableComponentPackageParseResult | null {
+  if (!isRecord(value)) return null
+
+  const migration = migrateLegacyPortableActionImplementations(value.definition)
+  const normalizedValue =
+    migration.definition === value.definition
+      ? value
+      : { ...value, definition: migration.definition }
+  const componentPackage =
+    parseCurrentDistributableComponentPackage(normalizedValue)
+    ?? parseLegacyDistributableComponentPackage(normalizedValue)
+
+  return componentPackage
+    ? { componentPackage, diagnostics: migration.diagnostics }
+    : null
+}
+
 export function parseDistributableComponentPackage(
   value: unknown,
 ): DistributableComponentPackage | null {
-  if (!isRecord(value)) return null
-
-  return parseCurrentDistributableComponentPackage(value)
-    ?? parseLegacyDistributableComponentPackage(value)
+  return parseDistributableComponentPackageWithDiagnostics(value)?.componentPackage ?? null
 }
 
 /**
@@ -239,8 +264,14 @@ export function serializeDistributableComponentPackage(
 export function parseDistributableComponentPackageDocument(
   raw: string,
 ): DistributableComponentPackage | null {
+  return parseDistributableComponentPackageDocumentWithDiagnostics(raw)?.componentPackage ?? null
+}
+
+export function parseDistributableComponentPackageDocumentWithDiagnostics(
+  raw: string,
+): DistributableComponentPackageParseResult | null {
   try {
-    return parseDistributableComponentPackage(JSON.parse(raw))
+    return parseDistributableComponentPackageWithDiagnostics(JSON.parse(raw))
   } catch {
     return null
   }
