@@ -105,6 +105,7 @@ export function ComponentLayerMethodInspector(
         className="component-methods-inspector-group"
       >
         <div className="component-methods-header-bar">
+          <strong>可用方法</strong>
           <span className="component-methods-count-hint">
             共 {capabilities.length} 个声明能力
           </span>
