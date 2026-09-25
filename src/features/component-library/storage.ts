@@ -6,7 +6,7 @@ import {
   COMPONENT_PACKAGE_VERSION,
   cloneComponentDefinition,
   cloneComponentLibraryEntry,
-  parseComponentLibraryDocument,
+  parseComponentLibraryDocumentWithDiagnostics,
   serializeComponentLibraryDocument,
   type ComponentLibraryEntry,
 } from './component-document'
@@ -123,8 +123,15 @@ export async function prepareComponentLibrary() {
   installedRemoteCache.clear()
 
   for (const record of records) {
-    const entry = parseComponentLibraryDocument(record.document)
-    if (entry) customCache.set(entry.id, entry)
+    const parsed = parseComponentLibraryDocumentWithDiagnostics(record.document)
+    if (!parsed) continue
+
+    customCache.set(parsed.entry.id, parsed.entry)
+    for (const diagnostic of parsed.diagnostics) {
+      console.warn(
+        `[Component migration:${diagnostic.code}] ${parsed.entry.id}: ${diagnostic.message}`,
+      )
+    }
   }
   for (const installed of installedResult.installed) {
     installedRemoteCache.set(

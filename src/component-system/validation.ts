@@ -190,6 +190,12 @@ function assertActionDefinition(key: string, definition: unknown) {
   assertText(definition.title, `Action ${key} 标题`)
   assertOptionalText(definition.description, `Action ${key} 说明`)
 
+  if (Object.prototype.hasOwnProperty.call(definition, 'implementation')) {
+    throw new Error(
+      `Action ${key} 包含已废弃的 implementation；可移植组件不接受或执行 Action 源码`,
+    )
+  }
+
   if (definition.parameters === undefined) return
   if (!Array.isArray(definition.parameters)) {
     throw new Error(`Action ${key} 的 parameters 必须是数组`)

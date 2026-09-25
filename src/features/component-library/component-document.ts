@@ -9,6 +9,10 @@ import {
   parseLegacyComponentDefinition,
 } from '../../component-system/versioned-component-definition'
 import {
+  migrateLegacyPortableActionImplementations,
+  type PortableActionMigrationDiagnostic,
+} from '../../component-system/portable-action-migration'
+import {
   assertComponentVisualDefinition,
   cloneComponentVisual,
   createEmptyCompositeVisual,
@@ -32,6 +36,11 @@ export type ComponentLibraryEntry = {
   updatedAt: string
   builtIn: boolean
 }
+
+export type ComponentLibraryDocumentParseResult = Readonly<{
+  entry: ComponentLibraryEntry
+  diagnostics: readonly PortableActionMigrationDiagnostic[]
+}>
 
 type LegacyVersionOneComponentLibraryEntry = {
   version: typeof LEGACY_COMPONENT_PACKAGE_VERSION
@@ -94,11 +103,18 @@ export function cloneComponentDefinition(
       Object.entries(definition.actions).map(([key, action]) => [
         key,
         {
-          ...action,
-          parameters: action.parameters?.map((parameter) => ({
-            ...parameter,
-            options: parameter.options?.map((option) => ({ ...option })),
-          })),
+          title: action.title,
+          ...(action.description === undefined
+            ? {}
+            : { description: action.description }),
+          ...(action.parameters === undefined
+            ? {}
+            : {
+                parameters: action.parameters.map((parameter) => ({
+                  ...parameter,
+                  options: parameter.options?.map((option) => ({ ...option })),
+                })),
+              }),
         },
       ]),
     ),
@@ -317,9 +333,9 @@ function migrateLegacyComponent(
   }
 }
 
-export function parseComponentLibraryDocument(
+export function parseComponentLibraryDocumentWithDiagnostics(
   raw: string,
-): ComponentLibraryEntry | null {
+): ComponentLibraryDocumentParseResult | null {
   let value: unknown
   try {
     value = JSON.parse(raw)
@@ -327,14 +343,35 @@ export function parseComponentLibraryDocument(
     return null
   }
 
-  const current = parseCurrentComponent(value)
-  if (current) return current
+  const migration = migrateLegacyPortableActionImplementations(
+    isRecord(value) ? value.definition : undefined,
+  )
+  const normalizedValue =
+    isRecord(value) && migration.definition !== value.definition
+      ? { ...value, definition: migration.definition }
+      : value
 
-  const versionOne = parseVersionOneComponent(value)
-  if (versionOne) return migrateVersionOneComponent(versionOne)
+  const current = parseCurrentComponent(normalizedValue)
+  if (current) {
+    return { entry: current, diagnostics: migration.diagnostics }
+  }
 
-  const legacy = parseLegacyComponent(value)
-  return legacy ? migrateLegacyComponent(legacy) : null
+  const versionOne = parseVersionOneComponent(normalizedValue)
+  if (versionOne) {
+    const entry = migrateVersionOneComponent(versionOne)
+    return entry ? { entry, diagnostics: migration.diagnostics } : null
+  }
+
+  const legacy = parseLegacyComponent(normalizedValue)
+  return legacy
+    ? { entry: migrateLegacyComponent(legacy), diagnostics: migration.diagnostics }
+    : null
+}
+
+export function parseComponentLibraryDocument(
+  raw: string,
+): ComponentLibraryEntry | null {
+  return parseComponentLibraryDocumentWithDiagnostics(raw)?.entry ?? null
 }
 
 export function serializeComponentLibraryDocument(

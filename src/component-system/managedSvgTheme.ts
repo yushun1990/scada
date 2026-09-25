@@ -396,7 +396,6 @@ export type SvgLayerMethodDefinition = {
     kind: 'select' | 'color' | 'string'
     options?: readonly { label: string; value: string }[]
   }
-  defaultImplementation?: string
 }
 
 export const SVG_LAYER_BUILTIN_METHODS: readonly SvgLayerMethodDefinition[] = [
@@ -417,88 +416,36 @@ export const SVG_LAYER_BUILTIN_METHODS: readonly SvgLayerMethodDefinition[] = [
         { label: '离线态 (灰)', value: 'offline' },
       ],
     },
-    defaultImplementation: `/**
- * 设置运行状态 (setThemeState)
- * 切换指定状态（运行/报警/预警/待机/离线）
- * @param {string} state - 目标状态
- */
-function setThemeState(state) {
-  if (!state) return;
-  // 调用受管 SVG 5 阶微观梯度光影引擎
-  $self.setTheme(state);
-}`,
   },
   {
     name: 'setRunning',
     title: '设为运行态',
     description: '切换至正常运行态 (绿色)',
-    defaultImplementation: `/**
- * 设为运行态 (setRunning)
- * 切换至正常运行态 (绿色)
- */
-function setRunning() {
-  $self.setTheme('running');
-}`,
   },
   {
     name: 'setAlarm',
     title: '设为报警态',
     description: '切换至故障报警态 (红色)',
-    defaultImplementation: `/**
- * 设为报警态 (setAlarm)
- * 切换至故障报警态 (红色)
- */
-function setAlarm() {
-  $self.setTheme('alarm');
-}`,
   },
   {
     name: 'setWarning',
     title: '设为预警态',
     description: '切换至异常预警态 (黄色)',
-    defaultImplementation: `/**
- * 设为预警态 (setWarning)
- * 切换至异常预警态 (黄色)
- */
-function setWarning() {
-  $self.setTheme('warning');
-}`,
   },
   {
     name: 'setStandby',
     title: '设为待机态',
     description: '切换至就绪待机态 (蓝色)',
-    defaultImplementation: `/**
- * 设为待机态 (setStandby)
- * 切换至就绪待机态 (蓝色)
- */
-function setStandby() {
-  $self.setTheme('standby');
-}`,
   },
   {
     name: 'setOffline',
     title: '设为离线态',
     description: '切换至设备离线态 (灰色)',
-    defaultImplementation: `/**
- * 设为离线态 (setOffline)
- * 切换至设备离线态 (灰色)
- */
-function setOffline() {
-  $self.setTheme('offline');
-}`,
   },
   {
     name: 'resetTheme',
     title: '恢复默认原色',
     description: '恢复出厂默认外观原色',
-    defaultImplementation: `/**
- * 恢复默认原色 (resetTheme)
- * 恢复出厂默认外观原色
- */
-function resetTheme() {
-  $self.setTheme('default');
-}`,
   },
 ]
 
@@ -533,7 +480,6 @@ export function generateComponentSvgThemeBindings(
     nextActions[method.name] = {
       title: method.title,
       description: method.description,
-      implementation: method.defaultImplementation,
       ...(method.parameter
         ? {
             parameters: [
