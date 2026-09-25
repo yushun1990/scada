@@ -249,6 +249,31 @@ The standalone path does not require Studio registry mutation, local component i
 
 Real data sources, primary-device resolution and outbound device-action dispatch remain explicit host capabilities. The generic host does not infer a protocol.
 
+### 3.14 Dimension-specific Scenes share one semantic runtime
+
+2D and 3D are separate versioned spatial documents and presentation adapters:
+
+```text
+Scene2D v8 ─┐
+            ├─ RuntimeSceneProjection ─ one Preview / Standalone runtime
+Scene3D v1 ─┘                         ├─ Konva 2D presentation
+                                     └─ Three/R3F 3D presentation
+```
+
+Scene v8 remains the canonical 2D document. Do not turn it into a mixed-dimensional schema by adding optional `z`, camera, quaternion, material or lighting fields.
+
+The two Scene kinds reuse one Attribute/Property authority, canonical semantic model, data-source boundary and device/platform effect boundary. 3D does not authorize a second Property store, DSL, runtime compiler, component Action implementation path or standalone runtime.
+
+Component contract identity is renderer-independent. 2D and 3D component presentations own their respective size, visual and Anchor geometry. Package/Scene validation must not require Konva, Three or a dummy renderer.
+
+### 3.15 Binary resources are explicit and resource-closed
+
+3D models and textures require content-addressed binary asset authority. Persisted documents reference stable SHA-256 resource identities; browser object URLs remain session-owned renderer details.
+
+Portable work/component artifacts carry an exact manifest and binary resource closure. External model/texture fetching, hidden network dependencies and executable model content fail closed. Existing self-contained 2D SVG/Image handling remains valid until its versioned migration into the generalized resource model.
+
+The M10 design authority is `docs/architecture/3d-scene-editor.md`.
+
 ---
 
 ## 4. Milestone status
@@ -269,6 +294,9 @@ M9B1 Runtime Attribute / Property authority split               accepted · 2026
 M9B2 Package / Scene compatibility + end-to-end acceptance      accepted · 2026-09-03
 M9 Component Attribute / Property Authority Split               accepted · 2026-09-03
 M6.3P1 Component Visual Asset Authoring Patch                   accepted · 2026-09-05
+M10 3D Scene Editor governance/design baseline                  accepted · 2026-09-25
+M10-R0 Readiness remediation                                    active
+M10A–M10G 3D implementation gates                              not-started
 ```
 
 Detailed evidence: `docs/progress/`.
@@ -580,7 +608,48 @@ No additional M6.3P1 sub-gate is authorized merely to continue numbering.
 
 ---
 
-## 10. Immediate execution sequence
+## 10. M10 3D Scene Editor program — governed · 2026-09-25
+
+The 2026-09-25 readiness review authorizes a staged 3D program but does **not** declare a 3D product capability implemented.
+
+Authority:
+
+- review and finding register: `docs/reviews/2026-09-25-3d-editor-readiness-review.md`;
+- architecture: `docs/architecture/3d-scene-editor.md`;
+- execution/status protocol: `docs/governance/m10-3d-delivery-governance.md`;
+- required evidence: `docs/acceptance/m10-3d-acceptance-matrix.md`.
+
+Accepted direction:
+
+- preserve Scene v8 and the Konva path as the 2D authority;
+- introduce a distinct Scene3D v1 behind a discriminated Work envelope;
+- share one renderer-independent RuntimeSceneProjection and semantic runtime;
+- separate component contract registration from 2D/3D presentation registration;
+- add content-addressed binary assets and resource-closed packages before persisted GLB authoring;
+- lazy-load the 3D presentation stack and keep it outside the 2D route;
+- validate WebGL2 as the initial production baseline; keep WebGPU optional/experimental until evidence supports more;
+- deliver read-only package/runtime parity before a complex 3D authoring surface.
+
+Gates:
+
+```text
+R0    current portable-execution/capability/test correction      active
+M10A  architecture contract + measured technology spike          not-started
+M10B  Work/Scene3D/resource foundation                            not-started
+M10C  runtime and presentation decoupling                         not-started
+M10D  read-only 3D vertical slice                                 not-started
+M10E  3D authoring MVP                                            not-started
+M10F  3D Anchors and visual connections                           not-started
+M10G  distribution, performance and hardening                     not-started
+```
+
+Only R0 production work is currently authorized. R0 removes the unaccepted public Action `implementation`/`new Function` path, restores truthful component activation behavior, repairs SVG theme generation and brings checks/documentation back under one authority. It does not install Three/R3F or add Scene3D persistence.
+
+Each later gate becomes active only through an accepted closeout of its prerequisites. A branch, mock, spike, dependency installation or local build does not advance the gate.
+
+---
+
+## 11. Immediate execution sequence
 
 ```text
 M6 browser-first authoring/runtime foundation                   accepted · 2026-08-30
@@ -592,9 +661,12 @@ M9B1 runtime Attribute / Property authority split              accepted · 2026-
 M9B2 package / Scene compatibility + acceptance                accepted · 2026-09-03
 M9 Component Attribute / Property Authority Split              accepted · 2026-09-03
 M6.3P1 Component Visual Asset Authoring Patch                  accepted · 2026-09-05
+M10 governance / architecture / acceptance baseline            accepted · 2026-09-25
+M10-R0 readiness remediation                                   active
+M10A architecture contract + measured spike                    not-started
 ```
 
-**Current execution gate: post-M9 product/roadmap review / dogfooding and product-polish review. No new numbered implementation milestone is currently authorized.**
+**Current execution gate: M10-R0 readiness remediation plus already-authorized product-polish defects. M10A and all 3D product implementation remain unauthorized until R0 is accepted.**
 
 The 2026-09-10 UI review delivers a [source audit](docs/design/ui-audit-2026-09-10.md), a corrected [industrial Designer UI specification](docs/design/industrial-designer-spec.md), and a proposed [rollout plan](docs/design/industrial-designer-rollout.md). The rollout prioritizes editing reliability before shared chrome, navigation and Inspector polish. Its A–F work packages are delivery batches, not new architecture milestones. B1–B3 and C1/C2 are merged; C2 and its deployed regression follow-up are recorded in [the C2 progress note](docs/progress/ui-c2-studio-shell.md) and PRs #194/#195. D1 Scene Navigator and Palette search are implemented for review; see [D1 progress](docs/progress/ui-d1-scene-navigation.md). D2/D3 and E/F remain outstanding. The [2026-09-16 Web editor correction](docs/design/web-editor-simplification.md) supersedes the desktop menu taxonomy and single-document tab: use a document header plus editing toolbar, with one primary entry per command. The subsequent [Component editor redesign](docs/design/component-editor-redesign.md) centers canvas controls, keeps grouping in the toolbar, moves ordering into each layer row, and introduces a compact neutral/teal interface. Shared Shell, navigation, history and persistence stay authoritative. Accepted M6–M9 and UX1 authority boundaries remain unchanged.
 
@@ -604,11 +676,11 @@ Preserve accepted M6–M9 and M6.3P1 boundaries while fixing defects exposed by 
 
 Current component-editor polish: searchable/collapsible layer navigation, explicit selection/component-settings entry points, and Preview history locking. Implementation and verification are tracked in `docs/progress/product-polish-component-navigation.md`; this does not open a new architecture milestone.
 
-Before authorizing another implementation milestone, review the current product condition and the defects/priorities found during real editor use against the accepted architecture boundaries.
+The roadmap review required by the previous gate is recorded in the 3D readiness review. Its P0 findings are now the R0 correction gate. Product-polish work must not bypass R0 or introduce M10A+ contracts incidentally.
 
 ---
 
-## 11. Verification policy
+## 12. Verification policy
 
 A milestone is not accepted merely because TypeScript compiles.
 
@@ -647,11 +719,19 @@ The accepted M6.3P1 verification baseline includes:
 - fresh-browser/standalone proof that authored SVG target state survives distribution;
 - deployed Pages smoke that performs a real local-file SVG import and verifies an internal target edit in preview.
 
+M10 gate acceptance follows `docs/acceptance/m10-3d-acceptance-matrix.md`. In particular:
+
+- R0 requires proof that imported/current portable definitions cannot execute Action source and that normal declarative component activation works end to end;
+- schema/package stages require versioned migrations and malformed-input/resource-closure fixtures;
+- runtime/presentation decoupling requires the accepted M9 parity suite and 2D browser regression evidence;
+- 3D stages require named Chromium/Firefox, fresh-browser, bundle, resource-disposal and measured reference-scene evidence;
+- quantitative 3D budgets are fixed by M10A measurements, not invented after implementation.
+
 Prefer explicit deterministic state/snapshots over timing-sensitive renderer inspection whenever possible.
 
 ---
 
-## 12. Current non-goals / reopening conditions
+## 13. Current non-goals / reopening conditions
 
 Do not reopen accepted M6–M9 boundaries through unrelated expansion:
 
@@ -672,5 +752,16 @@ Do not reopen accepted M6–M9 boundaries through unrelated expansion:
 - arbitrary DOM / React / Konva authored access;
 - full vector illustration/path-point tooling beyond M6.3P1's narrow safe SVG tag presentation editing;
 - collaborative editing.
+
+M10 additionally does not authorize:
+
+- nullable 3D fields added to Scene v8 or a mixed 2D/3D canvas;
+- a second 3D Property/DSL/data-source/Action/standalone runtime;
+- WebGPU-only rendering;
+- arbitrary Three object or shader access from authored content;
+- external GLB/texture fetching;
+- general mesh modeling, BIM/IFC/CAD import, physics, WebXR or process simulation;
+- automatic collision-aware pipe/cable routing;
+- 3D production dependencies or persistence before their active gate.
 
 These are deferred or separate concerns, not rejected forever.
