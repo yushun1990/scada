@@ -87,6 +87,7 @@ export function computeComponentLayerSnap(
   visual: ComponentVisualDefinition,
   artboardScale: number,
   gridSize = COMPONENT_SNAP_GRID_SIZE,
+  movingLayerIds: readonly string[] = [],
 ): ComponentSnapResult {
   const movingLayerId = getCompositeVisualLayerId(node)
   const movingLayer = movingLayerId
@@ -101,6 +102,7 @@ export function computeComponentLayerSnap(
   }
 
   const gridSizePx = Math.max(1, gridSize) * artboardScale
+  const movingIds = new Set(movingLayerIds.length > 0 ? movingLayerIds : [movingLayer.id])
   const origin = node.getAbsolutePosition()
   let xCandidate = createGridCandidate(origin.x, gridSizePx)
   let yCandidate = createGridCandidate(origin.y, gridSizePx)
@@ -110,7 +112,7 @@ export function computeComponentLayerSnap(
 
   for (const sibling of visual.layers) {
     if (
-      sibling.id === movingLayer.id ||
+      movingIds.has(sibling.id) ||
       sibling.parentId !== movingLayer.parentId ||
       !sibling.visible
     ) {

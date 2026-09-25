@@ -16,7 +16,7 @@
 .component-managed-svg-selected span,
 .component-managed-svg-row small {
   color: var(--text-muted, #667085);
-  font-size: 11px;
+  font-size: var(--ui-font-size-status);
 }
 
 .component-managed-svg-tree {
@@ -45,7 +45,7 @@
 
 .component-managed-svg-tag {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--ui-font-size-tool);
 }
 
 .component-managed-svg-id {
@@ -54,7 +54,7 @@
   text-overflow: ellipsis;
   color: var(--text-muted, #667085);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11px;
+  font-size: var(--ui-font-size-status);
   white-space: nowrap;
 }
 
@@ -81,5 +81,5 @@
 
 .component-managed-svg-message {
   color: var(--text-muted, #667085);
-  font-size: 11px;
+  font-size: var(--ui-font-size-status);
 }

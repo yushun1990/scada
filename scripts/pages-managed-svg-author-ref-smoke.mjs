@@ -74,6 +74,7 @@ async function chooseSelectOption(currentPage, ariaLabel, optionName) {
 }
 
 async function openInspectorGroup(currentPage, title) {
+  if (title === '视觉规则') await currentPage.getByRole('tab', { name: '行为', exact: true }).click()
   const group = currentPage.locator('.inspector-collapsible')
     .filter({ has: currentPage.locator('.inspector-group-title', { hasText: title }) })
     .first()
@@ -89,13 +90,15 @@ try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
 
+  // Component contracts live on the central Coding 开发 work page.
+  await page.getByRole('button', { name: 'Coding 开发', exact: true }).click()
   const publicProperties = page.locator('.component-root-public-properties')
   await publicProperties.waitFor()
   await publicProperties.getByRole('button', { name: '+ 添加属性', exact: true }).click()
   await publicProperties.locator('.property-contract-item').waitFor()
 
   const importControl = globalAssetImportControl(page)
-  const input = importControl.locator('input[type="file"]')
+  const input = importControl.locator('.component-palette-resource-library input[type="file"]')
   await input.waitFor({ state: 'attached' })
   await input.setInputFiles({
     name: 'ux1.3-author-ref.svg',
@@ -185,6 +188,7 @@ try {
   await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000003' }).waitFor()
   assert.equal(await ruleItem.getAttribute('data-svg-tag-id'), 'svg-tag-000003')
 
+  await page.getByRole('tab', { name: '属性', exact: true }).click()
   const currentAliasInput = page.locator('.component-managed-svg-properties .property-field')
     .filter({ hasText: '引用名称' })
     .first()
@@ -192,6 +196,7 @@ try {
   await currentAliasInput.fill(renamedAuthorRef)
   await currentAliasInput.blur()
   await page.locator('.component-managed-svg-message', { hasText: '引用名称已更新' }).waitFor()
+  await openInspectorGroup(page, '视觉规则')
   assert.match(await ruleTarget.textContent() ?? '', new RegExp(`@${renamedAuthorRef}`))
   assert.equal(await ruleItem.getAttribute('data-svg-tag-id'), 'svg-tag-000003')
 
@@ -215,6 +220,7 @@ try {
   await page.goto(savedUrl, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
+  await page.getByRole('tab', { name: '属性', exact: true }).click()
   await page.locator('.component-managed-svg-row', { hasText: `@${renamedAuthorRef}` }).click()
   const reopenedRuleGroup = await openInspectorGroup(page, '视觉规则')
   const reopenedRule = reopenedRuleGroup.locator('.component-rule-item[data-svg-tag-id="svg-tag-000003"]')

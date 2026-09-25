@@ -39,10 +39,13 @@ export function ComponentGeometryToolbarGroup({
   visual, selectedLayerIds, disabled, onChange, onApplied,
 }: ComponentGeometryToolbarGroupProps) {
   const items = createComponentLayerGeometryItems(visual, selectedLayerIds)
+  const geometryLocked = disabled || visual.layers.some((layer) =>
+    selectedLayerIds.includes(layer.id) && layer.parentId !== null,
+  )
   const commands = [
-    ...ALIGN_COMMANDS.map((item) => ({ ...item, enabled: !disabled && items.length >= 2 })),
-    { title: '水平等距分布', command: distributeHorizontal, icon: DistributeHorizontalIcon, enabled: !disabled && items.length >= 3 },
-    { title: '垂直等距分布', command: distributeVertical, icon: DistributeVerticalIcon, enabled: !disabled && items.length >= 3 },
+    ...ALIGN_COMMANDS.map((item) => ({ ...item, enabled: !geometryLocked && items.length >= 2 })),
+    { title: '水平等距分布', command: distributeHorizontal, icon: DistributeHorizontalIcon, enabled: !geometryLocked && items.length >= 3 },
+    { title: '垂直等距分布', command: distributeVertical, icon: DistributeVerticalIcon, enabled: !geometryLocked && items.length >= 3 },
   ]
 
   function applyCommand(item: typeof commands[number]) {

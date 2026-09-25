@@ -13,6 +13,7 @@
   width: max-content;
   min-width: var(--anchor-width);
   max-width: min(320px, var(--available-width));
+  font-size: 10px;
 }
 
 .ui-select-popup > .ui-select-list {
@@ -27,6 +28,7 @@
   width: 100%;
   min-width: 0;
   gap: var(--ui-space-2);
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -84,7 +86,8 @@
 /* Compact Inspector --------------------------------------------------------
  * Native `select` density rules no longer match Base UI triggers. Mirror the
  * existing Inspector dimensions on the semantic primitive instead. */
-.property-field > button.ui-select-trigger {
+.property-field button.ui-select-trigger,
+.property-field .ui-select-trigger {
   grid-column: 2;
   width: 100%;
   height: 27px;
@@ -92,11 +95,12 @@
   min-width: 0;
   padding: 3px 6px;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 400;
 }
 
-.property-grid .property-field > button.ui-select-trigger {
+.property-grid .property-field button.ui-select-trigger,
+.property-grid .property-field .ui-select-trigger {
   padding-right: 4px;
   padding-left: 5px;
 }
@@ -110,7 +114,7 @@
   min-width: 0;
   padding: 0 5px;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
 }
 

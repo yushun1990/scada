@@ -164,13 +164,10 @@ export const SceneNodeRenderer = forwardRef<
         x: localPosition.x + offsetX,
         y: localPosition.y + offsetY,
       }
-      const resolvedPosition = resolveDragPosition
-        ? resolveDragPosition(node.id, boundedPosition)
-        : boundedPosition
 
-      return parentTransform.point(resolvedPosition)
+      return parentTransform.point(boundedPosition)
     },
-    [node, resolveDragPosition, scene, selectable, transform],
+    [node, scene, selectable, transform],
   )
 
   useEffect(() => {

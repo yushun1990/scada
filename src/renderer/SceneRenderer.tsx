@@ -1197,9 +1197,6 @@ export function SceneRenderer({
         threshold: snapSettings.threshold / viewportTransformRef.current.scale,
       },
     )
-    const guidesMatchAuthoritativePosition =
-      Math.abs(guideSnapResult.delta.x - authoritativeDelta.x) <= 0.001 &&
-      Math.abs(guideSnapResult.delta.y - authoritativeDelta.y) <= 0.001
     const updates: TransformUpdates = {}
 
     for (const nodeId of session.nodeIds) {
@@ -1218,13 +1215,27 @@ export function SceneRenderer({
 
     applyPreview(
       updates,
-      guidesMatchAuthoritativePosition ? guideSnapResult.guides : [],
+      guideSnapResult.guides,
       session.affectedNodeIds,
     )
   }
 
   function scheduleDragMove(target: Konva.Node) {
-    processDragMove(target)
+    pendingDragTargetRef.current = target
+
+    if (dragFrameRef.current !== null) {
+      return
+    }
+
+    dragFrameRef.current = requestAnimationFrame(() => {
+      dragFrameRef.current = null
+      const pendingTarget = pendingDragTargetRef.current
+      pendingDragTargetRef.current = null
+
+      if (pendingTarget) {
+        processDragMove(pendingTarget)
+      }
+    })
   }
 
   function cancelScheduledDrag() {
@@ -1248,7 +1259,46 @@ export function SceneRenderer({
 
   function handleDragEnd(target: Konva.Node) {
     flushScheduledDrag(target)
-    const updates = dragPreviewRef.current
+    const session = dragSessionRef.current
+
+    if (!session) {
+      dragPreviewRef.current = {}
+      hideGuides()
+      return
+    }
+
+    const draggedTransform = session.initialTransforms[session.nodeId]
+    let updates = dragPreviewRef.current
+
+    if (draggedTransform && session.nodeIds.length > 0) {
+      const rawDelta = {
+        x: target.x() - draggedTransform.x,
+        y: target.y() - draggedTransform.y,
+      }
+      const snapResult = computeSnap(
+        scene,
+        session.nodeIds,
+        session.initialBounds,
+        rawDelta,
+        {
+          ...snapSettings,
+          threshold: snapSettings.threshold / viewportTransformRef.current.scale,
+        },
+      )
+
+      updates = {}
+      for (const nodeId of session.nodeIds) {
+        const transform = session.initialTransforms[nodeId]
+
+        if (transform) {
+          updates[nodeId] = {
+            ...transform,
+            x: transform.x + snapResult.delta.x,
+            y: transform.y + snapResult.delta.y,
+          }
+        }
+      }
+    }
 
     if (Object.keys(updates).length > 0) {
       onTransformNodes(updates)

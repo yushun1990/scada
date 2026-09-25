@@ -62,7 +62,12 @@ const TARGET_LABELS: Record<VisualRuleTargetField, string> = {
   'style.align': '水平对齐',
   'style.verticalAlign': '垂直对齐',
   'style.lineHeight': '行高',
+  'style.backgroundColor': '背景颜色',
+  'style.borderColor': '边框颜色',
+  'style.borderWidth': '边框宽度',
+  'style.borderVisible': '边框显示 / 隐藏',
   'style.fit': '资源适配',
+  'svg.themeState': 'SVG 主题状态',
 }
 
 const FONT_STYLE_OPTIONS = [
@@ -144,7 +149,15 @@ function defaultTargetValue(
   if (layer.kind === 'text') {
     const style = resolveVisualTextStyle(layer)
     const field = target.slice('style.'.length) as keyof typeof style
-    return style[field]
+    const value = style[field]
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return value
+    }
+    return target === 'style.borderVisible' ? false : target === 'style.borderWidth' ? 0 : ''
+  }
+
+  if (layer.kind === 'svg' && target === 'svg.themeState') {
+    return 'running'
   }
 
   if (layer.kind === 'svg' || layer.kind === 'image') {
@@ -229,7 +242,7 @@ function RuleTargetValueEditor({
   disabled: boolean
   onChange: (value: ComponentScalarValue) => void
 }) {
-  if (target === 'visible') {
+  if (target === 'visible' || target === 'style.borderVisible') {
     return (
       <Checkbox
         checked={Boolean(value)}
@@ -288,10 +301,30 @@ function RuleTargetValueEditor({
     )
   }
 
+  if (target === 'svg.themeState') {
+    return (
+      <Select
+        value={String(value || 'running')}
+        disabled={disabled}
+        ariaLabel="规则目标 SVG 主题状态"
+        options={[
+          { value: 'running', label: '运行态 (绿)' },
+          { value: 'alarm', label: '报警态 (红)' },
+          { value: 'warning', label: '预警态 (黄)' },
+          { value: 'standby', label: '待机态 (蓝)' },
+          { value: 'offline', label: '离线态 (灰)' },
+          { value: 'default', label: '默认原色' },
+        ]}
+        onValueChange={onChange}
+      />
+    )
+  }
+
   const numeric =
     target === 'opacity' ||
     target.startsWith('transform.') ||
     target === 'style.strokeWidth' ||
+    target === 'style.borderWidth' ||
     target === 'style.fontSize' ||
     target === 'style.lineHeight'
 

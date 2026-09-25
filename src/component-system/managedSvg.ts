@@ -628,16 +628,31 @@ function escapeXmlText(value: string) {
     .replaceAll('>', '&gt;')
 }
 
-function serializeManagedSvgNode(node: ManagedSvgNode, root: boolean): string {
+function serializeManagedSvgNode(
+  node: ManagedSvgNode,
+  root: boolean,
+  rootAttributeOverrides?: Map<string, string>,
+): string {
   if (node.kind === 'text') {
     return escapeXmlText(node.text)
+  }
+
+  const attributeMap = new Map<string, string>()
+  for (const attribute of node.attributes) {
+    attributeMap.set(attribute.name, attribute.value)
+  }
+
+  if (root && rootAttributeOverrides) {
+    for (const [name, value] of rootAttributeOverrides) {
+      attributeMap.set(name, value)
+    }
   }
 
   const attributes = [
     ...(root ? [`xmlns="${SVG_NAMESPACE}"`] : []),
     `data-scada-tag="${escapeXmlAttribute(node.tagId)}"`,
-    ...node.attributes.map(
-      (attribute) => `${attribute.name}="${escapeXmlAttribute(attribute.value)}"`,
+    ...Array.from(attributeMap.entries()).map(
+      ([name, value]) => `${name}="${escapeXmlAttribute(value)}"`,
     ),
   ]
   const open = `<${node.tagName}${attributes.length > 0 ? ` ${attributes.join(' ')}` : ''}`
@@ -656,6 +671,66 @@ export function serializeManagedSvgDocument(document: ManagedSvgDocument) {
 
 export function serializeManagedSvgDataUrl(document: ManagedSvgDocument) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serializeManagedSvgDocument(document))}`
+}
+
+export function serializeManagedSvgCanvasDocument(
+  document: ManagedSvgDocument,
+  targetDimension = 2048,
+): string {
+  assertManagedSvgDocument(document)
+
+  let viewBox = document.root.attributes.find((a) => a.name === 'viewBox')?.value.trim()
+  const rawWidth = document.root.attributes.find((a) => a.name === 'width')?.value.trim()
+  const rawHeight = document.root.attributes.find((a) => a.name === 'height')?.value.trim()
+
+  let w = 0
+  let h = 0
+
+  if (viewBox) {
+    const parts = viewBox.split(/[\s,]+/).map(Number)
+    if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+      w = parts[2]
+      h = parts[3]
+    }
+  }
+
+  if (w <= 0 || h <= 0) {
+    const parsedW = parseFloat(rawWidth || '')
+    const parsedH = parseFloat(rawHeight || '')
+    if (parsedW > 0 && parsedH > 0) {
+      w = parsedW
+      h = parsedH
+      if (!viewBox) {
+        viewBox = `0 0 ${w} ${h}`
+      }
+    }
+  }
+
+  const rootOverrides = new Map<string, string>()
+
+  if (w > 0 && h > 0) {
+    const maxDim = Math.max(w, h)
+    const scale = Math.min(8, Math.max(2, Math.ceil(targetDimension / maxDim)))
+    const targetWidth = Math.round(w * scale)
+    const targetHeight = Math.round(h * scale)
+
+    rootOverrides.set('width', String(targetWidth))
+    rootOverrides.set('height', String(targetHeight))
+    if (viewBox) {
+      rootOverrides.set('viewBox', viewBox)
+    }
+  }
+
+  return serializeManagedSvgNode(document.root, true, rootOverrides)
+}
+
+export function serializeManagedSvgCanvasDataUrl(
+  document: ManagedSvgDocument,
+  targetDimension = 2048,
+): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+    serializeManagedSvgCanvasDocument(document, targetDimension),
+  )}`
 }
 
 function cloneManagedSvgNode(node: ManagedSvgNode): ManagedSvgNode {

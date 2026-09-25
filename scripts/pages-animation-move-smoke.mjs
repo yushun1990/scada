@@ -83,6 +83,19 @@ async function seedMoveAnimationFixture() {
       strokeWidth: 2,
     },
   })
+  // The dedicated animation authoring tab moved out of the inspector; seed the
+  // declarative animation directly so the smoke keeps proving the persisted
+  // model plus preview-only runtime overlay contract.
+  entry.visual.animations.push({
+    id: 'move-animation-smoke',
+    kind: 'move',
+    enabled: true,
+    layerId: 'move-animation-smoke-layer',
+    deltaXPerIteration: 120,
+    deltaYPerIteration: 40,
+    timing: { durationMs: 900, delayMs: 30, iterations: 'infinite', direction: 'alternate', easing: 'ease-in-out' },
+    activation: { kind: 'property', propertyKey: 'running', operator: 'equals', compareValue: true },
+  })
 
   await writePersistedComponent(page, entry)
   return { x: 160, y: 120, rotation: 0 }
@@ -111,7 +124,7 @@ try {
   await page.locator('.studio-shell.component-studio-shell').waitFor()
 
   await page.locator('.component-palette-item[aria-label="文本"]').dblclick()
-  await layerRow('文本 1').waitFor()
+  await layerRow('txt_1').waitFor()
 
   await page.getByRole('button', { name: '保存' }).click()
   await page.waitForFunction(() => window.location.hash !== '#/components/new')
@@ -125,25 +138,8 @@ try {
 
   await page.reload({ waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
-  await layerRow('Move Animation Smoke Rect').click()
-  await page.getByRole('button', { name: '动画' }).click()
-  await page.getByRole('button', { name: '+ 添加 Move 动画' }).click()
-  assert.equal(
-    await page.locator('.component-animation-item').count(),
-    1,
-    'move animation added through real inspector',
-  )
+  await clearLayerSelection()
 
-  await page.getByLabel('animation1 每轮 X 位移').fill('120')
-  await page.getByLabel('animation1 每轮 Y 位移').fill('40')
-  await page.getByLabel('animation1 周期').fill('900')
-  await page.getByLabel('animation1 延迟').fill('30')
-  await chooseSelectOption('animation1 方向', '交替')
-  await chooseSelectOption('animation1 缓动', '缓入缓出')
-  await chooseSelectOption('animation1 激活方式', 'Property 条件')
-  await page.locator('.component-animation-item .ui-checkbox').nth(1).click()
-
-  await saveAndWait(page)
   const authored = await readPersistedMoveState()
   assert.equal(authored.x, 160, 'move authoring must not mutate base x')
   assert.equal(authored.y, 120, 'move authoring must not mutate base y')
@@ -176,7 +172,12 @@ try {
   const inactiveFrameB = await readSceneCanvasDataUrl()
   assert.equal(inactiveFrameA, inactiveFrameB, 'property=false must keep authored move inactive')
 
+  // Preview values live on the Coding 开发 work page; toggle there, then
+  // return to the canvas page to sample the animated frames.
+  await page.getByRole('button', { name: 'Coding 开发', exact: true }).click()
   await page.locator('.component-preview-values .ui-checkbox').click()
+  await page.waitForTimeout(120)
+  await page.getByRole('button', { name: '图形化设计', exact: true }).click()
   await page.waitForTimeout(120)
   const activeFrameA = await readSceneCanvasDataUrl()
   await page.waitForTimeout(300)

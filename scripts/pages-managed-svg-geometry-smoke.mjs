@@ -137,7 +137,7 @@ try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
 
-  const input = globalAssetImportControl(page).locator('input[type="file"]')
+  const input = globalAssetImportControl(page).locator('.component-palette-resource-library input[type="file"]')
   await input.waitFor({ state: 'attached' })
   await input.setInputFiles({
     name: 'ux1.4-geometry.svg',

@@ -88,8 +88,8 @@ try {
     'background-color',
   ])
   assert.equal(buttonStyles.height.trim(), '28px')
-  assert.equal(buttonStyles['font-size'].trim(), '12px')
-  assert.equal(buttonStyles['line-height'].trim(), '18px')
+  assert.equal(buttonStyles['font-size'].trim(), '13px')
+  assert.equal(buttonStyles['line-height'].trim(), '20px')
   assert.equal(buttonStyles['border-radius'].trim(), '2px')
   assert.equal(buttonStyles['border-top-color'].trim(), 'rgb(133, 140, 150)')
 
@@ -125,7 +125,7 @@ try {
   const readonlyStyles = await styles(readonlyInput, ['color', 'background-color', 'font-size'])
   assert.equal(readonlyStyles.color.trim(), 'rgb(32, 36, 40)')
   assert.equal(readonlyStyles['background-color'].trim(), 'rgb(247, 248, 250)')
-  assert.equal(readonlyStyles['font-size'].trim(), '12px')
+  assert.equal(readonlyStyles['font-size'].trim(), '13px')
 
   const errorInput = page.getByTestId('state-input-error')
   assert.equal(
@@ -173,7 +173,7 @@ try {
   const statusBar = page.getByTestId('state-status-bar')
   const statusStyles = await styles(statusBar, ['height', 'font-size', 'background-color'])
   assert.equal(statusStyles.height.trim(), '26px')
-  assert.equal(statusStyles['font-size'].trim(), '11px')
+  assert.equal(statusStyles['font-size'].trim(), '12px')
   assert.equal(statusStyles['background-color'].trim(), 'rgb(242, 243, 245)')
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)

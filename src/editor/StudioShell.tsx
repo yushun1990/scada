@@ -1,5 +1,7 @@
 import {
+  useEffect,
   useRef,
+  useState,
   type CSSProperties,
   type FocusEventHandler,
   type KeyboardEvent,
@@ -8,6 +10,7 @@ import {
 } from 'react'
 import {
   Button,
+  IconButton,
   MenuItem,
   MenuPopup,
   MenuRoot,
@@ -16,6 +19,7 @@ import {
   StatusBar,
   Toolbar,
 } from '../ui'
+import { ChevronLeftIcon, ChevronRightIcon } from '../components/toolbar-icons'
 import { useStudioLayoutPreferences } from './use-studio-layout-preferences'
 import './studio-shell.css'
 
@@ -36,6 +40,7 @@ type StudioShellProps = {
   documentActions: ReactNode
   documentCommands?: StudioMenuCommand[]
   mainToolbar: ReactNode
+  toolbarAside?: ReactNode
   toolbarPlacement?: 'full-width' | 'canvas'
   modeControl?: ReactNode
   leftPanel: ReactNode
@@ -59,8 +64,25 @@ type DragState = {
 
 function clampPanelWidth(side: PanelSide, value: number) {
   return side === 'left'
-    ? Math.min(360, Math.max(208, value))
-    : Math.min(440, Math.max(280, value))
+    ? Math.min(500, Math.max(260, value))
+    : Math.min(500, Math.max(300, value))
+}
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia(query).matches,
+  )
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query)
+    const update = () => setMatches(mediaQuery.matches)
+
+    update()
+    mediaQuery.addEventListener('change', update)
+    return () => mediaQuery.removeEventListener('change', update)
+  }, [query])
+
+  return matches
 }
 
 function StudioPanelResizeHandle({
@@ -110,9 +132,11 @@ function StudioPanelResizeHandle({
     } else if (event.key === 'ArrowRight') {
       next = width + (side === 'left' ? step : -step)
     } else if (event.key === 'Home') {
-      next = side === 'left' ? 208 : 280
+      next = side === 'left' ? 260 : 300
     } else if (event.key === 'End') {
-      next = side === 'left' ? 360 : 440
+      next = 500
+    } else if (event.key === 'Enter') {
+      next = 360
     }
 
     if (next === null) return
@@ -120,8 +144,8 @@ function StudioPanelResizeHandle({
     onWidthChange(clampPanelWidth(side, next))
   }
 
-  const min = side === 'left' ? 208 : 280
-  const max = side === 'left' ? 360 : 440
+  const min = side === 'left' ? 260 : 300
+  const max = 500
 
   return (
     <div
@@ -129,16 +153,44 @@ function StudioPanelResizeHandle({
       role="separator"
       tabIndex={0}
       aria-label={side === 'left' ? '调整左侧面板宽度' : '调整右侧面板宽度'}
+      title="拖动调整宽度；双击或按 Enter 恢复默认宽度"
       aria-orientation="vertical"
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={Math.round(width)}
+      onDoubleClick={() => onWidthChange(360)}
       onPointerDown={beginDrag}
       onPointerMove={updateDrag}
       onPointerUp={finishDrag}
       onPointerCancel={finishDrag}
       onKeyDown={handleKeyDown}
     />
+  )
+}
+
+function StudioPanelRail({ side, visible, width, onToggle, onWidthChange }: {
+  side: PanelSide
+  visible: boolean
+  width: number
+  onToggle: () => void
+  onWidthChange: (width: number) => void
+}) {
+  const label = `${visible ? '收起' : '展开'}${side === 'left' ? '左' : '右'}侧面板`
+  const pointsLeft = side === 'left' ? visible : !visible
+  return (
+    <div className={`studio-panel-rail studio-panel-rail-${side}${visible ? ' is-visible' : ' is-collapsed'}`}>
+      {visible && <StudioPanelResizeHandle side={side} width={width} onWidthChange={onWidthChange} />}
+      <IconButton
+        className="studio-panel-toggle"
+        aria-label={label}
+        title={label}
+        aria-expanded={visible}
+        aria-controls={`studio-${side}-panel`}
+        onClick={onToggle}
+      >
+        {pointsLeft ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+      </IconButton>
+    </div>
   )
 }
 
@@ -149,6 +201,7 @@ export function StudioShell({
   documentActions,
   documentCommands = [],
   mainToolbar,
+  toolbarAside,
   toolbarPlacement = 'full-width',
   modeControl,
   leftPanel,
@@ -161,39 +214,46 @@ export function StudioShell({
   onBlurCapture,
   className = '',
 }: StudioShellProps) {
-  const { layout, setLayout, resetLayout } = useStudioLayoutPreferences()
+  const { layout, setLayout } = useStudioLayoutPreferences()
+  const canvasToolbar = toolbarPlacement === 'canvas'
+  const narrowViewport = useMediaQuery('(max-width: 900px)')
+  const compactPanels = canvasToolbar && narrowViewport
+
+  useEffect(() => {
+    if (!compactPanels || !layout.leftVisible || !layout.rightVisible) return
+
+    // A narrow canvas has one overlay lane. Keep the creation/navigation panel
+    // available when a desktop preference had both docks open.
+    setLayout((current) => ({ ...current, rightVisible: false }))
+  }, [compactPanels, layout.leftVisible, layout.rightVisible, setLayout])
+
+  function togglePanel(side: PanelSide) {
+    setLayout((current) => {
+      const visible = side === 'left' ? current.leftVisible : current.rightVisible
+      if (!compactPanels || visible) {
+        return {
+          ...current,
+          ...(side === 'left'
+            ? { leftVisible: !visible }
+            : { rightVisible: !visible }),
+        }
+      }
+
+      return {
+        ...current,
+        leftVisible: side === 'left',
+        rightVisible: side === 'right',
+      }
+    })
+  }
+
   const shellStyle = {
     '--studio-left-width': layout.leftVisible ? `${layout.leftWidth}px` : '0px',
-    '--studio-left-resizer': layout.leftVisible ? '6px' : '0px',
+    '--studio-left-resizer': layout.leftVisible ? '6px' : '24px',
     '--studio-right-width': layout.rightVisible ? `${layout.rightWidth}px` : '0px',
-    '--studio-right-resizer': layout.rightVisible ? '6px' : '0px',
+    '--studio-right-resizer': layout.rightVisible ? '6px' : '24px',
   } as CSSProperties
 
-  const layoutCommands: StudioMenuCommand[] = [
-    {
-      id: 'toggle-left-panel',
-      label: layout.leftVisible ? '隐藏左侧面板' : '显示左侧面板',
-      onSelect: () => setLayout((current) => ({
-        ...current,
-        leftVisible: !current.leftVisible,
-      })),
-    },
-    {
-      id: 'toggle-right-panel',
-      label: layout.rightVisible ? '隐藏属性面板' : '显示属性面板',
-      onSelect: () => setLayout((current) => ({
-        ...current,
-        rightVisible: !current.rightVisible,
-      })),
-    },
-    {
-      id: 'reset-layout',
-      label: '重置布局',
-      separatorBefore: true,
-      onSelect: resetLayout,
-    },
-  ]
-  const canvasToolbar = toolbarPlacement === 'canvas'
   const toolbar = (
     <Toolbar className="studio-main-toolbar" aria-label="Studio 主工具栏">
       <div className="studio-main-toolbar-content">{mainToolbar}</div>
@@ -211,7 +271,6 @@ export function StudioShell({
         <div className="studio-document-brand">
           <Button
             variant="ghost"
-            size="small"
             className="studio-workspace-nav"
             title={workspaceNavigationLabel}
             aria-label={workspaceNavigationLabel}
@@ -219,6 +278,9 @@ export function StudioShell({
           >
             工作台
           </Button>
+          <span className="studio-document-brand-divider" aria-hidden="true">
+            /
+          </span>
           <div className="studio-document-identity" title={`${documentTitle} · ${documentType}`}>
             <strong aria-label={`${documentTitle}${dirty ? '，未保存' : ''}`}>
               {documentTitle}{dirty ? ' *' : ''}
@@ -232,7 +294,6 @@ export function StudioShell({
           {documentCommands.length > 0 && (
             <StudioCommandMenu label="文件" commands={documentCommands} />
           )}
-          <StudioCommandMenu label="布局" commands={layoutCommands} />
           {!canvasToolbar && modeControl}
         </div>
       </header>
@@ -240,33 +301,35 @@ export function StudioShell({
       {!canvasToolbar && toolbar}
 
       <div className="studio-workspace-grid">
-        <aside className="studio-left-panel" aria-label="左侧工作面板" hidden={!layout.leftVisible}>
+        <aside id="studio-left-panel" className="studio-left-panel" aria-label="左侧工作面板" hidden={!layout.leftVisible}>
           {leftPanel}
         </aside>
-        {layout.leftVisible && (
-          <StudioPanelResizeHandle
-            side="left"
-            width={layout.leftWidth}
-            onWidthChange={(leftWidth) => setLayout((current) => ({
-              ...current,
-              leftWidth,
-            }))}
-          />
-        )}
+        <StudioPanelRail
+          side="left"
+          visible={layout.leftVisible}
+          width={layout.leftWidth}
+          onToggle={() => togglePanel('left')}
+          onWidthChange={(leftWidth) => setLayout((current) => ({ ...current, leftWidth }))}
+        />
         <main className="studio-center-workspace" aria-label={`${documentTitle} 编辑区`}>
-          {canvasToolbar ? <>{toolbar}<div className="studio-canvas-content">{center}</div></> : center}
+          {canvasToolbar ? (
+            <>
+              <div className="studio-canvas-toolbar-row">
+                {toolbar}
+                {toolbarAside}
+              </div>
+              <div className="studio-canvas-content">{center}</div>
+            </>
+          ) : center}
         </main>
-        {layout.rightVisible && (
-          <StudioPanelResizeHandle
-            side="right"
-            width={layout.rightWidth}
-            onWidthChange={(rightWidth) => setLayout((current) => ({
-              ...current,
-              rightWidth,
-            }))}
-          />
-        )}
-        <aside className="studio-right-panel" aria-label="属性面板" hidden={!layout.rightVisible}>
+        <StudioPanelRail
+          side="right"
+          visible={layout.rightVisible}
+          width={layout.rightWidth}
+          onToggle={() => togglePanel('right')}
+          onWidthChange={(rightWidth) => setLayout((current) => ({ ...current, rightWidth }))}
+        />
+        <aside id="studio-right-panel" className="studio-right-panel" aria-label="属性面板" hidden={!layout.rightVisible}>
           {rightPanel}
         </aside>
       </div>

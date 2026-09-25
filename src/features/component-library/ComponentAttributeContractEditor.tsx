@@ -14,6 +14,7 @@ import {
   Select,
   Textarea,
 } from '../../ui'
+import { ColorPickerInput } from './ColorPickerInput'
 import './component-property-contract.css'
 
 type ComponentAttributeContractEditorProps = {
@@ -177,11 +178,13 @@ function AttributeDefaultEditor({
 
   if (attribute.kind === 'color') {
     return (
-      <Input
-        type="color"
+      <ColorPickerInput
         value={typeof attribute.defaultValue === 'string' ? attribute.defaultValue : '#2563eb'}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+        ariaLabel="Attribute 默认颜色值"
+        placeholder="transparent"
+        clearValue="transparent"
+        onChange={(val) => onChange(val)}
       />
     )
   }

@@ -14,13 +14,13 @@
 }
 
 .component-behavior-section-heading strong {
-  color: #334155;
-  font-size: 10px;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-tool);
 }
 
 .component-behavior-section-heading span {
-  color: #94a3b8;
-  font-size: 8px;
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-status);
 }
 
 .component-animation-editor {

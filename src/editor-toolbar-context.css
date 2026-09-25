@@ -38,17 +38,78 @@
   border-radius: 0 var(--ui-radius-control) var(--ui-radius-control) 0;
 }
 
-/* Component tools belong to the canvas. Three groups share its available width;
- * compact layouts replace the alignment strip with one keyboard-accessible menu. */
+/* Canvas commands resize independently of the fixed work-page navigation. */
 .component-studio-shell .studio-main-toolbar-content {
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.component-studio-shell .component-canvas-commands-rail {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.component-studio-shell .component-canvas-commands {
   display: grid;
   grid-template-columns: minmax(150px, 1fr) minmax(238px, 1.8fr) minmax(112px, 1fr);
   gap: 8px;
-  overflow: visible;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  transition:
+    grid-template-columns var(--component-workspace-motion),
+    gap var(--component-workspace-motion),
+    opacity var(--component-workspace-motion);
 }
 
-.component-studio-shell .studio-main-toolbar-content > [role='group'],
-.component-studio-shell .component-edit-command-host,
+.component-studio-shell .component-canvas-commands[data-active='false'] {
+  grid-template-columns: minmax(0, 1fr) 0px 0px;
+  gap: 0;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.component-studio-shell .component-canvas-commands[data-active='false'] > [role='group']:not(.component-edit-tool-group) {
+  opacity: 0;
+  overflow: hidden;
+  min-width: 0;
+  width: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.component-studio-shell .component-canvas-commands[data-active='false'] > [role='group'] + [role='group']::before {
+  opacity: 0;
+}
+
+/* Keep the original toolbar frame and the separate navigation divider. */
+.component-studio-shell .studio-canvas-toolbar-row {
+  gap: 0;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px var(--ui-color-border);
+  background: var(--ui-color-surface-subtle);
+  overflow: hidden;
+}
+
+.component-studio-shell .studio-canvas-toolbar-row::after {
+  display: block;
+}
+
+.component-studio-shell .studio-canvas-toolbar-row > .studio-main-toolbar {
+  --component-toolbar-padding-inline: var(--ui-space-3);
+  padding-inline: var(--component-toolbar-padding-inline);
+  overflow: hidden;
+  background: transparent;
+}
+
+.component-studio-shell .component-canvas-commands > [role='group'],
 .component-studio-shell .component-geometry-buttons {
   display: flex;
   align-items: center;
@@ -57,20 +118,69 @@
   min-width: 0;
 }
 
-.component-studio-shell .studio-main-toolbar-content > [role='group'] + [role='group'] {
-  border-left: 1px solid var(--ui-color-border);
+.component-studio-shell .component-canvas-commands > .component-edit-tool-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
-.component-studio-shell .studio-main-toolbar-content > .canvas-tool-group {
+.component-studio-shell .component-edit-command-host {
+  display: contents;
+}
+
+.component-studio-shell .component-edit-command-host > :first-child {
+  margin-left: auto;
+}
+
+.component-studio-shell .component-edit-tool-group > :last-child {
+  margin-right: auto;
+}
+
+.component-studio-shell .component-canvas-commands > [role='group'] + [role='group'] {
+  position: relative;
+}
+
+.component-studio-shell .component-canvas-commands > [role='group'] + [role='group']::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1px;
+  height: 16px;
+  content: '';
+  background: var(--ui-color-border-subtle);
+  opacity: 0.72;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.component-studio-shell .component-canvas-commands > .canvas-tool-group {
   padding-right: 0;
   border-right: 0;
 }
 
 .component-studio-shell .studio-main-toolbar .icon-button {
   flex: 0 0 28px;
+  flex-shrink: 0;
   border-color: transparent;
   background: transparent;
   color: var(--ui-color-text-secondary);
+}
+
+.component-studio-shell .studio-main-toolbar .component-view-command-host,
+.component-studio-shell .studio-main-toolbar .component-view-command-host .grid-control,
+.component-studio-shell .studio-main-toolbar .component-view-command-host .component-snap-toggle,
+.component-studio-shell .studio-main-toolbar .component-view-command-host .component-grid-toggle {
+  min-height: var(--ui-control-height-small);
+  height: var(--ui-control-height-small);
+}
+
+.component-studio-shell .studio-main-toolbar .component-view-command-host .grid-size-input {
+  height: var(--ui-control-height-small);
 }
 
 .component-studio-shell .studio-main-toolbar .icon-button:disabled {
@@ -87,7 +197,9 @@
 .component-studio-shell .grid-control {
   display: flex;
   align-items: center;
-  gap: 2px;
+  /* The snap button keeps the normal 2px group gap; the grid control itself
+   * is a single joined control, so its active cell must meet the divider. */
+  gap: 0;
 }
 
 .component-studio-shell .grid-size-input {
@@ -112,11 +224,37 @@
   box-shadow: none;
 }
 
-@container component-tools (max-width: 570px) {
-  .component-studio-shell .studio-main-toolbar-content {
-    grid-template-columns: minmax(150px, 1fr) minmax(100px, 1fr) minmax(112px, 1fr);
-    gap: 4px;
+@container component-tools (max-width: 610px) {
+  .component-studio-shell.studio-shell-canvas-toolbar .studio-main-toolbar {
+    --component-toolbar-padding-inline: var(--ui-space-2);
+    padding-inline: var(--component-toolbar-padding-inline);
+  }
+  .component-studio-shell .component-canvas-commands {
+    grid-template-columns: minmax(150px, 1fr) minmax(73px, 1fr) minmax(96px, 1fr);
+    gap: 2px;
   }
   .component-studio-shell .component-geometry-buttons { display: none; }
   .component-arrange-menu { display: block; }
+}
+
+@container component-tools (max-width: 480px) {
+  .component-studio-shell.studio-shell-canvas-toolbar .studio-main-toolbar {
+    --component-toolbar-padding-inline: var(--ui-space-1);
+    padding-inline: var(--component-toolbar-padding-inline);
+  }
+
+  .component-studio-shell .component-canvas-commands {
+    gap: 0;
+  }
+}
+
+@container component-tools (min-width: 611px) and (max-width: 700px) {
+  .component-studio-shell.studio-shell-canvas-toolbar .studio-main-toolbar {
+    --component-toolbar-padding-inline: var(--ui-space-2);
+    padding-inline: var(--component-toolbar-padding-inline);
+  }
+
+  .component-studio-shell .component-canvas-commands {
+    gap: 6px;
+  }
 }

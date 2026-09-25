@@ -2,7 +2,11 @@ import '../../m2.css'
 import '../../workbench.css'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
-import { SnapIcon } from '../../components/toolbar-icons'
+import {
+  DesignNibIcon,
+  SettingsHorizontalIcon,
+  SnapIcon,
+} from '../../components/toolbar-icons'
 import {
   createDefaultPropsFromDefinition,
   isComponentPropertyValue,
@@ -47,17 +51,20 @@ import {
   type ComponentPublicationSession,
 } from './component-publication-client'
 import { COMPONENT_SNAP_GRID_SIZE } from './component-canvas-snap'
-import { clearComponentCreateTool } from './component-create-mode'
 import { HttpRemoteComponentRepository } from './remote-component-repository'
-import { ComponentVisualAnimationEditor } from './ComponentVisualAnimationEditor'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
-import { ComponentVisualRuleEditor } from './ComponentVisualRuleEditor'
 import { ComponentVisualStyleInspector } from './ComponentVisualStyleInspector'
+import { ComponentLayerMethodInspector } from './ComponentLayerMethodInspector'
 import {
   ComponentVisualLayerInspector,
   ComponentVisualTreeEditor,
+  LayerIcon,
+  layerKindBadgeText,
+  layerKindLabel,
   type ComponentWorkbenchMode,
 } from './ComponentVisualTreeEditor'
+import { LayerNameInput } from './LayerNameInput'
+import { renameComponentVisualLayer } from './component-layer-hierarchy'
 import {
   createComponentDraft,
   getComponentDefinition,
@@ -68,6 +75,13 @@ import {
 import './component-editor.css'
 
 type InspectorTab = 'properties' | 'actions' | 'events'
+type LayerInspectorTab = 'properties' | 'actions'
+type ComponentWorkPage = 'canvas' | 'definition'
+
+const LAYER_INSPECTOR_TABS: Array<StudioTabItem<LayerInspectorTab>> = [
+  { value: 'properties', label: '属性' },
+  { value: 'actions', label: '方法' },
+]
 
 const INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
   { value: 'properties', label: '属性' },
@@ -78,6 +92,11 @@ const INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
 const MODE_ITEMS: Array<SegmentedControlItem<ComponentWorkbenchMode>> = [
   { value: 'editor', label: '设计' },
   { value: 'preview', label: '预览' },
+]
+
+const WORK_PAGE_ITEMS: Array<SegmentedControlItem<ComponentWorkPage>> = [
+  { value: 'canvas', label: '图形化设计', icon: <DesignNibIcon /> },
+  { value: 'definition', label: 'Coding 开发', icon: <SettingsHorizontalIcon /> },
 ]
 
 const STATUS_OPTIONS = [
@@ -309,15 +328,18 @@ export function ComponentEditorPage({
     save: saveState.save,
   })
   const [mode, setMode] = useState<ComponentWorkbenchMode>('editor')
+  const [workPage, setWorkPage] = useState<ComponentWorkPage>('canvas')
   const [selectedLayerIds, setSelectedLayerIds] = useState<readonly string[]>([])
   const [primaryLayerId, setPrimaryLayerId] = useState<string | null>(null)
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('properties')
+  const [layerInspectorTab, setLayerInspectorTab] = useState<LayerInspectorTab>('properties')
   const [previewProps, setPreviewProps] = useState<ComponentProps>(() =>
     createDefaultPropsFromDefinition(initial.definition),
   )
   const [snapEnabled, setSnapEnabled] = useState(true)
   const [componentEditToolbarHost, setComponentEditToolbarHost] = useState<HTMLElement | null>(null)
   const [componentViewToolbarHost, setComponentViewToolbarHost] = useState<HTMLElement | null>(null)
+  const [componentArtboard, setComponentArtboard] = useState<HTMLDivElement | null>(null)
   const [message, setMessage] = useState('')
   const [publicationSession, setPublicationSession] =
     useState<ComponentPublicationSession | null>(null)
@@ -346,11 +368,16 @@ export function ComponentEditorPage({
   )
   const singleSelectedLayerId =
     selectedLayerIds.length === 1 ? primaryLayerId : null
-  const inspectorContextLabel = inspectorTab !== 'properties' || selectedLayerIds.length === 0
+  const [isEditingLayerName, setIsEditingLayerName] = useState(false)
+  const selectionLabel = selectedLayerIds.length === 0
     ? definition.title
     : selectedLayerIds.length > 1
       ? `已选 ${selectedLayerIds.length} 个图层`
       : component.visual.layers.find((layer) => layer.id === singleSelectedLayerId)?.name
+
+  useEffect(() => {
+    setIsEditingLayerName(false)
+  }, [singleSelectedLayerId])
 
   useEffect(() => {
     setPreviewProps((current) => normalizePreviewProps(definition, current))
@@ -506,7 +533,6 @@ export function ComponentEditorPage({
 
     setSelectedLayerIds(nextLayerIds)
     setPrimaryLayerId(nextLayerIds[nextLayerIds.length - 1] ?? null)
-    setInspectorTab('properties')
   }
 
   function selectLayer(layerId: string | null, toggle = false) {
@@ -533,7 +559,6 @@ export function ComponentEditorPage({
       setPrimaryLayerId(layerId)
     }
 
-    setInspectorTab('properties')
   }
 
   async function save() {
@@ -632,6 +657,337 @@ export function ComponentEditorPage({
     }
   }
 
+  function renderLayerInspector() {
+    const selectedLayer = singleSelectedLayerId
+      ? component.visual.layers.find((layer) => layer.id === singleSelectedLayerId)
+      : null
+
+    return (
+      <aside className="property-panel component-property-panel" aria-label="图层检查器">
+        <section className="component-layer-inspector-shell">
+          <header className="component-layer-inspector-header">
+            {selectedLayer ? (
+              <>
+                <div className="component-layer-header-row">
+                  <span
+                    className="component-layer-type-tag"
+                    title={`${layerKindLabel(selectedLayer.kind)} · ${layerKindBadgeText(selectedLayer)}${selectedLayer.parentId !== null ? ' · 组合内' : ''}`}
+                  >
+                    <span className="component-layer-kind-icon">
+                      <LayerIcon layer={selectedLayer} />
+                    </span>
+                    <span className="component-layer-kind-text">
+                      {layerKindBadgeText(selectedLayer)}
+                    </span>
+                    {selectedLayer.parentId !== null && (
+                      <span className="component-layer-group-tag">组内</span>
+                    )}
+                  </span>
+                  <span className="component-layer-header-divider" aria-hidden="true" />
+                  <div className="component-layer-header-name">
+                    {isEditingLayerName ? (
+                      <LayerNameInput
+                        value={selectedLayer.name}
+                        disabled={editingDisabled}
+                        existingNames={component.visual.layers
+                          .filter((candidate) => candidate.id !== selectedLayer.id)
+                          .map((candidate) => candidate.name)}
+                        autoFocus
+                        onCommit={(nextName) => {
+                          const result = renameComponentVisualLayer(
+                            component.visual,
+                            selectedLayer.id,
+                            nextName,
+                          )
+                          if (result.status === 'success') {
+                            updatePackage('visual', result.visual)
+                            selectLayer(result.nextId)
+                            setIsEditingLayerName(false)
+                          }
+                        }}
+                        onCancel={() => setIsEditingLayerName(false)}
+                      />
+                    ) : (
+                      <div className="component-layer-name-view">
+                        <span
+                          className="component-layer-name-text"
+                          title={`${selectedLayer.name}（点击编辑名称）`}
+                          onClick={() => {
+                            if (!editingDisabled) {
+                              setIsEditingLayerName(true)
+                            }
+                          }}
+                        >
+                          {selectedLayer.name}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Tabs
+                  value={layerInspectorTab}
+                  items={LAYER_INSPECTOR_TABS}
+                  onValueChange={setLayerInspectorTab}
+                  ariaLabel="图层检查器"
+                  className="component-inspector-tabs"
+                />
+              </>
+            ) : (
+              <div className="component-layer-header-empty">
+                <span>所选图层</span>
+                <strong>
+                  {selectedLayerIds.length > 1
+                    ? `已选 ${selectedLayerIds.length} 个图层`
+                    : '未选择'}
+                </strong>
+              </div>
+            )}
+          </header>
+
+          {selectedLayerIds.length === 0 && (
+            <div className="component-layer-selection-empty">
+              <strong>选择一个图层</strong>
+              <span>从左侧图层树或中央画布选择内部图层。</span>
+              <small>组件定义请使用中央的组件工作页切换。</small>
+            </div>
+          )}
+
+          {selectedLayerIds.length > 1 && (
+            <div className="component-layer-selection-empty">
+              <strong>已选择 {selectedLayerIds.length} 个图层</strong>
+              <span>右侧只显示单个图层属性；组合、对齐和分布请使用中央画布工具栏。</span>
+            </div>
+          )}
+
+          {singleSelectedLayerId !== null && (
+            <>
+
+              {layerInspectorTab === 'properties' && (
+                <div className="component-layer-inspector-body">
+                  <ComponentVisualLayerInspector
+                    visual={component.visual}
+                    readOnly={editingDisabled}
+                    selectedLayerId={singleSelectedLayerId}
+                    onSelectionChange={selectLayer}
+                    onChange={(visual) => updatePackage('visual', visual)}
+                  />
+                  <ComponentVisualStyleInspector
+                    visual={component.visual}
+                    readOnly={editingDisabled}
+                    selectedLayerId={singleSelectedLayerId}
+                    onChange={(visual) => updatePackage('visual', visual)}
+                  />
+                </div>
+              )}
+
+              {layerInspectorTab === 'actions' && (
+                <div className="component-layer-inspector-body">
+                  <ComponentLayerMethodInspector
+                    layer={selectedLayer}
+                    definition={definition}
+                    visual={component.visual}
+                    readOnly={editingDisabled}
+                    onUpdateVisual={(nextVisual) => updatePackage('visual', nextVisual)}
+                    onUpdateLayer={(updatedLayer) => {
+                      const layers = component.visual.layers.map((l) =>
+                        l.id === updatedLayer.id ? updatedLayer : l,
+                      )
+                      updatePackage('visual', { ...component.visual, layers })
+                    }}
+                    onUpdateDefinition={updateDefinition}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      </aside>
+    )
+  }
+
+  function renderComponentDefinitionPage() {
+    return (
+      <section className="component-definition-page component-semantic-inspector" aria-label="组件定义工作页">
+        <header className="component-definition-page-header">
+          <div>
+            <span>组件定义</span>
+            <h1>{definition.title}</h1>
+          </div>
+          <p>编辑组件基本信息、公开属性、方法与事件。内部图层仍固定显示在右侧检查器。</p>
+        </header>
+        <div className="component-definition-page-tabs">
+          <Tabs
+            value={inspectorTab}
+            items={INSPECTOR_TABS}
+            onValueChange={setInspectorTab}
+            ariaLabel="组件定义配置"
+            className="component-inspector-tabs"
+          />
+        </div>
+
+        {inspectorTab === 'properties' && (
+          <div className="property-section-list component-root-inspector">
+            {mode === 'preview' && component.visual.mode === 'composite' && (
+              <CollapsibleInspectorGroup title="预览数据">
+                <ComponentPreviewValues
+                  definition={definition}
+                  values={previewProps}
+                  onChange={setPreviewProps}
+                />
+              </CollapsibleInspectorGroup>
+            )}
+
+            <CollapsibleInspectorGroup title="基本信息">
+              {builtInReadOnly && (
+                <div className="component-readonly-note">
+                  内置组件可查看配置与预览，不能在这里修改内部图形。
+                </div>
+              )}
+              <label className="property-field">
+                <span>名称</span>
+                <Input
+                  value={definition.title}
+                  disabled={editingDisabled}
+                  onChange={(event) => updateDefinitionField('title', event.target.value)}
+                />
+              </label>
+              <label className="property-field">
+                <span>类型标识</span>
+                <Input
+                  value={definition.type}
+                  disabled={editingDisabled}
+                  onChange={(event) => updateDefinitionField('type', event.target.value)}
+                />
+              </label>
+              <label className="property-field">
+                <span>分类</span>
+                <Input
+                  value={definition.category}
+                  disabled={editingDisabled}
+                  onChange={(event) => updateDefinitionField('category', event.target.value)}
+                />
+              </label>
+              <label className="property-field">
+                <span>状态</span>
+                <Select
+                  value={component.status}
+                  disabled={editingDisabled}
+                  ariaLabel="组件状态"
+                  options={STATUS_OPTIONS}
+                  onValueChange={(value) => updatePackage('status', value as ComponentStatus)}
+                />
+              </label>
+              <label className="property-field">
+                <span>说明</span>
+                <Textarea
+                  rows={2}
+                  value={definition.description}
+                  disabled={editingDisabled}
+                  onChange={(event) => updateDefinitionField('description', event.target.value)}
+                />
+              </label>
+            </CollapsibleInspectorGroup>
+
+            <CollapsibleInspectorGroup title="尺寸">
+              <div className="property-grid">
+                {([
+                  ['defaultWidth', '默认宽'],
+                  ['defaultHeight', '默认高'],
+                  ['minWidth', '最小宽'],
+                  ['minHeight', '最小高'],
+                ] as Array<[keyof ComponentDefinition['size'], string]>).map(([field, label]) => (
+                  <label key={field} className="property-field compact">
+                    <span>{label}</span>
+                    <NumberInput
+                      min="1"
+                      value={definition.size[field]}
+                      disabled={editingDisabled}
+                      onChange={(event) => updateSize(field, Number(event.target.value))}
+                    />
+                  </label>
+                ))}
+              </div>
+            </CollapsibleInspectorGroup>
+
+            <CollapsibleInspectorGroup title="静态配置" className="component-root-public-attributes">
+              <p className="component-inspector-help">
+                放入组态画布后可配置的固定参数，例如运行色、报警色和显示精度。
+              </p>
+              <ComponentAttributeContractEditor
+                definition={definition}
+                readOnly={editingDisabled}
+                onChange={updateDefinition}
+              />
+            </CollapsibleInspectorGroup>
+
+            <CollapsibleInspectorGroup title="运行属性" className="component-root-public-properties">
+              <p className="component-inspector-help">
+                可绑定设备数据的运行值，例如开关状态、温度和液位。未绑定时使用配置的默认值。
+              </p>
+              <ComponentPropertyContractEditor
+                definition={definition}
+                readOnly={editingDisabled}
+                onChange={updateDefinition}
+              />
+            </CollapsibleInspectorGroup>
+
+            <CollapsibleInspectorGroup title="连接点" className="component-anchor-group">
+              <p className="component-inspector-help">
+                设置管线或导线可以连接到组件的哪些位置。
+              </p>
+              <div className="component-anchor-editor">
+                <ComponentContractEditor
+                  definition={definition}
+                  readOnly={editingDisabled}
+                  tab="anchors"
+                  onChange={updateDefinition}
+                />
+              </div>
+            </CollapsibleInspectorGroup>
+
+            {!builtInReadOnly && (
+              <CollapsibleInspectorGroup title="远端发布" defaultOpen={false}>
+                <ComponentPublicationPanel
+                  configured={Boolean(publicationBaseUrl)}
+                  session={publicationSession}
+                  observation={publicationObservation}
+                  username={publicationUsername}
+                  password={publicationPassword}
+                  busy={publicationBusy}
+                  publishReady={publicationReady}
+                  onUsernameChange={setPublicationUsername}
+                  onPasswordChange={setPublicationPassword}
+                  onLogin={() => void loginPublication()}
+                  onLogout={() => void logoutPublication()}
+                  onRefreshObservation={() => void refreshPublicationObservation()}
+                />
+              </CollapsibleInspectorGroup>
+            )}
+          </div>
+        )}
+
+        {inspectorTab === 'actions' && (
+          <ComponentContractEditor
+            definition={definition}
+            readOnly={editingDisabled}
+            tab="actions"
+            onChange={updateDefinition}
+          />
+        )}
+
+        {inspectorTab === 'events' && (
+          <ComponentContractEditor
+            definition={definition}
+            readOnly={editingDisabled}
+            tab="events"
+            onChange={updateDefinition}
+          />
+        )}
+      </section>
+    )
+  }
+
   return (
     <>
       <StudioShell
@@ -669,39 +1025,63 @@ export function ComponentEditorPage({
           </>
         )}
         mainToolbar={(
-          <>
-            <div className="component-edit-tool-group" role="group" aria-label="编辑">
-              <div ref={setComponentEditToolbarHost} className="component-edit-command-host" />
-              <ComponentGroupCommand
+          <div
+            className="component-canvas-commands-rail"
+            title={workPage !== 'canvas' ? '点击切换到设计画布' : undefined}
+            onClick={workPage !== 'canvas' ? () => setWorkPage('canvas') : undefined}
+          >
+            <div
+              className="component-canvas-commands"
+              data-active={workPage === 'canvas'}
+              inert={workPage !== 'canvas'}
+              aria-hidden={workPage !== 'canvas'}
+            >
+              <div className="component-edit-tool-group" role="group" aria-label="编辑">
+                <div ref={setComponentEditToolbarHost} className="component-edit-command-host" />
+                <ComponentGroupCommand
+                  visual={component.visual}
+                  selectedLayerIds={selectedLayerIds}
+                  disabled={!componentCanvasEditable}
+                  onChange={(visual) => updatePackage('visual', visual)}
+                  onSelectionReplace={replaceLayerSelection}
+                  onApplied={setMessage}
+                />
+              </div>
+              <ComponentGeometryToolbarGroup
                 visual={component.visual}
                 selectedLayerIds={selectedLayerIds}
                 disabled={!componentCanvasEditable}
                 onChange={(visual) => updatePackage('visual', visual)}
-                onSelectionReplace={replaceLayerSelection}
                 onApplied={setMessage}
               />
+              <div ref={setComponentViewToolbarHost} className="canvas-tool-group component-view-command-host" role="group" aria-label="画布辅助">
+                <ToolbarButton
+                  iconOnly
+                  className={`icon-button toggle-button component-snap-toggle${snapEnabled ? ' active' : ''}`}
+                  title={snapEnabled ? '关闭吸附' : '开启吸附'}
+                  aria-label="吸附"
+                  aria-pressed={snapEnabled}
+                  disabled={!componentCanvasEditable}
+                  onClick={() => setSnapEnabled((current) => !current)}
+                >
+                  <SnapIcon />
+                </ToolbarButton>
+              </div>
             </div>
-            <ComponentGeometryToolbarGroup
-              visual={component.visual}
-              selectedLayerIds={selectedLayerIds}
-              disabled={!componentCanvasEditable}
-              onChange={(visual) => updatePackage('visual', visual)}
-              onApplied={setMessage}
+          </div>
+        )}
+        toolbarAside={(
+          <div className="component-workpage-navigation" aria-label="中央工作区导航">
+            <SegmentedControl<ComponentWorkPage>
+              value={workPage}
+              items={WORK_PAGE_ITEMS}
+              iconOnly
+              expandActive
+              onValueChange={setWorkPage}
+              ariaLabel="组件工作页"
+              className="component-workpage-switch"
             />
-            <div ref={setComponentViewToolbarHost} className="canvas-tool-group component-view-command-host" role="group" aria-label="画布辅助">
-              <ToolbarButton
-                iconOnly
-                className={`icon-button toggle-button component-snap-toggle${snapEnabled ? ' active' : ''}`}
-                title={snapEnabled ? '关闭吸附' : '开启吸附'}
-                aria-label="吸附"
-                aria-pressed={snapEnabled}
-                disabled={!componentCanvasEditable}
-                onClick={() => setSnapEnabled((current) => !current)}
-              >
-                <SnapIcon />
-              </ToolbarButton>
-            </div>
-          </>
+          </div>
         )}
         modeControl={(
           <SegmentedControl
@@ -717,6 +1097,7 @@ export function ComponentEditorPage({
           <ComponentVisualTreeEditor
             visual={component.visual}
             readOnly={editingDisabled}
+            dropTarget={componentArtboard}
             selectedLayerIds={selectedLayerIds}
             primaryLayerId={primaryLayerId}
             onSelectionReplace={replaceLayerSelection}
@@ -727,281 +1108,92 @@ export function ComponentEditorPage({
         </aside>
         )}
         center={(
-        <section className="canvas-area component-canvas-area" aria-label="组件设计画布">
-          {message && (
-            <div className="canvas-toast component-canvas-toast" role="status" aria-live="polite">
-              {message}
+        <div className={`component-workspace component-workspace-${workPage}`}>
+          <section
+            id="component-canvas-page"
+            className="component-work-page component-canvas-area"
+            data-active={workPage === 'canvas'}
+            aria-label="组件设计画布"
+            title={workPage !== 'canvas' ? '点击切换到设计画布' : undefined}
+            onClick={workPage !== 'canvas' ? () => setWorkPage('canvas') : undefined}
+          >
+            <div
+              className="component-work-page-content component-canvas-page-content"
+              inert={workPage !== 'canvas'}
+              aria-hidden={workPage !== 'canvas'}
+            >
+              {message && (
+                <div className="canvas-toast component-canvas-toast" role="status" aria-live="polite">
+                  {message}
+                </div>
+              )}
+
+              <ComponentVisualCanvas
+                visual={component.visual}
+                propertyValues={previewProps}
+                componentTitle={definition.title}
+                designWidth={definition.size.defaultWidth}
+                designHeight={definition.size.defaultHeight}
+                selectedLayerIds={selectedLayerIds}
+                primaryLayerId={primaryLayerId}
+                mode={mode}
+                readOnly={builtInReadOnly}
+                snapEnabled={snapEnabled}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                editToolbarHost={componentEditToolbarHost}
+                viewToolbarHost={componentViewToolbarHost}
+                onArtboardElementChange={setComponentArtboard}
+                onUndo={undo}
+                onRedo={redo}
+                onSelectionChange={selectLayer}
+                onSelectionReplace={replaceLayerSelection}
+                onChange={(visual) => updatePackage('visual', visual)}
+              />
             </div>
-          )}
-
-          <ComponentVisualCanvas
-            visual={component.visual}
-            propertyValues={previewProps}
-            componentTitle={definition.title}
-            designWidth={definition.size.defaultWidth}
-            designHeight={definition.size.defaultHeight}
-            selectedLayerIds={selectedLayerIds}
-            primaryLayerId={primaryLayerId}
-            mode={mode}
-            readOnly={builtInReadOnly}
-            snapEnabled={snapEnabled}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            editToolbarHost={componentEditToolbarHost}
-            viewToolbarHost={componentViewToolbarHost}
-            onUndo={undo}
-            onRedo={redo}
-            onSelectionChange={selectLayer}
-            onChange={(visual) => updatePackage('visual', visual)}
-          />
-        </section>
-        )}
-        rightPanel={(
-        <aside className="property-panel component-property-panel">
-          <section className="semantic-inspector component-semantic-inspector" aria-label="组件配置">
-            {selectedLayerIds.length > 0 && (
-              <div className="component-inspector-context">
-                <Button
-                  variant="ghost"
-                  size="small"
-                  aria-label="组件设置"
-                  title="编辑组件名称、尺寸、公开配置和运行属性"
-                  onClick={() => {
-                    clearComponentCreateTool()
-                    selectLayer(null)
-                  }}
-                >返回组件</Button>
-                <span title={inspectorContextLabel}>{inspectorContextLabel}</span>
-              </div>
-            )}
-            <Tabs
-              value={inspectorTab}
-              items={INSPECTOR_TABS}
-              onValueChange={setInspectorTab}
-              ariaLabel="组件配置检查器"
-              className="component-inspector-tabs"
-            />
-
-            {inspectorTab === 'properties' && singleSelectedLayerId !== null && (
-              <>
-                <ComponentVisualLayerInspector
-                  visual={component.visual}
-                  readOnly={editingDisabled}
-                  selectedLayerId={singleSelectedLayerId}
-                  onSelectionChange={selectLayer}
-                  onChange={(visual) => updatePackage('visual', visual)}
-                />
-                <ComponentVisualStyleInspector
-                  visual={component.visual}
-                  readOnly={editingDisabled}
-                  selectedLayerId={singleSelectedLayerId}
-                  onChange={(visual) => updatePackage('visual', visual)}
-                />
-                <div className="property-section-list component-rule-inspector">
-                  <CollapsibleInspectorGroup title="视觉规则" defaultOpen={false}>
-                    <ComponentVisualRuleEditor
-                      definition={definition}
-                      visual={component.visual}
-                      layerId={singleSelectedLayerId}
-                      readOnly={editingDisabled}
-                      onChange={(visual) => updatePackage('visual', visual)}
-                    />
-                  </CollapsibleInspectorGroup>
+            {workPage !== 'canvas' && (
+              <div className="component-work-page-collapsed-hint" aria-hidden="true">
+                <div className="component-collapsed-pill">
+                  <DesignNibIcon />
+                  <span className="component-collapsed-pill-label">图形画布</span>
+                  <span className="component-collapsed-pill-arrow">‹</span>
                 </div>
-                <div className="property-section-list component-animation-inspector">
-                  <CollapsibleInspectorGroup title="动画" defaultOpen={false}>
-                    <ComponentVisualAnimationEditor
-                      definition={definition}
-                      visual={component.visual}
-                      layerId={singleSelectedLayerId}
-                      readOnly={editingDisabled}
-                      onChange={(visual) => updatePackage('visual', visual)}
-                    />
-                  </CollapsibleInspectorGroup>
-                </div>
-              </>
-            )}
-
-            {inspectorTab === 'properties' && selectedLayerIds.length > 1 && (
-              <div className="property-section-list">
-                <CollapsibleInspectorGroup title="多选">
-                  <div className="selection-summary">
-                    已选择 <strong>{selectedLayerIds.length}</strong> 个内部图层。
-                  </div>
-                  <p className="component-inspector-help">
-                    使用画布工具栏组合、对齐或分布。选择单个图层可编辑外观与行为。
-                  </p>
-                </CollapsibleInspectorGroup>
               </div>
-            )}
-
-            {inspectorTab === 'properties' && selectedLayerIds.length === 0 && (
-              <div className="property-section-list component-root-inspector">
-                {mode === 'preview' && component.visual.mode === 'composite' && (
-                  <CollapsibleInspectorGroup title="预览数据">
-                    <ComponentPreviewValues
-                      definition={definition}
-                      values={previewProps}
-                      onChange={setPreviewProps}
-                    />
-                  </CollapsibleInspectorGroup>
-                )}
-
-                <CollapsibleInspectorGroup title="基本信息">
-                  {builtInReadOnly && (
-                    <div className="component-readonly-note">
-                      内置组件可查看配置与预览，不能在这里修改内部图形。
-                    </div>
-                  )}
-                  <label className="property-field">
-                    <span>名称</span>
-                    <Input
-                      value={definition.title}
-                      disabled={editingDisabled}
-                      onChange={(event) => updateDefinitionField('title', event.target.value)}
-                    />
-                  </label>
-                  <label className="property-field">
-                    <span>类型标识</span>
-                    <Input
-                      value={definition.type}
-                      disabled={editingDisabled}
-                      onChange={(event) => updateDefinitionField('type', event.target.value)}
-                    />
-                  </label>
-                  <label className="property-field">
-                    <span>分类</span>
-                    <Input
-                      value={definition.category}
-                      disabled={editingDisabled}
-                      onChange={(event) => updateDefinitionField('category', event.target.value)}
-                    />
-                  </label>
-                  <label className="property-field">
-                    <span>状态</span>
-                    <Select
-                      value={component.status}
-                      disabled={editingDisabled}
-                      ariaLabel="组件状态"
-                      options={STATUS_OPTIONS}
-                      onValueChange={(value) => updatePackage('status', value as ComponentStatus)}
-                    />
-                  </label>
-                  <label className="property-field">
-                    <span>说明</span>
-                    <Textarea
-                      rows={2}
-                      value={definition.description}
-                      disabled={editingDisabled}
-                      onChange={(event) => updateDefinitionField('description', event.target.value)}
-                    />
-                  </label>
-                </CollapsibleInspectorGroup>
-
-                <CollapsibleInspectorGroup title="尺寸">
-                  <div className="property-grid">
-                    {([
-                      ['defaultWidth', '默认宽'],
-                      ['defaultHeight', '默认高'],
-                      ['minWidth', '最小宽'],
-                      ['minHeight', '最小高'],
-                    ] as Array<[keyof ComponentDefinition['size'], string]>).map(([field, label]) => (
-                      <label key={field} className="property-field compact">
-                        <span>{label}</span>
-                        <NumberInput
-                          min="1"
-                          value={definition.size[field]}
-                          disabled={editingDisabled}
-                          onChange={(event) => updateSize(field, Number(event.target.value))}
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </CollapsibleInspectorGroup>
-
-                <CollapsibleInspectorGroup title="静态配置" className="component-root-public-attributes">
-                  <p className="component-inspector-help">
-                    放入组态画布后可配置的固定参数，例如运行色、报警色和显示精度。
-                  </p>
-                  <ComponentAttributeContractEditor
-                    definition={definition}
-                    readOnly={editingDisabled}
-                    onChange={updateDefinition}
-                  />
-                </CollapsibleInspectorGroup>
-
-                <CollapsibleInspectorGroup title="运行属性" className="component-root-public-properties">
-                  <p className="component-inspector-help">
-                    可绑定设备数据的运行值，例如开关状态、温度和液位。未绑定时使用配置的默认值。
-                  </p>
-                  <ComponentPropertyContractEditor
-                    definition={definition}
-                    readOnly={editingDisabled}
-                    onChange={updateDefinition}
-                  />
-                </CollapsibleInspectorGroup>
-
-                <CollapsibleInspectorGroup title="连接点" className="component-anchor-group">
-                  <p className="component-inspector-help">
-                    设置管线或导线可以连接到组件的哪些位置。
-                  </p>
-                  <div className="component-anchor-editor">
-                    <ComponentContractEditor
-                      definition={definition}
-                      readOnly={editingDisabled}
-                      tab="anchors"
-                      onChange={updateDefinition}
-                    />
-                  </div>
-                </CollapsibleInspectorGroup>
-
-                {!builtInReadOnly && (
-                  <CollapsibleInspectorGroup title="远端发布" defaultOpen={false}>
-                    <ComponentPublicationPanel
-                      configured={Boolean(publicationBaseUrl)}
-                      session={publicationSession}
-                      observation={publicationObservation}
-                      username={publicationUsername}
-                      password={publicationPassword}
-                      busy={publicationBusy}
-                      publishReady={publicationReady}
-                      onUsernameChange={setPublicationUsername}
-                      onPasswordChange={setPublicationPassword}
-                      onLogin={() => void loginPublication()}
-                      onLogout={() => void logoutPublication()}
-                      onRefreshObservation={() => void refreshPublicationObservation()}
-                    />
-                  </CollapsibleInspectorGroup>
-                )}
-
-              </div>
-            )}
-
-            {inspectorTab === 'actions' && (
-              <ComponentContractEditor
-                definition={definition}
-                readOnly={editingDisabled}
-                tab="actions"
-                onChange={updateDefinition}
-              />
-            )}
-
-            {inspectorTab === 'events' && (
-              <ComponentContractEditor
-                definition={definition}
-                readOnly={editingDisabled}
-                tab="events"
-                onChange={updateDefinition}
-              />
             )}
           </section>
-        </aside>
+          <section
+            id="component-definition-page"
+            className="component-work-page component-definition-page-host"
+            data-active={workPage === 'definition'}
+            aria-label="组件定义工作页"
+            title={workPage !== 'definition' ? '点击切换到组件开发' : undefined}
+            onClick={workPage !== 'definition' ? () => setWorkPage('definition') : undefined}
+          >
+            <div
+              className="component-work-page-content component-definition-page-content"
+              inert={workPage !== 'definition'}
+              aria-hidden={workPage !== 'definition'}
+            >
+              {renderComponentDefinitionPage()}
+            </div>
+            {workPage !== 'definition' && (
+              <div className="component-work-page-collapsed-hint" aria-hidden="true">
+                <div className="component-collapsed-pill">
+                  <SettingsHorizontalIcon />
+                  <span className="component-collapsed-pill-label">Coding 开发</span>
+                  <span className="component-collapsed-pill-arrow">‹</span>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
         )}
+        rightPanel={renderLayerInspector()}
         status={(
           <>
             <span className="studio-status-cluster studio-status-mode">
               <strong>{mode === 'preview' ? '预览' : '设计'}</strong>
-              <span>{selectedLayerIds.length > 1 ? `已选 ${selectedLayerIds.length} 个图层` : inspectorContextLabel}</span>
+              <span>{selectionLabel}</span>
             </span>
             <span className="studio-status-cluster">
               <code>{definition.size.defaultWidth} × {definition.size.defaultHeight}</code>

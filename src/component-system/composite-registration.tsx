@@ -36,6 +36,7 @@ export function createCompositeComponentRegistration(
   const renderer = forwardRef<Konva.Group, ComponentRendererProps>(
     function RegisteredCompositeComponentRenderer(
       {
+        nodeId,
         attributes,
         properties,
         x,
@@ -86,6 +87,8 @@ export function createCompositeComponentRegistration(
       return (
         <Group
           ref={ref}
+          id={nodeId}
+          name={listening ? 'scene-node' : undefined}
           x={x}
           y={y}
           width={width}

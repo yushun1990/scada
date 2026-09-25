@@ -123,16 +123,17 @@ function getGroupableLayers(
 }
 
 function nextGroupIdentity(layers: readonly ComponentVisualLayer[]) {
-  const ids = new Set(layers.map((layer) => layer.id))
+  const existing = new Set(layers.flatMap((layer) => [layer.id, layer.name]))
   let index = 1
 
-  while (ids.has(`group${index}`)) {
+  while (existing.has(`grp_${index}`)) {
     index += 1
   }
 
+  const name = `grp_${index}`
   return {
-    id: `group${index}`,
-    name: `Group ${index}`,
+    id: name,
+    name,
   }
 }
 
@@ -140,13 +141,16 @@ function nextLayerCopyId(
   layer: ComponentVisualLayer,
   usedIds: Set<string>,
 ) {
+  const prefix = layer.kind === 'vector'
+    ? (layer.primitive === 'rect' ? 'rect' : layer.primitive === 'circle' || layer.primitive === 'ellipse' ? 'circ' : layer.primitive === 'line' ? 'line' : layer.primitive === 'scale' ? 'scale' : layer.primitive === 'polygon' ? 'poly' : layer.primitive === 'arc' ? 'arc' : 'vector')
+    : layer.kind === 'text' ? 'txt' : layer.kind === 'group' ? 'grp' : layer.kind === 'svg' ? 'svg' : 'img'
   let index = 1
 
-  while (usedIds.has(`${layer.kind}${index}`)) {
+  while (usedIds.has(`${prefix}_${index}`)) {
     index += 1
   }
 
-  const id = `${layer.kind}${index}`
+  const id = `${prefix}_${index}`
   usedIds.add(id)
   return id
 }
@@ -215,7 +219,7 @@ export function cloneComponentLayerSubtrees(
     return {
       ...layer,
       id: idMap.get(layer.id) ?? layer.id,
-      name: root ? `${layer.name} 副本` : layer.name,
+      name: root ? `${layer.name}_copy` : layer.name,
       parentId: layer.parentId ? idMap.get(layer.parentId) ?? layer.parentId : null,
       transform: {
         ...layer.transform,
@@ -437,3 +441,76 @@ export function ungroupComponentLayer(
     childIds,
   }
 }
+
+export type RenameComponentVisualLayerResult =
+  | {
+      status: 'success'
+      visual: ComponentVisualDefinition
+      nextId: string
+    }
+  | {
+      status: 'error'
+      message: string
+    }
+
+export function renameComponentVisualLayer(
+  visual: ComponentVisualDefinition,
+  layerId: string,
+  nextName: string,
+): RenameComponentVisualLayerResult {
+  const layer = visual.layers.find((candidate) => candidate.id === layerId)
+  if (!layer) {
+    return { status: 'error', message: '所选图层不存在' }
+  }
+
+  const trimmed = nextName.trim()
+  if (!trimmed) {
+    return { status: 'error', message: '图层名称不能为空' }
+  }
+
+  if (trimmed === layer.name) {
+    return { status: 'success', visual, nextId: layer.id }
+  }
+
+  const isDuplicate = visual.layers.some(
+    (candidate) =>
+      candidate.id !== layerId &&
+      (candidate.name.trim() === trimmed || candidate.id === trimmed),
+  )
+  if (isDuplicate) {
+    return { status: 'error', message: `已存在同名图层 "${trimmed}"` }
+  }
+
+  const previousId = layer.id
+  const nextId = trimmed
+
+  const nextLayers = visual.layers.map((candidate) => {
+    if (candidate.id === previousId) {
+      return { ...candidate, id: nextId, name: trimmed } as ComponentVisualLayer
+    }
+    if (candidate.parentId === previousId) {
+      return { ...candidate, parentId: nextId } as ComponentVisualLayer
+    }
+    return candidate
+  })
+
+  const nextRules = visual.rules
+    ? visual.rules.map((rule) => (rule.layerId === previousId ? { ...rule, layerId: nextId } : rule))
+    : undefined
+
+  const nextAnimations = visual.animations
+    ? visual.animations.map((anim) => (anim.layerId === previousId ? { ...anim, layerId: nextId } : anim))
+    : []
+
+  return {
+    status: 'success',
+    visual: {
+      ...visual,
+      layers: nextLayers,
+      animations: nextAnimations,
+      ...(nextRules ? { rules: nextRules } : {}),
+    },
+    nextId,
+  }
+}
+

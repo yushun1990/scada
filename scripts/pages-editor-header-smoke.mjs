@@ -33,8 +33,8 @@ async function assertChrome(label, exitLabel) {
     boxOf(header.locator('.studio-document-identity'), `${label} identity`),
   ])
   const component = await page.locator('.component-studio-shell').count() > 0
-  assert.equal(document.height, component ? 48 : 44)
-  assert.equal(main.height, component ? 48 : 36)
+  assert.equal(document.height, 44)
+  assert.equal(main.height, 36)
   const accent = await header.evaluate((el) => getComputedStyle(el).getPropertyValue('--ui-color-accent').trim())
   assert.equal(accent, component ? '#137766' : '#1769aa', 'component theme is removed when leaving its route')
   assert.ok(contains(document, exit), `${label}: workspace navigation belongs to the document header`)
@@ -58,8 +58,10 @@ try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await assertChrome('Component', '返回组件库工作台')
-  if (await page.getByRole('button', { name: '组件设置', exact: true }).count()) {
-    await page.getByRole('button', { name: '组件设置', exact: true }).click()
+  // Component contracts live on the central Coding 开发 work page.
+  const workPageSwitch = page.getByRole('button', { name: 'Coding 开发', exact: true })
+  if (await workPageSwitch.count()) {
+    await workPageSwitch.click()
   }
   const componentName = page.locator('.component-root-inspector .property-field')
     .filter({ has: page.locator('span', { hasText: /^名称$/ }) }).locator('input').first()

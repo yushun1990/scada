@@ -50,13 +50,14 @@
 .component-palette-summary > span {
   grid-column: 2;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }
 
 .component-palette-summary > small {
   grid-column: 3;
   color: var(--ui-color-text-subtle);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
 }
 
@@ -96,7 +97,7 @@
 }
 
 .component-layer-navigator .component-layer-dock-heading button {
-  font-size: 12px;
+  font-size: var(--ui-font-size-tool);
 }
 
 .component-layer-search {
@@ -110,7 +111,7 @@
   min-width: 0;
   height: 28px;
   padding: 0 8px;
-  font-size: 12px;
+  font-size: var(--ui-font-size-tool);
 }
 
 .component-palette-grid {
@@ -135,13 +136,13 @@
 }
 
 .component-palette-item[draggable='true'],
-.component-palette-component-item[draggable='true'],
+.component-palette-component-card[draggable='true'],
 .component-palette-resource-item[draggable='true'] {
   cursor: grab;
 }
 
 .component-palette-item[draggable='true']:active,
-.component-palette-component-item[draggable='true']:active,
+.component-palette-component-card[draggable='true']:active,
 .component-palette-resource-item[draggable='true']:active {
   cursor: grabbing;
 }
@@ -161,60 +162,93 @@
   height: 20px;
 }
 
-.component-palette-component-list {
+.component-palette-component-grid {
   display: grid;
-  gap: 5px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
 }
 
-.component-palette-component-item {
+.component-palette-component-card {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  justify-content: stretch;
+  min-width: 0;
   width: 100%;
-  height: auto;
-  min-height: 38px;
-  padding: 5px 7px;
-  text-align: left;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 6px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 120ms ease, background-color 120ms ease;
 }
 
-.component-palette-component-icon {
+.component-palette-component-card:hover:not(:disabled) {
+  border-color: var(--ui-color-accent);
+  background: var(--ui-color-surface-subtle);
+}
+
+.component-palette-component-card-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  border-radius: 4px;
+  background: var(--ui-color-panel);
+  overflow: hidden;
+}
+
+.component-palette-component-card-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--ui-color-panel);
+}
+
+.component-palette-component-card-fallback {
   display: grid;
-  width: 26px;
-  height: 26px;
   place-items: center;
-  border-radius: 6px;
+  width: 100%;
+  height: 100%;
   color: var(--ui-color-accent-pressed);
   background: var(--ui-color-accent-soft);
-  font-size: 11px;
+  font-size: var(--ui-font-size-title, 16px);
   font-weight: 800;
 }
 
-.component-palette-component-item > span:last-child {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-}
-
-.component-palette-component-item strong,
-.component-palette-component-item small {
+.component-palette-component-card-title {
   overflow: hidden;
+  font-size: var(--ui-font-size-status);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.component-palette-component-item strong {
   color: var(--ui-color-text);
-  font-size: 11px;
+  line-height: 1.25;
+  padding: 0 2px;
 }
 
-.component-palette-component-item small {
-  color: var(--ui-color-text-subtle);
-  font-size: 11px;
+.component-palette-dialog-popup {
+  width: min(380px, 90vw);
+}
+
+.component-palette-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.component-palette-dialog-error {
+  margin: 6px 0 0;
+  color: var(--ui-color-danger);
+  font-size: var(--ui-font-size-status);
 }
 
 .component-palette-resource-library > .ui-button {
   width: 100%;
-  font-size: 11px;
+  font-size: var(--ui-font-size-tool);
 }
 
 .component-palette-resource-grid {
@@ -252,7 +286,7 @@
 
 .component-palette-resource-item span {
   overflow: hidden;
-  font-size: 11px;
+  font-size: var(--ui-font-size-status);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -262,7 +296,7 @@
 .component-palette-message {
   margin: 0;
   color: var(--ui-color-text-subtle);
-  font-size: 11px;
+  font-size: var(--ui-font-size-status);
   line-height: 1.45;
 }
 
@@ -278,7 +312,7 @@
   margin: 0;
   padding-top: 2px;
   color: var(--ui-color-text-subtle);
-  font-size: 12px;
+  font-size: var(--ui-font-size-status);
   line-height: 1.45;
 }
 

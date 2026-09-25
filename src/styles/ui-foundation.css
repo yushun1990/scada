@@ -137,6 +137,12 @@ textarea:focus-visible {
   color: var(--ui-color-text-subtle);
 }
 
+.inspector-group-extra {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+}
+
 .inspector-group-content {
   gap: var(--ui-space-2);
   padding: var(--ui-space-1) 3px var(--ui-space-2) var(--ui-space-3);

@@ -43,14 +43,15 @@
 
 .workspace-brand strong {
   color: #111827;
-  font-size: 14px;
+  font-size: var(--ui-font-size-title);
+  font-weight: 700;
 }
 
 .workspace-brand span:last-child,
 .workspace-nav small,
 .component-name-cell small {
   color: #8a96a8;
-  font-size: 10px;
+  font-size: var(--ui-font-size-status);
 }
 
 .workspace-nav {
@@ -82,7 +83,7 @@
 }
 
 .workspace-nav strong {
-  font-size: 12px;
+  font-size: var(--ui-font-size-tool);
 }
 
 .workspace-nav-icon {

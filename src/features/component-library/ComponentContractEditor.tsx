@@ -14,6 +14,7 @@ import {
   Select,
   Textarea,
 } from '../../ui'
+import { ColorPickerInput } from './ColorPickerInput'
 
 export type ComponentContractTab = 'properties' | 'actions' | 'events' | 'anchors'
 type InteractionDefinition = { title: string; description?: string }
@@ -210,11 +211,13 @@ function PropertyDefaultEditor({
 
   if (property.kind === 'color') {
     return (
-      <Input
-        type="color"
+      <ColorPickerInput
         value={typeof property.defaultValue === 'string' ? property.defaultValue : '#2563eb'}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+        ariaLabel="Property 默认颜色值"
+        placeholder="transparent"
+        clearValue="transparent"
+        onChange={(val) => onChange(val)}
       />
     )
   }

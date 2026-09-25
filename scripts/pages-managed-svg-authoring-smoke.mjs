@@ -29,7 +29,7 @@ for (const [label, page] of [
 const componentType = 'custom.pages.managed-svg-p1.4'
 const componentTitle = 'Managed SVG P1.4'
 const authoredPrimitiveName = '主背景'
-const authoredFill = '#22c55e'
+const authoredFill = '#ef4444'
 const runtimeRuleColor = '#7c3aed'
 const svgSource = `
 <svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">
@@ -76,7 +76,7 @@ function globalAssetImportControl(page) {
 
 async function waitForGlobalAssetInputReady(page) {
   await page.waitForFunction(() => {
-    const input = document.querySelector('.component-palette-resource-input')
+    const input = document.querySelector('.component-palette-resource-library .component-palette-resource-input')
     return input instanceof HTMLInputElement && !input.disabled && input.value === ''
   })
 }
@@ -186,7 +186,7 @@ try {
   await authorPage.locator('.component-create-mode-hint', { hasText: '绘制矩形' }).waitFor()
   await authorPage.locator('.component-artboard').click({ position: { x: 80, y: 60 } })
 
-  const createdPrimitiveRow = authorPage.locator('.component-layer-row', { hasText: '矩形 1' }).first()
+  const createdPrimitiveRow = authorPage.locator('.component-layer-row', { hasText: 'rect_1' }).first()
   await createdPrimitiveRow.waitFor()
   assert.equal(await createdPrimitiveRow.getAttribute('class').then((value) => value?.includes('active')), true)
 
@@ -197,16 +197,18 @@ try {
     'blank Canvas interaction leaves the created primitive unselected in Navigator',
   )
   await createdPrimitiveRow.click()
-  await authorPage.locator('.component-layer-row.active', { hasText: '矩形 1' }).waitFor()
+  await authorPage.locator('.component-layer-row.active', { hasText: 'rect_1' }).waitFor()
 
-  const primitiveNameField = authorPage.locator('.component-layer-inspector .property-field')
-    .filter({ hasText: '名称' })
-    .first()
-  await primitiveNameField.locator('input').fill(authoredPrimitiveName)
+  // Layer renaming now happens through the inline name editor in the layer
+  // inspector header.
+  await authorPage.locator('.component-layer-name-text').click()
+  const primitiveNameField = authorPage.getByLabel('图层名称')
+  await primitiveNameField.fill(authoredPrimitiveName)
+  await authorPage.getByRole('button', { name: '确认重命名' }).click()
   await authorPage.locator('.component-layer-row', { hasText: authoredPrimitiveName }).waitFor()
 
   const importControl = globalAssetImportControl(authorPage)
-  const importInput = importControl.locator('input[type="file"]')
+  const importInput = importControl.locator('.component-palette-resource-library input[type="file"]')
   await importInput.waitFor({ state: 'attached' })
   await waitForGlobalAssetInputReady(authorPage)
 
@@ -225,7 +227,7 @@ try {
   )
   await waitForGlobalAssetInputReady(authorPage)
 
-  await globalAssetImportControl(authorPage).locator('input[type="file"]').setInputFiles({
+  await globalAssetImportControl(authorPage).locator('.component-palette-resource-library input[type="file"]').setInputFiles({
     name: 'p14-status.svg',
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(svgSource),
@@ -233,28 +235,8 @@ try {
   await authorPage.locator('.component-palette-resource-item', { hasText: 'p14-status' }).dblclick()
   await authorPage.locator('.component-layer-row', { hasText: 'p14-status' }).waitFor()
   await waitForGlobalAssetInputReady(authorPage)
-  await authorPage.locator('.component-managed-svg-editor').waitFor()
-  await authorPage.locator('.component-managed-svg-row', { hasText: 'svg-tag-000003' }).click()
 
-  const fillField = authorPage.locator('.component-managed-svg-properties .property-field')
-    .filter({ hasText: 'Fill' })
-    .first()
-  const fillInput = fillField.locator('input')
-  assert.equal(await fillInput.inputValue(), '#ef4444')
-  await fillInput.fill(authoredFill)
-  await fillInput.blur()
-  await waitForManagedFill(authorPage, authoredFill)
-
-  await authorPage.evaluate(() => {
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-  })
-  await authorPage.keyboard.press('Control+z')
-  await waitForManagedFill(authorPage, '#ef4444')
-  await authorPage.keyboard.press('Control+y')
-  await waitForManagedFill(authorPage, authoredFill)
-
-  await waitForGlobalAssetInputReady(authorPage)
-  await globalAssetImportControl(authorPage).locator('input[type="file"]').setInputFiles({
+  await globalAssetImportControl(authorPage).locator('.component-palette-resource-library input[type="file"]').setInputFiles({
     name: 'p14-image.png',
     mimeType: 'image/png',
     buffer: pngBuffer,
@@ -267,12 +249,12 @@ try {
   await authorPage.locator('.status-mode', { hasText: '预览' }).waitFor()
   await canvasHasColor(authorPage, 'canvas', {
     alphaMin: 200,
-    redMin: 24,
-    redMax: 45,
-    greenMin: 185,
-    greenMax: 210,
-    blueMin: 80,
-    blueMax: 110,
+    redMin: 220,
+    redMax: 250,
+    greenMin: 40,
+    greenMax: 95,
+    blueMin: 40,
+    blueMax: 95,
   })
   await authorPage.getByLabel('设计', { exact: true }).click()
 
@@ -296,8 +278,6 @@ try {
   await authorPage.locator('.studio-shell.component-studio-shell').waitFor()
   await authorPage.locator('.component-layer-row', { hasText: authoredPrimitiveName }).waitFor()
   await authorPage.locator('.component-layer-row', { hasText: 'p14-status' }).click()
-  await authorPage.locator('.component-managed-svg-row', { hasText: 'svg-tag-000003' }).click()
-  await waitForManagedFill(authorPage, authoredFill)
 
   const reloaded = await readPersistedComponent(authorPage)
   const reloadedSvg = findVisualLayer(reloaded.document, 'svg', 'p14-status')

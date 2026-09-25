@@ -9,6 +9,7 @@ import {
 import type { PreviewRuntimeValueSourceDefinition } from '../../runtime'
 import type { DataBinding } from '../../scene/model'
 import { Checkbox, Input, NumberInput, Select } from '../../ui'
+import { ColorPickerInput } from '../component-library/ColorPickerInput'
 
 type ComponentPropertiesInspectorProps = {
   definition: ComponentDefinition
@@ -112,13 +113,13 @@ function renderScalarInput(
     return (
       <label className="property-field">
         <span>{definition.title}</span>
-        <Input
-          key={`${ariaPrefix}:${key}:${String(value)}`}
-          className="color-input"
-          type="color"
-          defaultValue={typeof value === 'string' ? value : '#000000'}
+        <ColorPickerInput
+          value={typeof value === 'string' ? value : ''}
           disabled={readOnly}
-          onBlur={(event) => onChange(key, event.currentTarget.value, true)}
+          ariaLabel={definition.title}
+          placeholder="transparent"
+          clearValue="transparent"
+          onChange={(next) => onChange(key, next, true)}
         />
         {definition.description && <small>{definition.description}</small>}
       </label>

@@ -4,7 +4,7 @@ import {
   ensureBrowserPersistenceReady,
 } from '../storage/browser-persistence'
 
-const STUDIO_LAYOUT_META_KEY = 'studio-layout-v1'
+const STUDIO_LAYOUT_META_KEY = 'studio-layout-v3'
 
 export type StudioLayoutPreferences = {
   leftVisible: boolean
@@ -16,12 +16,19 @@ export type StudioLayoutPreferences = {
 const DEFAULT_STUDIO_LAYOUT: StudioLayoutPreferences = {
   leftVisible: true,
   rightVisible: true,
-  leftWidth: 248,
-  rightWidth: 320,
+  leftWidth: 360,
+  rightWidth: 360,
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value))
+const LEFT_WIDTH_MIN = 260
+const LEFT_WIDTH_MAX = 500
+const RIGHT_WIDTH_MIN = 300
+const RIGHT_WIDTH_MAX = 500
+
+function clampPanelWidth(side: 'left' | 'right', value: number) {
+  return side === 'left'
+    ? Math.min(LEFT_WIDTH_MAX, Math.max(LEFT_WIDTH_MIN, value))
+    : Math.min(RIGHT_WIDTH_MAX, Math.max(RIGHT_WIDTH_MIN, value))
 }
 
 function parseLayout(value: unknown): StudioLayoutPreferences | null {
@@ -41,8 +48,8 @@ function parseLayout(value: unknown): StudioLayoutPreferences | null {
   return {
     leftVisible: candidate.leftVisible,
     rightVisible: candidate.rightVisible,
-    leftWidth: clamp(candidate.leftWidth, 208, 360),
-    rightWidth: clamp(candidate.rightWidth, 280, 440),
+    leftWidth: clampPanelWidth('left', candidate.leftWidth),
+    rightWidth: clampPanelWidth('right', candidate.rightWidth),
   }
 }
 
@@ -92,8 +99,8 @@ export function useStudioLayoutPreferences() {
       return {
         leftVisible: next.leftVisible,
         rightVisible: next.rightVisible,
-        leftWidth: clamp(next.leftWidth, 208, 360),
-        rightWidth: clamp(next.rightWidth, 280, 440),
+        leftWidth: clampPanelWidth('left', next.leftWidth),
+        rightWidth: clampPanelWidth('right', next.rightWidth),
       }
     })
   }
@@ -101,6 +108,5 @@ export function useStudioLayoutPreferences() {
   return {
     layout,
     setLayout: updateLayout,
-    resetLayout: () => setLayout(DEFAULT_STUDIO_LAYOUT),
   }
 }

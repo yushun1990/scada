@@ -34,13 +34,19 @@ try {
     'left dock should expose the three authoring source groups without a redundant add header',
   )
   assert.equal(await button('选择').count(), 0, 'the redundant selection button should be removed')
+  assert.equal(await button('定位所选').count(), 0, 'the redundant reveal-selection button should be removed')
+  assert.equal(
+    await page.locator('.component-layer-dock-heading > span').textContent(),
+    '0 个图层',
+    'layer count should occupy the right-side heading hint position',
+  )
 
   const paletteItems = palette.locator('.component-palette-item')
-  assert.equal(await paletteItems.count(), 4, 'basic palette should expose rect, circle/ellipse, line, and text only')
+  assert.equal(await paletteItems.count(), 7, 'basic palette should expose rect, ellipse, polygon, arc, line, scale, and text')
   assert.equal(await paletteButton('Path').count(), 0, 'Path must not masquerade as a basic primitive')
   assert.equal(await paletteButton('圆形').count(), 0, 'Circle must not be a separate authoring tool')
   assert.equal(await paletteButton('椭圆').count(), 0, 'Ellipse must not be a second authoring tool')
-  for (const name of ['矩形', '圆/椭圆', '线段', '文本']) {
+  for (const name of ['矩形', '圆/椭圆', '多边形', '圆弧/扇形', '直线', '刻度标尺', '文本']) {
     assert.equal(await paletteButton(name).locator('svg').count(), 1, 'primitives use the shared line icon system')
     assert.equal((await paletteButton(name).textContent())?.trim(), '', 'primitive buttons stay icon-only')
   }
@@ -59,41 +65,46 @@ try {
 
   for (let index = 1; index <= 3; index += 1) {
     await paletteButton('文本').dblclick()
-    await row(`文本 ${index}`).waitFor()
+    await row(`txt_${index}`).waitFor()
   }
-  await row('文本 1').click()
-  await row('文本 2').click({ modifiers: ['Control'] })
+  assert.equal(
+    await page.locator('.component-layer-dock-heading > span').textContent(),
+    '3 个图层',
+    'layer count should track authored layers',
+  )
+  await row('txt_1').click()
+  await row('txt_2').click({ modifiers: ['Control'] })
   await button('组合选中图层').click()
-  await button('折叠 Group 1').click()
-  await assertNames(['文本 3', 'Group 1'])
-  assert.equal(await row('Group 1').getAttribute('aria-pressed'), 'true', 'collapse must preserve selection')
+  await button('折叠 grp_1').click()
+  await assertNames(['txt_3', 'grp_1'])
+  assert.equal(await row('grp_1').getAttribute('aria-pressed'), 'true', 'collapse must preserve selection')
 
-  await search.fill('文本 2')
-  await assertNames(['Group 1', '文本 2'])
-  assert.equal(await button('折叠 Group 1').isDisabled(), true, 'search temporarily reveals matching descendants')
+  await search.fill('txt_2')
+  await assertNames(['grp_1', 'txt_2'])
+  assert.equal(await button('折叠 grp_1').isDisabled(), true, 'search temporarily reveals matching descendants')
   await search.press('Escape')
-  await assertNames(['文本 3', 'Group 1'])
-  assert.equal(await row('Group 1').getAttribute('aria-pressed'), 'true', 'Escape in search only clears the query')
+  await assertNames(['txt_3', 'grp_1'])
+  assert.equal(await row('grp_1').getAttribute('aria-pressed'), 'true', 'Escape in search only clears the query')
 
-  await search.fill('文本 2')
-  await row('文本 2').click()
+  await search.fill('txt_2')
+  await row('txt_2').click()
   await search.fill('no matching layer')
   await assertNames([])
-  await button('定位所选').click()
-  await assertNames(['文本 3', 'Group 1', '文本 2', '文本 1'])
-  assert.equal(await row('文本 2').getAttribute('aria-pressed'), 'true')
+  await search.press('Escape')
+  await assertNames(['txt_3', 'grp_1', 'txt_2', 'txt_1'])
+  assert.equal(await row('txt_2').getAttribute('aria-pressed'), 'true')
 
-  await button('组件设置').click()
-  assert.equal(await page.locator('.component-layer-row.active').count(), 0)
+  await button('Coding 开发').click()
   await page.locator('.component-root-inspector').waitFor()
-  await row('文本 2').click()
-  await row('文本 2').press('Escape')
-  await page.locator('.component-root-inspector').waitFor()
+  assert.equal(await page.locator('.component-layer-row.active').count(), 1, 'switching central work page preserves layer selection')
+  await row('txt_2').click()
+  await row('txt_2').press('Escape')
+  await button('图形化设计').click()
   assert.equal(await page.locator('.component-layer-row.active').count(), 0)
 
   // Both history stacks are populated so Preview cannot pass by having nothing to undo.
   await button('撤销').click()
-  await assertNames(['文本 3', '文本 2', '文本 1'])
+  await assertNames(['txt_3', 'txt_2', 'txt_1'])
   assert.equal(await button('重做').isEnabled(), true)
   await button('预览').click()
   assert.equal(await button('撤销').isDisabled(), true)
@@ -103,36 +114,35 @@ try {
   // Native input undo may restore transient Navigator search history; clear it before
   // asserting the persisted visual history did not move while Preview was active.
   await search.fill('')
-  await assertNames(['文本 3', '文本 2', '文本 1'])
+  await assertNames(['txt_3', 'txt_2', 'txt_1'])
   await button('设计').click()
   await button('重做').click()
-  await assertNames(['文本 3', 'Group 1', '文本 2', '文本 1'])
+  await assertNames(['txt_3', 'grp_1', 'txt_2', 'txt_1'])
 
   await saveAndWait(page)
   const baseline = (await readPersistedComponent(page)).document.visual
-  await button('折叠 Group 1').click()
-  await search.fill('文本 1')
+  await button('折叠 grp_1').click()
+  await search.fill('txt_1')
   await saveAndWait(page)
   assert.deepEqual((await readPersistedComponent(page)).document.visual, baseline, 'navigation must not enter persisted visual state')
   await page.reload({ waitUntil: 'load' })
-  await assertNames(['文本 3', 'Group 1', '文本 2', '文本 1'])
+  await assertNames(['txt_3', 'grp_1', 'txt_2', 'txt_1'])
   assert.equal(await search.inputValue(), '', 'search is transient')
 
   // A long list must scroll independently while creation and search remain reachable.
   for (let index = 4; index <= 20; index += 1) {
     await paletteButton('文本').dblclick()
-    await row(`文本 ${index}`).waitFor()
+    await row(`txt_${index}`).waitFor()
   }
   await page.setViewportSize({ width: 1000, height: 700 })
-  await row('文本 1').click()
-  await button('定位所选').click()
+  await row('txt_1').click()
   const tree = page.locator('.component-layer-tree')
   const paletteBox = await palette.boundingBox()
   const scroll = await tree.evaluate((element) => ({
     top: element.scrollTop, height: element.clientHeight, total: element.scrollHeight,
   }))
   assert.ok(scroll.total > scroll.height && scroll.top > 0, 'the Navigator owns long-list scrolling')
-  const lastBox = await row('文本 1').boundingBox()
+  const lastBox = await row('txt_1').boundingBox()
   const treeBox = await tree.boundingBox()
   assert.ok(lastBox && treeBox && lastBox.y + lastBox.height <= treeBox.y + treeBox.height + 1)
   assert.ok(paletteBox && paletteBox.y >= 0, 'revealing a layer must not scroll the Palette away')

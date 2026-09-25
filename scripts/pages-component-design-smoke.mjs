@@ -4,7 +4,10 @@ import { chromium } from 'playwright'
 import { saveAndWait, writePersistedComponent } from './pages-component-fixture-storage.mjs'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'http://127.0.0.1:4173/').replace(/\/?$/, '/')
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}),
+})
 const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
 const errors = []
 page.on('pageerror', (error) => errors.push(error.message))
@@ -14,17 +17,24 @@ const row = (name) => page.locator('.component-layer-row').filter({ hasText: nam
 async function assertLayout({ compact = false } = {}) {
   const center = await page.locator('.studio-center-workspace').boundingBox()
   const mode = await page.locator('.studio-document-mode').boundingBox()
+  const toolbarRow = await page.locator('.studio-canvas-toolbar-row').boundingBox()
   const toolbar = await page.getByRole('toolbar', { name: 'Studio 主工具栏' }).boundingBox()
-  assert.ok(center && mode && toolbar)
+  const toolbarAside = await page.locator('.component-workpage-navigation').boundingBox()
+  assert.ok(center && mode && toolbarRow && toolbar && toolbarAside)
   assert.ok(Math.abs(mode.x + mode.width / 2 - center.x - center.width / 2) <= 1, 'mode belongs above the canvas center')
-  assert.equal(toolbar.x, center.x)
-  assert.equal(toolbar.width, center.width)
-  const groups = page.locator('.studio-main-toolbar-content > [role="group"]')
+  assert.equal(toolbarRow.x, center.x)
+  assert.equal(toolbarRow.width, center.width)
+  assert.equal(toolbar.x, toolbarRow.x)
+  assert.ok(toolbar.width < toolbarRow.width, 'work-page switch must sit outside the main toolbar')
+  assert.ok(Math.abs(toolbarAside.x - (toolbar.x + toolbar.width)) <= 1, 'toolbar lanes must meet at the workspace divider')
+  assert.ok(Math.abs(toolbarAside.x + toolbarAside.width - toolbarRow.x - toolbarRow.width) <= 1, 'work-page switch must align to the toolbar row edge')
+  const groups = page.locator('.component-canvas-commands > [role="group"]')
   assert.equal(await groups.count(), 3)
   for (const group of await groups.all()) {
     const box = await group.boundingBox()
     assert.ok(box && box.x >= toolbar.x && box.x + box.width <= toolbar.x + toolbar.width, 'tools must fit within canvas width')
   }
+  assert.equal(await page.locator('.studio-canvas-toolbar-row .component-workpage-switch .ui-segmented-item').count(), 2)
   assert.equal(await page.locator('.component-arrange-menu').isVisible(), compact)
   assert.equal(await page.locator('.component-geometry-buttons').isVisible(), !compact)
   assert.equal(await page.locator('.studio-main-toolbar .component-group-command').count(), 1)
@@ -35,9 +45,12 @@ async function assertLayout({ compact = false } = {}) {
 try {
   await mkdir('artifacts', { recursive: true })
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
-  await page.locator('.component-root-inspector').waitFor()
+  await page.locator('.component-artboard').waitFor()
   await assertLayout()
-  assert.equal(await page.locator('.component-inspector-context').count(), 0, 'root settings do not repeat a title bar')
+  assert.equal(await button('Coding 开发').getAttribute('aria-pressed'), 'false')
+  assert.equal(await page.locator('[aria-label="图层检查器"]').count(), 1)
+  await button('Coding 开发').click()
+  await page.locator('.component-root-inspector').waitFor()
   const basicInfo = page.locator('.component-root-inspector .inspector-group').filter({ has: button('基本信息') })
   const infoBox = await basicInfo.boundingBox()
   assert.ok(infoBox && infoBox.height < 260, `basic fields should fit in a compact group (${infoBox?.height})`)
@@ -51,6 +64,24 @@ try {
 
   // Build a fresh isolated display fixture for the actual editor captures.
   const saved = await saveAndWait(page)
+  await button('图形化设计').click()
+  // 1600 no longer clears the artboard threshold with the 360px default side
+  // panels; use a full-HD viewport so the canvas column stays wide.
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.waitForFunction(() => document.querySelector('.component-artboard')?.getBoundingClientRect().width > 740)
+  const whiteCanvas = await page.locator('.component-artboard').boundingBox()
+  assert.ok(whiteCanvas.width > 740 && whiteCanvas.height > 560, 'white artboard fills a large workspace beyond the former 720 × 520 cap')
+  assert.ok(Math.abs(whiteCanvas.width / whiteCanvas.height - saved.document.visual.designSize.width / saved.document.visual.designSize.height) < 0.01, 'display scaling preserves design proportions')
+  await button('收起左侧面板').click()
+  await button('收起右侧面板').click()
+  await page.waitForFunction((width) => document.querySelector('.component-artboard')?.getBoundingClientRect().width > width + 100, whiteCanvas.width)
+  assert.equal(await button('展开左侧面板').isVisible(), true)
+  assert.equal(await button('展开右侧面板').isVisible(), true)
+  await page.reload({ waitUntil: 'networkidle' })
+  assert.equal(await button('展开左侧面板').isVisible(), true, 'collapsed panel state persists')
+  await button('展开左侧面板').click()
+  await button('展开右侧面板').click()
+  await page.setViewportSize({ width: 1366, height: 768 })
   const layer = (id, name, kind, x, y, width, height, extra) => ({
     id, name, kind, parentId: null, visible: true, opacity: 1,
     transform: { x, y, width, height, rotation: 0, scaleX: 1, scaleY: 1 }, ...extra,
@@ -69,24 +100,29 @@ try {
   }
   await writePersistedComponent(page, fixture)
   await page.reload({ waitUntil: 'networkidle' })
-  await page.locator('.component-root-inspector').waitFor()
+  await page.locator('.component-artboard').waitFor()
   await assertLayout()
   await page.screenshot({ path: 'artifacts/component-redesign-overview-1366.png' })
 
   await row('流量数值').click()
   const entry = page.locator('.component-layer-entry[data-layer-id="value"]')
-  assert.equal(await entry.getByRole('button', { name: '上移一层 · 流量数值', exact: true }).isVisible(), true)
+  assert.equal(await entry.getByRole('button', { name: '置顶 · 流量数值', exact: true }).isVisible(), true)
   assert.equal(await page.locator('.component-layer-inspector .component-layer-actions').count(), 0)
   await page.screenshot({ path: 'artifacts/component-redesign-layer-1366.png' })
-  await page.setViewportSize({ width: 1000, height: 800 })
+  // 1000px no longer clears the compact toolbar's minimum columns once the
+  // default side panels widened to 360px; 1280px stays inside the compact
+  // container breakpoint while fitting every command group.
+  await page.setViewportSize({ width: 1280, height: 800 })
   await assertLayout({ compact: true })
   await button('对齐与分布').click()
   await page.getByRole('menuitem', { name: '垂直等距分布', exact: true }).waitFor()
   await page.keyboard.press('Escape')
   await page.screenshot({ path: 'artifacts/component-redesign-1000.png' })
   await page.setViewportSize({ width: 1366, height: 768 })
-  await button('组件设置').click()
+  await button('Coding 开发').click()
+  await page.locator('.component-root-inspector').waitFor()
   await button('预览').click()
+  await button('图形化设计').click()
   await page.screenshot({ path: 'artifacts/component-redesign-preview-1366.png' })
   assert.equal(await button('组合选中图层').isDisabled(), true)
   assert.deepEqual(errors, [])
