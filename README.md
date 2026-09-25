@@ -24,11 +24,22 @@ M7      component packaging / adapter foundation / set    accepted · 2026-08-31
 M8      portable SCADA work + standalone runtime          accepted · 2026-09-02
 M9      Component Attribute / Property authority split    accepted · 2026-09-03
 M6.3P1  Component visual asset authoring patch             accepted · 2026-09-05
+M10     3D Scene Editor design/governance baseline         governed · 2026-09-25
+M10-R0  readiness remediation                              active
 ```
 
 M9 established separate authored Attributes and runtime Properties across authoring, Scene v8 persistence, component/work packages and standalone runtime. M6.3P1 added local SVG/Image import and managed SVG target authoring within the existing component visual model.
 
-The current phase is dogfooding and product polish. The authoritative execution roadmap is [`PLAN.md`](PLAN.md); acceptance evidence is recorded in the [M9 closeout](docs/progress/m9-closeout.md) and [M6.3P1 closeout](docs/progress/m6.3p1-closeout.md).
+The current execution gate is M10-R0: correct the portable component execution/capability inconsistencies found by the 3D readiness review before starting 3D product implementation. The 3D editor is **not implemented yet**. The authoritative execution roadmap is [`PLAN.md`](PLAN.md); accepted historical evidence remains recorded in the [M9 closeout](docs/progress/m9-closeout.md) and [M6.3P1 closeout](docs/progress/m6.3p1-closeout.md).
+
+The governed M10 sources are:
+
+- [3D readiness review](docs/reviews/2026-09-25-3d-editor-readiness-review.md)
+- [3D Scene Editor architecture](docs/architecture/3d-scene-editor.md)
+- [M10 delivery governance and AI handoff protocol](docs/governance/m10-3d-delivery-governance.md)
+- [M10 acceptance matrix](docs/acceptance/m10-3d-acceptance-matrix.md)
+
+M10 keeps Scene v8/Konva as the 2D authority, introduces a separate Scene3D document/presentation path, and shares the existing renderer-independent runtime semantics. Later gates may begin only after their prerequisite closeout is accepted.
 
 The [UI audit](docs/design/ui-audit-2026-09-10.md), [industrial Designer UI specification](docs/design/industrial-designer-spec.md) and [rollout plan](docs/design/industrial-designer-rollout.md) define the proposed UI corrections. The specification is a target; implementation batches and browser visual acceptance remain pending.
 
