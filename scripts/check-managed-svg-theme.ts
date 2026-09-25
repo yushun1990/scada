@@ -6,7 +6,6 @@ import {
   hslToHex,
   parseCssColorToRgb,
   rgbToHsl,
-  SVG_THEME_PRESETS,
 } from '../src/component-system/managedSvgTheme'
 
 console.log('--- Testing Managed SVG Theme & Color Parsing ---')

@@ -27,7 +27,7 @@ import {
   extractFunctionBody,
   formatOptionsToInput,
   generateAiCode,
-  highlightJs,
+  highlightJsToNodes,
   PARAM_KIND_OPTIONS,
   parseInputToOptions,
   SVG_THEME_PRESET_OPTIONS,
@@ -98,9 +98,9 @@ export function ComponentLayerMethodCodeModal({
     setAiPrompt('')
   }, [editingImplementation])
 
-  const highlightedCodeHtml = useMemo(() => {
-    if (!currentEdit) return ''
-    return highlightJs(currentEdit.code)
+  const highlightedCodeNodes = useMemo(() => {
+    if (!currentEdit) return []
+    return highlightJsToNodes(currentEdit.code)
   }, [currentEdit?.code])
 
   if (!currentEdit) return null
@@ -514,8 +514,9 @@ export function ComponentLayerMethodCodeModal({
                     ref={highlightPreRef}
                     className="component-method-code-highlight"
                     aria-hidden="true"
-                    dangerouslySetInnerHTML={{ __html: highlightedCodeHtml }}
-                  />
+                  >
+                    {highlightedCodeNodes}
+                  </pre>
                   <Textarea
                     ref={codeTextareaRef}
                     className="component-method-code-textarea"

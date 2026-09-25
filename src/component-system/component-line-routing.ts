@@ -19,8 +19,12 @@ export function resolveLayerAnchorPoint(
   otherPoint?: Point2D,
 ): Point2D {
   const { x, y, width, height, rotation } = layer.transform
-  const cx = x + width / 2
-  const cy = y + height / 2
+  const scaleX = layer.transform.scaleX ?? 1
+  const scaleY = layer.transform.scaleY ?? 1
+  const effectiveWidth = width * scaleX
+  const effectiveHeight = height * scaleY
+  const cx = x + effectiveWidth / 2
+  const cy = y + effectiveHeight / 2
 
   let rawX = cx
   let rawY = cy
@@ -31,11 +35,11 @@ export function resolveLayerAnchorPoint(
         const dx = otherPoint.x - cx
         const dy = otherPoint.y - cy
         if (Math.abs(dx) >= Math.abs(dy)) {
-          rawX = dx >= 0 ? x + width : x
+          rawX = dx >= 0 ? x + effectiveWidth : x
           rawY = cy
         } else {
           rawX = cx
-          rawY = dy >= 0 ? y + height : y
+          rawY = dy >= 0 ? y + effectiveHeight : y
         }
       } else {
         rawX = cx
@@ -52,14 +56,14 @@ export function resolveLayerAnchorPoint(
       break
     case 'bottom':
       rawX = cx
-      rawY = y + height
+      rawY = y + effectiveHeight
       break
     case 'left':
       rawX = x
       rawY = cy
       break
     case 'right':
-      rawX = x + width
+      rawX = x + effectiveWidth
       rawY = cy
       break
   }
@@ -151,16 +155,19 @@ export function calculateConnectedLinePoints(
     : lineLayer.transform.x
   const fallbackStartY = lineLayer.points && lineLayer.points.length >= 4
     ? lineLayer.points[1]
-    : lineLayer.transform.y + lineLayer.transform.height / 2
+    : lineLayer.transform.y + (lineLayer.transform.height * (lineLayer.transform.scaleY ?? 1)) / 2
   const fallbackEndX = lineLayer.points && lineLayer.points.length >= 4
     ? lineLayer.points[lineLayer.points.length - 2]
-    : lineLayer.transform.x + lineLayer.transform.width
+    : lineLayer.transform.x + lineLayer.transform.width * (lineLayer.transform.scaleX ?? 1)
   const fallbackEndY = lineLayer.points && lineLayer.points.length >= 4
     ? lineLayer.points[lineLayer.points.length - 1]
-    : lineLayer.transform.y + lineLayer.transform.height / 2
+    : lineLayer.transform.y + (lineLayer.transform.height * (lineLayer.transform.scaleY ?? 1)) / 2
 
   const roughEndCenter = endTarget
-    ? { x: endTarget.transform.x + endTarget.transform.width / 2, y: endTarget.transform.y + endTarget.transform.height / 2 }
+    ? {
+        x: endTarget.transform.x + (endTarget.transform.width * (endTarget.transform.scaleX ?? 1)) / 2,
+        y: endTarget.transform.y + (endTarget.transform.height * (endTarget.transform.scaleY ?? 1)) / 2,
+      }
     : { x: fallbackEndX, y: fallbackEndY }
 
   // 计算起点

@@ -3,7 +3,7 @@
 }
 
 .component-artboard.component-artboard-grid {
-  background-color: #ffffff;
+  background-color: var(--ui-color-surface);
   background-image:
     linear-gradient(rgba(100, 116, 139, 0.11) 1px, transparent 1px),
     linear-gradient(90deg, rgba(100, 116, 139, 0.11) 1px, transparent 1px);

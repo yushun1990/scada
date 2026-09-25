@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import {
+  BLOCKED_SVG_TAG_NAMES,
+  isUnsafeSvgScriptReference,
+  SAFE_SVG_ATTRIBUTE_NAME_PATTERN,
+  SAFE_SVG_TAG_NAME_PATTERN,
   serializeManagedSvgDataUrl,
   serializeManagedSvgDocument,
   type ManagedSvgDocument,
@@ -59,6 +63,67 @@ const TAG_TYPE_ITEMS: Array<SegmentedControlItem<'id' | 'class'>> = [
   { value: 'class', label: '. Class (集合分类)' },
 ]
 
+function parseStyleString(styleStr: string): Record<string, string> {
+  const styleObj: Record<string, string> = {}
+  for (const rule of styleStr.split(';')) {
+    const colonIdx = rule.indexOf(':')
+    if (colonIdx === -1) continue
+    const key = rule.slice(0, colonIdx).trim()
+    const val = rule.slice(colonIdx + 1).trim()
+    if (!key || !val) continue
+    const camelKey = key.startsWith('--')
+      ? key
+      : key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+    styleObj[camelKey] = val
+  }
+  return styleObj
+}
+
+function SafeManagedSvgNodeView({ node }: { node: ManagedSvgNode }): React.ReactElement | string | null {
+  if (node.kind === 'text') {
+    return node.text
+  }
+
+  const tagName = node.tagName.toLowerCase()
+  if (BLOCKED_SVG_TAG_NAMES.has(tagName) || !SAFE_SVG_TAG_NAME_PATTERN.test(tagName)) {
+    return null
+  }
+
+  const props: Record<string, unknown> = {
+    key: node.tagId,
+    'data-scada-tag': node.tagId,
+  }
+
+  for (const attr of node.attributes) {
+    const lowerName = attr.name.toLowerCase()
+    if (
+      lowerName.startsWith('on') ||
+      isUnsafeSvgScriptReference(attr.value) ||
+      !SAFE_SVG_ATTRIBUTE_NAME_PATTERN.test(attr.name)
+    ) {
+      continue
+    }
+
+    if (lowerName === 'class') {
+      props.className = attr.value
+    } else if (lowerName === 'style') {
+      props.style = parseStyleString(attr.value)
+    } else {
+      props[attr.name] = attr.value
+    }
+  }
+
+  return React.createElement(
+    tagName,
+    props,
+    node.children.map((child, idx) => (
+      <SafeManagedSvgNodeView
+        key={child.kind === 'element' ? child.tagId : `text-${idx}`}
+        node={child}
+      />
+    )),
+  )
+}
 
 export function ComponentSvgSourceEditor({
   layer,
@@ -1419,8 +1484,11 @@ export function ComponentSvgSourceEditor({
                     <div
                       ref={previewGraphicRef}
                       className="component-svg-preview-graphic"
-                      dangerouslySetInnerHTML={{ __html: validationResult.svgMarkup }}
-                    />
+                    >
+                      {validationResult.document && (
+                        <SafeManagedSvgNodeView node={validationResult.document.root} />
+                      )}
+                    </div>
                     {showMarkers && layerMarkers.length > 0 && (
                       <div className="component-svg-preview-markers-layer">
                         {layerMarkers.map((marker) => {

@@ -68,6 +68,23 @@ const rotatedRight = resolveLayerAnchorPoint(rotatedBox, 'right')
 assert.equal(rotatedRight.x, 200)
 assert.equal(rotatedRight.y, 250)
 
+// Scaled box: scaleX = 1.5, scaleY = 2 (effective width = 300, effective height = 200)
+// cx = 100 + 150 = 250, cy = 100 + 100 = 200
+const scaledBox: ComponentVisualLayer = {
+  ...mockBox,
+  transform: {
+    ...mockBox.transform,
+    scaleX: 1.5,
+    scaleY: 2,
+  },
+}
+assert.deepEqual(resolveLayerAnchorPoint(scaledBox, 'center'), { x: 250, y: 200 })
+assert.deepEqual(resolveLayerAnchorPoint(scaledBox, 'top'), { x: 250, y: 100 })
+assert.deepEqual(resolveLayerAnchorPoint(scaledBox, 'bottom'), { x: 250, y: 300 })
+assert.deepEqual(resolveLayerAnchorPoint(scaledBox, 'left'), { x: 100, y: 200 })
+assert.deepEqual(resolveLayerAnchorPoint(scaledBox, 'right'), { x: 400, y: 200 })
+assert.deepEqual(resolveLayerAnchorPoint(scaledBox, 'auto', { x: 600, y: 200 }), { x: 400, y: 200 })
+
 console.log('✔ resolveLayerAnchorPoint tests passed')
 
 // 2. generateOrthogonalPoints

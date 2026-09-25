@@ -36,10 +36,10 @@ const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
 const MANAGED_TAG_ID_PATTERN = /^svg-tag-\d{6,}$/
 export const MANAGED_SVG_AUTHOR_REF_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/
 const RESERVED_MANAGED_SVG_AUTHOR_REF_PREFIX = 'svg-tag-'
-const SAFE_SVG_TAG_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9]*$/
-const SAFE_SVG_ATTRIBUTE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_.-]*$/
+export const SAFE_SVG_TAG_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9]*$/
+export const SAFE_SVG_ATTRIBUTE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_.-]*$/
 const SAFE_CSS_PROPERTY_NAME_PATTERN = /^-?[A-Za-z][A-Za-z0-9-]*$/
-const SAFE_RASTER_DATA_HREF_PATTERN = /^data:image\/(?:png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=\r\n]+$/i
+export const SAFE_RASTER_DATA_HREF_PATTERN = /^data:image\/(?:png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=\r\n]+$/i
 
 export const BLOCKED_SVG_TAG_NAMES = new Set([
   'script',
@@ -70,7 +70,11 @@ export function isUnsafeSvgScriptReference(value: string): boolean {
     /data\s*:\s*text\/html/i.test(value) ||
     /data:text\/html/i.test(cleaned) ||
     /expression\s*\(/i.test(value) ||
-    /expression\(/i.test(cleaned)
+    /expression\(/i.test(cleaned) ||
+    cleaned.startsWith('//') ||
+    /(?:^|\s)\/\//.test(value) ||
+    /url\(\s*['"]?\/\//i.test(value) ||
+    /url\(['"]?\/\//i.test(cleaned)
   )
 }
 
@@ -205,7 +209,7 @@ function assertSafeReferenceValue(value: string, label: string) {
     throw new Error(`${label} 包含不安全脚本引用`)
   }
 
-  if (/\b(?:https?|file|blob):/i.test(value)) {
+  if (/\b(?:https?|file|blob):/i.test(value) || /(?:^|\s)\/\//.test(value)) {
     throw new Error(`${label} 包含外部资源引用`)
   }
 

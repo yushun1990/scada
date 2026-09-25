@@ -133,7 +133,7 @@ if (typeof globalThis.DOMParser === 'undefined') {
     let match: RegExpExecArray | null
 
     while ((match = tokenRegex.exec(xml)) !== null) {
-      const [full, openTag, rawAttrs, selfClose, closeTag, text] = match
+      const [_full, openTag, rawAttrs, selfClose, closeTag, text] = match
       if (openTag) {
         const el = new MockElement(openTag)
         if (rawAttrs) {
@@ -214,6 +214,10 @@ assert.equal(isUnsafeSvgScriptReference('java\nscript:alert(1)'), true)
 assert.equal(isUnsafeSvgScriptReference('vbscript:msgbox(1)'), true)
 assert.equal(isUnsafeSvgScriptReference('data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=='), true)
 assert.equal(isUnsafeSvgScriptReference('expression(alert(1))'), true)
+assert.equal(isUnsafeSvgScriptReference('//attacker.com'), true)
+assert.equal(isUnsafeSvgScriptReference('  //attacker.com/xss  '), true)
+assert.equal(isUnsafeSvgScriptReference('url(//attacker.com/foo)'), true)
+assert.equal(isUnsafeSvgScriptReference('url("//attacker.com/foo")'), true)
 assert.equal(isUnsafeSvgScriptReference('#local-anchor'), false)
 assert.equal(isUnsafeSvgScriptReference('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='), false)
 assert.equal(isUnsafeSvgScriptReference('url(#gradient)'), false)
@@ -293,6 +297,20 @@ assert.match(serializedStyle, /fill="#16a34a"/, 'Safe fill must be preserved')
 assert.match(serializedStyle, /stroke="#0f172a"/, 'Safe stroke must be preserved')
 
 console.log('✔ Unsafe style declaration stripping passed')
+
+// 5b. Protocol-relative URLs (//attacker.com) are stripped
+const svgWithProtocolRelative = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <image href="//attacker.com/evil.png" width="50" height="50" />
+  <rect width="100" height="100" style="fill: #16a34a; background: url('//attacker.com/leak'); stroke: #0f172a" />
+</svg>
+`
+const parsedProtocolRelative = parseManagedSvgSourceWithCompatibility(svgWithProtocolRelative)
+const serializedProtocolRelative = serializeManagedSvgDocument(parsedProtocolRelative.document)
+assert.doesNotMatch(serializedProtocolRelative, /\/\/attacker\.com/i, 'Protocol-relative URLs must be stripped')
+assert.match(serializedProtocolRelative, /<rect\b/, '<rect> must be preserved')
+
+console.log('✔ Protocol-relative URL stripping passed')
 
 // 6. parseManagedSvgSourceWithCompatibility handles mixed attack payloads seamlessly
 const complexDirtySvg = `

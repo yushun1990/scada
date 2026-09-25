@@ -2,6 +2,7 @@ import {
   BLOCKED_SVG_TAG_NAMES,
   isUnsafeSvgScriptReference,
   parseManagedSvgSource,
+  SAFE_RASTER_DATA_HREF_PATTERN,
   type ManagedSvgImportResult,
 } from './managedSvg'
 
@@ -38,7 +39,7 @@ function assertSafeStylesheetValue(value: string, label: string) {
   if (isUnsafeSvgScriptReference(value)) {
     throw new Error(`${label} 包含不安全脚本引用`)
   }
-  if (/\b(?:https?|file|blob):/i.test(value)) {
+  if (/\b(?:https?|file|blob):/i.test(value) || /(?:^|\s)\/\//.test(value)) {
     throw new Error(`${label} 包含外部资源引用`)
   }
 
@@ -272,7 +273,14 @@ function normalizeStylesAndMetadata(document: Document) {
 
     for (const attribute of Array.from(element.attributes)) {
       const lowerName = attribute.name.toLowerCase()
-      if (lowerName.startsWith('on') || isUnsafeSvgScriptReference(attribute.value)) {
+      const attrVal = attribute.value.trim()
+      if (
+        lowerName.startsWith('on') ||
+        isUnsafeSvgScriptReference(attrVal) ||
+        ((lowerName === 'href' || lowerName.endsWith(':href') || lowerName === 'src') &&
+          !attrVal.startsWith('#') &&
+          !SAFE_RASTER_DATA_HREF_PATTERN.test(attrVal))
+      ) {
         element.removeAttributeNode(attribute)
         continue
       }

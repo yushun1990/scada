@@ -3,7 +3,7 @@
   gap: 10px;
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--ui-color-border);
 }
 
 .component-behavior-section-heading {
@@ -32,9 +32,9 @@
   display: grid;
   gap: 10px;
   padding: 10px;
-  border: 1px solid #d8e0e8;
-  border-radius: 7px;
-  background: #ffffff;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
 }
 
 .component-animation-grid {

@@ -5,21 +5,21 @@
   min-height: 34px;
   margin: 6px 10px;
   padding: 6px 8px;
-  border: 1px dashed var(--border-subtle, #cbd5e1);
-  border-radius: 6px;
-  background: var(--surface-subtle, rgba(148, 163, 184, 0.08));
+  border: 1px dashed var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface-subtle);
   transition: border-color 120ms ease, background-color 120ms ease;
 }
 
 .component-asset-import-control.drag-active {
-  border-color: var(--accent, #2563eb);
-  background: rgba(37, 99, 235, 0.08);
+  border-color: var(--ui-color-accent);
+  background: var(--ui-color-accent-soft);
 }
 
 .component-asset-import-hint,
 .component-asset-import-message {
   min-width: 0;
-  color: var(--text-muted, #64748b);
+  color: var(--ui-color-text-subtle);
   font-size: var(--ui-font-size-status);
   line-height: 1.35;
 }

@@ -1,4 +1,4 @@
-import type React from 'react'
+import React from 'react'
 import type {
   ComponentActionParameterDefinition,
   ComponentDefinition,
@@ -128,6 +128,65 @@ export function highlightJs(code: string): string {
   }
 
   return html
+}
+
+export function highlightJsToNodes(code: string): React.ReactNode[] {
+  const tokenRegex =
+    /(\/\*[\s\S]*?\*\/|\/\/[^\n]*)|("(?:[^"\\\r\n]|\\.)*"|'(?:[^'\\\r\n]|\\.)*'|`(?:\\[\s\S]|[^`\\])*`)|(\$self|\$emit)|(\b(?:function|return|const|let|var|if|else|for|while|switch|case|break|continue|typeof|instanceof|new|this|try|catch|finally|throw|async|await|yield|class|import|export|from|default)\b)|(\b(?:true|false|null|undefined|console|Math|JSON)\b)|(\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_$][a-zA-Z0-9_$]*(?=\s*\())|([{}()[\].,;+\-*/%=<>!&|^~?:])/g
+
+  const nodes: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let key = 0
+
+  while ((match = tokenRegex.exec(code)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(code.slice(lastIndex, match.index))
+    }
+    const [
+      full,
+      comment,
+      str,
+      selfIdent,
+      keyword,
+      builtin,
+      num,
+      fnCall,
+      punct,
+    ] = match
+
+    if (comment) {
+      nodes.push(<span key={key++} className="token-comment">{comment}</span>)
+    } else if (str) {
+      nodes.push(<span key={key++} className="token-string">{str}</span>)
+    } else if (selfIdent) {
+      nodes.push(<span key={key++} className="token-self">{selfIdent}</span>)
+    } else if (keyword) {
+      nodes.push(<span key={key++} className="token-keyword">{keyword}</span>)
+    } else if (builtin) {
+      nodes.push(<span key={key++} className="token-builtin">{builtin}</span>)
+    } else if (num) {
+      nodes.push(<span key={key++} className="token-number">{num}</span>)
+    } else if (fnCall) {
+      nodes.push(<span key={key++} className="token-function">{fnCall}</span>)
+    } else if (punct) {
+      nodes.push(<span key={key++} className="token-punct">{punct}</span>)
+    } else {
+      nodes.push(full)
+    }
+
+    lastIndex = tokenRegex.lastIndex
+  }
+
+  if (lastIndex < code.length) {
+    nodes.push(code.slice(lastIndex))
+  }
+
+  if (code.endsWith('\n')) {
+    nodes.push('\n')
+  }
+
+  return nodes
 }
 
 export const PARAM_KIND_OPTIONS: Array<{ value: ComponentValueKind; label: string }> = [
