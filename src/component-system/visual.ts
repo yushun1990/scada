@@ -1,7 +1,6 @@
 import type { VisualAnimation } from './animations'
 import {
   assertManagedSvgDocument,
-  cloneManagedSvgDocument,
   serializeManagedSvgDataUrl,
   type ManagedSvgDocument,
 } from './managedSvg'
@@ -738,69 +737,12 @@ function cloneDesignSize(
   }
 }
 
-function cloneVisualLayer(layer: ComponentVisualLayer): ComponentVisualLayer {
-  const transform = { ...layer.transform }
-  const origin = layer.origin
-
-  if (layer.kind === 'group') return { ...layer, transform, origin }
-  if (layer.kind === 'vector') {
-    return {
-      ...layer,
-      transform,
-      origin,
-      style: layer.style
-        ? {
-            ...layer.style,
-            gradient: layer.style.gradient
-              ? {
-                  ...layer.style.gradient,
-                  stops: layer.style.gradient.stops.map((s) => ({ ...s })),
-                }
-              : undefined,
-            shadow: layer.style.shadow ? { ...layer.style.shadow } : undefined,
-          }
-        : undefined,
-      points: layer.points ? [...layer.points] : undefined,
-      startBinding: layer.startBinding ? { ...layer.startBinding } : undefined,
-      endBinding: layer.endBinding ? { ...layer.endBinding } : undefined,
-    }
-  }
-  if (layer.kind === 'text') {
-    return {
-      ...layer,
-      transform,
-      origin,
-      style: layer.style
-        ? {
-            ...layer.style,
-            shadow: layer.style.shadow ? { ...layer.style.shadow } : undefined,
-          }
-        : undefined,
-    }
-  }
-  if (layer.kind === 'svg') {
-    return {
-      ...layer,
-      transform,
-      origin,
-      document: layer.document ? cloneManagedSvgDocument(layer.document) : undefined,
-      style: layer.style ? { ...layer.style } : undefined,
-    }
-  }
-  return {
-    ...layer,
-    transform,
-    origin,
-    style: layer.style ? { ...layer.style } : undefined,
-  }
+export function cloneVisualLayer<T extends ComponentVisualLayer>(layer: T): T {
+  return structuredClone(layer)
 }
 
-function cloneAnimation(animation: VisualAnimation): VisualAnimation {
-  return {
-    ...animation,
-    timing: { ...animation.timing },
-    activation: { ...animation.activation },
-  }
+export function cloneAnimation(animation: VisualAnimation): VisualAnimation {
+  return structuredClone(animation)
 }
 
 export function createEmptyCompositeVisual(
@@ -830,12 +772,9 @@ export function createNativeVisual(): ComponentVisualDefinition {
 export function cloneComponentVisual(
   visual: ComponentVisualDefinition,
 ): ComponentVisualDefinition {
-  return {
-    version: COMPONENT_VISUAL_VERSION,
-    mode: visual.mode,
-    designSize: cloneDesignSize(visual.designSize),
-    layers: visual.layers.map(cloneVisualLayer),
-    rules: visual.rules?.map((rule) => ({ ...rule })) ?? [],
-    animations: visual.animations.map(cloneAnimation),
+  const cloned = structuredClone(visual)
+  if (!cloned.rules) {
+    cloned.rules = []
   }
+  return cloned
 }

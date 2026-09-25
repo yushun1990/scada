@@ -370,12 +370,12 @@
 }
 
 .component-color-swatch-box.is-transparent {
-  background-color: #ffffff;
+  background-color: var(--ui-color-surface);
   background-image:
-    linear-gradient(45deg, #d4d4d8 25%, transparent 25%),
-    linear-gradient(-45deg, #d4d4d8 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #d4d4d8 75%),
-    linear-gradient(-45deg, transparent 75%, #d4d4d8 75%);
+    linear-gradient(45deg, var(--ui-color-border) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--ui-color-border) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--ui-color-border) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--ui-color-border) 75%);
   background-size: 6px 6px;
   background-position: 0 0, 0 3px, 3px -3px, -3px 0px;
   position: relative;
@@ -789,11 +789,12 @@
 }
 
 .component-pivot-cell.is-active {
-  background: #cbd5e1;
+  background: var(--ui-color-accent-soft);
+  color: var(--ui-color-accent);
 }
 
 .component-pivot-cell.is-active:hover:not(:disabled) {
-  background: #94a3b8;
+  background: var(--ui-color-border);
 }
 
 .component-pivot-cell:disabled {
@@ -1671,7 +1672,7 @@
 
 .component-layer-name-text:hover {
   color: var(--ui-color-accent);
-  background: var(--ui-color-surface-hover);
+  background: var(--ui-color-surface-subtle);
   border-color: var(--ui-color-border-subtle);
 }
 
@@ -1728,7 +1729,7 @@
 }
 
 .component-layer-cancel-btn:hover {
-  background: var(--ui-color-surface-hover);
+  background: var(--ui-color-surface-subtle);
 }
 
 .component-layer-name-error {
@@ -1932,17 +1933,17 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  border-radius: var(--ui-radius-control, 4px);
+  border-radius: var(--ui-radius-control);
   border: 1px solid var(--ui-color-border);
-  background: var(--ui-color-panel-muted, #f8fafc);
-  color: var(--ui-color-text-subtle, #64748b);
+  background: var(--ui-color-surface-subtle);
+  color: var(--ui-color-text-subtle);
   transition: all 0.15s ease;
   box-sizing: border-box;
 }
 
 .component-layer-inspector-body .component-inline-input-with-action .component-direction-toggle-btn:hover {
-  background: var(--ui-color-surface-hover, #e2e8f0);
-  border-color: var(--ui-color-border-hover, #94a3b8);
+  background: var(--ui-color-surface);
+  border-color: var(--ui-color-border-strong);
 }
 
 .component-layer-inspector-body .component-inline-input-with-action .component-direction-toggle-btn:active {

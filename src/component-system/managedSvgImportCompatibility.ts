@@ -1,4 +1,6 @@
 import {
+  BLOCKED_SVG_TAG_NAMES,
+  isUnsafeSvgScriptReference,
   parseManagedSvgSource,
   type ManagedSvgImportResult,
 } from './managedSvg'
@@ -33,7 +35,7 @@ type CompatibleStyleRule = {
 }
 
 function assertSafeStylesheetValue(value: string, label: string) {
-  if (/javascript\s*:/i.test(value) || /expression\s*\(/i.test(value)) {
+  if (isUnsafeSvgScriptReference(value)) {
     throw new Error(`${label} 包含不安全脚本引用`)
   }
   if (/\b(?:https?|file|blob):/i.test(value)) {
@@ -64,17 +66,18 @@ function parseStylesheetDeclarations(source: string, label: string) {
       !SAFE_CSS_PROPERTY_NAME_PATTERN.test(name) ||
       name.startsWith('--') ||
       !value ||
-      /!important/i.test(value)
+      /!important/i.test(value) ||
+      isUnsafeSvgScriptReference(value)
     ) {
-      throw new Error(`${label} 包含不安全或无法静态规范化的 CSS 声明：${name || declaration}`)
+      continue
     }
 
-    assertSafeStylesheetValue(value, `${label}.${name}`)
+    try {
+      assertSafeStylesheetValue(value, `${label}.${name}`)
+    } catch {
+      continue
+    }
     declarations.push({ name, value })
-  }
-
-  if (declarations.length === 0) {
-    throw new Error(`${label} 不包含可用的静态声明`)
   }
 
   return declarations
@@ -86,7 +89,7 @@ function parseSimpleSelector(source: string, label: string): CompatibleStyleSele
     throw new Error(`${label} 包含空 CSS selector`)
   }
 
-  if (/\s|[>+~:\[\]]/.test(selector)) {
+  if (/\s|[>+~:[\]]/.test(selector)) {
     throw new Error(`${label} 只支持静态简单 selector（tag / .class / #id）`)
   }
 
@@ -224,6 +227,16 @@ function stripCompatibilityMetadataAttribute(attribute: Attr) {
 }
 
 function normalizeStylesAndMetadata(document: Document) {
+  const root = document.documentElement
+
+  // Prune blocked dynamic/executable elements (e.g. <script>, <foreignObject>, <handler>, etc.)
+  for (const element of Array.from(root.querySelectorAll('*')).reverse()) {
+    const lower = element.localName.toLowerCase()
+    if (BLOCKED_SVG_TAG_NAMES.has(lower) && lower !== 'style') {
+      element.remove()
+    }
+  }
+
   const styleElements = Array.from(document.getElementsByTagNameNS(SVG_NAMESPACE, 'style'))
   const rules: CompatibleStyleRule[] = []
   let order = 0
@@ -231,11 +244,11 @@ function normalizeStylesAndMetadata(document: Document) {
   for (const [index, styleElement] of styleElements.entries()) {
     const type = styleElement.getAttribute('type')?.trim().toLowerCase()
     if (type && type !== 'text/css') {
-      throw new Error(`<style> type 不受支持：${type}`)
+      continue
     }
     const media = styleElement.getAttribute('media')?.trim().toLowerCase()
     if (media && media !== 'all' && media !== 'screen') {
-      throw new Error(`<style> media 不受支持：${media}`)
+      continue
     }
 
     const parsed = parseSafeStylesheet(styleElement.textContent ?? '', `<style>[${index}]`, order)
@@ -243,7 +256,6 @@ function normalizeStylesAndMetadata(document: Document) {
     order = parsed.nextOrder
   }
 
-  const root = document.documentElement
   const allElements = [root, ...Array.from(root.querySelectorAll('*'))]
   for (const element of allElements) {
     if (styleElements.includes(element as SVGStyleElement)) continue
@@ -259,6 +271,11 @@ function normalizeStylesAndMetadata(document: Document) {
     }
 
     for (const attribute of Array.from(element.attributes)) {
+      const lowerName = attribute.name.toLowerCase()
+      if (lowerName.startsWith('on') || isUnsafeSvgScriptReference(attribute.value)) {
+        element.removeAttributeNode(attribute)
+        continue
+      }
       if (stripCompatibilityMetadataAttribute(attribute)) {
         element.removeAttributeNode(attribute)
       }
@@ -269,7 +286,7 @@ function normalizeStylesAndMetadata(document: Document) {
     styleElement.remove()
   }
 
-  for (const element of [...Array.from(root.querySelectorAll('*'))].reverse()) {
+  for (const element of Array.from(root.querySelectorAll('*')).reverse()) {
     if (shouldDiscardMetadataElement(element)) {
       element.remove()
     }

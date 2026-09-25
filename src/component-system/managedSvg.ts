@@ -41,7 +41,7 @@ const SAFE_SVG_ATTRIBUTE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_.-]*$/
 const SAFE_CSS_PROPERTY_NAME_PATTERN = /^-?[A-Za-z][A-Za-z0-9-]*$/
 const SAFE_RASTER_DATA_HREF_PATTERN = /^data:image\/(?:png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=\r\n]+$/i
 
-const BLOCKED_SVG_TAG_NAMES = new Set([
+export const BLOCKED_SVG_TAG_NAMES = new Set([
   'script',
   'foreignobject',
   'style',
@@ -58,6 +58,21 @@ const BLOCKED_SVG_TAG_NAMES = new Set([
   'video',
   'canvas',
 ])
+
+export function isUnsafeSvgScriptReference(value: string): boolean {
+  // eslint-disable-next-line no-control-regex
+  const cleaned = value.replace(/[\u0000-\u001F\u007F-\u009F\s]/g, '')
+  return (
+    /javascript\s*:/i.test(value) ||
+    /javascript:/i.test(cleaned) ||
+    /vbscript\s*:/i.test(value) ||
+    /vbscript:/i.test(cleaned) ||
+    /data\s*:\s*text\/html/i.test(value) ||
+    /data:text\/html/i.test(cleaned) ||
+    /expression\s*\(/i.test(value) ||
+    /expression\(/i.test(cleaned)
+  )
+}
 
 const CANONICAL_TAG_NAMES = new Map<string, string>([
   ['svg', 'svg'],
@@ -186,7 +201,7 @@ function isSafeManagedAttributeName(name: string) {
 }
 
 function assertSafeReferenceValue(value: string, label: string) {
-  if (/javascript\s*:/i.test(value) || /expression\s*\(/i.test(value)) {
+  if (isUnsafeSvgScriptReference(value)) {
     throw new Error(`${label} 包含不安全脚本引用`)
   }
 
@@ -218,7 +233,7 @@ function normalizeInlineStyle(value: string, label: string): NormalizedInlineSty
 
     const separator = declaration.indexOf(':')
     if (separator <= 0) {
-      throw new Error(`${label} 的 style 声明无效`)
+      continue
     }
 
     const name = declaration.slice(0, separator).trim().toLowerCase()
@@ -228,12 +243,18 @@ function normalizeInlineStyle(value: string, label: string): NormalizedInlineSty
       !SAFE_CSS_PROPERTY_NAME_PATTERN.test(name) ||
       name.startsWith('--') ||
       !styleValue ||
-      /!important/i.test(styleValue)
+      /!important/i.test(styleValue) ||
+      isUnsafeSvgScriptReference(styleValue)
     ) {
-      throw new Error(`${label} 包含不安全或无法静态规范化的 style 声明：${name || declaration}`)
+      continue
     }
 
-    assertSafeReferenceValue(styleValue, `${label} style.${name}`)
+    try {
+      assertSafeReferenceValue(styleValue, `${label} style.${name}`)
+    } catch {
+      continue
+    }
+
     if (STYLE_PRESENTATION_ATTRIBUTES.has(name)) {
       presentation.set(name, styleValue)
     } else {
@@ -279,8 +300,9 @@ function normalizeElementAttributes(element: Element, tagName: string) {
       continue
     }
 
+    // Strip inline event handlers
     if (lowerName.startsWith('on')) {
-      throw new Error(`<${tagName}> 包含不允许的事件属性 ${rawName}`)
+      continue
     }
 
     if (lowerName === 'style') {
@@ -292,19 +314,36 @@ function normalizeElementAttributes(element: Element, tagName: string) {
     if (attribute.prefix === 'xlink' && localName === 'href') {
       name = 'href'
     } else if (attribute.namespaceURI && attribute.namespaceURI !== SVG_NAMESPACE) {
-      throw new Error(`<${tagName}> 包含不支持的命名空间属性 ${rawName}`)
+      continue
     }
 
     if (!isSafeManagedAttributeName(name)) {
-      throw new Error(`<${tagName}> 包含不安全或无法持久化的属性 ${name}`)
+      continue
     }
 
     const normalizedValue = attribute.value.trim()
-    if (name === 'href') {
-      assertSafeHrefValue(tagName, normalizedValue, `<${tagName}>.href`)
+    if (isUnsafeSvgScriptReference(normalizedValue)) {
+      continue
     }
 
-    assertSafeReferenceValue(normalizedValue, `<${tagName}>.${name}`)
+    if (name === 'href') {
+      if (
+        !normalizedValue.startsWith('#') &&
+        !(
+          (tagName === 'image' || tagName === 'feImage') &&
+          SAFE_RASTER_DATA_HREF_PATTERN.test(normalizedValue)
+        )
+      ) {
+        continue
+      }
+    }
+
+    try {
+      assertSafeReferenceValue(normalizedValue, `<${tagName}>.${name}`)
+    } catch {
+      continue
+    }
+
     result.set(name, normalizedValue)
   }
 
@@ -468,6 +507,14 @@ export function parseManagedSvgSource(source: string): ManagedSvgImportResult {
 
     for (const child of Array.from(element.childNodes)) {
       if (child.nodeType === 1) {
+        const childElement = child as Element
+        const childTagName = canonicalTagName(childElement.localName)
+        if (
+          !childTagName ||
+          (childElement.namespaceURI !== null && childElement.namespaceURI !== SVG_NAMESPACE)
+        ) {
+          continue
+        }
         children.push(convertElement(child as Element))
         continue
       }
