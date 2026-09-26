@@ -68,6 +68,14 @@ replaced:
 
 ## P0 evidence
 
+This section records the inspected 2026-09-25 baseline, not the current source.
+R3D-001 remediation is `implemented` by PR #200 at
+`d591f348512b0ce9639372e0267ad826b664fb17`; R3D-002/003 remediation is
+`implemented` by PR #201 at `79a89d581997134e1eb8e4a8f1247c7861b8aff5`.
+R3D-008/009 are tracked in the [R0.3 handoff](../progress/m10-r0.3-test-authority.md).
+These implementation records do not close R0: the dedicated closeout must
+reconcile all five findings with exact-candidate acceptance evidence.
+
 ### R3D-001 — unrestricted authored execution
 
 `src/component-system/definition.ts` adds `implementation?: string` to

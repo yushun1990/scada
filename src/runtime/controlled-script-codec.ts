@@ -34,7 +34,7 @@ function requireString(
 
 function requireVisualTarget(record: Record<string, ControlledScriptValue>) {
   const target = requireString(record, 'target')
-  if (!(target in VISUAL_RUNTIME_TARGET_DESCRIPTORS)) {
+  if (!Object.hasOwn(VISUAL_RUNTIME_TARGET_DESCRIPTORS, target)) {
     throw new Error(`Controlled Script host call visual target 无效：${target}`)
   }
   return target as VisualRuntimeTarget

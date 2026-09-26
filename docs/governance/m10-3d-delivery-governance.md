@@ -1,6 +1,6 @@
 # M10 3D delivery governance
 
-- Status: execution authority when merged
+- Status: `accepted` execution authority (PR #199)
 - Date: 2026-09-25
 - Architecture: `docs/architecture/3d-scene-editor.md`
 - Acceptance: `docs/acceptance/m10-3d-acceptance-matrix.md`
