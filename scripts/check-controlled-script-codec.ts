@@ -100,4 +100,16 @@ assert.throws(
   /大小上限/,
 )
 
+for (const kind of ['visual.set', 'visual.clear', 'visual.contribute']) {
+  for (const target of ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'missing.target']) {
+    assert.throws(
+      () => decodeControlledScriptHostCall(JSON.stringify({
+        kind, layerId: 'fan', controlId: 'spin', target, value: 1, contribution: 1,
+      })),
+      /visual target 无效/,
+      kind + ' must reject inherited and unknown target names',
+    )
+  }
+}
+
 console.log('Controlled Script codec checks passed: sandbox JSON calls are normalized and structurally validated before reaching the capability bridge; invalid kinds, targets, fields, levels and oversized messages are rejected.')
