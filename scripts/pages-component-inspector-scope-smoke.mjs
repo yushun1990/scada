@@ -27,18 +27,27 @@ try {
     transform: { x: 60, y: 60, width: 100, height: 80, rotation: 0, scaleX: 1, scaleY: 1 },
     primitive: 'rect', style: { fill: '#137766', stroke: '#137766', strokeWidth: 0 },
   }
-  await writePersistedComponent(page, { ...saved.document, visual: { ...saved.document.visual, layers: [layer] } })
+  await writePersistedComponent(page, {
+    ...saved.document,
+    definition: {
+      ...saved.document.definition,
+      actions: { legacyAction: { title: 'Legacy action' } },
+      events: { legacyEvent: { title: 'Legacy event' } },
+    },
+    status: 'draft',
+    visual: { ...saved.document.visual, layers: [layer] },
+  })
   await page.reload({ waitUntil: 'networkidle' })
   const row = page.locator('.component-layer-row').filter({ hasText: layer.name })
   await row.click()
   assert.match(await layerInspector.textContent(), new RegExp(layer.name))
 
-  // Layer scope owns its own tab set: the layer 方法 tab hosts layer actions
-  // and must not leak the component contract affordances.
+  // Layer scope owns its own tab set: portable layer behavior is declarative
+  // and must not leak public Action/Event authoring affordances.
   const layerPanel = page.locator('.component-property-panel')
   const layerTab = (name) => layerPanel.getByRole('tab', { name, exact: true })
-  await layerTab('方法').click()
-  await layerPanel.getByText('可用方法').waitFor()
+  await layerTab('行为').click()
+  await layerPanel.getByText(/当前图层没有可配置的声明式行为/).waitFor()
   assert.equal(await button('+ 添加方法').count(), 0, 'layer scope must not present the component contract as a layer method')
 
   await layerTab('属性').click()
@@ -55,19 +64,22 @@ try {
   const definitionTab = (name) => definitionPage.getByRole('tab', { name, exact: true })
   await page.locator('.component-root-inspector').waitFor()
   assert.equal(await row.getAttribute('aria-pressed'), 'true', 'scope switching keeps the selected layer')
-  await definitionTab('方法').click()
-  await button('+ 添加方法').click()
+  await definitionTab('方法（未开放）').click()
+  await definitionPage.getByText(/当前可移植用户组件仅支持 Property 驱动/).waitFor()
+  assert.equal(await button('+ 添加方法').count(), 0)
+  await definitionPage.getByRole('button', { name: '删除', exact: true }).click()
   await button('图形化设计').click()
   assert.equal(await layerTab('属性').getAttribute('aria-selected'), 'true', 'layer tab is remembered')
   assert.equal(await button('+ 添加方法').count(), 0)
   await button('Coding 开发').click()
-  assert.equal(await definitionTab('方法').getAttribute('aria-selected'), 'true', 'component tab is remembered')
-  await definitionTab('事件').click()
-  await button('+ 添加事件').click()
+  assert.equal(await definitionTab('方法（未开放）').getAttribute('aria-selected'), 'true', 'component tab is remembered')
+  await definitionTab('事件（未开放）').click()
+  assert.equal(await button('+ 添加事件').count(), 0)
+  await definitionPage.getByRole('button', { name: '删除', exact: true }).click()
   await saveAndWait(page)
   const persisted = (await readPersistedComponent(page)).document
-  assert.equal(Object.keys(persisted.definition.actions).length, Object.keys(saved.document.definition.actions).length + 1)
-  assert.equal(Object.keys(persisted.definition.events).length, Object.keys(saved.document.definition.events).length + 1)
+  assert.deepEqual(persisted.definition.actions, {})
+  assert.deepEqual(persisted.definition.events, {})
   assert.deepEqual(
     persisted.visual.layers,
     [{ ...layer, transform: { ...layer.transform, width: 120 } }],
@@ -75,7 +87,7 @@ try {
   )
 
   await button('预览').click()
-  assert.equal(await button('+ 添加事件').count(), 0, 'preview cannot add public events')
+  assert.equal(await button('+ 添加事件').count(), 0, 'portable preview cannot add public events')
   await button('图形化设计').click()
   await layerTab('属性').click()
   assert.equal(await width.isDisabled(), true, 'preview also gates layer editing')

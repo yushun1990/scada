@@ -20,6 +20,7 @@ import {
 } from '../../component-system/visual'
 import { normalizeStoredComponentVisual } from '../../component-system/visualMigration'
 import { assertComponentVisualRules } from '../../component-system/visualRules'
+import { assertPortableUserComponentActivatable } from './portable-user-component-capability'
 
 export const LEGACY_COMPONENT_PACKAGE_VERSION = 1 as const
 export const COMPONENT_PACKAGE_VERSION = 2 as const
@@ -385,6 +386,10 @@ export function serializeComponentLibraryDocument(
   assertComponentVisualDefinition(entry.visual)
   assertComponentVisualRules(entry.definition, entry.visual)
   assertComponentVisualAnimations(entry.definition, entry.visual)
+
+  if (entry.status === 'ready') {
+    assertPortableUserComponentActivatable(entry.definition)
+  }
 
   return JSON.stringify({
     ...cloneComponentLibraryEntry(entry),

@@ -218,8 +218,11 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
       const migrationNotice = diagnostics.length > 0
         ? `\n\n安全迁移：已移除 ${diagnostics.length} 个旧 Action implementation 源码（${diagnostics.map((diagnostic) => diagnostic.actionKey).join('、')}）。公开签名保留，但源码不会执行。`
         : ''
+      const activationNotice = plan.importStatus === 'ready'
+        ? '\n\n该组件符合当前声明式运行契约，导入后将进入正常激活流程。'
+        : '\n\n该旧组件仍声明 Action/Event，将以草稿导入且不会激活；请在组件工作台删除不受支持的声明后再标记为可用。'
       const confirmed = window.confirm(
-        `确认导入组件“${plan.title}”？\n\n类型：${plan.componentType}${migrationNotice}\n\n导入后会作为新的本地可编辑组件保存并进入正常运行时激活流程。`,
+        `确认导入组件“${plan.title}”？\n\n类型：${plan.componentType}${migrationNotice}${activationNotice}`,
       )
       if (!confirmed) {
         setMessage(`已取消导入 ${file.name}`)
@@ -229,9 +232,11 @@ export function WorkspacePage({ module }: WorkspacePageProps) {
       const imported = await importDistributableComponentPackage(componentPackage)
       await refresh()
       setMessage(
-        diagnostics.length > 0
-          ? `已导入组件 ${imported.definition.title}；旧 Action 源码已安全移除`
-          : `已导入组件 ${imported.definition.title}`,
+        imported.status === 'ready'
+          ? diagnostics.length > 0
+            ? `已导入组件 ${imported.definition.title}；旧 Action 源码已安全移除`
+            : `已导入组件 ${imported.definition.title}`
+          : `已将 ${imported.definition.title} 作为草稿导入；清理 Action/Event 声明后才能激活`,
       )
       openComponent(imported.id)
     } catch (error) {

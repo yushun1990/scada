@@ -22,6 +22,7 @@ type InteractionDefinition = { title: string; description?: string }
 type ComponentContractEditorProps = {
   definition: ComponentDefinition
   readOnly: boolean
+  portableUser: boolean
   tab: ComponentContractTab
   onChange: (definition: ComponentDefinition) => void
 }
@@ -54,12 +55,12 @@ const TAB_META: Record<ComponentContractTab, { eyebrow: string; title: string; d
   actions: {
     eyebrow: 'PUBLIC CONTRACT / ACTIONS',
     title: '公开方法',
-    description: '定义组件对外提供的操作接口。这里只描述契约，具体实现由后续配置、Script 或 Native Handler 承担。',
+    description: '可信内置组件可声明由宿主实现的方法；当前可移植用户组件尚无已接受的 Action 执行契约。',
   },
   events: {
     eyebrow: 'PUBLIC CONTRACT / EVENTS',
     title: '公开事件',
-    description: '定义组件可以向外发出的业务事件，供 SCADA 行为配置消费。',
+    description: '可信内置组件可声明由宿主产生的事件；当前可移植用户组件尚无已接受的 Event 发射契约。',
   },
   anchors: {
     eyebrow: 'PUBLIC CONTRACT / ANCHORS',
@@ -251,72 +252,51 @@ function PropertyDefaultEditor({
   )
 }
 
-function InteractionList({
+function InteractionContractView({
   label,
   emptyLabel,
   items,
   readOnly,
-  onRename,
-  onUpdate,
+  portableUser,
   onRemove,
-  onAdd,
 }: {
   label: string
   emptyLabel: string
   items: Readonly<Record<string, InteractionDefinition>>
   readOnly: boolean
-  onRename: (oldKey: string, nextKey: string) => void
-  onUpdate: (key: string, value: InteractionDefinition) => void
+  portableUser: boolean
   onRemove: (key: string) => void
-  onAdd: () => void
 }) {
   return (
     <div className="contract-list">
+      {portableUser && (
+        <div className="component-methods-status-banner" role="status">
+          当前可移植用户组件仅支持 Property 驱动的声明式视觉规则与动画，不提供公开 {label}
+          的新增或编辑能力。旧声明可在此删除；清理后组件才能标记为“可用”并进入运行时。
+        </div>
+      )}
       {Object.entries(items).map(([key, item]) => (
         <article className="contract-item" key={key}>
           <div className="contract-item-head">
             <strong>{item.title || key}</strong>
-            {!readOnly && (
+            {portableUser && !readOnly && (
               <Button variant="ghost" size="small" onClick={() => onRemove(key)}>
                 删除
               </Button>
             )}
           </div>
-          <div className="contract-grid">
-            <label>
-              <span>Key</span>
-              <ContractKeyInput
-                value={key}
-                disabled={readOnly}
-                onCommit={(nextKey) => onRename(key, nextKey)}
-              />
-            </label>
-            <label>
-              <span>标题</span>
-              <Input
-                value={item.title}
-                disabled={readOnly}
-                onChange={(event) => onUpdate(key, { ...item, title: event.target.value })}
-              />
-            </label>
+          <div className="component-method-action-row">
+            <code className="component-method-signature">{key}</code>
+            <span className="component-methods-count-hint">
+              {portableUser ? '旧声明 · 不可激活' : '可信内置契约'}
+            </span>
           </div>
-          <label className="contract-block-field">
-            <span>说明</span>
-            <Textarea
-              rows={2}
-              value={item.description ?? ''}
-              disabled={readOnly}
-              onChange={(event) => onUpdate(key, { ...item, description: event.target.value })}
-            />
-          </label>
+          {item.description && (
+            <p className="component-method-description">{item.description}</p>
+          )}
         </article>
       ))}
       {Object.keys(items).length === 0 && <div className="contract-empty">{emptyLabel}</div>}
-      {!readOnly && (
-        <Button variant="secondary" size="small" className="contract-add-button" onClick={onAdd}>
-          + 添加{label}
-        </Button>
-      )}
     </div>
   )
 }
@@ -324,6 +304,7 @@ function InteractionList({
 export function ComponentContractEditor({
   definition,
   readOnly,
+  portableUser,
   tab,
   onChange,
 }: ComponentContractEditorProps) {
@@ -357,54 +338,16 @@ export function ComponentContractEditor({
     })
   }
 
-  function updateAction(key: string, action: InteractionDefinition) {
-    onChange({ ...definition, actions: { ...definition.actions, [key]: action } })
-  }
-
-  function renameAction(oldKey: string, nextKey: string) {
-    onChange({
-      ...definition,
-      actions: replaceRecordKey(definition.actions, oldKey, nextKey),
-    })
-  }
-
   function removeAction(key: string) {
     const next = { ...definition.actions }
     delete next[key]
     onChange({ ...definition, actions: next })
   }
 
-  function addAction() {
-    const key = nextUniqueKey('action', Object.keys(definition.actions))
-    onChange({
-      ...definition,
-      actions: { ...definition.actions, [key]: { title: '新方法' } },
-    })
-  }
-
-  function updateEvent(key: string, event: InteractionDefinition) {
-    onChange({ ...definition, events: { ...definition.events, [key]: event } })
-  }
-
-  function renameEvent(oldKey: string, nextKey: string) {
-    onChange({
-      ...definition,
-      events: replaceRecordKey(definition.events, oldKey, nextKey),
-    })
-  }
-
   function removeEvent(key: string) {
     const next = { ...definition.events }
     delete next[key]
     onChange({ ...definition, events: next })
-  }
-
-  function addEvent() {
-    const key = nextUniqueKey('event', Object.keys(definition.events))
-    onChange({
-      ...definition,
-      events: { ...definition.events, [key]: { title: '新事件' } },
-    })
   }
 
   function updateAnchor(index: number, anchor: VisualAnchorDefinition) {
@@ -564,28 +507,24 @@ export function ComponentContractEditor({
       )}
 
       {tab === 'actions' && (
-        <InteractionList
-          label="方法"
-          emptyLabel="尚未定义公开 Action。"
+        <InteractionContractView
+          label="Action"
+          emptyLabel={portableUser ? '未声明公开 Action；当前组件符合可移植激活边界。' : '尚未定义公开 Action。'}
           items={definition.actions}
           readOnly={readOnly}
-          onRename={renameAction}
-          onUpdate={updateAction}
+          portableUser={portableUser}
           onRemove={removeAction}
-          onAdd={addAction}
         />
       )}
 
       {tab === 'events' && (
-        <InteractionList
-          label="事件"
-          emptyLabel="尚未定义公开 Event。"
+        <InteractionContractView
+          label="Event"
+          emptyLabel={portableUser ? '未声明公开 Event；当前组件符合可移植激活边界。' : '尚未定义公开 Event。'}
           items={definition.events}
           readOnly={readOnly}
-          onRename={renameEvent}
-          onUpdate={updateEvent}
+          portableUser={portableUser}
           onRemove={removeEvent}
-          onAdd={addEvent}
         />
       )}
 

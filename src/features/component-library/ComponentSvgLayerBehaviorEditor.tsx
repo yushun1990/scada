@@ -6,7 +6,7 @@ import {
   applyThemeToManagedSvgDocument,
   generateComponentSvgThemeBindings,
   hasManagedSvgThemeClasses,
-  SVG_LAYER_BUILTIN_METHODS,
+  SVG_THEME_BINDING_STATES,
   type SvgThemePresetKey,
 } from '../../component-system/managedSvgTheme'
 import type { ComponentVisualDefinition, SvgVisualLayer } from '../../component-system/visual'
@@ -38,12 +38,14 @@ export function ComponentSvgLayerBehaviorEditor({
 
   const hasThemeClasses = layer.document ? hasManagedSvgThemeClasses(layer.document) : false
 
-  // Check if component already has properties and rules bound to this layer
-  const stateProperty = definition.properties.state || definition.properties.themeState
-  const hasThemeRules = (visual.rules ?? []).some(
+  const themeRules = (visual.rules ?? []).filter(
     (rule) => rule.layerId === layer.id && rule.target === 'svg.themeState',
   )
-  const isBound = Boolean(stateProperty && hasThemeRules)
+  const themePropertyKey = themeRules[0]?.propertyKey
+  const stateProperty = themePropertyKey
+    ? definition.properties[themePropertyKey]
+    : undefined
+  const isBound = Boolean(stateProperty && themeRules.length > 0)
 
   function handleTestPreset(preset: SvgThemePresetKey) {
     if (!layer.document) return
@@ -59,7 +61,11 @@ export function ComponentSvgLayerBehaviorEditor({
   function handleBind() {
     const result = generateComponentSvgThemeBindings(layer.id, definition, visual)
     onBindContract(result.definition, result.visual)
-    setBindSuccessMessage('绑定成功！组件已新增运行属性 state、7 个控制方法及 5 条状态视觉规则。')
+    setBindSuccessMessage(
+      result.removedLegacyActionKeys.length > 0
+        ? `绑定成功！已建立 1 个运行 Property 与 5 条私有状态视觉规则，并清理旧版自动生成的 Action：${result.removedLegacyActionKeys.join('、')}。`
+        : '绑定成功！已建立 1 个运行 Property 与 5 条私有状态视觉规则；未生成公开 Action。',
+    )
     setTimeout(() => {
       setBindSuccessMessage(null)
     }, 4000)
@@ -67,45 +73,45 @@ export function ComponentSvgLayerBehaviorEditor({
 
   return (
     <div className="component-svg-layer-behavior-panel">
-      <CollapsibleInspectorGroup title="SVG 图层方法与行为" defaultOpen={true}>
+      <CollapsibleInspectorGroup title="SVG 声明式主题行为" defaultOpen={true}>
         {!hasThemeClasses ? (
           <div className="svg-behavior-notice">
             <span className="svg-behavior-notice-icon">💡</span>
             <div className="svg-behavior-notice-content">
               <strong>未检测到语义主题类名 (scada-theme-*)</strong>
               <p>
-                该 SVG 尚未提取分阶主题类名。请在「属性」面板打开「SVG 源码与图层」并点击「✨ 自动规范重构并提取 Class」，即可一键解锁图层方法与状态绑定。
+                该 SVG 尚未包含分阶主题类名。请在「属性」面板完成主题 Class 标注后，再绑定运行 Property 与私有视觉规则。
               </p>
             </div>
           </div>
         ) : (
           <div className="svg-behavior-content">
-            {/* 1. Layer Methods List */}
+            {/* 1. Declarative states */}
             <div className="svg-behavior-section">
               <div className="svg-behavior-section-header">
-                <strong>图层内置方法</strong>
+                <strong>可绑定主题状态</strong>
                 <span className="svg-behavior-badge-count">
-                  {SVG_LAYER_BUILTIN_METHODS.length} 个方法就绪
+                  {SVG_THEME_BINDING_STATES.length} 个声明式状态
                 </span>
               </div>
               <ul className="svg-layer-methods-list">
-                {SVG_LAYER_BUILTIN_METHODS.map((method) => (
-                  <li key={method.name} className="svg-layer-method-item">
+                {SVG_THEME_BINDING_STATES.map((binding) => (
+                  <li key={binding.state} className="svg-layer-method-item">
                     <div className="svg-layer-method-signature">
-                      <code>{method.name}({method.parameter ? `${method.parameter.name}: string` : ''})</code>
-                      <span className="svg-layer-method-title">{method.title}</span>
+                      <code>{binding.state}</code>
+                      <span className="svg-layer-method-title">{binding.label}</span>
                     </div>
-                    <span className="svg-layer-method-desc">{method.description}</span>
+                    <span className="svg-layer-method-desc">{binding.description}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* 2. Interactive Test Buttons */}
+            {/* 2. Authored base-preview buttons */}
             <div className="svg-behavior-section">
               <div className="svg-behavior-section-header">
-                <strong>即时调用调试 (当前画布图层)</strong>
-                <small>点击直接调用对应方法并在画布即时验证</small>
+                <strong>主题外观预览（当前画布图层）</strong>
+                <small>预览并写入当前图层外观，不调用 Action</small>
               </div>
               <div className="svg-behavior-test-grid">
                 <Button
@@ -159,7 +165,7 @@ export function ComponentSvgLayerBehaviorEditor({
               </div>
             </div>
 
-            {/* 3. One-Click Component Binding */}
+            {/* 3. One-click declarative binding */}
             <div className="svg-behavior-section svg-behavior-bind-box">
               <div className="svg-behavior-section-header">
                 <strong>组件定义与视觉规则绑定</strong>
@@ -180,11 +186,11 @@ export function ComponentSvgLayerBehaviorEditor({
                 <div className="svg-behavior-bound-info">
                   <div className="svg-behavior-bound-row">
                     <span className="label">组件运行属性：</span>
-                    <code>{stateProperty?.title || '运行状态'} ({definition.properties.state ? 'state' : 'themeState'})</code>
+                    <code>{stateProperty?.title || '运行状态'} ({themePropertyKey})</code>
                   </div>
                   <div className="svg-behavior-bound-row">
-                    <span className="label">组件公开方法：</span>
-                    <span>7 个 Action 已同步注册到组件契约</span>
+                    <span className="label">公开执行能力：</span>
+                    <span>不生成 Action/Event；运行时仅求值声明式规则</span>
                   </div>
                   <div className="svg-behavior-bound-row">
                     <span className="label">关联视觉规则：</span>
@@ -204,7 +210,7 @@ export function ComponentSvgLayerBehaviorEditor({
               ) : (
                 <div className="svg-behavior-unbound-prompt">
                   <p className="component-inspector-help">
-                    无需手动配置！一键将上述图层方法自动映射为组件的公开 Action、运行状态属性（state）与 5 条高保真视觉规则。
+                    一键创建可绑定的运行状态 Property 与 5 条组件私有视觉规则。该操作不会创建公开 Action/Event，也不会引入脚本执行权限。
                   </p>
                   <div className="svg-behavior-bind-actions">
                     <Button
@@ -213,7 +219,7 @@ export function ComponentSvgLayerBehaviorEditor({
                       disabled={readOnly}
                       onClick={handleBind}
                     >
-                      ⚡ 一键绑定到组件运行状态与方法
+                      一键绑定声明式运行状态
                     </Button>
                   </div>
                 </div>

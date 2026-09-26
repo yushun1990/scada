@@ -1,6 +1,7 @@
 import type { ComponentLibraryEntry } from './component-document'
 import type { DistributableComponentPackage } from './distributable-component-package'
 import type { InstalledRemoteComponent } from './remote-component-installation'
+import { inspectPortableUserComponentCapability } from './portable-user-component-capability'
 
 export type ComponentPackageImportCollisionKind =
   | 'built-in'
@@ -12,6 +13,7 @@ export type ComponentPackageImportPlan =
       kind: 'ready'
       componentType: string
       title: string
+      importStatus: 'draft' | 'ready'
     }>
   | Readonly<{
       kind: 'collision'
@@ -82,5 +84,10 @@ export function planComponentPackageImport(
     kind: 'ready',
     componentType,
     title,
+    importStatus: inspectPortableUserComponentCapability(
+      componentPackage.definition,
+    ).activatable
+      ? 'ready'
+      : 'draft',
   }
 }

@@ -308,8 +308,9 @@ export async function inspectDistributableComponentImport(
 }
 
 /**
- * Persist a portable artifact as a new local editable ready component, then
- * refresh the normal generic runtime activation controller.
+ * Persist a portable artifact as a new local editable component, then refresh
+ * the normal generic runtime activation controller. Current declarative
+ * packages enter ready; legacy Action/Event packages enter draft for cleanup.
  *
  * All type collisions are rechecked immediately before the write. Import never
  * mutates installed-remote provenance and never overwrites an existing local or
