@@ -202,6 +202,8 @@ Do not invent MQTT/WebSocket/HTTP/vendor contracts without a real integration ta
 
 Current ready user composite activation supports declarative visuals/rules/animations and intentionally rejects packages declaring Actions/Events because no accepted portable executable implementation contract exists.
 
+The same capability check governs ready authoring, export/publication and activation. Legacy Action/Event-bearing transport packages import as drafts for explicit cleanup. SVG theme binding generates a Property plus private visual rules, with no public Actions. Current public Action `implementation` source is rejected at the definition/package boundary.
+
 `implementationDraft` remains inert.
 
 Trusted built-ins may implement Actions/Events. Do not silently turn draft text into executable portable behavior.
@@ -644,6 +646,15 @@ M10G  distribution, performance and hardening                     not-started
 ```
 
 Only R0 production work is currently authorized. R0 removes the unaccepted public Action `implementation`/`new Function` path, restores truthful component activation behavior, repairs SVG theme generation and brings checks/documentation back under one authority. It does not install Three/R3F or add Scene3D persistence.
+
+R0 work-item tracking:
+
+| Work item | Status | Evidence / next decision |
+| --- | --- | --- |
+| R0.1 — R3D-001 | `implemented` | PR #200 merged at `d591f348512b0ce9639372e0267ad826b664fb17`; closeout evidence remains required. |
+| R0.2 — R3D-002/003 | `implemented` | PR #201 merged at `79a89d581997134e1eb8e4a8f1247c7861b8aff5`; closeout evidence remains required. |
+| R0.3 — R3D-008/009 | `implemented` | [Test/authority handoff](docs/progress/m10-r0.3-test-authority.md); subject to PR review and CI. |
+| R0 closeout | `not-started` | Next eligible item after R0.3 merges; collect exact-revision evidence for all five findings before proposing M10A activation. |
 
 Each later gate becomes active only through an accepted closeout of its prerequisites. A branch, mock, spike, dependency installation or local build does not advance the gate.
 
