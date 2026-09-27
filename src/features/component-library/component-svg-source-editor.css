@@ -1042,3 +1042,109 @@
   align-items: center;
   gap: var(--ui-space-2);
 }
+
+/* Auto-detected SVG properties listed directly in the inspector group */
+.component-svg-detected-props {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--ui-color-surface-subtle);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+}
+
+.component-svg-detected-props-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.component-svg-detected-props-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-color-text-primary);
+}
+
+.component-svg-detected-props-count {
+  font-size: 11px;
+  color: var(--ui-color-text-secondary);
+}
+
+.component-svg-detected-props-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.component-svg-detected-prop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: calc(var(--ui-radius-control) - 2px);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.component-svg-detected-prop-row:hover {
+  background: var(--ui-color-surface);
+  border-color: var(--ui-color-border);
+}
+
+.component-svg-detected-prop-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.component-svg-detected-prop-name code {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.component-svg-detected-prop-theme {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  font-size: 10px;
+  border-radius: 999px;
+  background: rgba(2, 132, 199, 0.16);
+  color: var(--ui-color-accent, #0284c7);
+}
+
+.component-svg-detected-prop-count {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--ui-color-text-secondary);
+}
+
+.component-svg-detected-prop-fills {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.component-svg-detected-prop-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--ui-color-border);
+}
+
+.component-svg-detected-prop-more {
+  font-size: 10px;
+  color: var(--ui-color-text-secondary);
+}

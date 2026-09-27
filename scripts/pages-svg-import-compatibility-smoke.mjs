@@ -73,7 +73,7 @@ function globalAssetImportControl() {
 }
 
 function selectedAssetReplacementControl() {
-  return page.locator('.component-layer-inspector .component-asset-import-control')
+  return page.locator('.component-layer-inspector-body .component-asset-import-control')
     .filter({ hasText: '替换文件' })
     .first()
 }
