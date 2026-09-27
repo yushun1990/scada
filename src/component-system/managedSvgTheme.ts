@@ -9,7 +9,7 @@ import type {
   ManagedSvgElement,
   ManagedSvgNode,
 } from './managedSvg'
-import type { ComponentVisualDefinition } from './visual'
+import type { ComponentVisualDefinition, SvgLayerMethodDefinition } from './visual'
 import type { VisualRule } from './visualRules'
 
 export type SvgThemePresetKey =
@@ -472,6 +472,116 @@ const LEGACY_SVG_THEME_ACTION_DEFINITIONS: Readonly<
     description: '恢复出厂默认外观原色',
   },
 }
+
+/**
+ * Built-in SVG layer functions offered when the document carries semantic
+ * theme classes. Implementations run through the controlled layer-method
+ * engine only; they never become public Actions.
+ */
+export const SVG_LAYER_BUILTIN_METHODS: readonly SvgLayerMethodDefinition[] = [
+  {
+    name: 'setThemeState',
+    title: '设置运行状态',
+    description: '切换指定状态（运行/报警/预警/待机/离线）',
+    parameters: [
+      {
+        name: 'state',
+        title: '状态',
+        kind: 'select',
+        options: [
+          { label: '默认原色', value: 'default' },
+          { label: '运行态 (绿)', value: 'running' },
+          { label: '报警态 (红)', value: 'alarm' },
+          { label: '预警态 (黄)', value: 'warning' },
+          { label: '待机态 (蓝)', value: 'standby' },
+          { label: '离线态 (灰)', value: 'offline' },
+        ],
+      },
+    ],
+    implementation: `/**
+ * 设置运行状态 (setThemeState)
+ * 切换指定状态（运行/报警/预警/待机/离线）
+ * @param {string} state - 目标状态
+ */
+function setThemeState(state) {
+  if (!state) return 'missing state';
+  // 调用受管 SVG 5 阶微观梯度光影引擎
+  return $self.setTheme(state);
+}`,
+  },
+  {
+    name: 'setRunning',
+    title: '设为运行态',
+    description: '切换至正常运行态 (绿色)',
+    implementation: `/**
+ * 设为运行态 (setRunning)
+ * 切换至正常运行态 (绿色)
+ */
+function setRunning() {
+  return $self.setTheme('running');
+}`,
+  },
+  {
+    name: 'setAlarm',
+    title: '设为报警态',
+    description: '切换至故障报警态 (红色)',
+    implementation: `/**
+ * 设为报警态 (setAlarm)
+ * 切换至故障报警态 (红色)
+ */
+function setAlarm() {
+  return $self.setTheme('alarm');
+}`,
+  },
+  {
+    name: 'setWarning',
+    title: '设为预警态',
+    description: '切换至异常预警态 (黄色)',
+    implementation: `/**
+ * 设为预警态 (setWarning)
+ * 切换至异常预警态 (黄色)
+ */
+function setWarning() {
+  return $self.setTheme('warning');
+}`,
+  },
+  {
+    name: 'setStandby',
+    title: '设为待机态',
+    description: '切换至就绪待机态 (蓝色)',
+    implementation: `/**
+ * 设为待机态 (setStandby)
+ * 切换至就绪待机态 (蓝色)
+ */
+function setStandby() {
+  return $self.setTheme('standby');
+}`,
+  },
+  {
+    name: 'setOffline',
+    title: '设为离线态',
+    description: '切换至设备离线态 (灰色)',
+    implementation: `/**
+ * 设为离线态 (setOffline)
+ * 切换至设备离线态 (灰色)
+ */
+function setOffline() {
+  return $self.setTheme('offline');
+}`,
+  },
+  {
+    name: 'resetTheme',
+    title: '恢复默认原色',
+    description: '恢复出厂默认外观原色',
+    implementation: `/**
+ * 恢复默认原色 (resetTheme)
+ * 恢复出厂默认外观原色
+ */
+function resetTheme() {
+  return $self.setTheme('default');
+}`,
+  },
+]
 
 function actionMatches(
   actual: ComponentActionDefinition,

@@ -137,6 +137,137 @@ export type GroupVisualLayer = VisualLayerBase & {
   kind: 'group'
 }
 
+export type SvgLayerMethodParameterKind = 'string' | 'number' | 'boolean' | 'select'
+
+export type SvgLayerMethodParameter = {
+  name: string
+  title: string
+  kind: SvgLayerMethodParameterKind
+  options?: readonly { label: string; value: string | number | boolean }[]
+  defaultValue?: string | number | boolean
+}
+
+/**
+ * Private SVG layer function. The implementation is authored source that may
+ * only execute through the controlled layer-method engine; it is never part of
+ * the public Action/Event contract and portable packages carry it as data.
+ */
+export type SvgLayerMethodDefinition = {
+  name: string
+  title: string
+  description?: string
+  parameters?: readonly SvgLayerMethodParameter[]
+  implementation: string
+}
+
+export const SVG_LAYER_METHOD_LIMITS = {
+  maxMethods: 16,
+  maxNameLength: 64,
+  maxTitleLength: 80,
+  maxDescriptionLength: 400,
+  maxImplementationLength: 16_000,
+  maxParameters: 8,
+  maxParameterOptions: 12,
+} as const
+
+const SVG_LAYER_METHOD_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/
+const SVG_LAYER_METHOD_PARAMETER_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/
+const SVG_LAYER_METHOD_RESERVED_NAMES = new Set([
+  '$self',
+  '$emit',
+  'function',
+  'if',
+  'for',
+  'while',
+  'return',
+])
+
+export function isSvgLayerMethodName(name: string) {
+  return (
+    name.length <= SVG_LAYER_METHOD_LIMITS.maxNameLength &&
+    SVG_LAYER_METHOD_NAME_PATTERN.test(name) &&
+    !SVG_LAYER_METHOD_RESERVED_NAMES.has(name)
+  )
+}
+
+/** Fail-closed validation for authored SVG layer methods. */
+export function assertSvgLayerMethods(
+  methods: readonly SvgLayerMethodDefinition[],
+  label = 'SVG layer methods',
+) {
+  if (methods.length > SVG_LAYER_METHOD_LIMITS.maxMethods) {
+    throw new Error(`${label} 超过数量上限：${SVG_LAYER_METHOD_LIMITS.maxMethods}`)
+  }
+  const seenNames = new Set<string>()
+  for (const method of methods) {
+    if (!isSvgLayerMethodName(method.name)) {
+      throw new Error(`${label} 名称无效：${String(method.name)}`)
+    }
+    if (seenNames.has(method.name)) {
+      throw new Error(`${label} 名称重复：${method.name}`)
+    }
+    seenNames.add(method.name)
+    if (typeof method.title !== 'string' || !method.title.trim()
+      || method.title.length > SVG_LAYER_METHOD_LIMITS.maxTitleLength) {
+      throw new Error(`${label} ${method.name} 标题无效`)
+    }
+    if (
+      method.description !== undefined
+      && (typeof method.description !== 'string'
+        || method.description.length > SVG_LAYER_METHOD_LIMITS.maxDescriptionLength)
+    ) {
+      throw new Error(`${label} ${method.name} 说明无效`)
+    }
+    if (
+      typeof method.implementation !== 'string'
+      || method.implementation.length === 0
+      || method.implementation.length > SVG_LAYER_METHOD_LIMITS.maxImplementationLength
+    ) {
+      throw new Error(`${label} ${method.name} 实现源码无效`)
+    }
+    const parameters = method.parameters ?? []
+    if (parameters.length > SVG_LAYER_METHOD_LIMITS.maxParameters) {
+      throw new Error(`${label} ${method.name} 参数超过数量上限`)
+    }
+    const seenParameterNames = new Set<string>()
+    for (const parameter of parameters) {
+      if (
+        !SVG_LAYER_METHOD_PARAMETER_NAME_PATTERN.test(parameter.name)
+        || parameter.name.length > SVG_LAYER_METHOD_LIMITS.maxNameLength
+      ) {
+        throw new Error(`${label} ${method.name} 参数名无效：${String(parameter.name)}`)
+      }
+      if (seenParameterNames.has(parameter.name)) {
+        throw new Error(`${label} ${method.name} 参数名重复：${parameter.name}`)
+      }
+      seenParameterNames.add(parameter.name)
+      if (typeof parameter.title !== 'string' || !parameter.title.trim()) {
+        throw new Error(`${label} ${method.name} 参数标题无效：${parameter.name}`)
+      }
+      if (
+        parameter.kind !== 'string' && parameter.kind !== 'number'
+        && parameter.kind !== 'boolean' && parameter.kind !== 'select'
+      ) {
+        throw new Error(`${label} ${method.name} 参数类型无效：${parameter.name}`)
+      }
+      if (parameter.kind === 'select') {
+        const options = parameter.options ?? []
+        if (options.length === 0 || options.length > SVG_LAYER_METHOD_LIMITS.maxParameterOptions) {
+          throw new Error(`${label} ${method.name} select 参数选项无效：${parameter.name}`)
+        }
+        for (const option of options) {
+          if (
+            typeof option.label !== 'string' || !option.label.trim()
+            || !['string', 'number', 'boolean'].includes(typeof option.value)
+          ) {
+            throw new Error(`${label} ${method.name} 参数选项无效：${parameter.name}`)
+          }
+        }
+      }
+    }
+  }
+}
+
 export type SvgVisualLayer = VisualLayerBase & {
   kind: 'svg'
   assetRef: string
@@ -146,6 +277,8 @@ export type SvgVisualLayer = VisualLayerBase & {
    */
   document?: ManagedSvgDocument
   style?: VisualAssetStyle
+  /** Private authored functions, executed only through the controlled engine. */
+  methods?: readonly SvgLayerMethodDefinition[]
 }
 
 export type ImageVisualLayer = VisualLayerBase & {

@@ -50,6 +50,7 @@ jobs:
           npx --yes tsx scripts/check-controlled-script-codec.ts
           npx --yes tsx scripts/check-controlled-script-engine-contract.ts
           npx --yes tsx scripts/check-portable-execution-boundary.ts
+          npx --yes tsx scripts/check-layer-methods.ts
           npx --yes tsx scripts/check-component-capability-consistency.ts
           npx --yes tsx scripts/check-scada-behavior-contract.ts
           npx --yes tsx scripts/check-component-authority-migration.ts
@@ -88,6 +89,7 @@ jobs:
           node --check scripts/pages-component-navigation-smoke.mjs
           node --check scripts/pages-managed-svg-authoring-smoke.mjs
           node --check scripts/pages-managed-svg-author-ref-smoke.mjs
+          node --check scripts/pages-layer-methods-smoke.mjs
           node --check scripts/pages-scada-work-package-transfer-smoke.mjs
           node --check scripts/pages-standalone-runtime-smoke.mjs
           node --check server/src/publication-auth.js

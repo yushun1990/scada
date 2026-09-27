@@ -10,10 +10,6 @@ import {
 import { parseManagedSvgSourceWithCompatibility } from '../../component-system/managedSvgImportCompatibility'
 import type { SvgVisualLayer } from '../../component-system/visual'
 import {
-  detectSvgClasses,
-  isSvgThemeClassName,
-} from './component-svg-property-detection'
-import {
   Button,
   DialogContent,
   DialogRoot,
@@ -1019,13 +1015,76 @@ export function ComponentSvgSourceEditor({
   const lineCount = useMemo(() => code.split('\n').length, [code])
 
   // Extract distinct CSS classes and their initial fill colors from the current SVG document
-  const detectedClasses = useMemo(
-    () =>
-      validationResult.valid && validationResult.document
-        ? detectSvgClasses(validationResult.document)
-        : [],
-    [validationResult],
-  )
+  const detectedClasses = useMemo(() => {
+    if (!validationResult.valid || !validationResult.document) return []
+    const map = new Map<string, { count: number; fills: string[] }>()
+
+    function walk(node: ManagedSvgNode) {
+      if (node.kind === 'text') return
+      const classAttr = node.attributes.find((a) => a.name === 'class')?.value
+      const fillAttr = node.attributes.find((a) => a.name === 'fill')?.value
+      if (classAttr) {
+        const classes = classAttr.trim().split(/\s+/).filter(Boolean)
+        for (const cls of classes) {
+          const existing = map.get(cls)
+          if (!existing) {
+            map.set(cls, {
+              count: 1,
+              fills:
+                fillAttr && fillAttr !== 'none' && !fillAttr.startsWith('url(') ? [fillAttr] : [],
+            })
+          } else {
+            existing.count++
+            if (fillAttr && fillAttr !== 'none' && !fillAttr.startsWith('url(')) {
+              existing.fills.push(fillAttr)
+            }
+          }
+        }
+      }
+      for (const child of node.children) {
+        walk(child)
+      }
+    }
+
+    walk(validationResult.document.root)
+
+    const THEME_ORDER: Record<string, number> = {
+      'scada-theme-highlight': 1,
+      'scada-theme-light': 2,
+      'scada-theme-base': 3,
+      'scada-theme-dark': 4,
+      'scada-theme-deep': 5,
+    }
+
+    return Array.from(map.entries())
+      .map(([name, info]) => {
+        let initialColor = '#34d399'
+        const uniqueFills = Array.from(new Set(info.fills.map((f) => f.toLowerCase())))
+        if (info.fills.length > 0) {
+          const sorted = uniqueFills
+            .map((f) => ({ f, rgb: parseCssColorToRgb(f) }))
+            .filter((x): x is { f: string; rgb: { r: number; g: number; b: number } } => Boolean(x.rgb))
+            .map((x) => ({ f: x.f, hsl: rgbToHsl(x.rgb.r, x.rgb.g, x.rgb.b) }))
+            .sort((a, b) => a.hsl.l - b.hsl.l)
+          if (sorted.length > 0) {
+            const mid = Math.floor(sorted.length / 2)
+            initialColor = sorted[mid].f
+          }
+        }
+        return {
+          name,
+          count: info.count,
+          initialColor,
+          uniqueFills,
+        }
+      })
+      .sort((a, b) => {
+        const orderA = THEME_ORDER[a.name] ?? 10
+        const orderB = THEME_ORDER[b.name] ?? 10
+        if (orderA !== orderB) return orderA - orderB
+        return a.name.localeCompare(b.name)
+      })
+  }, [validationResult])
 
   // Locate the exact code span and line numbers for the currently marked element
   const highlightLocation = useMemo(() => {
@@ -1801,7 +1860,7 @@ export function ComponentSvgSourceEditor({
           <div className="component-svg-tag-list">
             <div className="component-svg-tag-list-header">
               <div className="component-svg-tag-list-header-left">
-                <span className="component-svg-tag-list-title">已标记 DOM 标签</span>
+                <span className="component-svg-tag-list-title">识别到的 ID / Class</span>
                 <span className="component-svg-tag-list-count">
                   {filteredTags.length}
                   {tagSearchQuery && `/${taggedElements.length}`} 个
@@ -1965,61 +2024,6 @@ export function ComponentSvgSourceEditor({
             </Button>
           </div>
         )}
-
-        {/* Auto-detected SVG properties, listed without requiring any marking */}
-        <div className="component-svg-detected-props">
-          <div className="component-svg-detected-props-header">
-            <span className="component-svg-detected-props-title">检测到的 SVG 属性</span>
-            {validationResult.valid ? (
-              <span className="component-svg-detected-props-count">
-                {validationResult.elementCount} 个元素 · {detectedClasses.length} 个 CSS 分类
-              </span>
-            ) : (
-              <span className="component-svg-detected-props-count">源码待修正</span>
-            )}
-          </div>
-          {detectedClasses.length > 0 ? (
-            <div className="component-svg-detected-props-list">
-              {detectedClasses.map((cls) => (
-                <Button
-                  key={cls.name}
-                  variant="ghost"
-                  size="small"
-                  className="component-svg-detected-prop-row"
-                  onClick={() => setIsModalOpen(true)}
-                  title="点击打开源码与标记工作台调整该分类"
-                >
-                  <span className="component-svg-detected-prop-name">
-                    <code>.{cls.name}</code>
-                    {isSvgThemeClassName(cls.name) && (
-                      <span className="component-svg-detected-prop-theme">主题</span>
-                    )}
-                  </span>
-                  <span className="component-svg-detected-prop-count">×{cls.count}</span>
-                  <span className="component-svg-detected-prop-fills">
-                    {cls.uniqueFills.slice(0, 4).map((fill) => (
-                      <span
-                        key={fill}
-                        className="component-svg-detected-prop-swatch"
-                        style={{ backgroundColor: fill }}
-                        title={fill}
-                      />
-                    ))}
-                    {cls.uniqueFills.length > 4 && (
-                      <span className="component-svg-detected-prop-more">
-                        +{cls.uniqueFills.length - 4}
-                      </span>
-                    )}
-                  </span>
-                </Button>
-              ))}
-            </div>
-          ) : (
-            <p className="component-inspector-help">
-              未检测到 CSS 分类；在标记工作台中用 Class 标记零件后，可启用语义调色与主题行为。
-            </p>
-          )}
-        </div>
 
         {message && <div className="component-svg-source-message">{message}</div>}
       </div>
