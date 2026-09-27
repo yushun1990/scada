@@ -540,171 +540,171 @@ export function ComponentVisualStyleInspector({
           </CollapsibleInspectorGroup>
         )}
 
-        <CollapsibleInspectorGroup title="填充与描边">
-          {!isLineOrScale && (
-            <>
+        {!isLineOrScale && (
+          <CollapsibleInspectorGroup title="填充">
+            <label className="property-field compact">
+              <span>填充模式</span>
+              <Select
+                value={fillMode}
+                disabled={readOnly}
+                ariaLabel={`${layer.name} 填充模式`}
+                options={FILL_MODE_OPTIONS}
+                onValueChange={(val) => {
+                  if (val === 'solid') {
+                    updateLayer({ ...layer, style: { ...style, gradient: undefined } })
+                  } else if (val === 'linear') {
+                    updateLayer({
+                      ...layer,
+                      style: {
+                        ...style,
+                        gradient: makeLinearGradient(
+                          style.fill && style.fill !== 'transparent' ? style.fill : '#38bdf8',
+                          '#0284c7',
+                          90,
+                        ),
+                      },
+                    })
+                  } else if (val === 'radial') {
+                    updateLayer({
+                      ...layer,
+                      style: {
+                        ...style,
+                        gradient: makeRadialGradient(
+                          '#ffffff',
+                          style.fill && style.fill !== 'transparent' ? style.fill : '#0284c7',
+                        ),
+                      },
+                    })
+                  }
+                }}
+              />
+            </label>
+
+            {fillMode === 'solid' && (
               <label className="property-field compact">
-                <span>填充模式</span>
-                <Select
-                  value={fillMode}
+                <span>纯色填充</span>
+                <ColorPickerInput
+                  value={style.fill}
                   disabled={readOnly}
-                  ariaLabel={`${layer.name} 填充模式`}
-                  options={FILL_MODE_OPTIONS}
-                  onValueChange={(val) => {
-                    if (val === 'solid') {
-                      updateLayer({ ...layer, style: { ...style, gradient: undefined } })
-                    } else if (val === 'linear') {
-                      updateLayer({
-                        ...layer,
-                        style: {
-                          ...style,
-                          gradient: makeLinearGradient(
-                            style.fill && style.fill !== 'transparent' ? style.fill : '#38bdf8',
-                            '#0284c7',
-                            90,
-                          ),
-                        },
-                      })
-                    } else if (val === 'radial') {
-                      updateLayer({
-                        ...layer,
-                        style: {
-                          ...style,
-                          gradient: makeRadialGradient(
-                            '#ffffff',
-                            style.fill && style.fill !== 'transparent' ? style.fill : '#0284c7',
-                          ),
-                        },
-                      })
-                    }
-                  }}
+                  ariaLabel={`${layer.name} 填充`}
+                  placeholder="#cbd5e1 / transparent"
+                  clearValue="transparent"
+                  onChange={(fill) => updateLayer({
+                    ...layer,
+                    style: { ...style, fill },
+                  })}
                 />
               </label>
+            )}
 
-              {fillMode === 'solid' && (
-                <label className="property-field compact">
-                  <span>纯色填充</span>
-                  <ColorPickerInput
-                    value={style.fill}
-                    disabled={readOnly}
-                    ariaLabel={`${layer.name} 填充`}
-                    placeholder="#cbd5e1 / transparent"
-                    clearValue="transparent"
-                    onChange={(fill) => updateLayer({
-                      ...layer,
-                      style: { ...style, fill },
-                    })}
-                  />
-                </label>
-              )}
-
-              {fillMode === 'linear' && (
-                <>
-                  <div className="property-grid">
-                    <label className="property-field compact">
-                      <span>起始颜色</span>
-                      <ColorPickerInput
-                        value={getGradientStartColor(style.gradient)}
-                        disabled={readOnly}
-                        ariaLabel={`${layer.name} 渐变起始颜色`}
-                        onChange={(color) => updateLayer({
-                          ...layer,
-                          style: {
-                            ...style,
-                            gradient: makeLinearGradient(
-                              color,
-                              getGradientEndColor(style.gradient),
-                              style.gradient?.angle ?? 90,
-                            ),
-                          },
-                        })}
-                      />
-                    </label>
-                    <label className="property-field compact">
-                      <span>终止颜色</span>
-                      <ColorPickerInput
-                        value={getGradientEndColor(style.gradient)}
-                        disabled={readOnly}
-                        ariaLabel={`${layer.name} 渐变终止颜色`}
-                        onChange={(color) => updateLayer({
-                          ...layer,
-                          style: {
-                            ...style,
-                            gradient: makeLinearGradient(
-                              getGradientStartColor(style.gradient),
-                              color,
-                              style.gradient?.angle ?? 90,
-                            ),
-                          },
-                        })}
-                      />
-                    </label>
-                  </div>
-                  <label className="property-field compact">
-                    <span>渐变角度 (度)</span>
-                    <NumberInput
-                      min="0"
-                      max="360"
-                      step="15"
-                      value={style.gradient?.angle ?? 90}
-                      disabled={readOnly}
-                      onChange={(event) => {
-                        const angle = Number(event.target.value)
-                        if (!Number.isFinite(angle)) return
-                        updateLayer({
-                          ...layer,
-                          style: {
-                            ...style,
-                            gradient: makeLinearGradient(
-                              getGradientStartColor(style.gradient),
-                              getGradientEndColor(style.gradient),
-                              angle,
-                            ),
-                          },
-                        })
-                      }}
-                    />
-                  </label>
-                </>
-              )}
-
-              {fillMode === 'radial' && (
+            {fillMode === 'linear' && (
+              <>
                 <div className="property-grid">
                   <label className="property-field compact">
-                    <span>中心高光</span>
+                    <span>起始颜色</span>
                     <ColorPickerInput
                       value={getGradientStartColor(style.gradient)}
                       disabled={readOnly}
-                      ariaLabel={`${layer.name} 中心高光`}
+                      ariaLabel={`${layer.name} 渐变起始颜色`}
                       onChange={(color) => updateLayer({
                         ...layer,
                         style: {
                           ...style,
-                          gradient: makeRadialGradient(color, getGradientEndColor(style.gradient)),
+                          gradient: makeLinearGradient(
+                            color,
+                            getGradientEndColor(style.gradient),
+                            style.gradient?.angle ?? 90,
+                          ),
                         },
                       })}
                     />
                   </label>
                   <label className="property-field compact">
-                    <span>边缘暗调</span>
+                    <span>终止颜色</span>
                     <ColorPickerInput
                       value={getGradientEndColor(style.gradient)}
                       disabled={readOnly}
-                      ariaLabel={`${layer.name} 边缘暗调`}
+                      ariaLabel={`${layer.name} 渐变终止颜色`}
                       onChange={(color) => updateLayer({
                         ...layer,
                         style: {
                           ...style,
-                          gradient: makeRadialGradient(getGradientStartColor(style.gradient), color),
+                          gradient: makeLinearGradient(
+                            getGradientStartColor(style.gradient),
+                            color,
+                            style.gradient?.angle ?? 90,
+                          ),
                         },
                       })}
                     />
                   </label>
                 </div>
-              )}
-            </>
-          )}
+                <label className="property-field compact">
+                  <span>渐变角度 (度)</span>
+                  <NumberInput
+                    min="0"
+                    max="360"
+                    step="15"
+                    value={style.gradient?.angle ?? 90}
+                    disabled={readOnly}
+                    onChange={(event) => {
+                      const angle = Number(event.target.value)
+                      if (!Number.isFinite(angle)) return
+                      updateLayer({
+                        ...layer,
+                        style: {
+                          ...style,
+                          gradient: makeLinearGradient(
+                            getGradientStartColor(style.gradient),
+                            getGradientEndColor(style.gradient),
+                            angle,
+                          ),
+                        },
+                      })
+                    }}
+                  />
+                </label>
+              </>
+            )}
 
+            {fillMode === 'radial' && (
+              <div className="property-grid">
+                <label className="property-field compact">
+                  <span>中心高光</span>
+                  <ColorPickerInput
+                    value={getGradientStartColor(style.gradient)}
+                    disabled={readOnly}
+                    ariaLabel={`${layer.name} 中心高光`}
+                    onChange={(color) => updateLayer({
+                      ...layer,
+                      style: {
+                        ...style,
+                        gradient: makeRadialGradient(color, getGradientEndColor(style.gradient)),
+                      },
+                    })}
+                  />
+                </label>
+                <label className="property-field compact">
+                  <span>边缘暗调</span>
+                  <ColorPickerInput
+                    value={getGradientEndColor(style.gradient)}
+                    disabled={readOnly}
+                    ariaLabel={`${layer.name} 边缘暗调`}
+                    onChange={(color) => updateLayer({
+                      ...layer,
+                      style: {
+                        ...style,
+                        gradient: makeRadialGradient(getGradientStartColor(style.gradient), color),
+                      },
+                    })}
+                  />
+                </label>
+              </div>
+            )}
+          </CollapsibleInspectorGroup>
+        )}
+
+        <CollapsibleInspectorGroup title="描边">
           <label className="property-field compact">
             <span>描边</span>
             <ColorPickerInput
