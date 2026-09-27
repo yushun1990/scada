@@ -33,7 +33,6 @@ import {
 } from '../../ui'
 import { ColorPickerInput } from './ColorPickerInput'
 import { ComponentSvgSourceEditor } from './ComponentSvgSourceEditor'
-import { ComponentManagedSvgEditor } from './ComponentManagedSvgEditor'
 
 type ComponentVisualStyleInspectorProps = {
   visual: ComponentVisualDefinition
@@ -1146,6 +1145,18 @@ export function ComponentVisualStyleInspector({
     )
   }
 
+  if (layer.kind === 'svg') {
+    return (
+      <div className="component-layer-style-inspector">
+        <ComponentSvgSourceEditor
+          layer={layer}
+          readOnly={readOnly || layer.parentId !== null}
+          onChange={updateLayer}
+        />
+      </div>
+    )
+  }
+
   const style = resolveVisualAssetStyle(layer)
 
   return (
@@ -1168,23 +1179,6 @@ export function ComponentVisualStyleInspector({
           样式属于组件私有视觉实现；Visual Rules 继续只使用已冻结的 typed target authority。
         </p>
       </CollapsibleInspectorGroup>
-
-      {layer.kind === 'svg' && (
-        <>
-          <ComponentSvgSourceEditor
-            layer={layer}
-            readOnly={readOnly || layer.parentId !== null}
-            onChange={updateLayer}
-          />
-          <CollapsibleInspectorGroup title="SVG 内部元素">
-            <ComponentManagedSvgEditor
-              layer={layer}
-              readOnly={readOnly}
-              onChange={updateLayer}
-            />
-          </CollapsibleInspectorGroup>
-        </>
-      )}
     </div>
   )
 }

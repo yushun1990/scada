@@ -80,6 +80,35 @@ export function formatManagedSvgDocument(document: ManagedSvgDocument, indent = 
   return serializeNode(document.root, 0, true)
 }
 
+// Serialized SVG text cannot carry authorRef metadata (assetRef bytes must
+// stay authorRef-free), so the editor tracks aliases by canonical tagId and
+// merges them back into the parsed document on save.
+function extractAuthorRefByTagId(layer: SvgVisualLayer): Map<string, string> {
+  const result = new Map<string, string>()
+  const visit = (node: ManagedSvgNode) => {
+    if (node.kind === 'text') return
+    if (node.authorRef) result.set(node.tagId, node.authorRef)
+    for (const child of node.children) visit(child)
+  }
+  if (layer.document) visit(layer.document.root)
+  return result
+}
+
+function applyAuthorRefsToDocument(
+  document: ManagedSvgDocument,
+  authorRefByTagId: ReadonlyMap<string, string>,
+): ManagedSvgDocument {
+  if (authorRefByTagId.size === 0) return document
+  const visit = (node: ManagedSvgNode): ManagedSvgNode => {
+    if (node.kind === 'text') return node
+    const authorRef = authorRefByTagId.get(node.tagId)
+    const tagged = authorRef ? { ...node, authorRef } : node
+    if (node.children.length === 0) return tagged
+    return { ...tagged, children: node.children.map(visit) }
+  }
+  return { ...document, root: visit(document.root) as ManagedSvgElement }
+}
+
 function extractSvgCodeFromLayer(layer: SvgVisualLayer): string {
   if (layer.document) {
     try {
@@ -915,6 +944,7 @@ export function ComponentSvgSourceEditor({
   onChange,
 }: ComponentSvgSourceEditorProps) {
   const [code, setCode] = useState(() => extractSvgCodeFromLayer(layer))
+  const [authorRefByTagId, setAuthorRefByTagId] = useState(() => extractAuthorRefByTagId(layer))
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
@@ -953,6 +983,7 @@ export function ComponentSvgSourceEditor({
   useEffect(() => {
     const nextCode = extractSvgCodeFromLayer(layer)
     setCode(nextCode)
+    setAuthorRefByTagId(extractAuthorRefByTagId(layer))
     setError(null)
     setMessage(null)
     setIsDirty(false)
@@ -1257,10 +1288,11 @@ export function ComponentSvgSourceEditor({
     if (readOnly) return false
     try {
       const parsed = parseManagedSvgSourceWithCompatibility(code)
-      const newAssetRef = serializeManagedSvgDataUrl(parsed.document)
+      const document = applyAuthorRefsToDocument(parsed.document, authorRefByTagId)
+      const newAssetRef = serializeManagedSvgDataUrl(document)
       onChange({
         ...layer,
-        document: parsed.document,
+        document,
         assetRef: newAssetRef,
       })
       setError(null)
@@ -1662,6 +1694,15 @@ export function ComponentSvgSourceEditor({
       return
     }
 
+    if (tagType === 'id') {
+      for (const [existingTagId, existingRef] of authorRefByTagId) {
+        if (existingRef === cleanName && existingTagId !== selectedElement.tagId) {
+          setTagError(`标识符 #${cleanName} 已被其他零件使用`)
+          return
+        }
+      }
+    }
+
     const cleanDesc = tagDescriptionInput.trim()
 
     try {
@@ -1702,6 +1743,12 @@ export function ComponentSvgSourceEditor({
       const formatted = formatManagedSvgDocument(updatedDoc)
       setCode(formatted)
       setIsDirty(true)
+      setAuthorRefByTagId((prev) => {
+        const next = new Map(prev)
+        if (tagType === 'id') next.set(selectedElement.tagId, cleanName)
+        else next.delete(selectedElement.tagId)
+        return next
+      })
       setMessage(
         `✓ 已为 <${selectedElement.tagName}> 设置 ${tagType === 'id' ? '#' : '.'}${cleanName}${
           cleanDesc ? ` (${cleanDesc})` : ''
@@ -1756,6 +1803,12 @@ export function ComponentSvgSourceEditor({
       const formatted = formatManagedSvgDocument(updatedDoc)
       setCode(formatted)
       setIsDirty(true)
+      setAuthorRefByTagId((prev) => {
+        if (!prev.has(selectedElement.tagId)) return prev
+        const next = new Map(prev)
+        next.delete(selectedElement.tagId)
+        return next
+      })
       setMessage(`✓ 已清除 <${selectedElement.tagName}> 上的标记与说明`)
       setSelectedElement({
         tagId: selectedElement.tagId,
