@@ -128,9 +128,7 @@ export type CompositeComponentVisualRendererProps = {
   visible: boolean
   opacity: number
   listening: boolean
-  // Supplying this prop opts internal layers into editor dragging. A null value
-  // means no layer currently owns the full-bounds drag hit area yet.
-  draggableLayerId?: string | null
+  // Supplying this prop opts internal root layers into editor dragging.
   dragEnabled?: boolean
   nonScalingStrokes?: boolean
 }
@@ -140,7 +138,6 @@ type VisualLayerNodeProps = {
   childrenByParent: ReadonlyMap<string | null, readonly ComponentVisualLayer[]>
   listening: boolean
   dragEnabled: boolean
-  draggableLayerId: string | null
   nonScalingStrokes: boolean
 }
 
@@ -723,7 +720,6 @@ function VisualLayerNode({
   childrenByParent,
   listening,
   dragEnabled,
-  draggableLayerId,
   nonScalingStrokes,
 }: VisualLayerNodeProps) {
   const { transform } = layer
@@ -731,7 +727,6 @@ function VisualLayerNode({
   // A grouped layer remains configurable through the tree, but its geometry
   // belongs to the group until the author explicitly ungroups it.
   const draggable = listening && dragEnabled && layer.parentId === null
-  const ownsFullBoundsDragHitArea = draggableLayerId === layer.id
   // An empty group draws no pixels of its own; keep it selectable on canvas
   // through its bounds while filled layers stay hit-precise to their shapes.
   const ownsEmptyGroupBoundsHitArea = listening && dragEnabled && layer.kind === 'group' && children.length === 0
@@ -787,17 +782,9 @@ function VisualLayerNode({
           childrenByParent={childrenByParent}
           listening={listening}
           dragEnabled={dragEnabled}
-          draggableLayerId={draggableLayerId}
           nonScalingStrokes={nonScalingStrokes}
         />
       ))}
-      {ownsFullBoundsDragHitArea && (
-        <LayerBoundsHitArea
-          width={transform.width}
-          height={transform.height}
-          listening={listening}
-        />
-      )}
     </Group>
   )
 }
@@ -816,7 +803,6 @@ export const CompositeComponentVisualRenderer = forwardRef<
     visible,
     opacity,
     listening,
-    draggableLayerId,
     dragEnabled: dragEnabledProp,
     nonScalingStrokes = false,
   },
@@ -840,8 +826,7 @@ export const CompositeComponentVisualRenderer = forwardRef<
 
   const scaleX = width / Math.max(1, visual.designSize.width)
   const scaleY = height / Math.max(1, visual.designSize.height)
-  const dragEnabled = dragEnabledProp ?? (draggableLayerId !== undefined)
-  const activeDraggableLayerId = draggableLayerId ?? null
+  const dragEnabled = dragEnabledProp ?? false
   // Keep the persisted sibling order authoritative. Selection is rendered by
   // the transformer and must not change the paint order of visual layers.
   const rootLayers = childrenByParent.get(null) ?? []
@@ -867,7 +852,6 @@ export const CompositeComponentVisualRenderer = forwardRef<
           childrenByParent={childrenByParent}
           listening={listening}
           dragEnabled={dragEnabled}
-          draggableLayerId={activeDraggableLayerId}
           nonScalingStrokes={nonScalingStrokes}
         />
       ))}

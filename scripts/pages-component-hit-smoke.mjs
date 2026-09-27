@@ -321,8 +321,61 @@ try {
   assertClose(Number(await geometryInputs.nth(0).inputValue()), 288, 'dragend snaps Group 3 x once')
   assertClose(Number(await geometryInputs.nth(1).inputValue()), 216, 'dragend snaps Group 3 y once')
 
+  // Loose-bounds selected layers must not steal clicks from lower layers. The
+  // seeded smart-storage-tank sample carries exactly this authored shape: its
+  // outlet-pipe polyline renders through absolute points while its transform
+  // box spans (0,0)-(290,250) across nearly the whole 320x280 artboard, and
+  // the pipe paints above most other layers. Selecting it on canvas must not
+  // block clicks on the layers beneath that box, and the pipe must remain
+  // draggable by its own ink.
+  // The fixture above is an unsaved component: leave through B2's guard
+  // before changing routes, exactly like the toolbar smoke.
+  await page.getByRole('button', { name: '返回组件库工作台', exact: true }).click()
+  await page.getByRole('dialog').waitFor()
+  await page.getByRole('button', { name: '放弃修改', exact: true }).click()
+  await page.getByRole('heading', { name: '组件库开发', exact: true }).waitFor()
+  await page.goto(`${baseUrl}#/components/component-smart-storage-tank`, { waitUntil: 'networkidle' })
+  await page.locator('.studio-shell.component-studio-shell').waitFor()
+  const tankStage = page.locator('.component-artboard .konvajs-content').first()
+  const tankBox = await tankStage.boundingBox()
+  assert.ok(tankBox, 'sample tank stage must be measurable')
+  const tankScaleX = tankBox.width / 320
+  const tankScaleY = tankBox.height / 280
+  const tankPoint = (x, y) => ({
+    x: tankBox.x + x * tankScaleX,
+    y: tankBox.y + y * tankScaleY,
+  })
+
+  const pipePoint = tankPoint(220, 195)
+  await page.mouse.click(pipePoint.x, pipePoint.y)
+  await page.locator('.component-layer-row.active').filter({ hasText: '出料管线' }).first().waitFor()
+
+  const legPoint = tankPoint(52, 240)
+  await page.mouse.click(legPoint.x, legPoint.y)
+  await page.locator('.component-layer-row.active').filter({ hasText: '左侧支腿' }).first().waitFor()
+
+  const bodyPoint = tankPoint(90, 60)
+  await page.mouse.click(bodyPoint.x, bodyPoint.y)
+  await page.locator('.component-layer-row.active').filter({ hasText: '金属罐体外壳' }).first().waitFor()
+
+  // Drag the selected pipe by ink on its first segment, away from the line
+  // overlay's vertex and thickness handles; the whole layer must move.
+  await page.mouse.click(pipePoint.x, pipePoint.y)
+  await page.locator('.component-layer-row.active').filter({ hasText: '出料管线' }).first().waitFor()
+  const dragFrom = tankPoint(165, 195)
+  await page.mouse.move(dragFrom.x, dragFrom.y)
+  await page.mouse.down()
+  await page.mouse.move(dragFrom.x + 24 * tankScaleX, dragFrom.y + 16 * tankScaleY, { steps: 4 })
+  await page.mouse.up()
+  await waitForInspectorSelection('出料管线')
+  const pipeX = Number(await page.locator('.component-layer-geometry-grid input').nth(0).inputValue())
+  assert.ok(
+    pipeX > 0,
+    `dragging the selected pipe by its own ink must move the layer, got x=${pipeX}`,
+  )
+
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log(`Pages pointer smoke passed in ${browserName}: visual-forest Navigator, explicit Group authoring, blank-canvas selection clearing, empty-layer hit, canvas modifier selection and release-only snap are stable.`)
+  console.log(`Pages pointer smoke passed in ${browserName}: visual-forest Navigator, explicit Group authoring, blank-canvas selection clearing, empty-layer hit, canvas modifier selection, release-only snap and loose-bounds selection pass-through are stable.`)
 } finally {
   await browser.close()
 }
