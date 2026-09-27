@@ -208,3 +208,9 @@
     transform: translateY(0);
   }
 }
+
+.svg-layer-method-run {
+  margin-left: auto;
+  padding: 0 8px;
+  line-height: 1.4;
+}

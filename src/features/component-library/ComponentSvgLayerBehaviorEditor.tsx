@@ -86,7 +86,7 @@ export function ComponentSvgLayerBehaviorEditor({
           </div>
         ) : (
           <div className="svg-behavior-content">
-            {/* 1. Declarative states */}
+            {/* 1. Declarative states, each with its own run-preview action */}
             <div className="svg-behavior-section">
               <div className="svg-behavior-section-header">
                 <strong>可绑定主题状态</strong>
@@ -100,6 +100,17 @@ export function ComponentSvgLayerBehaviorEditor({
                     <div className="svg-layer-method-signature">
                       <code>{binding.state}</code>
                       <span className="svg-layer-method-title">{binding.label}</span>
+                      <Button
+                        variant={activeTestState === binding.state ? 'primary' : 'ghost'}
+                        size="small"
+                        className="svg-layer-method-run"
+                        disabled={readOnly}
+                        aria-label={`${binding.label} 运行预览`}
+                        title={`在当前画布图层预览${binding.label}，不调用 Action`}
+                        onClick={() => handleTestPreset(binding.state)}
+                      >
+                        ▶
+                      </Button>
                     </div>
                     <span className="svg-layer-method-desc">{binding.description}</span>
                   </li>
@@ -107,53 +118,13 @@ export function ComponentSvgLayerBehaviorEditor({
               </ul>
             </div>
 
-            {/* 2. Authored base-preview buttons */}
+            {/* 2. Restore the authored original colors */}
             <div className="svg-behavior-section">
               <div className="svg-behavior-section-header">
                 <strong>主题外观预览（当前画布图层）</strong>
-                <small>预览并写入当前图层外观，不调用 Action</small>
+                <small>预览直接写入当前图层外观，不调用 Action</small>
               </div>
               <div className="svg-behavior-test-grid">
-                <Button
-                  variant={activeTestState === 'running' ? 'primary' : 'secondary'}
-                  size="small"
-                  disabled={readOnly}
-                  onClick={() => handleTestPreset('running')}
-                >
-                  🟢 运行态 (绿)
-                </Button>
-                <Button
-                  variant={activeTestState === 'alarm' ? 'primary' : 'secondary'}
-                  size="small"
-                  disabled={readOnly}
-                  onClick={() => handleTestPreset('alarm')}
-                >
-                  🔴 报警态 (红)
-                </Button>
-                <Button
-                  variant={activeTestState === 'warning' ? 'primary' : 'secondary'}
-                  size="small"
-                  disabled={readOnly}
-                  onClick={() => handleTestPreset('warning')}
-                >
-                  🟡 预警态 (黄)
-                </Button>
-                <Button
-                  variant={activeTestState === 'standby' ? 'primary' : 'secondary'}
-                  size="small"
-                  disabled={readOnly}
-                  onClick={() => handleTestPreset('standby')}
-                >
-                  🔵 待机态 (蓝)
-                </Button>
-                <Button
-                  variant={activeTestState === 'offline' ? 'primary' : 'secondary'}
-                  size="small"
-                  disabled={readOnly}
-                  onClick={() => handleTestPreset('offline')}
-                >
-                  ⚪ 离线态 (灰)
-                </Button>
                 <Button
                   variant={activeTestState === 'default' ? 'primary' : 'secondary'}
                   size="small"

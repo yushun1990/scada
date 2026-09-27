@@ -810,6 +810,7 @@ export function ComponentEditorPage({
                     visual={component.visual}
                     readOnly={editingDisabled}
                     selectedLayerId={singleSelectedLayerId}
+                    onSelectionChange={selectLayer}
                     onChange={(visual) => updatePackage('visual', visual)}
                   />
                 </div>
