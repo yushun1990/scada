@@ -297,8 +297,9 @@ M9B2 Package / Scene compatibility + end-to-end acceptance      accepted · 2026
 M9 Component Attribute / Property Authority Split               accepted · 2026-09-03
 M6.3P1 Component Visual Asset Authoring Patch                   accepted · 2026-09-05
 M10 3D Scene Editor governance/design baseline                  accepted · 2026-09-25
-M10-R0 Readiness remediation                                    active
-M10A–M10G 3D implementation gates                              not-started
+M10-R0 Readiness remediation                                    accepted · 2026-09-27
+M10A 3D architecture contract + measured spike                   active
+M10B–M10G 3D implementation gates                               not-started
 ```
 
 Detailed evidence: `docs/progress/`.
@@ -635,8 +636,8 @@ Accepted direction:
 Gates:
 
 ```text
-R0    current portable-execution/capability/test correction      active
-M10A  architecture contract + measured technology spike          not-started
+R0    current portable-execution/capability/test correction      accepted · 2026-09-27
+M10A  architecture contract + measured technology spike          active
 M10B  Work/Scene3D/resource foundation                            not-started
 M10C  runtime and presentation decoupling                         not-started
 M10D  read-only 3D vertical slice                                 not-started
@@ -645,16 +646,18 @@ M10F  3D Anchors and visual connections                           not-started
 M10G  distribution, performance and hardening                     not-started
 ```
 
-Only R0 production work is currently authorized. R0 removes the unaccepted public Action `implementation`/`new Function` path, restores truthful component activation behavior, repairs SVG theme generation and brings checks/documentation back under one authority. It does not install Three/R3F or add Scene3D persistence.
+R0 is accepted. It removed the unaccepted public Action `implementation`/`new Function` path, restored truthful declarative component activation and authoring, repaired SVG theme generation and brought checks/documentation back under one authority, without installing Three/R3F or adding Scene3D persistence. Closeout record with exact fixing revisions and evidence: `docs/progress/m10-r0-closeout.md`.
 
-R0 work-item tracking:
+R0 work-item tracking (final):
 
-| Work item | Status | Evidence / next decision |
+| Work item | Status | Evidence |
 | --- | --- | --- |
-| R0.1 — R3D-001 | `implemented` | PR #200 merged at `d591f348512b0ce9639372e0267ad826b664fb17`; closeout evidence remains required. |
-| R0.2 — R3D-002/003 | `implemented` | PR #201 merged at `79a89d581997134e1eb8e4a8f1247c7861b8aff5`; closeout evidence remains required. |
-| R0.3 — R3D-008/009 | `implemented` | [Test/authority handoff](docs/progress/m10-r0.3-test-authority.md); subject to PR review and CI. |
-| R0 closeout | `not-started` | Next eligible item after R0.3 merges; collect exact-revision evidence for all five findings before proposing M10A activation. |
+| R0.1 — R3D-001 | `accepted` | PR #200 merged at `d591f348512b0ce9639372e0267ad826b664fb17`. |
+| R0.2 — R3D-002/003 | `accepted` | PR #201 merged at `79a89d581997134e1eb8e4a8f1247c7861b8aff5`; deployed-acceptance completion in PR #203 at `9c8c3471af53dd051c8456ff1eaacc3df593e34c`. |
+| R0.3 — R3D-008/009 | `accepted` | PR #202 merged at `7eebd81bc28055602b232a4ac39c6c07638c2a8f`; [test/authority handoff](docs/progress/m10-r0.3-test-authority.md). |
+| R0 closeout | `accepted` | Exact-main evidence at `9c8c347`: CI #1182, Deploy #336, Pages Browser Smoke #287; [closeout record](docs/progress/m10-r0-closeout.md). |
+
+Only M10A work is currently authorized: isolated schema drafts (WorkContent envelope, Scene3D v1, Component Package v3), the GLB/resource threat-model decision record, a disposable rendering spike, and measured 2D/3D baselines that set M10D–M10G budgets. M10A must not create user-facing 3D work, canonical Scene3D persistence, or promote spike code into the product editor.
 
 Each later gate becomes active only through an accepted closeout of its prerequisites. A branch, mock, spike, dependency installation or local build does not advance the gate.
 
@@ -673,11 +676,11 @@ M9B2 package / Scene compatibility + acceptance                accepted · 2026-
 M9 Component Attribute / Property Authority Split              accepted · 2026-09-03
 M6.3P1 Component Visual Asset Authoring Patch                  accepted · 2026-09-05
 M10 governance / architecture / acceptance baseline            accepted · 2026-09-25
-M10-R0 readiness remediation                                   active
-M10A architecture contract + measured spike                    not-started
+M10-R0 readiness remediation                                   accepted · 2026-09-27
+M10A architecture contract + measured spike                    active
 ```
 
-**Current execution gate: M10-R0 readiness remediation plus already-authorized product-polish defects. M10A and all 3D product implementation remain unauthorized until R0 is accepted.**
+**Current execution gate: M10A architecture contract + measured spike plus already-authorized product-polish defects. M10B and all later 3D gates remain unauthorized until M10A is accepted.**
 
 The 2026-09-10 UI review delivers a [source audit](docs/design/ui-audit-2026-09-10.md), a corrected [industrial Designer UI specification](docs/design/industrial-designer-spec.md), and a proposed [rollout plan](docs/design/industrial-designer-rollout.md). The rollout prioritizes editing reliability before shared chrome, navigation and Inspector polish. Its A–F work packages are delivery batches, not new architecture milestones. B1–B3 and C1/C2 are merged; C2 and its deployed regression follow-up are recorded in [the C2 progress note](docs/progress/ui-c2-studio-shell.md) and PRs #194/#195. D1 Scene Navigator and Palette search are implemented for review; see [D1 progress](docs/progress/ui-d1-scene-navigation.md). D2/D3 and E/F remain outstanding. The [2026-09-16 Web editor correction](docs/design/web-editor-simplification.md) supersedes the desktop menu taxonomy and single-document tab: use a document header plus editing toolbar, with one primary entry per command. The subsequent [Component editor redesign](docs/design/component-editor-redesign.md) centers canvas controls, keeps grouping in the toolbar, moves ordering into each layer row, and introduces a compact neutral/teal interface. Shared Shell, navigation, history and persistence stay authoritative. Accepted M6–M9 and UX1 authority boundaries remain unchanged.
 
@@ -687,7 +690,7 @@ Preserve accepted M6–M9 and M6.3P1 boundaries while fixing defects exposed by 
 
 Current component-editor polish: searchable/collapsible layer navigation, explicit selection/component-settings entry points, and Preview history locking. Implementation and verification are tracked in `docs/progress/product-polish-component-navigation.md`; this does not open a new architecture milestone.
 
-The roadmap review required by the previous gate is recorded in the 3D readiness review. Its P0 findings are now the R0 correction gate. Product-polish work must not bypass R0 or introduce M10A+ contracts incidentally.
+The R0 correction gate is accepted with exact-revision evidence ([closeout record](docs/progress/m10-r0-closeout.md)). Product-polish work must not bypass M10A boundaries or introduce M10B+ contracts incidentally.
 
 ---
 
