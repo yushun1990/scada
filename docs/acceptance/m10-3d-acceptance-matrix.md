@@ -1,6 +1,6 @@
 # M10 3D acceptance matrix
 
-- Status: normative acceptance authority when merged
+- Status: `accepted` normative acceptance authority (PR #199)
 - Date: 2026-09-25
 - Governance: `docs/governance/m10-3d-delivery-governance.md`
 

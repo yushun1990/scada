@@ -24,13 +24,15 @@ M7      component packaging / adapter foundation / set    accepted · 2026-08-31
 M8      portable SCADA work + standalone runtime          accepted · 2026-09-02
 M9      Component Attribute / Property authority split    accepted · 2026-09-03
 M6.3P1  Component visual asset authoring patch             accepted · 2026-09-05
-M10     3D Scene Editor design/governance baseline         governed · 2026-09-25
+M10     3D Scene Editor design/governance baseline         accepted · 2026-09-25
 M10-R0  readiness remediation                              active
 ```
 
 M9 established separate authored Attributes and runtime Properties across authoring, Scene v8 persistence, component/work packages and standalone runtime. M6.3P1 added local SVG/Image import and managed SVG target authoring within the existing component visual model.
 
 The current execution gate is M10-R0: correct the portable component execution/capability inconsistencies found by the 3D readiness review before starting 3D product implementation. The 3D editor is **not implemented yet**. The authoritative execution roadmap is [`PLAN.md`](PLAN.md); accepted historical evidence remains recorded in the [M9 closeout](docs/progress/m9-closeout.md) and [M6.3P1 closeout](docs/progress/m6.3p1-closeout.md).
+
+R0.1 (PR #200) and R0.2 (PR #201) are merged and `implemented`. R0.3 repairs test and documentation authority; its [handoff](docs/progress/m10-r0.3-test-authority.md) records verification. R0 remains `active` until a separate closeout accepts all required evidence and activates M10A.
 
 The governed M10 sources are:
 
@@ -41,7 +43,7 @@ The governed M10 sources are:
 
 M10 keeps Scene v8/Konva as the 2D authority, introduces a separate Scene3D document/presentation path, and shares the existing renderer-independent runtime semantics. Later gates may begin only after their prerequisite closeout is accepted.
 
-The [UI audit](docs/design/ui-audit-2026-09-10.md), [industrial Designer UI specification](docs/design/industrial-designer-spec.md) and [rollout plan](docs/design/industrial-designer-rollout.md) define the proposed UI corrections. The specification is a target; implementation batches and browser visual acceptance remain pending.
+The [UI audit](docs/design/ui-audit-2026-09-10.md), [industrial Designer UI specification](docs/design/industrial-designer-spec.md) and [rollout plan](docs/design/industrial-designer-rollout.md) define the UI corrections. B1–B3 and C1/C2 are merged; D1 was implemented in PR #197. D2/D3 and E/F remain outstanding. These UI batches do not advance the M10 architecture gates.
 
 ## Product structure
 
@@ -216,7 +218,9 @@ local ready ComponentLibraryEntry
 
 Portable packages exclude local repository IDs/status/timestamps and pass through shared fail-closed validation.
 
-Current portable user-component activation intentionally supports declarative composite packages only. `implementationDraft` is inert, and ready user packages that declare executable Actions/Events are not activated until a separate portable execution contract is accepted.
+Current portable user-component activation supports declarative composite visuals, rules and animations. Any non-empty public Actions or Events declaration is unsupported, even when it contains no source. Workbench ready/save/export/publication and runtime activation enforce that same boundary. Legacy transport packages with those declarations import as drafts for explicit cleanup; they do not activate automatically.
+
+Current canonical definitions reject public Action `implementation` source; compatibility readers strip legacy source with explicit diagnostics before current validation. Canonical exports cannot emit it. `implementationDraft` remains inert through persistence and distribution. SVG theme binding creates a runtime Property and private visual rules; it generates no public Actions. Rebinding can explicitly remove recognized legacy generated Action signatures, while unrelated declarations remain for author review.
 
 Trusted built-ins may still provide typed Actions/Events.
 
@@ -362,4 +366,4 @@ Unless an explicit later gate reopens them:
 - collaborative editing
 - broad component marketplace/catalog expansion without a concrete product requirement
 
-The current priority is improving editing reliability and the UI through dogfooding while preserving the accepted M6–M9 package/runtime/standalone boundaries. No new numbered implementation milestone is currently authorized by `PLAN.md`.
+The current priority is M10-R0 readiness remediation plus already-authorized editor polish, preserving the accepted M6–M9 package/runtime/standalone boundaries. M10A and later 3D implementation gates remain `not-started` until their prerequisites are accepted in `PLAN.md`.

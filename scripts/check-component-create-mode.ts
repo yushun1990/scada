@@ -1,4 +1,3 @@
-import './check-component-layer-order'
 import assert from 'node:assert/strict'
 import {
   appendCreatedVectorLayer,

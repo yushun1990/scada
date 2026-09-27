@@ -1,6 +1,6 @@
 # Component Attributes and Properties Architecture
 
-Status: **accepted design direction; implementation migration is planned after the current M8 portability gate**.
+Status: **accepted**. M9 migration and package/standalone acceptance closed on 2026-09-03; see [M9 closeout](../progress/m9-closeout.md). The design below remains authoritative; current scheduling belongs to [PLAN](../../PLAN.md).
 
 This note refines the component public-contract model defined in `component-system.md` and the scene binding model defined in `scada-binding-behavior.md`.
 
@@ -399,7 +399,11 @@ The migration slice must include at least:
 
 ---
 
-## 11. Scheduling rule
+## 11. Historical scheduling rule — superseded
+
+The following records the pre-M9 sequencing decision. M8 and M9 are now
+accepted; this paragraph does not make M8B1 active again. PLAN currently
+authorizes M10-R0 readiness remediation.
 
 The current M8 standalone portability work should not be destabilized by a mid-milestone schema rewrite.
 

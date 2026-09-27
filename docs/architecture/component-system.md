@@ -330,6 +330,15 @@ This distinction allows the same action contract to be implemented in several wa
 
 ### 7.1 Supported implementation classes
 
+Current execution boundary (M10-R0): trusted native handlers and declarative
+visual rules/animations are implemented. The configuration-step Actions and
+controlled-script authoring described below are historical target concepts,
+not accepted portable execution capabilities. Current portable user packages
+must have empty Actions/Events to activate; Action `implementation` source is
+rejected and `implementationDraft` remains inert. Reopening portable execution
+requires a separate accepted ADR, isolation/capability model and standalone
+parity evidence. PLAN governs scheduling.
+
 The target component system should support three implementation levels:
 
 ```text

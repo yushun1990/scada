@@ -26,13 +26,18 @@ jobs:
 
       - name: Runtime model checks
         run: |
+          node scripts/check-model-check-registration.mjs
           npx --yes tsx scripts/check-component-create-mode.ts
           npx --yes tsx scripts/check-component-layer-navigation.ts
+          npx --yes tsx scripts/check-component-layer-order.ts
+          npx --yes tsx scripts/check-line-layer-interaction.ts
+          npx --yes tsx scripts/check-component-visual-primitives.ts
           npx --yes tsx scripts/check-visual-runtime.ts
           npx --yes tsx scripts/check-managed-svg-assets.ts
           node scripts/check-managed-svg-parser-authority.mjs
           npx --yes tsx scripts/check-managed-svg-doctype-compatibility.ts
           npx --yes tsx scripts/check-managed-svg-authoring.ts
+          npx --yes tsx scripts/check-managed-svg-geometry-authoring.ts
           npx --yes tsx scripts/check-managed-svg-visual-rules.ts
           npx --yes tsx scripts/check-managed-svg-portability.ts
           npx --yes tsx scripts/check-animation-runtime-adapters.ts
@@ -42,6 +47,7 @@ jobs:
           npx --yes tsx scripts/check-controlled-runtime-contract.ts
           npx --yes tsx scripts/check-controlled-runtime-session.ts
           npx --yes tsx scripts/check-controlled-script-protocol.ts
+          npx --yes tsx scripts/check-controlled-script-codec.ts
           npx --yes tsx scripts/check-controlled-script-engine-contract.ts
           npx --yes tsx scripts/check-portable-execution-boundary.ts
           npx --yes tsx scripts/check-component-capability-consistency.ts

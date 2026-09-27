@@ -1,6 +1,6 @@
 # 3D Scene Editor architecture
 
-- Status: accepted design baseline when merged; implementation is staged by M10
+- Status: `accepted` design baseline (PR #199); implementation is staged by M10
 - Date: 2026-09-25
 - Related review: `docs/reviews/2026-09-25-3d-editor-readiness-review.md`
 

@@ -1,3 +1,12 @@
+import {
+  getLineDesignVertices,
+  normalizePolylineLayer,
+  convertTwoVerticesToLineLayer,
+  projectPointToLineSegments,
+  snapAngleToCardinal,
+  resolveLineEndpointTransform,
+  adjustLineThickness,
+} from './component-line-geometry'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type Konva from 'konva'
@@ -21,7 +30,7 @@ import {
   type ComponentVisualDefinition,
   type VectorVisualLayer,
 } from '../../component-system/visual'
-import { calculateOriginOffset } from '../../component-system/CompositeComponentVisualRenderer'
+import { calculateOriginOffset } from '../../component-system/visual-primitives'
 import { resolveComponentVisualRules } from '../../component-system/visualRules'
 import {
   CopyIcon,
@@ -404,176 +413,6 @@ function isInsideLineOverlay(target: Konva.Node | null) {
   return false
 }
 
-function getLineEndpoints(transform: VectorVisualLayer['transform']) {
-  const { x, y, width, height, rotation, scaleX, scaleY } = transform
-  const rad = (rotation * Math.PI) / 180
-  const cos = Math.cos(rad)
-  const sin = Math.sin(rad)
-  const halfH = height / 2
-
-  const p1 = {
-    x: x - sin * halfH * scaleY,
-    y: y + cos * halfH * scaleY,
-  }
-
-  const p2 = {
-    x: x + cos * width * scaleX - sin * halfH * scaleY,
-    y: y + sin * width * scaleX + cos * halfH * scaleY,
-  }
-
-  return { p1, p2 }
-}
-
-function getLineDesignVertices(layer: VectorVisualLayer): { x: number; y: number }[] {
-  if (layer.points && layer.points.length >= 4) {
-    const { x, y, rotation, scaleX, scaleY } = layer.transform
-    const rad = (rotation * Math.PI) / 180
-    const cos = Math.cos(rad)
-    const sin = Math.sin(rad)
-    const result: { x: number; y: number }[] = []
-    for (let i = 0; i < layer.points.length; i += 2) {
-      const lx = layer.points[i] * scaleX
-      const ly = layer.points[i + 1] * scaleY
-      result.push({
-        x: x + lx * cos - ly * sin,
-        y: y + lx * sin + ly * cos,
-      })
-    }
-    return result
-  }
-  const { p1, p2 } = getLineEndpoints(layer.transform)
-  return [p1, p2]
-}
-
-function normalizePolylineLayer(
-  layer: VectorVisualLayer,
-  vertices: { x: number; y: number }[],
-): VectorVisualLayer {
-  const xs = vertices.map((v) => v.x)
-  const ys = vertices.map((v) => v.y)
-  const minX = Math.min(...xs)
-  const minY = Math.min(...ys)
-  const maxX = Math.max(...xs)
-  const maxY = Math.max(...ys)
-  const strokeWidth = layer.style?.strokeWidth ?? 2
-  const width = Math.max(8, maxX - minX)
-  const height = Math.max(8, maxY - minY, strokeWidth * 2)
-
-  const points: number[] = []
-  for (const v of vertices) {
-    points.push(Math.round((v.x - minX) * 100) / 100, Math.round((v.y - minY) * 100) / 100)
-  }
-
-  return {
-    ...layer,
-    transform: {
-      ...layer.transform,
-      x: Math.round(minX * 100) / 100,
-      y: Math.round(minY * 100) / 100,
-      width,
-      height,
-      rotation: 0,
-      scaleX: 1,
-      scaleY: 1,
-    },
-    points,
-  }
-}
-
-function convertTwoVerticesToLineLayer(
-  layer: VectorVisualLayer,
-  p1: { x: number; y: number },
-  p2: { x: number; y: number },
-): VectorVisualLayer {
-  const dx = p2.x - p1.x
-  const dy = p2.y - p1.y
-  const newWidth = Math.max(4, Math.hypot(dx, dy))
-  const newRotation = (Math.atan2(dy, dx) * 180) / Math.PI
-  const newRad = (newRotation * Math.PI) / 180
-  const strokeWidth = layer.style?.strokeWidth ?? 2
-  const halfH = Math.max(4, strokeWidth)
-  const newX = p1.x + Math.sin(newRad) * halfH
-  const newY = p1.y - Math.cos(newRad) * halfH
-
-  return {
-    ...layer,
-    transform: {
-      ...layer.transform,
-      x: Math.round(newX * 100) / 100,
-      y: Math.round(newY * 100) / 100,
-      width: Math.round(newWidth * 100) / 100,
-      height: halfH * 2,
-      rotation: Math.round(newRotation * 100) / 100,
-      scaleX: 1,
-      scaleY: 1,
-    },
-    points: undefined,
-  }
-}
-
-function projectPointToLineSegments(
-  vertices: { x: number; y: number }[],
-  click: { x: number; y: number },
-) {
-  if (vertices.length < 2) return null
-  let bestDist = Infinity
-  let bestSeg = 0
-  let bestPoint = { x: click.x, y: click.y }
-
-  for (let i = 0; i < vertices.length - 1; i++) {
-    const a = vertices[i]
-    const b = vertices[i + 1]
-    const dx = b.x - a.x
-    const dy = b.y - a.y
-    const lenSq = dx * dx + dy * dy
-    if (lenSq < 1e-6) continue
-
-    const t = Math.max(0, Math.min(1, ((click.x - a.x) * dx + (click.y - a.y) * dy) / lenSq))
-    const projX = a.x + t * dx
-    const projY = a.y + t * dy
-    const dist = Math.hypot(click.x - projX, click.y - projY)
-
-    if (dist < bestDist) {
-      bestDist = dist
-      bestSeg = i
-      bestPoint = {
-        x: Math.round(projX * 100) / 100,
-        y: Math.round(projY * 100) / 100,
-      }
-    }
-  }
-
-  return {
-    segmentIndex: bestSeg,
-    point: bestPoint,
-    distance: bestDist,
-  }
-}
-
-function snapAngleToCardinal(
-  fromPoint: { x: number; y: number },
-  toPoint: { x: number; y: number },
-  toleranceDeg = 4,
-): { x: number; y: number } {
-  const dx = toPoint.x - fromPoint.x
-  const dy = toPoint.y - fromPoint.y
-  const dist = Math.hypot(dx, dy)
-  if (dist < 1e-3) return toPoint
-
-  const deg = (Math.atan2(dy, dx) * 180) / Math.PI
-  const cardinals = [0, 45, 90, 135, 180, -45, -90, -135, -180]
-  for (const card of cardinals) {
-    if (Math.abs(deg - card) <= toleranceDeg) {
-      const rad = (card * Math.PI) / 180
-      return {
-        x: fromPoint.x + Math.cos(rad) * dist,
-        y: fromPoint.y + Math.sin(rad) * dist,
-      }
-    }
-  }
-  return toPoint
-}
-
 type LineInteractionOverlayProps = {
   layer: VectorVisualLayer
   artboardScale: number
@@ -638,7 +477,6 @@ function LineInteractionOverlay({
   // 2-point line specific handles
   const p1 = vertices[0] ?? { x: 0, y: 0 }
   const p2 = vertices[1] ?? { x: 0, y: 0 }
-  const halfH = layer.transform.height / 2
 
   function handleEndDragMove(e: Konva.KonvaEventObject<DragEvent>) {
     e.cancelBubble = true
@@ -661,25 +499,11 @@ function LineInteractionOverlay({
       curY = p1.y + Math.sin(snappedRad) * dist
     }
 
-    const dx = curX - p1.x
-    const dy = curY - p1.y
-    const newWidth = Math.max(4, Math.hypot(dx, dy))
-    const newRotation = (Math.atan2(dy, dx) * 180) / Math.PI
-    const newRad = (newRotation * Math.PI) / 180
-
-    const newX = p1.x + Math.sin(newRad) * halfH
-    const newY = p1.y - Math.cos(newRad) * halfH
-
     const nextLayer: VectorVisualLayer = {
       ...layer,
       transform: {
         ...layer.transform,
-        x: newX,
-        y: newY,
-        width: newWidth,
-        rotation: newRotation,
-        scaleX: 1,
-        scaleY: 1,
+        ...resolveLineEndpointTransform(p1, { x: curX, y: curY }, layer.transform.height),
       },
     }
     onPreviewChange(nextLayer)
@@ -724,25 +548,11 @@ function LineInteractionOverlay({
       curY = p1.y + Math.sin(snappedRad) * dist
     }
 
-    const dx = curX - p1.x
-    const dy = curY - p1.y
-    const newWidth = Math.max(4, Math.hypot(dx, dy))
-    const newRotation = (Math.atan2(dy, dx) * 180) / Math.PI
-    const newRad = (newRotation * Math.PI) / 180
-
-    const newX = p1.x + Math.sin(newRad) * halfH
-    const newY = p1.y - Math.cos(newRad) * halfH
-
     const nextLayer: VectorVisualLayer = {
       ...layer,
       transform: {
         ...layer.transform,
-        x: newX,
-        y: newY,
-        width: newWidth,
-        rotation: newRotation,
-        scaleX: 1,
-        scaleY: 1,
+        ...resolveLineEndpointTransform(p1, { x: curX, y: curY }, layer.transform.height),
       },
     }
     onPreviewChange(null)
@@ -770,25 +580,11 @@ function LineInteractionOverlay({
       curY = p2.y - Math.sin(snappedRad) * dist
     }
 
-    const dx = p2.x - curX
-    const dy = p2.y - curY
-    const newWidth = Math.max(4, Math.hypot(dx, dy))
-    const newRotation = (Math.atan2(dy, dx) * 180) / Math.PI
-    const newRad = (newRotation * Math.PI) / 180
-
-    const newX = curX + Math.sin(newRad) * halfH
-    const newY = curY - Math.cos(newRad) * halfH
-
     const nextLayer: VectorVisualLayer = {
       ...layer,
       transform: {
         ...layer.transform,
-        x: newX,
-        y: newY,
-        width: newWidth,
-        rotation: newRotation,
-        scaleX: 1,
-        scaleY: 1,
+        ...resolveLineEndpointTransform({ x: curX, y: curY }, p2, layer.transform.height),
       },
     }
     onPreviewChange(nextLayer)
@@ -833,25 +629,11 @@ function LineInteractionOverlay({
       curY = p2.y - Math.sin(snappedRad) * dist
     }
 
-    const dx = p2.x - curX
-    const dy = p2.y - curY
-    const newWidth = Math.max(4, Math.hypot(dx, dy))
-    const newRotation = (Math.atan2(dy, dx) * 180) / Math.PI
-    const newRad = (newRotation * Math.PI) / 180
-
-    const newX = curX + Math.sin(newRad) * halfH
-    const newY = curY - Math.cos(newRad) * halfH
-
     const nextLayer: VectorVisualLayer = {
       ...layer,
       transform: {
         ...layer.transform,
-        x: newX,
-        y: newY,
-        width: newWidth,
-        rotation: newRotation,
-        scaleX: 1,
-        scaleY: 1,
+        ...resolveLineEndpointTransform({ x: curX, y: curY }, p2, layer.transform.height),
       },
     }
     onPreviewChange(null)
@@ -945,19 +727,9 @@ function LineInteractionOverlay({
       }
       onPreviewChange(nextLayer)
     } else {
-      const nextHeight = Math.max(8, nextStrokeWidth * 2)
-      const rad = (layer.transform.rotation * Math.PI) / 180
-      const nextX = p1.x + Math.sin(rad) * (nextHeight / 2)
-      const nextY = p1.y - Math.cos(rad) * (nextHeight / 2)
-
       const nextLayer: VectorVisualLayer = {
         ...layer,
-        transform: {
-          ...layer.transform,
-          x: nextX,
-          y: nextY,
-          height: nextHeight,
-        },
+        transform: adjustLineThickness(p1, layer.transform, nextStrokeWidth),
         style: {
           ...resolveVisualVectorStyle(layer),
           strokeWidth: nextStrokeWidth,
@@ -1005,19 +777,9 @@ function LineInteractionOverlay({
       onPreviewChange(null)
       onCommit(nextLayer)
     } else {
-      const nextHeight = Math.max(8, nextStrokeWidth * 2)
-      const rad = (layer.transform.rotation * Math.PI) / 180
-      const nextX = p1.x + Math.sin(rad) * (nextHeight / 2)
-      const nextY = p1.y - Math.cos(rad) * (nextHeight / 2)
-
       const nextLayer: VectorVisualLayer = {
         ...layer,
-        transform: {
-          ...layer.transform,
-          x: nextX,
-          y: nextY,
-          height: nextHeight,
-        },
+        transform: adjustLineThickness(p1, layer.transform, nextStrokeWidth),
         style: {
           ...resolveVisualVectorStyle(layer),
           strokeWidth: nextStrokeWidth,
