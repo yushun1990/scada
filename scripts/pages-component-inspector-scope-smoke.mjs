@@ -42,21 +42,17 @@ try {
   await row.click()
   assert.match(await layerInspector.textContent(), new RegExp(layer.name))
 
-  // Layer scope owns its own tab set: portable layer behavior is declarative
-  // and must not leak public Action/Event authoring affordances.
+  // Layer scope owns its own tab set: behaviors expose SVG layer functions
+  // only (issue #209 / PR198 design) and must not leak public Action/Event
+  // authoring affordances.
   const layerPanel = page.locator('.component-property-panel')
   const layerTab = (name) => layerPanel.getByRole('tab', { name, exact: true })
   await layerTab('行为').click()
-  await layerPanel.getByText(/通用声明式行为在视觉规则中配置/).waitFor()
-  await layerPanel.locator('.component-rule-editor').waitFor()
-  assert.equal(await button('+ 添加方法').count(), 0, 'layer scope must not present the component contract as a layer method')
-  await button('+ 添加 Spin 动画').click()
-  const spin = layerPanel.locator('.component-animation-item').first()
-  await spin.waitFor()
-  await button('撤销').click()
-  assert.equal(await layerPanel.locator('.component-animation-item').count(), 0)
-  await button('重做').click()
-  await spin.waitFor()
+  await layerPanel.getByText(/图层函数仅对 SVG 图层开放/).waitFor()
+  assert.equal(await layerPanel.locator('.component-rule-editor').count(), 0, 'visual rule authoring left the behaviors tab')
+  assert.equal(await layerPanel.locator('.component-animation-item').count(), 0, 'animation authoring left the behaviors tab')
+  assert.equal(await button('+ 添加 Spin 动画').count(), 0, 'animation group must stay removed from the behaviors tab')
+  assert.equal(await button('+ 新增函数').count(), 0, 'non-SVG layers must not offer SVG layer functions')
 
   await layerTab('属性').click()
   const width = layerPanel
@@ -88,9 +84,7 @@ try {
   const persisted = (await readPersistedComponent(page)).document
   assert.deepEqual(persisted.definition.actions, {})
   assert.deepEqual(persisted.definition.events, {})
-  assert.equal(persisted.visual.animations.length, 1)
-  assert.equal(persisted.visual.animations[0].kind, 'spin')
-  assert.equal(persisted.visual.animations[0].layerId, layer.id)
+  assert.equal((persisted.visual.animations ?? []).length, 0, 'no animation is authored from the behaviors tab')
   assert.deepEqual(
     persisted.visual.layers,
     [{ ...layer, transform: { ...layer.transform, width: 120 } }],
@@ -103,8 +97,7 @@ try {
   await layerTab('属性').click()
   assert.equal(await width.isDisabled(), true, 'preview also gates layer editing')
   await layerTab('行为').click()
-  assert.equal(await button('+ 添加 Spin 动画').count(), 0)
-  assert.equal(await layerPanel.getByLabel('animation1 每轮旋转角度', { exact: true }).isDisabled(), true)
+  assert.equal(await button('+ 添加 Spin 动画').count(), 0, 'preview keeps the behaviors tab free of animation authoring')
   assert.deepEqual(errors, [])
   console.log('Inspector scope smoke passed: preserved selection, separate remembered tabs, correct contract/property persistence and preview gates.')
 } finally {

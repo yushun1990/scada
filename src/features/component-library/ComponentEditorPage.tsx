@@ -58,8 +58,6 @@ import { COMPONENT_SNAP_GRID_SIZE } from './component-canvas-snap'
 import { HttpRemoteComponentRepository } from './remote-component-repository'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
 import { ComponentVisualStyleInspector } from './ComponentVisualStyleInspector'
-import { ComponentVisualRuleEditor } from './ComponentVisualRuleEditor'
-import { ComponentVisualAnimationEditor } from './ComponentVisualAnimationEditor'
 import { ComponentLayerMethodInspector } from './ComponentLayerMethodInspector'
 import {
   ComponentVisualLayerInspector,
@@ -817,18 +815,8 @@ export function ComponentEditorPage({
 
               {layerInspectorTab === 'behaviors' && (
                 <div className="component-layer-inspector-body">
-                  <CollapsibleInspectorGroup title="视觉规则">
-                    <ComponentVisualRuleEditor
-                      definition={definition}
-                      visual={component.visual}
-                      layerId={singleSelectedLayerId}
-                      readOnly={editingDisabled}
-                      onChange={(visual) => updatePackage('visual', visual)}
-                    />
-                  </CollapsibleInspectorGroup>
                   <ComponentLayerMethodInspector
                     layer={selectedLayer}
-                    definition={definition}
                     visual={component.visual}
                     readOnly={editingDisabled}
                     onUpdateLayer={(updatedLayer) => {
@@ -838,24 +826,7 @@ export function ComponentEditorPage({
                       updatePackage('visual', { ...component.visual, layers })
                     }}
                     onUpdateVisual={(nextVisual) => updatePackage('visual', nextVisual)}
-                    onBindContract={(nextDefinition, nextVisual) => {
-                      mutateComponent((current) => ({
-                        ...current,
-                        definition: nextDefinition,
-                        visual: nextVisual,
-                      }))
-                      setMessage('已绑定声明式 SVG 主题行为')
-                    }}
                   />
-                  <CollapsibleInspectorGroup title="动画">
-                    <ComponentVisualAnimationEditor
-                      definition={definition}
-                      visual={component.visual}
-                      layerId={singleSelectedLayerId}
-                      readOnly={editingDisabled}
-                      onChange={(visual) => updatePackage('visual', visual)}
-                    />
-                  </CollapsibleInspectorGroup>
                 </div>
               )}
             </>

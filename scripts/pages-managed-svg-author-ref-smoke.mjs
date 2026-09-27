@@ -68,24 +68,6 @@ async function waitForDenseCanvasColor(currentPage, matcher) {
   }, matcher)
 }
 
-async function chooseSelectOption(currentPage, ariaLabel, optionName) {
-  const trigger = currentPage.getByLabel(ariaLabel, { exact: true })
-  await trigger.click()
-  await currentPage.getByRole('option', { name: optionName, exact: false }).click()
-}
-
-async function openInspectorGroup(currentPage, title) {
-  if (title === '视觉规则') await currentPage.getByRole('tab', { name: '行为', exact: true }).click()
-  const group = currentPage.locator('.inspector-collapsible')
-    .filter({ has: currentPage.locator('.inspector-group-title', { hasText: title }) })
-    .first()
-  const header = group.locator('.inspector-group-header')
-  if ((await header.getAttribute('aria-expanded')) !== 'true') {
-    await header.click()
-  }
-  return group
-}
-
 // The managed-SVG inner element editor is retired; authorRef authoring now
 // goes through the SVG source marking workbench (id tags carry authorRef).
 async function authorTagViaMarkingWorkbench(currentPage, tagId, name) {
@@ -174,100 +156,24 @@ try {
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
   await page.locator('.component-svg-tag-card', { hasText: authorRef }).waitFor()
 
-  const ruleGroup = await openInspectorGroup(page, '视觉规则')
-  await ruleGroup.getByRole('button', { name: '+ 添加视觉规则', exact: true }).click()
-
-  const ruleItem = ruleGroup.locator('.component-rule-item').first()
-  await ruleItem.waitFor()
-  assert.equal(
-    await ruleItem.getAttribute('data-svg-tag-id'),
-    null,
-    'a fresh rule stays layer-scoped while no managed-SVG selection exists',
-  )
-  await chooseSelectOption(page, 'rule1 作用对象', `@${authorRef}`)
-  await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000003' }).waitFor()
-  assert.equal(await ruleItem.getAttribute('data-svg-tag-id'), 'svg-tag-000003')
-  await waitForDenseCanvasColor(page, {
-    alphaMin: 80,
-    redMin: 105,
-    redMax: 145,
-    greenMin: 35,
-    greenMax: 85,
-    blueMin: 210,
-    blueMax: 255,
-  })
-
-  await ruleGroup.getByRole('button', { name: '+ 添加视觉规则', exact: true }).click()
-  const ruleItemTwo = ruleGroup.locator('.component-rule-item').nth(1)
-  await ruleItemTwo.waitFor()
-  assert.equal(
-    await ruleItemTwo.getAttribute('data-svg-tag-id'),
-    'svg-tag-000003',
-    'new rules default to the current canonical managed-SVG selection',
-  )
-
-  await chooseSelectOption(page, 'rule1 作用对象', 'svg-tag-000002')
-  await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000002' }).waitFor()
-  assert.equal(await ruleItem.getAttribute('data-svg-tag-id'), 'svg-tag-000002')
-
-  await chooseSelectOption(page, 'rule1 作用对象', `@${authorRef}`)
-  await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000003' }).waitFor()
-  assert.equal(await ruleItem.getAttribute('data-svg-tag-id'), 'svg-tag-000003')
-
-  await page.getByRole('tab', { name: '属性', exact: true }).click()
-  await authorTagViaMarkingWorkbench(page, 'svg-tag-000003', renamedAuthorRef)
-  await page.locator('.component-svg-tag-card', { hasText: renamedAuthorRef }).waitFor()
-  await openInspectorGroup(page, '视觉规则')
-  const ruleTarget = ruleItem.getByLabel('rule1 作用对象', { exact: true })
-  assert.match(await ruleTarget.textContent() ?? '', new RegExp(`@${renamedAuthorRef}`))
-  assert.equal(await ruleItem.getAttribute('data-svg-tag-id'), 'svg-tag-000003')
-
-  await saveAndWait(page)
-  const convergedPersisted = await readPersistedComponent(page)
-  const convergedSvg = findVisualLayer(convergedPersisted.document, 'svg', 'ux1.3-author-ref')
-  assert.ok(convergedSvg?.document)
-  assert.equal(
-    findManagedTag(convergedSvg.document, 'svg-tag-000003')?.authorRef,
-    renamedAuthorRef,
-  )
-  const persistedRule = convergedPersisted.document.visual.rules?.find((rule) => rule.id === 'rule1')
-  assert.ok(persistedRule)
-  assert.equal(persistedRule.svgTagId, 'svg-tag-000003')
-  assert.equal(
-    Object.prototype.hasOwnProperty.call(persistedRule, 'authorRef'),
-    false,
-    'Visual Rule persistence must not gain an authorRef runtime address',
-  )
-
-  await page.goto(savedUrl, { waitUntil: 'networkidle' })
-  await page.locator('.studio-shell.component-studio-shell').waitFor()
-  await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
-  await page.getByRole('tab', { name: '属性', exact: true }).click()
-  await page.locator('.component-svg-tag-card', { hasText: renamedAuthorRef }).waitFor()
-  const reopenedRuleGroup = await openInspectorGroup(page, '视觉规则')
-  const reopenedRule = reopenedRuleGroup.locator('.component-rule-item[data-svg-tag-id="svg-tag-000003"]').first()
-  await reopenedRule.waitFor()
-  const reopenedRuleTarget = reopenedRule.getByLabel('rule1 作用对象', { exact: true })
-  await reopenedRuleTarget.waitFor()
-  assert.match(await reopenedRuleTarget.textContent() ?? '', new RegExp(`@${renamedAuthorRef}`))
-  await chooseSelectOption(page, 'rule1 作用对象', 'svg-tag-000002')
-  await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000002' }).waitFor()
-  await chooseSelectOption(page, 'rule1 作用对象', `@${renamedAuthorRef}`)
-  await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000003' }).waitFor()
+  // Visual Rule authoring left the behaviors tab with the issue #209 redesign;
+  // alias authority is proven through the marking workbench and persistence.
 
   await page.getByLabel('预览', { exact: true }).click()
   await page.locator('.status-mode', { hasText: '预览' }).waitFor()
+  await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
+  await page.getByRole('tab', { name: '行为', exact: true }).click()
   assert.equal(
-    await reopenedRuleTarget.isDisabled(),
+    await page.getByRole('button', { name: '+ 新增函数' }).isDisabled(),
     true,
-    'Preview keeps Visual Rule target authoring read-only',
+    'Preview keeps SVG layer function authoring read-only',
   )
   await mkdir('artifacts', { recursive: true })
   await page.screenshot({ path: 'artifacts/managed-svg-rules-preview.png' })
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'Managed SVG author-reference and UX1.5 target-convergence browser proof passed: a real root Property authoring flow drives Rule creation; the marking workbench authors authorRef ids; Rule target changes drive the same Canvas/Inspector selection and new rules default to it; authorRef labels rename without rewriting svgTagId; save/reopen preserves both authorities; and Preview remains read-only.',
+    'Managed SVG author-reference browser proof passed: the marking workbench authors authorRef ids; alias-only edits keep svgTagId identity; save/reopen preserves the alias authority; and Preview keeps SVG layer function authoring read-only.',
   )
 } finally {
   await browser.close()

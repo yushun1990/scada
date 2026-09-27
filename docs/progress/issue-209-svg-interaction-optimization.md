@@ -9,6 +9,27 @@ feedback).
 Base: `main@f469abf` (rev 2). Product polish under the current `PLAN.md`
 product-polish phase, driven by an open issue. No M10A boundary change.
 
+## Rev 3 (behaviors tab per PR198, author direction)
+
+- The behaviors tab now contains the SVG layer functions panel ONLY, matching
+  the PR #198 'actions' tab: the 视觉规则 and 动画 groups and the SVG
+  declarative theme binding group are removed
+  (`ComponentVisualRuleEditor`, `ComponentVisualAnimationEditor` and
+  `ComponentSvgLayerBehaviorEditor` deleted; the domain rule resolver,
+  animation runtime and `generateComponentSvgThemeBindings` remain in the
+  component system). Non-SVG layers get a plain notice.
+- The function modal is rebuilt on the PR #198 design using its original
+  stylesheet: metadata bar (函数标识名/简介), form-driven parameter table,
+  code editor with line numbers + syntax highlighting + Tab handling, local
+  code assistant (preset chips + prompt + result strip), live SVG preview with
+  theme badge, in-modal test-run panel and the unified bottom action bar
+  (恢复出厂默认 for builtins / 重置 / 取消 / ▶ 预览试运行 / 保存方法实现).
+- Smoke updates: the author-ref smoke drops the visual-rule convergence flow
+  (rules are no longer authorable from this tab) and proves preview read-only
+  via the disabled 新增函数 button; the inspector-scope smoke asserts the
+  behaviors tab is free of rule/animation authoring; the layer-methods smoke
+  drives the new modal selectors.
+
 ## Rev 2 (author feedback)
 
 - The SVG replacement control is gone entirely — the earlier relocation

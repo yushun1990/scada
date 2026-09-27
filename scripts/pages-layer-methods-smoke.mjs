@@ -101,15 +101,14 @@ try {
     blueMax: 120,
   })
 
-  // 新增函数: author a custom function through the code modal and run it.
+  // 新增函数: author a custom function through the 198-style code modal.
   await methodsGroup.getByRole('button', { name: '+ 新增函数' }).click()
-  const modal = page.locator('.component-layer-method-modal-popup')
+  const modal = page.locator('.component-method-implementation-modal')
   await modal.waitFor()
-  await modal.locator('input').nth(0).fill('applyLevel')
-  await modal.locator('input').nth(1).fill('应用等级')
-  await modal.locator('input').nth(2).fill('等级驱动主题与事件')
+  await modal.getByLabel('函数标识名').fill('applyLevel')
+  await modal.getByLabel('函数简介说明').fill('应用等级')
   await modal.getByRole('button', { name: '⚙️ 多态切换 (运行/待机)' }).click()
-  const codeArea = modal.locator('.component-layer-method-code-input')
+  const codeArea = modal.locator('.component-method-code-textarea')
   await codeArea.waitFor()
   await codeArea.fill(`/**
  * 等级驱动主题
@@ -123,7 +122,7 @@ function applyLevel(state = 'running') {
   }
   return $self.setTheme('default');
 }`)
-  await modal.getByRole('button', { name: '保存函数' }).click()
+  await modal.getByRole('button', { name: '保存方法实现' }).click()
   await modal.waitFor({ state: 'detached' })
 
   const customRow = methodsGroup.locator('.component-method-item', { hasText: 'applyLevel' })

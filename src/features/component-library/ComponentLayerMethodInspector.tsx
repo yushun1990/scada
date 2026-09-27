@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
-import type { ComponentDefinition } from '../../component-system/definition'
 import { serializeManagedSvgDataUrl } from '../../component-system/managedSvg'
+import type { ManagedSvgDocument } from '../../component-system/managedSvg'
 import {
   applyThemeToManagedSvgDocument,
   hasManagedSvgThemeClasses,
@@ -20,20 +20,14 @@ import {
 import { Button } from '../../ui'
 import { ComponentLayerMethodCodeModal, type LayerMethodEditState } from './ComponentLayerMethodCodeModal'
 import { CodeIcon, PlayIcon, buildMethodCode } from './component-layer-method-templates'
-import { ComponentSvgLayerBehaviorEditor } from './ComponentSvgLayerBehaviorEditor'
 import './component-layer-methods.css'
 
 type ComponentLayerMethodInspectorProps = {
   layer?: ComponentVisualLayer | null
-  definition: ComponentDefinition
   visual: ComponentVisualDefinition
   readOnly: boolean
   onUpdateLayer: (layer: ComponentVisualLayer) => void
   onUpdateVisual: (visual: ComponentVisualDefinition) => void
-  onBindContract: (
-    definition: ComponentDefinition,
-    visual: ComponentVisualDefinition,
-  ) => void
 }
 
 type MethodRow = {
@@ -46,35 +40,38 @@ type MethodRow = {
   implementation: string
 }
 
-type RunState = {
-  name: string
-  result: LayerMethodRunResult
-} | null
-
 /**
- * SVG layer functions per the issue #209 / PR #198 functional design: methods
- * are listed, authorable (`<>` edit) and runnable (`▶` preview). Execution goes
- * exclusively through the controlled QuickJS sandbox engine — authored source
- * never runs as unrestricted page JavaScript and never becomes a public
- * Action/Event contract.
+ * The behaviors tab per the issue #209 / PR #198 functional design: SVG layer
+ * functions only — listed, authorable (`<>` edit) and runnable (`▶` preview).
+ * Execution goes exclusively through the controlled QuickJS sandbox engine;
+ * authored source never runs as unrestricted page JavaScript and never
+ * becomes a public Action/Event contract.
  */
 export function ComponentLayerMethodInspector({
   layer,
-  definition,
   visual,
   readOnly,
   onUpdateLayer,
   onUpdateVisual,
-  onBindContract,
 }: ComponentLayerMethodInspectorProps) {
   const [editState, setEditState] = useState<LayerMethodEditState | null>(null)
-  const [runState, setRunState] = useState<RunState>(null)
+  const [runResults, setRunResults] = useState<Record<string, LayerMethodRunResult>>({})
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [runningName, setRunningName] = useState<string | null>(null)
+
+  // Live theme state for the code modal's visual preview.
+  const [liveCurrentTheme, setLiveCurrentTheme] = useState<string | null>(null)
+  const [livePreviewAssetRef, setLivePreviewAssetRef] = useState<string | null>(null)
+  const latestDocumentRef = useRef<ManagedSvgDocument | null>(null)
 
   const svgLayer = layer && layer.kind === 'svg' ? (layer as SvgVisualLayer) : null
 
   const customMethods = svgLayer?.methods ?? []
+
+  useEffect(() => {
+    latestDocumentRef.current = svgLayer?.document ?? null
+    setLivePreviewAssetRef(svgLayer?.assetRef ?? null)
+  }, [svgLayer?.document, svgLayer?.assetRef])
 
   const hasThemeClasses = useMemo(() => {
     return svgLayer?.document ? hasManagedSvgThemeClasses(svgLayer.document) : false
@@ -122,7 +119,7 @@ export function ComponentLayerMethodInspector({
         data-portable-action-execution="disabled"
       >
         <div className="component-methods-status-banner" role="status">
-          当前图层没有 SVG 函数；图层函数仅对 SVG 图层开放，通用声明式行为在视觉规则中配置。
+          当前图层没有 SVG 函数；图层函数仅对 SVG 图层开放。
         </div>
       </div>
     )
@@ -135,23 +132,31 @@ export function ComponentLayerMethodInspector({
   }
 
   function openCreate() {
+    const code = buildMethodCode('', '', '', [])
     setEditState({
-      originalName: '',
-      name: '',
+      originalMethodName: '',
+      methodName: '',
       title: '',
       description: '',
       isBuiltin: false,
       isNew: true,
       parameters: [],
-      code: buildMethodCode('', '', '', []),
+      code,
       testParamValues: {},
+      initialSnapshot: {
+        methodName: '',
+        title: '',
+        description: '',
+        parameters: [],
+        code,
+      },
     })
   }
 
   function openEdit(row: MethodRow) {
     setEditState({
-      originalName: row.name,
-      name: row.name,
+      originalMethodName: row.name,
+      methodName: row.name,
       title: row.title,
       description: row.description,
       isBuiltin: row.isBuiltin,
@@ -159,13 +164,20 @@ export function ComponentLayerMethodInspector({
       parameters: [...(row.parameters ?? [])],
       code: row.implementation,
       testParamValues: {},
+      initialSnapshot: {
+        methodName: row.name,
+        title: row.title,
+        description: row.description,
+        parameters: [...(row.parameters ?? [])],
+        code: row.implementation,
+      },
     })
   }
 
   function handleSaveEdit(state: LayerMethodEditState) {
-    const next = customMethods.filter((method) => method.name !== state.originalName)
+    const next = customMethods.filter((method) => method.name !== state.originalMethodName)
     next.push({
-      name: state.name,
+      name: state.methodName,
       title: state.title,
       description: state.description || undefined,
       parameters: state.parameters,
@@ -175,14 +187,14 @@ export function ComponentLayerMethodInspector({
     setEditState(null)
     setStatusMessage(
       state.isBuiltin
-        ? `已将内置函数 ${state.name} 另存为自定义实现`
-        : `函数 ${state.name} 已保存（试运行可用，运行时接线仍走声明式规则）`,
+        ? `已将内置函数 ${state.methodName} 另存为自定义实现`
+        : `函数 ${state.methodName} 已保存（▶ 试运行可用）`,
     )
     setTimeout(() => setStatusMessage(null), 4000)
   }
 
   async function handleRun(
-    row: MethodRow,
+    row: Pick<MethodRow, 'name' | 'title' | 'description' | 'parameters' | 'implementation'>,
     args: Record<string, unknown>,
   ): Promise<LayerMethodRunResult | null> {
     if (runningName) return null
@@ -206,15 +218,18 @@ export function ComponentLayerMethodInspector({
           })),
         ],
       })
-      setRunState({ name: row.name, result })
+      setRunResults((prev) => ({ ...prev, [row.name]: result }))
 
       if (result.ok) {
-        let currentLayer: SvgVisualLayer = selfLayer
+        let currentLayer = selfLayer
         for (const op of result.ops) {
           if (op.kind === 'setTheme' && currentLayer.document) {
             const nextDoc = applyThemeToManagedSvgDocument(currentLayer.document, op.state)
             const nextAssetRef = serializeManagedSvgDataUrl(nextDoc)
             currentLayer = { ...currentLayer, document: nextDoc, assetRef: nextAssetRef }
+            latestDocumentRef.current = nextDoc
+            setLiveCurrentTheme(op.state)
+            setLivePreviewAssetRef(nextAssetRef)
           }
         }
         const themeApplied = result.ops.some((op) => op.kind === 'setTheme')
@@ -247,9 +262,9 @@ export function ComponentLayerMethodInspector({
     }
   }
 
-  function defaultArgsFor(row: MethodRow): Record<string, unknown> {
+  function defaultArgsFor(parameters: SvgLayerMethodDefinition['parameters']): Record<string, unknown> {
     const args: Record<string, unknown> = {}
-    for (const parameter of row.parameters ?? []) {
+    for (const parameter of parameters ?? []) {
       if (parameter.defaultValue !== undefined) args[parameter.name] = parameter.defaultValue
       else if (parameter.kind === 'select' && parameter.options?.length) {
         args[parameter.name] = parameter.options[0].value
@@ -314,7 +329,7 @@ export function ComponentLayerMethodInspector({
                       disabled={readOnly || runningName !== null}
                       aria-label={`${row.name} 运行预览`}
                       title="在受控沙箱试运行并应用到当前画布"
-                      onClick={() => void handleRun(row, defaultArgsFor(row))}
+                      onClick={() => void handleRun(row, defaultArgsFor(row.parameters))}
                     >
                       <PlayIcon />
                     </Button>
@@ -332,16 +347,16 @@ export function ComponentLayerMethodInspector({
                     )}
                   </div>
                 )}
-                {runState?.name === row.name && (
+                {runResults[row.name] && (
                   <div
-                    className={`component-method-run-result ${runState.result.ok ? 'is-ok' : 'is-error'}`}
+                    className={`component-method-run-result ${runResults[row.name].ok ? 'is-ok' : 'is-error'}`}
                     role="status"
                   >
                     <div className="component-method-run-summary">
-                      {runState.result.ok ? '✓' : '✕'} {runState.result.message}
-                      {runState.result.elapsedMs > 0 && ` · ${runState.result.elapsedMs}ms`}
+                      {runResults[row.name].ok ? '✓' : '✕'} {runResults[row.name].message}
+                      {runResults[row.name].elapsedMs > 0 && ` · ${runResults[row.name].elapsedMs}ms`}
                     </div>
-                    {runState.result.ops
+                    {runResults[row.name].ops
                       .filter((op) => op.kind === 'log' || op.kind === 'emit')
                       .map((op, index) => (
                         <div key={index} className="component-method-run-log">
@@ -364,28 +379,20 @@ export function ComponentLayerMethodInspector({
         )}
       </CollapsibleInspectorGroup>
 
-      <ComponentSvgLayerBehaviorEditor
-        layer={selfLayer}
-        definition={definition}
-        visual={visual}
-        readOnly={readOnly}
-        onUpdateLayer={onUpdateLayer}
-        onBindContract={onBindContract}
-      />
-
       <ComponentLayerMethodCodeModal
         editState={editState}
         readOnly={readOnly}
+        svgLayer={selfLayer}
+        liveCurrentTheme={liveCurrentTheme}
+        livePreviewAssetRef={livePreviewAssetRef}
         onClose={() => setEditState(null)}
         onSave={handleSaveEdit}
         onRunTest={async (state) => {
           const result = await handleRun(
             {
-              key: `test-${state.name}`,
-              name: state.name,
+              name: state.methodName,
               title: state.title,
               description: state.description,
-              isBuiltin: false,
               parameters: state.parameters,
               implementation: state.code,
             },
@@ -399,6 +406,10 @@ export function ComponentLayerMethodInspector({
               ops: [],
             }
           )
+        }}
+        showStatus={(message) => {
+          setStatusMessage(message)
+          setTimeout(() => setStatusMessage(null), 3000)
         }}
       />
     </div>
