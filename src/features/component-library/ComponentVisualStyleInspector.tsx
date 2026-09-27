@@ -204,6 +204,22 @@ export function ComponentVisualStyleInspector({
           ? 'drop-shadow'
           : 'custom'
 
+    const lineCapField = (
+      <label className="property-field compact">
+        <span>端点形状</span>
+        <Select
+          value={style.lineCap ?? 'round'}
+          disabled={readOnly}
+          ariaLabel={`${layer.name} 端点形状`}
+          options={LINE_CAP_OPTIONS}
+          onValueChange={(value) => updateLayer({
+            ...layer,
+            style: { ...style, lineCap: value as VisualLineCap },
+          })}
+        />
+      </label>
+    )
+
     return (
       <div className="component-layer-style-inspector">
         {/* 形状几何参数 */}
@@ -748,21 +764,7 @@ export function ComponentVisualStyleInspector({
               />
             </label>
           </div>
-          {(isLineOrScale || (style.dash && style.dash !== 'solid')) && (
-            <label className="property-field compact">
-              <span>端点形状</span>
-              <Select
-                value={style.lineCap ?? 'round'}
-                disabled={readOnly}
-                ariaLabel={`${layer.name} 端点形状`}
-                options={LINE_CAP_OPTIONS}
-                onValueChange={(value) => updateLayer({
-                  ...layer,
-                  style: { ...style, lineCap: value as VisualLineCap },
-                })}
-              />
-            </label>
-          )}
+          {(isScale || (style.dash && style.dash !== 'solid')) && lineCapField}
         </CollapsibleInspectorGroup>
 
         {/* 投影与光晕效果 */}
@@ -908,7 +910,8 @@ export function ComponentVisualStyleInspector({
         </CollapsibleInspectorGroup>
 
         {isLine && (
-          <CollapsibleInspectorGroup title="线段箭头与标记">
+          <CollapsibleInspectorGroup title="端点样式">
+            {lineCapField}
             <div className="property-grid">
               <label className="property-field compact">
                 <span>起点样式</span>
