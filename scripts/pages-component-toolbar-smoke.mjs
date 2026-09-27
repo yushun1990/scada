@@ -37,6 +37,32 @@ async function buttonWidths(group) {
   )
 }
 
+// Each Studio theme scopes its own --ui-color-text-disabled (teal-tinted in
+// the Component shell), so resolve the live token instead of hardcoding one.
+function resolveDisabledGray() {
+  return page.evaluate(() => {
+    const hex = getComputedStyle(document.documentElement)
+      .getPropertyValue('--ui-color-text-disabled')
+      .trim()
+    const value = Number.parseInt(hex.slice(1), 16)
+    const channel = (shift) => (value >> shift) & 0xff
+    return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`
+  })
+}
+
+function readButtonState(locator) {
+  return locator.evaluate((element) => {
+    const computed = getComputedStyle(element)
+    return {
+      nativeDisabled: element.disabled === true,
+      dataDisabled: element.hasAttribute('data-disabled'),
+      color: computed.color,
+      background: computed.backgroundColor,
+      cursor: computed.cursor,
+    }
+  })
+}
+
 async function assertC2Boundary(group, label) {
   const style = await group.evaluate((element) => {
     const computed = getComputedStyle(element)
@@ -218,6 +244,36 @@ try {
   await page.setViewportSize({ width: 1600, height: 900 })
   await page.screenshot({ path: 'artifacts/component-toolbar-1600.png', fullPage: true })
   await measureComponentToolbar('Component 1600px desktop')
+
+  // Disabled commands must read as one gray across both toolbar families:
+  // portaled commands render native :disabled while toolbar commands render
+  // Base UI's data-disabled, and neither may light up on hover.
+  const componentDisabledGray = await resolveDisabledGray()
+  const componentDisabledTargets = [
+    ['撤销', 'portaled native-:disabled'],
+    ['组合选中图层', 'toolbar data-disabled'],
+  ].map(([name, family]) => ({ family, locator: page.getByRole('button', { name, exact: true }) }))
+  componentDisabledTargets.push({
+    family: 'toolbar data-disabled',
+    locator: page.locator('.component-geometry-buttons button').first(),
+  })
+  for (const { family, locator } of componentDisabledTargets) {
+    const state = await readButtonState(locator)
+    assert.ok(state.nativeDisabled || state.dataDisabled, `${family}: the command must actually be disabled`)
+    assert.equal(state.color, componentDisabledGray, `${family}: disabled command must render the disabled text token`)
+    await locator.hover()
+    const hoverState = await readButtonState(locator)
+    assert.equal(hoverState.color, componentDisabledGray, `${family}: hover must not repaint a disabled command`)
+    assert.equal(hoverState.background, 'rgba(0, 0, 0, 0)', `${family}: hover must not highlight a disabled command`)
+    assert.equal(hoverState.cursor, 'not-allowed', `${family}: disabled command must keep the not-allowed cursor`)
+  }
+  await page.mouse.move(0, 0)
+  // An enabled command beside them keeps its interactive color, so the
+  // disabled gray is a real state change rather than a toolbar-wide tint.
+  const snapToggle = page.getByRole('button', { name: '吸附', exact: true })
+  assert.equal(await snapToggle.isEnabled(), true, 'snap toggle must stay enabled on an editable canvas')
+  assert.notEqual((await readButtonState(snapToggle)).color, componentDisabledGray, 'enabled command must not share the disabled gray')
+
   await page.setViewportSize({ width: 1200, height: 900 })
   await measureComponentToolbar('Component 1200px compact desktop', true)
   await page.screenshot({ path: 'artifacts/component-toolbar-1200.png', fullPage: true })
@@ -257,6 +313,22 @@ try {
   const scadaLastBox = await scadaLast.boundingBox()
   assert.ok(scadaLastBox && contains(scadaDesktop.geometryBox, scadaLastBox), 'SCADA 1200px: final geometry command must be visible')
 
+  // The SCADA toolbar only renders Base UI data-disabled commands. A freshly
+  // created work has an empty history, so undo/redo are deterministically
+  // disabled; they must show the disabled gray and no legacy hover highlight.
+  const scadaDisabledGray = await resolveDisabledGray()
+  for (const name of ['撤销', '重做']) {
+    const locator = page.getByRole('button', { name, exact: true })
+    const state = await readButtonState(locator)
+    assert.ok(state.nativeDisabled || state.dataDisabled, `SCADA ${name}: the command must actually be disabled`)
+    assert.equal(state.color, scadaDisabledGray, `SCADA ${name}: disabled command must render the disabled text token`)
+    await locator.hover()
+    const hoverState = await readButtonState(locator)
+    assert.equal(hoverState.color, scadaDisabledGray, `SCADA ${name}: hover must not repaint a disabled command`)
+    assert.equal(hoverState.background, state.background, `SCADA ${name}: hover must not highlight a disabled command`)
+  }
+  await page.mouse.move(0, 0)
+
   await page.setViewportSize({ width: 1000, height: 900 })
   await page.waitForTimeout(100)
   await page.screenshot({ path: 'artifacts/scada-toolbar-1000.png', fullPage: true })
@@ -280,7 +352,7 @@ try {
   )
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Pages Studio toolbar smoke passed: Component and SCADA keep one Studio toolbar, stable outer command families, usable targets, centered Component groups with a compact alignment menu, and SCADA middle-only overflow.')
+  console.log('Pages Studio toolbar smoke passed: Component and SCADA keep one Studio toolbar, stable outer command families, usable targets, centered Component groups with a compact alignment menu, SCADA middle-only overflow, and one gray disabled state without hover highlights.')
 } finally {
   await browser.close()
 }

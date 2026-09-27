@@ -252,7 +252,7 @@
   padding: 0;
 }
 
-.canvas-tool-group button:hover:not(:disabled) {
+.canvas-tool-group button:hover:not(:disabled):not([data-disabled]) {
   border-color: #93c5fd;
   color: #1d4ed8;
   background: #eff6ff;
@@ -275,7 +275,7 @@
   background: transparent;
 }
 
-.toggle-button:hover:not(:disabled) {
+.toggle-button:hover:not(:disabled):not([data-disabled]) {
   color: #1d4ed8;
   border-color: #93c5fd;
   background: #eff6ff;
@@ -287,7 +287,7 @@
   background: #eff6ff;
 }
 
-.toggle-button.active:hover:not(:disabled) {
+.toggle-button.active:hover:not(:disabled):not([data-disabled]) {
   color: #1d4ed8;
   border-color: #93c5fd;
   background: #dbeafe;

@@ -183,15 +183,18 @@
   height: var(--ui-control-height-small);
 }
 
-.component-studio-shell .studio-main-toolbar .icon-button:disabled {
-  color: var(--ui-color-text-disabled);
-  background: transparent;
-}
-
-.component-studio-shell .studio-main-toolbar .icon-button:hover:not(:disabled),
-.component-studio-shell .studio-main-toolbar .icon-button[aria-pressed='true'] {
+.component-studio-shell .studio-main-toolbar .icon-button:hover:not(:disabled):not([data-disabled]),
+.component-studio-shell .studio-main-toolbar .icon-button[aria-pressed='true']:not(:disabled):not([data-disabled]) {
   color: var(--ui-color-accent-pressed);
   background: var(--ui-color-accent-soft);
+}
+
+/* Portaled commands carry native :disabled; toolbar commands carry Base UI's
+ * data-disabled instead, so both must resolve to the same disabled gray. */
+.component-studio-shell .studio-main-toolbar .icon-button:disabled,
+.component-studio-shell .studio-main-toolbar .icon-button[data-disabled] {
+  color: var(--ui-color-text-disabled);
+  background: transparent;
 }
 
 .component-studio-shell .grid-control {

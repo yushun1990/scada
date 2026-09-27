@@ -72,13 +72,15 @@
   background: var(--ui-color-accent);
 }
 
-.ui-button-primary:hover:not(:disabled),
+/* Base UI toolbar/segment controls stay focusable and expose [data-disabled]
+ * instead of native :disabled, so interactive states must exclude both. */
+.ui-button-primary:hover:not(:disabled):not([data-disabled]),
 .ui-button-primary[data-popup-open] {
   border-color: var(--ui-color-accent-hover);
   background: var(--ui-color-accent-hover);
 }
 
-.ui-button-primary:active:not(:disabled) {
+.ui-button-primary:active:not(:disabled):not([data-disabled]) {
   border-color: var(--ui-color-accent-pressed);
   background: var(--ui-color-accent-pressed);
 }
@@ -89,12 +91,12 @@
   background: var(--ui-color-accent-soft);
 }
 
-.ui-button-accent:hover:not(:disabled) {
+.ui-button-accent:hover:not(:disabled):not([data-disabled]) {
   color: var(--ui-color-accent-pressed);
   background: var(--ui-color-surface);
 }
 
-.ui-button-accent:active:not(:disabled) {
+.ui-button-accent:active:not(:disabled):not([data-disabled]) {
   color: #ffffff;
   background: var(--ui-color-accent-pressed);
 }
@@ -105,12 +107,12 @@
   background: var(--ui-color-surface);
 }
 
-.ui-button-secondary:hover:not(:disabled) {
+.ui-button-secondary:hover:not(:disabled):not([data-disabled]) {
   border-color: var(--ui-color-accent);
   background: var(--ui-color-surface-subtle);
 }
 
-.ui-button-secondary:active:not(:disabled) {
+.ui-button-secondary:active:not(:disabled):not([data-disabled]) {
   border-color: var(--ui-color-accent-pressed);
   background: var(--ui-color-accent-soft);
 }
@@ -121,12 +123,12 @@
   background: transparent;
 }
 
-.ui-button-ghost:hover:not(:disabled) {
+.ui-button-ghost:hover:not(:disabled):not([data-disabled]) {
   color: var(--ui-color-text);
   background: var(--ui-color-accent-soft);
 }
 
-.ui-button-ghost:active:not(:disabled) {
+.ui-button-ghost:active:not(:disabled):not([data-disabled]) {
   color: var(--ui-color-accent-pressed);
   background: var(--ui-color-accent-soft);
 }
