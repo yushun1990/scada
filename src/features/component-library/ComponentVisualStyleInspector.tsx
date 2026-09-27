@@ -33,14 +33,11 @@ import {
 } from '../../ui'
 import { ColorPickerInput } from './ColorPickerInput'
 import { ComponentSvgSourceEditor } from './ComponentSvgSourceEditor'
-import { ComponentVisualAssetImportControl } from './ComponentVisualAssetImportControl'
-import type { ComponentLayerSelectionChange } from './ComponentVisualTreeEditor'
 
 type ComponentVisualStyleInspectorProps = {
   visual: ComponentVisualDefinition
   selectedLayerId: string
   readOnly: boolean
-  onSelectionChange: ComponentLayerSelectionChange
   onChange: (visual: ComponentVisualDefinition) => void
 }
 
@@ -173,7 +170,6 @@ export function ComponentVisualStyleInspector({
   visual,
   selectedLayerId,
   readOnly,
-  onSelectionChange,
   onChange,
 }: ComponentVisualStyleInspectorProps) {
   const layer = visual.layers.find((candidate) => candidate.id === selectedLayerId)
@@ -1152,14 +1148,6 @@ export function ComponentVisualStyleInspector({
   if (layer.kind === 'svg') {
     return (
       <div className="component-layer-style-inspector">
-        <ComponentVisualAssetImportControl
-          visual={visual}
-          readOnly={readOnly || layer.parentId !== null}
-          selectedLayerId={layer.id}
-          requireReplacement
-          onSelectionChange={onSelectionChange}
-          onChange={onChange}
-        />
         <ComponentSvgSourceEditor
           layer={layer}
           readOnly={readOnly || layer.parentId !== null}

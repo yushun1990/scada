@@ -810,7 +810,6 @@ export function ComponentEditorPage({
                     visual={component.visual}
                     readOnly={editingDisabled}
                     selectedLayerId={singleSelectedLayerId}
-                    onSelectionChange={selectLayer}
                     onChange={(visual) => updatePackage('visual', visual)}
                   />
                 </div>
@@ -838,6 +837,7 @@ export function ComponentEditorPage({
                       )
                       updatePackage('visual', { ...component.visual, layers })
                     }}
+                    onUpdateVisual={(nextVisual) => updatePackage('visual', nextVisual)}
                     onBindContract={(nextDefinition, nextVisual) => {
                       mutateComponent((current) => ({
                         ...current,

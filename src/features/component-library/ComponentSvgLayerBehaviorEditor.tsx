@@ -1,13 +1,9 @@
 import { useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import type { ComponentDefinition } from '../../component-system/definition'
-import { serializeManagedSvgDataUrl } from '../../component-system/managedSvg'
 import {
-  applyThemeToManagedSvgDocument,
   generateComponentSvgThemeBindings,
   hasManagedSvgThemeClasses,
-  SVG_THEME_BINDING_STATES,
-  type SvgThemePresetKey,
 } from '../../component-system/managedSvgTheme'
 import type { ComponentVisualDefinition, SvgVisualLayer } from '../../component-system/visual'
 import { Button } from '../../ui'
@@ -25,15 +21,18 @@ type ComponentSvgLayerBehaviorEditorProps = {
   ) => void
 }
 
+/**
+ * Runtime wiring for SVG theme behavior: one declarative Property plus five
+ * private visual rules. Interactive previews live in the layer-method panel
+ * above; this editor only binds the runtime contract.
+ */
 export function ComponentSvgLayerBehaviorEditor({
   layer,
   definition,
   visual,
   readOnly,
-  onUpdateLayer,
   onBindContract,
 }: ComponentSvgLayerBehaviorEditorProps) {
-  const [activeTestState, setActiveTestState] = useState<string | null>(null)
   const [bindSuccessMessage, setBindSuccessMessage] = useState<string | null>(null)
 
   const hasThemeClasses = layer.document ? hasManagedSvgThemeClasses(layer.document) : false
@@ -46,17 +45,6 @@ export function ComponentSvgLayerBehaviorEditor({
     ? definition.properties[themePropertyKey]
     : undefined
   const isBound = Boolean(stateProperty && themeRules.length > 0)
-
-  function handleTestPreset(preset: SvgThemePresetKey) {
-    if (!layer.document) return
-    setActiveTestState(preset)
-    const nextDoc = applyThemeToManagedSvgDocument(layer.document, preset)
-    onUpdateLayer({
-      ...layer,
-      document: nextDoc,
-      assetRef: serializeManagedSvgDataUrl(nextDoc),
-    })
-  }
 
   function handleBind() {
     const result = generateComponentSvgThemeBindings(layer.id, definition, visual)
@@ -73,70 +61,19 @@ export function ComponentSvgLayerBehaviorEditor({
 
   return (
     <div className="component-svg-layer-behavior-panel">
-      <CollapsibleInspectorGroup title="SVG 声明式主题行为" defaultOpen={true}>
+      <CollapsibleInspectorGroup title="SVG 声明式主题行为" defaultOpen={false}>
         {!hasThemeClasses ? (
           <div className="svg-behavior-notice">
             <span className="svg-behavior-notice-icon">💡</span>
             <div className="svg-behavior-notice-content">
               <strong>未检测到语义主题类名 (scada-theme-*)</strong>
               <p>
-                该 SVG 尚未包含分阶主题类名。请在「属性」面板完成主题 Class 标注后，再绑定运行 Property 与私有视觉规则。
+                该 SVG 尚未包含分阶主题类名。请在 SVG 组的标记工作台中完成主题 Class 标注后，再绑定运行 Property 与私有视觉规则。
               </p>
             </div>
           </div>
         ) : (
           <div className="svg-behavior-content">
-            {/* 1. Declarative states, each with its own run-preview action */}
-            <div className="svg-behavior-section">
-              <div className="svg-behavior-section-header">
-                <strong>可绑定主题状态</strong>
-                <span className="svg-behavior-badge-count">
-                  {SVG_THEME_BINDING_STATES.length} 个声明式状态
-                </span>
-              </div>
-              <ul className="svg-layer-methods-list">
-                {SVG_THEME_BINDING_STATES.map((binding) => (
-                  <li key={binding.state} className="svg-layer-method-item">
-                    <div className="svg-layer-method-signature">
-                      <code>{binding.state}</code>
-                      <span className="svg-layer-method-title">{binding.label}</span>
-                      <Button
-                        variant={activeTestState === binding.state ? 'primary' : 'ghost'}
-                        size="small"
-                        className="svg-layer-method-run"
-                        disabled={readOnly}
-                        aria-label={`${binding.label} 运行预览`}
-                        title={`在当前画布图层预览${binding.label}，不调用 Action`}
-                        onClick={() => handleTestPreset(binding.state)}
-                      >
-                        ▶
-                      </Button>
-                    </div>
-                    <span className="svg-layer-method-desc">{binding.description}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* 2. Restore the authored original colors */}
-            <div className="svg-behavior-section">
-              <div className="svg-behavior-section-header">
-                <strong>主题外观预览（当前画布图层）</strong>
-                <small>预览直接写入当前图层外观，不调用 Action</small>
-              </div>
-              <div className="svg-behavior-test-grid">
-                <Button
-                  variant={activeTestState === 'default' ? 'primary' : 'secondary'}
-                  size="small"
-                  disabled={readOnly}
-                  onClick={() => handleTestPreset('default')}
-                >
-                  🔄 默认原色
-                </Button>
-              </div>
-            </div>
-
-            {/* 3. One-click declarative binding */}
             <div className="svg-behavior-section svg-behavior-bind-box">
               <div className="svg-behavior-section-header">
                 <strong>组件定义与视觉规则绑定</strong>

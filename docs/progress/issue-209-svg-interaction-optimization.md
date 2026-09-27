@@ -2,12 +2,35 @@
 
 ## Status
 
-Implemented for review · 2026-09-27 · issue #209 (sub-items 1–2 and the
-declarative part of 3; authored-function execution split into an ADR
-proposal).
+Implemented for review · 2026-09-27 · issue #209, all three sub-items
+delivered per the author's functional design (revision 2 after review
+feedback).
 
-Base: `main@af5f077`. Product polish under the current `PLAN.md`
+Base: `main@f469abf` (rev 2). Product polish under the current `PLAN.md`
 product-polish phase, driven by an open issue. No M10A boundary change.
+
+## Rev 2 (author feedback)
+
+- The SVG replacement control is gone entirely — the earlier relocation
+  above the SVG group was rejected by the issue author; SVG replacement now
+  happens by deleting and re-importing the layer, and the import-compat
+  smoke creates a second layer instead of replacing.
+- The "检测到的 SVG 属性" section was removed; the SVG group's tag list is
+  the id/class listing and is retitled 「识别到的 ID / Class」. It already
+  auto-detects every id and class in the document (ids first, then classes,
+  with tag name/count/related classes/description and `$self.<layer>.<id>`
+  access signatures).
+- The 行为 tab is redone per the PR #198 functional design: SVG layer
+  functions are listed (built-in theme functions when `scada-theme-*`
+  classes exist, plus authored customs), can be created (`+ 新增函数`),
+  edited (`<>` code modal with quick presets and parameter editor) and run
+  (`▶` applies to the canvas). Execution goes through the accepted ADR
+  path — a lazily-loaded QuickJS-WASM sandbox with structured `$self` /
+  `$emit` host operations only, memory/stack/timeout limits, no DOM,
+  network or timers. Functions persist as private layer data
+  (`SvgVisualLayer.methods`, fail-closed validated) and never become
+  public Actions. The declarative binding group stays below the functions
+  panel for runtime wiring.
 
 ## Sub-item 1 — 属性看板移除「资源」组（SVG 图层）
 

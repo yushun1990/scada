@@ -72,12 +72,6 @@ function globalAssetImportControl() {
   return page.getByRole('region', { name: '组件创作素材' })
 }
 
-function selectedAssetReplacementControl() {
-  return page.locator('.component-layer-inspector-body .component-asset-import-control')
-    .filter({ hasText: '替换文件' })
-    .first()
-}
-
 async function waitForAssetInputReady() {
   await page.waitForFunction(() => {
     const input = document.querySelector('.component-palette-resource-library .component-palette-resource-input')
@@ -167,47 +161,37 @@ try {
   assert.equal(managedAttribute(styledRect, 'stroke-width'), '2')
   assert.equal(managedAttribute(styledRect, 'opacity'), '0.75')
 
-  // Saving advances the route off #/components/new and remounts the editor;
-  // reselect the layer so the Inspector resource control is mounted again.
-  await page.locator('.component-layer-row', { hasText: 'styled-inkscape-like' }).click()
-
-  // Palette import is creation-only under UX1. Replace the selected managed SVG
-  // through the Inspector resource control so this smoke exercises the accepted
-  // Palette -> Navigator/Canvas -> Inspector authoring authority.
-  const replacementControl = selectedAssetReplacementControl()
-  const replacementInput = replacementControl.locator('input[type="file"]')
-  await replacementInput.waitFor({ state: 'attached' })
-  await replacementInput.setInputFiles({
+  // SVG layers no longer expose a resource replacement control; structural
+  // compatibility is covered by creating a second layer for the static SVG.
+  await waitForAssetInputReady()
+  await globalAssetImportControl().locator('.component-palette-resource-library input[type="file"]').setInputFiles({
     name: 'static-mask-filter.svg',
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(staticStructuralSvg),
   })
-
-  await replacementControl
-    .locator('.component-asset-import-message', { hasText: '资源已替换' })
-    .waitFor()
-  assert.equal(await page.locator('.component-layer-row').count(), 1)
+  await page.locator('.component-palette-resource-item', { hasText: 'static-mask-filter' }).dblclick()
+  await page.locator('.component-layer-row', { hasText: 'static-mask-filter' }).waitFor()
+  assert.equal(await page.locator('.component-layer-row').count(), 2)
 
   await saveAndWait(page)
   persisted = await readPersistedComponent(page)
-  // Replacement preserves layer identity, so the layer keeps its original name.
-  svgLayer = findVisualSvgLayer(persisted.document, 'styled-inkscape-like')
-  assert.ok(svgLayer?.document, 'replaced SVG must persist as a managed SVG document')
+  svgLayer = findVisualSvgLayer(persisted.document, 'static-mask-filter')
+  assert.ok(svgLayer?.document, 'static structural SVG must persist as a managed SVG document')
   const tagNames = collectElementTagNames(svgLayer.document.root)
   for (const structuralTag of ['mask', 'filter', 'feGaussianBlur', 'defs']) {
-    assert.ok(tagNames.has(structuralTag), `static ${structuralTag} structure must survive replacement`)
+    assert.ok(tagNames.has(structuralTag), `static ${structuralTag} structure must survive ingest`)
   }
   const mainRect = findManagedElementBy(
     svgLayer.document,
     (node) => node.tagName === 'rect' && managedAttribute(node, 'mask') === 'url(#cutout)',
   )
-  assert.ok(mainRect, 'replaced main rect must keep its canonical managed tag')
+  assert.ok(mainRect, 'static main rect must keep its canonical managed tag')
   assert.equal(managedAttribute(mainRect, 'mask'), 'url(#cutout)')
   assert.equal(managedAttribute(mainRect, 'filter'), 'url(#soften)')
 
   assert.deepEqual(pageErrors, [])
   console.log(
-    'SVG import compatibility smoke passed: controlled presentation persists as discrete managed attributes, safe residual style/attributes and static mask/filter structures survive managed Inspector replacement, and external CSS resources remain blocked.',
+    'SVG import compatibility smoke passed: controlled presentation persists as discrete managed attributes, safe residual style/attributes and static mask/filter structures survive managed ingest, and external CSS resources remain blocked.',
   )
 } finally {
   await context.close()

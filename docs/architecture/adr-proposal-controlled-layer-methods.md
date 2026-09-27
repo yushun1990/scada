@@ -1,6 +1,10 @@
-# ADR 提案：受控 SVG 图层函数（Layer Methods）执行
+# ADR：受控 SVG 图层函数（Layer Methods）执行
 
-状态：**PROPOSED — 未接受，未实现**。本文件只是提案，不构成架构授权。
+状态：**ACCEPTED（按提案推荐项落地）· 2026-09-27 · issue #209 方向裁决**。
+落地范围：编辑器内的函数编写与 ▶ 试运行（`src/runtime/controlled-layer-method-engine.ts`，
+懒加载 QuickJS-WASM 沙箱 + 结构化宿主桥）；函数作为 SVG 图层私有数据持久化
+（`SvgVisualLayer.methods`，校验 fail-closed），不进入公开 Action/Event 契约；
+可移植运行时执行仍保持声明式（如需运行时执行图层函数，另启决策）。
 提出背景：issue #209 第 3 条（行为看板中管理 SVG 函数，可编辑、可运行预览）。
 
 ## 背景
