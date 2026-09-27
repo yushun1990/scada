@@ -94,7 +94,7 @@ try {
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await waitForAssetInputReady()
 
-  await globalAssetImportControl().locator('input[type="file"]').setInputFiles({
+  await globalAssetImportControl().locator('.component-palette-resource-library input[type="file"]').setInputFiles({
     name: 'unsafe-stylesheet.svg',
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(unsafeStyledSvg),
@@ -107,7 +107,7 @@ try {
   )
   await waitForAssetInputReady()
 
-  await globalAssetImportControl().locator('input[type="file"]').setInputFiles({
+  await globalAssetImportControl().locator('.component-palette-resource-library input[type="file"]').setInputFiles({
     name: 'styled-inkscape-like.svg',
     mimeType: 'image/svg+xml',
     buffer: Buffer.from(styledSvg),

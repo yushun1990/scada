@@ -47,8 +47,16 @@ try {
   const layerPanel = page.locator('.component-property-panel')
   const layerTab = (name) => layerPanel.getByRole('tab', { name, exact: true })
   await layerTab('行为').click()
-  await layerPanel.getByText(/当前图层没有可配置的声明式行为/).waitFor()
+  await layerPanel.getByText(/通用声明式行为在视觉规则中配置/).waitFor()
+  await layerPanel.locator('.component-rule-editor').waitFor()
   assert.equal(await button('+ 添加方法').count(), 0, 'layer scope must not present the component contract as a layer method')
+  await button('+ 添加 Spin 动画').click()
+  const spin = layerPanel.locator('.component-animation-item').first()
+  await spin.waitFor()
+  await button('撤销').click()
+  assert.equal(await layerPanel.locator('.component-animation-item').count(), 0)
+  await button('重做').click()
+  await spin.waitFor()
 
   await layerTab('属性').click()
   const width = layerPanel
@@ -80,6 +88,9 @@ try {
   const persisted = (await readPersistedComponent(page)).document
   assert.deepEqual(persisted.definition.actions, {})
   assert.deepEqual(persisted.definition.events, {})
+  assert.equal(persisted.visual.animations.length, 1)
+  assert.equal(persisted.visual.animations[0].kind, 'spin')
+  assert.equal(persisted.visual.animations[0].layerId, layer.id)
   assert.deepEqual(
     persisted.visual.layers,
     [{ ...layer, transform: { ...layer.transform, width: 120 } }],
@@ -91,6 +102,9 @@ try {
   await button('图形化设计').click()
   await layerTab('属性').click()
   assert.equal(await width.isDisabled(), true, 'preview also gates layer editing')
+  await layerTab('行为').click()
+  assert.equal(await button('+ 添加 Spin 动画').count(), 0)
+  assert.equal(await layerPanel.getByLabel('animation1 每轮旋转角度', { exact: true }).isDisabled(), true)
   assert.deepEqual(errors, [])
   console.log('Inspector scope smoke passed: preserved selection, separate remembered tabs, correct contract/property persistence and preview gates.')
 } finally {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { chromium } from 'playwright'
 import {
   readPersistedComponent,
@@ -421,9 +421,21 @@ try {
   await importPage.getByText('SCADA 作品', { exact: true }).first().waitFor()
   await importPage.getByRole('button', { name: '+ 新建作品', exact: true }).click()
   await importPage.locator('.studio-shell.scada-studio-shell').waitFor()
+  // New works contain a selected starter component. Remove it through the
+  // normal command so this fixture has exactly one portable dependency.
+  await importPage.getByRole('button', { name: '删除选中对象', exact: true }).click()
   const paletteItem = importPage.locator('.component-item', { hasText: componentTitle })
   assert.equal(await paletteItem.count(), 1)
   await paletteItem.click()
+  // The fill viewport intentionally crops the artboard at this aspect ratio.
+  // Place the fixture centrally through Inspector in both editor and runtime.
+  for (const [label, value] of [['X', '580'], ['Y', '320']]) {
+    const input = importPage.locator('.property-field').filter({
+      has: importPage.locator('span', { hasText: new RegExp(`^${label}$`) }),
+    }).locator('input')
+    await input.fill(value)
+    await input.press('Enter')
+  }
   await canvasHasColor(importPage, 'canvas', {
     alphaMin: 200,
     redMin: 110,
@@ -442,6 +454,7 @@ try {
   assert.ok(sceneRecord)
   const sceneDocument = JSON.parse(sceneRecord.document)
   const componentNode = sceneDocument.nodes.find((node) => node.type === componentType)
+  assert.equal(sceneDocument.nodes.length, 1, 'fixture excludes starter dependencies')
   assert.ok(componentNode, 'SCADA Scene persists an instance of the imported managed-SVG component')
   assert.equal(componentNode.attributes.runningColor, runtimeRuleColor)
   assert.equal(componentNode.propertyFallbacks.state, 'running')
@@ -526,6 +539,16 @@ try {
   console.log(
     'UX1.6 dogfood acceptance passed: a new user starts from the Palette, places a primitive on Canvas, clears selection through blank Canvas space without a pseudo-root, relocates it through Navigator, configures it in Inspector, imports and customizes managed SVG plus PNG, previews, saves/reopens, exports/imports the component package in a fresh browser, places it in SCADA Workbench, exports exact work-package dependency closure, and renders the exact artifact in a fresh standalone runtime without learning VisualLayerKind, assetRef or renderer internals.',
   )
+} catch (error) {
+  // Preserve each isolated surface without masking the original assertion.
+  await mkdir('artifacts', { recursive: true })
+  await Promise.allSettled([
+    authorPage.screenshot({ path: 'artifacts/managed-svg-authoring-failure.png' }),
+    importPage.screenshot({ path: 'artifacts/managed-svg-import-failure.png' }),
+    runtimePage.screenshot({ path: 'artifacts/managed-svg-runtime-failure.png' }),
+  ])
+  console.error('Managed SVG page errors:', pageErrors)
+  throw error
 } finally {
   await authorContext.close()
   await importContext.close()
