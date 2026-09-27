@@ -81,18 +81,6 @@ async function waitForGlobalAssetInputReady(page) {
   })
 }
 
-async function waitForManagedFill(page, expected) {
-  await page.waitForFunction((value) => {
-    const properties = document.querySelector('.component-managed-svg-properties')
-    if (!properties) return false
-    const fields = [...properties.querySelectorAll('.property-field')]
-    const fillField = fields.find((field) =>
-      field.querySelector('span')?.textContent?.trim() === 'Fill',
-    )
-    return fillField?.querySelector('input')?.value === value
-  }, expected)
-}
-
 async function canvasHasColor(page, selector, matcher) {
   await page.waitForFunction(({ canvasSelector, expected }) => {
     const canvases = [...document.querySelectorAll(canvasSelector)]

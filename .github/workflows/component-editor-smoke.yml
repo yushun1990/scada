@@ -81,7 +81,6 @@ jobs:
             node scripts/pages-component-package-transfer-smoke.mjs
             node scripts/pages-managed-svg-authoring-smoke.mjs
             node scripts/pages-managed-svg-author-ref-smoke.mjs
-            node scripts/pages-managed-svg-geometry-smoke.mjs
             node scripts/pages-svg-import-compatibility-smoke.mjs
           } 2>&1 | tee artifacts/component-browser.log
       - name: Upload interaction captures

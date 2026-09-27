@@ -86,6 +86,24 @@ async function openInspectorGroup(currentPage, title) {
   return group
 }
 
+// The managed-SVG inner element editor is retired; authorRef authoring now
+// goes through the SVG source marking workbench (id tags carry authorRef).
+async function authorTagViaMarkingWorkbench(currentPage, tagId, name) {
+  // The header button's accessible name is shadowed by its parent group
+  // header, so target the dedicated class instead of a role query.
+  await currentPage.locator('.component-svg-header-code-btn').click()
+  const modal = currentPage.locator('.component-svg-modal-popup')
+  await modal.waitFor()
+  await modal.locator(`[data-scada-tag="${tagId}"]`).click()
+  const nameInput = modal.locator('input[placeholder="如 fan, alarmLed"]')
+  await nameInput.waitFor()
+  await nameInput.fill(name)
+  await modal.getByRole('button', { name: '确定标记', exact: true }).click()
+  await modal.locator('.component-svg-modal-status-message', { hasText: '已为' }).waitFor()
+  await modal.getByRole('button', { name: '应用', exact: true }).click()
+  await modal.waitFor({ state: 'detached' })
+}
+
 try {
   console.log(`Verifying managed SVG author refs and UX1.5 rule-target convergence: ${baseUrl}#/components/new`)
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
@@ -110,30 +128,20 @@ try {
 
   await page.locator('.component-palette-resource-item', { hasText: 'ux1.3-author-ref' }).dblclick()
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).waitFor()
-  await page.locator('.component-managed-svg-editor').waitFor()
+  await page.locator('.component-svg-inspector-group').waitFor()
+  assert.equal(
+    await page.getByText('SVG 内部元素', { exact: true }).count(),
+    0,
+    'the retired managed-SVG inner element inspector group must stay removed',
+  )
+  assert.equal(
+    await page.getByLabel('ux1.3-author-ref 资源填充模式', { exact: true }).count(),
+    0,
+    'the retired asset style group must stay removed for SVG layers',
+  )
 
-  const rectRow = page.locator('.component-managed-svg-row', { hasText: 'svg-tag-000003' })
-  await rectRow.click()
-  await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000003' }).waitFor()
-  await waitForDenseCanvasColor(page, {
-    alphaMin: 80,
-    redMin: 105,
-    redMax: 145,
-    greenMin: 35,
-    greenMax: 85,
-    blueMin: 210,
-    blueMax: 255,
-  })
-
-  const authorRefField = page.locator('.component-managed-svg-properties .property-field')
-    .filter({ hasText: '引用名称' })
-    .first()
-  const authorRefInput = authorRefField.locator('input')
-  assert.equal(await authorRefInput.inputValue(), '')
-  await authorRefInput.fill(`  ${authorRef}  `)
-  await authorRefInput.blur()
-  await page.locator('.component-managed-svg-message', { hasText: '引用名称已更新' }).waitFor()
-  await page.locator('.component-managed-svg-row', { hasText: `@${authorRef}` }).waitFor()
+  await authorTagViaMarkingWorkbench(page, 'svg-tag-000003', `  ${authorRef}  `)
+  await page.locator('.component-svg-tag-card', { hasText: authorRef }).waitFor()
 
   await saveAndWait(page)
   const savedUrl = page.url()
@@ -148,25 +156,23 @@ try {
   assert.ok(persistedRect)
   assert.equal(persistedRect.authorRef, authorRef)
   assert.match(svgLayer.assetRef, /^data:image\/svg\+xml;charset=utf-8,/)
-  assert.doesNotMatch(
+  // The marking workbench authors aliases as real SVG id attributes (peer to
+  // ids carried by imported files), so the alias legitimately round-trips in
+  // the serialized bytes; runtime identity stays the canonical svgTagId below.
+  assert.match(
     svgLayer.assetRef,
-    new RegExp(authorRef),
-    'authoring alias must not become serialized SVG/runtime resource identity',
+    new RegExp(`id%3D%22${authorRef}%22`),
+    'the marking workbench id must round-trip through the serialized SVG',
+  )
+  assert.ok(
+    svgLayer.assetRef.includes('data-scada-tag%3D%22svg-tag-000003%22'),
+    'serialized runtime identity stays the canonical svgTagId, not the alias',
   )
 
   await page.goto(savedUrl, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
-  const reloadedRow = page.locator('.component-managed-svg-row', { hasText: `@${authorRef}` })
-  await reloadedRow.waitFor()
-  assert.ok((await reloadedRow.textContent())?.includes('svg-tag-000003'))
-  await reloadedRow.click()
-  await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000003' }).waitFor()
-
-  const reloadedAuthorRefField = page.locator('.component-managed-svg-properties .property-field')
-    .filter({ hasText: '引用名称' })
-    .first()
-  assert.equal(await reloadedAuthorRefField.locator('input').inputValue(), authorRef)
+  await page.locator('.component-svg-tag-card', { hasText: authorRef }).waitFor()
 
   const ruleGroup = await openInspectorGroup(page, '视觉规则')
   await ruleGroup.getByRole('button', { name: '+ 添加视觉规则', exact: true }).click()
@@ -175,12 +181,30 @@ try {
   await ruleItem.waitFor()
   assert.equal(
     await ruleItem.getAttribute('data-svg-tag-id'),
-    'svg-tag-000003',
-    'new rule defaults to the current canonical managed-SVG selection',
+    null,
+    'a fresh rule stays layer-scoped while no managed-SVG selection exists',
   )
-  const ruleTarget = ruleItem.getByLabel('rule1 作用对象', { exact: true })
-  await ruleTarget.waitFor()
-  assert.match(await ruleTarget.textContent() ?? '', new RegExp(`@${authorRef}`))
+  await chooseSelectOption(page, 'rule1 作用对象', `@${authorRef}`)
+  await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000003' }).waitFor()
+  assert.equal(await ruleItem.getAttribute('data-svg-tag-id'), 'svg-tag-000003')
+  await waitForDenseCanvasColor(page, {
+    alphaMin: 80,
+    redMin: 105,
+    redMax: 145,
+    greenMin: 35,
+    greenMax: 85,
+    blueMin: 210,
+    blueMax: 255,
+  })
+
+  await ruleGroup.getByRole('button', { name: '+ 添加视觉规则', exact: true }).click()
+  const ruleItemTwo = ruleGroup.locator('.component-rule-item').nth(1)
+  await ruleItemTwo.waitFor()
+  assert.equal(
+    await ruleItemTwo.getAttribute('data-svg-tag-id'),
+    'svg-tag-000003',
+    'new rules default to the current canonical managed-SVG selection',
+  )
 
   await chooseSelectOption(page, 'rule1 作用对象', 'svg-tag-000002')
   await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000002' }).waitFor()
@@ -191,14 +215,10 @@ try {
   assert.equal(await ruleItem.getAttribute('data-svg-tag-id'), 'svg-tag-000003')
 
   await page.getByRole('tab', { name: '属性', exact: true }).click()
-  const currentAliasInput = page.locator('.component-managed-svg-properties .property-field')
-    .filter({ hasText: '引用名称' })
-    .first()
-    .locator('input')
-  await currentAliasInput.fill(renamedAuthorRef)
-  await currentAliasInput.blur()
-  await page.locator('.component-managed-svg-message', { hasText: '引用名称已更新' }).waitFor()
+  await authorTagViaMarkingWorkbench(page, 'svg-tag-000003', renamedAuthorRef)
+  await page.locator('.component-svg-tag-card', { hasText: renamedAuthorRef }).waitFor()
   await openInspectorGroup(page, '视觉规则')
+  const ruleTarget = ruleItem.getByLabel('rule1 作用对象', { exact: true })
   assert.match(await ruleTarget.textContent() ?? '', new RegExp(`@${renamedAuthorRef}`))
   assert.equal(await ruleItem.getAttribute('data-svg-tag-id'), 'svg-tag-000003')
 
@@ -223,13 +243,16 @@ try {
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
   await page.getByRole('tab', { name: '属性', exact: true }).click()
-  await page.locator('.component-managed-svg-row', { hasText: `@${renamedAuthorRef}` }).click()
+  await page.locator('.component-svg-tag-card', { hasText: renamedAuthorRef }).waitFor()
   const reopenedRuleGroup = await openInspectorGroup(page, '视觉规则')
-  const reopenedRule = reopenedRuleGroup.locator('.component-rule-item[data-svg-tag-id="svg-tag-000003"]')
+  const reopenedRule = reopenedRuleGroup.locator('.component-rule-item[data-svg-tag-id="svg-tag-000003"]').first()
   await reopenedRule.waitFor()
   const reopenedRuleTarget = reopenedRule.getByLabel('rule1 作用对象', { exact: true })
   await reopenedRuleTarget.waitFor()
   assert.match(await reopenedRuleTarget.textContent() ?? '', new RegExp(`@${renamedAuthorRef}`))
+  await chooseSelectOption(page, 'rule1 作用对象', 'svg-tag-000002')
+  await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000002' }).waitFor()
+  await chooseSelectOption(page, 'rule1 作用对象', `@${renamedAuthorRef}`)
   await page.locator('.component-canvas-status', { hasText: 'SVG svg-tag-000003' }).waitFor()
 
   await page.getByLabel('预览', { exact: true }).click()
@@ -244,7 +267,7 @@ try {
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'Managed SVG author-reference and UX1.5 target-convergence browser proof passed: a real root Property authoring flow drives Rule creation; current SVG selection defaults new Visual Rules to canonical tagId; Rule target changes drive the same Canvas/Inspector selection; authorRef labels rename without rewriting svgTagId; save/reopen preserves both authorities; and Preview remains read-only.',
+    'Managed SVG author-reference and UX1.5 target-convergence browser proof passed: a real root Property authoring flow drives Rule creation; the marking workbench authors authorRef ids; Rule target changes drive the same Canvas/Inspector selection and new rules default to it; authorRef labels rename without rewriting svgTagId; save/reopen preserves both authorities; and Preview remains read-only.',
   )
 } finally {
   await browser.close()

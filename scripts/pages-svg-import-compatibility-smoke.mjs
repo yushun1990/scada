@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+import {
+  readPersistedComponent,
+  saveAndWait,
+} from './pages-component-fixture-storage.mjs'
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/')
   .replace(/\/?$/, '/')
@@ -81,11 +85,45 @@ async function waitForAssetInputReady() {
   })
 }
 
-function managedField(label) {
-  return page.locator('.component-managed-svg-properties .property-field')
-    .filter({ hasText: label })
-    .first()
-    .locator('input')
+function findVisualSvgLayer(document, name) {
+  return document.visual.layers.find((layer) => layer.kind === 'svg' && layer.name === name)
+}
+
+function findManagedTag(document, tagId) {
+  const visit = (node) => {
+    if (!node || node.kind !== 'element') return null
+    if (node.tagId === tagId) return node
+    for (const child of node.children ?? []) {
+      const found = visit(child)
+      if (found) return found
+    }
+    return null
+  }
+  return visit(document.root)
+}
+
+function managedAttribute(node, name) {
+  return node?.attributes.find((attribute) => attribute.name === name)?.value ?? null
+}
+
+function collectElementTagNames(node, acc = new Set()) {
+  if (!node || node.kind !== 'element') return acc
+  acc.add(node.tagName)
+  for (const child of node.children ?? []) collectElementTagNames(child, acc)
+  return acc
+}
+
+function findManagedElementBy(document, predicate) {
+  const visit = (node) => {
+    if (!node || node.kind !== 'element') return null
+    if (predicate(node)) return node
+    for (const child of node.children ?? []) {
+      const found = visit(child)
+      if (found) return found
+    }
+    return null
+  }
+  return visit(document.root)
 }
 
 try {
@@ -114,13 +152,24 @@ try {
   })
   await page.locator('.component-palette-resource-item', { hasText: 'styled-inkscape-like' }).dblclick()
   await page.locator('.component-layer-row', { hasText: 'styled-inkscape-like' }).waitFor()
-  await page.locator('.component-managed-svg-editor').waitFor()
-  await page.locator('.component-managed-svg-row', { hasText: 'svg-tag-000003' }).click()
+  await page.locator('.component-svg-inspector-group').waitFor()
 
-  assert.equal(await managedField('Fill').inputValue(), '#22c55e')
-  assert.equal(await managedField('Stroke').inputValue(), '#0f172a')
-  assert.equal(await managedField('Stroke width').inputValue(), '2')
-  assert.equal(await managedField('Opacity').inputValue(), '0.75')
+  // The managed-SVG inner element editor is retired; controlled presentation
+  // stays verifiable through the persisted document's discrete attributes.
+  await saveAndWait(page)
+  let persisted = await readPersistedComponent(page)
+  let svgLayer = findVisualSvgLayer(persisted.document, 'styled-inkscape-like')
+  assert.ok(svgLayer?.document, 'styled SVG must persist as a managed SVG document')
+  const styledRect = findManagedTag(svgLayer.document, 'svg-tag-000003')
+  assert.ok(styledRect, 'styled rect must keep its canonical managed tag')
+  assert.equal(managedAttribute(styledRect, 'fill'), '#22c55e')
+  assert.equal(managedAttribute(styledRect, 'stroke'), '#0f172a')
+  assert.equal(managedAttribute(styledRect, 'stroke-width'), '2')
+  assert.equal(managedAttribute(styledRect, 'opacity'), '0.75')
+
+  // Saving advances the route off #/components/new and remounts the editor;
+  // reselect the layer so the Inspector resource control is mounted again.
+  await page.locator('.component-layer-row', { hasText: 'styled-inkscape-like' }).click()
 
   // Palette import is creation-only under UX1. Replace the selected managed SVG
   // through the Inspector resource control so this smoke exercises the accepted
@@ -138,15 +187,27 @@ try {
     .locator('.component-asset-import-message', { hasText: '资源已替换' })
     .waitFor()
   assert.equal(await page.locator('.component-layer-row').count(), 1)
-  await page.locator('.component-managed-svg-row', { hasText: '<mask>' }).waitFor()
-  await page.locator('.component-managed-svg-row', { hasText: '#cutout' }).waitFor()
-  await page.locator('.component-managed-svg-row', { hasText: '<filter>' }).waitFor()
-  await page.locator('.component-managed-svg-row', { hasText: '#soften' }).waitFor()
-  await page.locator('.component-managed-svg-row', { hasText: '<feGaussianBlur>' }).waitFor()
+
+  await saveAndWait(page)
+  persisted = await readPersistedComponent(page)
+  // Replacement preserves layer identity, so the layer keeps its original name.
+  svgLayer = findVisualSvgLayer(persisted.document, 'styled-inkscape-like')
+  assert.ok(svgLayer?.document, 'replaced SVG must persist as a managed SVG document')
+  const tagNames = collectElementTagNames(svgLayer.document.root)
+  for (const structuralTag of ['mask', 'filter', 'feGaussianBlur', 'defs']) {
+    assert.ok(tagNames.has(structuralTag), `static ${structuralTag} structure must survive replacement`)
+  }
+  const mainRect = findManagedElementBy(
+    svgLayer.document,
+    (node) => node.tagName === 'rect' && managedAttribute(node, 'mask') === 'url(#cutout)',
+  )
+  assert.ok(mainRect, 'replaced main rect must keep its canonical managed tag')
+  assert.equal(managedAttribute(mainRect, 'mask'), 'url(#cutout)')
+  assert.equal(managedAttribute(mainRect, 'filter'), 'url(#soften)')
 
   assert.deepEqual(pageErrors, [])
   console.log(
-    'SVG import compatibility smoke passed: controlled presentation stays editable, safe residual style/attributes and static mask/filter structures survive managed Inspector replacement, and external CSS resources remain blocked.',
+    'SVG import compatibility smoke passed: controlled presentation persists as discrete managed attributes, safe residual style/attributes and static mask/filter structures survive managed Inspector replacement, and external CSS resources remain blocked.',
   )
 } finally {
   await context.close()
