@@ -25,14 +25,15 @@ M8      portable SCADA work + standalone runtime          accepted · 2026-09-02
 M9      Component Attribute / Property authority split    accepted · 2026-09-03
 M6.3P1  Component visual asset authoring patch             accepted · 2026-09-05
 M10     3D Scene Editor design/governance baseline         accepted · 2026-09-25
-M10-R0  readiness remediation                              active
+M10-R0  readiness remediation                              accepted · 2026-09-27
+M10A    3D architecture contract + measured spike          active
 ```
 
 M9 established separate authored Attributes and runtime Properties across authoring, Scene v8 persistence, component/work packages and standalone runtime. M6.3P1 added local SVG/Image import and managed SVG target authoring within the existing component visual model.
 
-The current execution gate is M10-R0: correct the portable component execution/capability inconsistencies found by the 3D readiness review before starting 3D product implementation. The 3D editor is **not implemented yet**. The authoritative execution roadmap is [`PLAN.md`](PLAN.md); accepted historical evidence remains recorded in the [M9 closeout](docs/progress/m9-closeout.md) and [M6.3P1 closeout](docs/progress/m6.3p1-closeout.md).
+The current execution gate is M10A: turn the accepted 3D design into measured technology decisions — isolated schema drafts, a GLB/resource threat model, a disposable rendering spike and 2D/3D measured baselines — without creating 3D product features. The 3D editor is **not implemented yet**. The authoritative execution roadmap is [`PLAN.md`](PLAN.md); accepted historical evidence remains recorded in the [M9 closeout](docs/progress/m9-closeout.md), the [M6.3P1 closeout](docs/progress/m6.3p1-closeout.md) and the [M10-R0 closeout](docs/progress/m10-r0-closeout.md).
 
-R0.1 (PR #200) and R0.2 (PR #201) are merged and `implemented`. R0.3 repairs test and documentation authority; its [handoff](docs/progress/m10-r0.3-test-authority.md) records verification. R0 remains `active` until a separate closeout accepts all required evidence and activates M10A.
+M10-R0 is closed with exact-revision evidence: portable user components no longer carry or execute Action source, authoring/activation share one truthful declarative capability boundary, and every deterministic check is production-importing and registered in CI. See the [R0 closeout record](docs/progress/m10-r0-closeout.md).
 
 The governed M10 sources are:
 

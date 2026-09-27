@@ -69,12 +69,13 @@ substitute for `accepted`.
 
 ## Current gate ledger
 
-The merged state of this governance change establishes:
+Updated by the R0 closeout (2026-09-27; evidence:
+`docs/progress/m10-r0-closeout.md`):
 
 | Gate | Status | May begin? | Promotion condition |
 | --- | --- | --- | --- |
-| R0 — readiness remediation | `active` | Yes | R3D-001/002/003 and documentation drift are closed with required evidence. |
-| M10A — architecture contract and spike | `not-started` | Only after R0 acceptance | Spike, threat model, capability matrix and measurable baselines accepted. |
+| R0 — readiness remediation | `accepted` | Closed · 2026-09-27 | R3D-001/002/003 and documentation drift closed with exact-revision evidence. |
+| M10A — architecture contract and spike | `active` | Yes | Spike, threat model, capability matrix and measurable baselines accepted. |
 | M10B — work/schema/resource foundation | `not-started` | No | M10A accepted. |
 | M10C — runtime/presentation decoupling | `not-started` | No | M10B accepted; a sequencing ADR may allow an isolated prerequisite earlier. |
 | M10D — read-only 3D vertical slice | `not-started` | No | M10B and M10C accepted. |
