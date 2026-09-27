@@ -443,11 +443,18 @@ try {
   await page.locator('.component-preview-values .ui-checkbox').click()
   await page.waitForTimeout(120)
   await page.getByRole('button', { name: '图形化设计', exact: true }).click()
+  // Finite tracks use the Preview session clock, not a per-Property clock.
+  // Navigation/auto-waiting can consume all 3 iterations before this sample.
+  // Restart the session after setting the Property, then sample in-browser.
+  await page.getByRole('button', { name: '设计', exact: true }).click()
+  await page.getByRole('button', { name: '预览', exact: true }).click()
   await page.waitForTimeout(120)
-  const animatedFrameA = await readSceneCanvasDataUrl()
-  await page.waitForTimeout(300)
-  const animatedFrameB = await readSceneCanvasDataUrl()
-  assert.notEqual(animatedFrameA, animatedFrameB, 'property=true must visibly activate authored preview spin')
+  const animated = await page.locator('.konvajs-content canvas').first().evaluate(async (canvas) => {
+    const before = canvas.toDataURL()
+    await new Promise((resolve) => window.setTimeout(resolve, 300))
+    return canvas.toDataURL() !== before
+  })
+  assert.equal(animated, true, 'property=true must visibly activate authored preview spin')
   assert.equal(
     (await readPersistedAuthoredAnimation()).rotation,
     0,

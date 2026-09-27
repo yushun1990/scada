@@ -1850,10 +1850,12 @@
   flex-shrink: 0;
 }
 
+/* Source, typed SVG and style sections share the inspector scroll container.
+   None may collapse to zero height when the following sections grow. */
 .component-layer-inspector-body .component-layer-style-inspector {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 0 0 auto;
   min-height: 0;
   gap: 0;
 }
@@ -1865,7 +1867,7 @@
 .component-layer-inspector-body .component-svg-inspector-group.is-open {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 0 0 auto;
   min-height: 0;
   border-bottom: 0;
 }
@@ -1873,7 +1875,7 @@
 .component-layer-inspector-body .component-svg-inspector-group.is-open > .inspector-group-content {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 0 0 auto;
   min-height: 0;
   padding: 6px 8px 10px 10px;
   gap: 6px;

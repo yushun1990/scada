@@ -58,6 +58,8 @@ import { COMPONENT_SNAP_GRID_SIZE } from './component-canvas-snap'
 import { HttpRemoteComponentRepository } from './remote-component-repository'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
 import { ComponentVisualStyleInspector } from './ComponentVisualStyleInspector'
+import { ComponentVisualRuleEditor } from './ComponentVisualRuleEditor'
+import { ComponentVisualAnimationEditor } from './ComponentVisualAnimationEditor'
 import { ComponentLayerMethodInspector } from './ComponentLayerMethodInspector'
 import {
   ComponentVisualLayerInspector,
@@ -815,6 +817,15 @@ export function ComponentEditorPage({
 
               {layerInspectorTab === 'behaviors' && (
                 <div className="component-layer-inspector-body">
+                  <CollapsibleInspectorGroup title="视觉规则">
+                    <ComponentVisualRuleEditor
+                      definition={definition}
+                      visual={component.visual}
+                      layerId={singleSelectedLayerId}
+                      readOnly={editingDisabled}
+                      onChange={(visual) => updatePackage('visual', visual)}
+                    />
+                  </CollapsibleInspectorGroup>
                   <ComponentLayerMethodInspector
                     layer={selectedLayer}
                     definition={definition}
@@ -835,6 +846,15 @@ export function ComponentEditorPage({
                       setMessage('已绑定声明式 SVG 主题行为')
                     }}
                   />
+                  <CollapsibleInspectorGroup title="动画">
+                    <ComponentVisualAnimationEditor
+                      definition={definition}
+                      visual={component.visual}
+                      layerId={singleSelectedLayerId}
+                      readOnly={editingDisabled}
+                      onChange={(visual) => updatePackage('visual', visual)}
+                    />
+                  </CollapsibleInspectorGroup>
                 </div>
               )}
             </>

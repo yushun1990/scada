@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright'
 import {
   readPersistedComponent,
@@ -96,6 +97,7 @@ try {
   await publicProperties.waitFor()
   await publicProperties.getByRole('button', { name: '+ 添加属性', exact: true }).click()
   await publicProperties.locator('.property-contract-item').waitFor()
+  await page.getByRole('button', { name: '图形化设计', exact: true }).click()
 
   const importControl = globalAssetImportControl(page)
   const input = importControl.locator('.component-palette-resource-library input[type="file"]')
@@ -237,6 +239,8 @@ try {
     true,
     'Preview keeps Visual Rule target authoring read-only',
   )
+  await mkdir('artifacts', { recursive: true })
+  await page.screenshot({ path: 'artifacts/managed-svg-rules-preview.png' })
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(

@@ -33,6 +33,7 @@ import {
 } from '../../ui'
 import { ColorPickerInput } from './ColorPickerInput'
 import { ComponentSvgSourceEditor } from './ComponentSvgSourceEditor'
+import { ComponentManagedSvgEditor } from './ComponentManagedSvgEditor'
 
 type ComponentVisualStyleInspectorProps = {
   visual: ComponentVisualDefinition
@@ -1166,11 +1167,20 @@ export function ComponentVisualStyleInspector({
       </CollapsibleInspectorGroup>
 
       {layer.kind === 'svg' && (
-        <ComponentSvgSourceEditor
-          layer={layer}
-          readOnly={readOnly}
-          onChange={updateLayer}
-        />
+        <>
+          <ComponentSvgSourceEditor
+            layer={layer}
+            readOnly={readOnly || layer.parentId !== null}
+            onChange={updateLayer}
+          />
+          <CollapsibleInspectorGroup title="SVG 内部元素">
+            <ComponentManagedSvgEditor
+              layer={layer}
+              readOnly={readOnly}
+              onChange={updateLayer}
+            />
+          </CollapsibleInspectorGroup>
+        </>
       )}
     </div>
   )

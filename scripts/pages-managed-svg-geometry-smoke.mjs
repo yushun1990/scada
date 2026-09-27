@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright'
 import {
   readPersistedComponent,
@@ -265,6 +266,27 @@ try {
     'Preview exposes no mutable managed-SVG geometry controls',
   )
   await page.getByLabel('设计', { exact: true }).click()
+  await mkdir('artifacts', { recursive: true })
+  await page.screenshot({ path: 'artifacts/managed-svg-geometry-inspector.png' })
+
+  // Restored typed/source/resource entry points must respect the same grouped
+  // geometry boundary: presentation is editable, shape changes require ungroup.
+  await page.locator('.component-palette-item[aria-label="矩形"]').dblclick()
+  await page.locator('.component-layer-row', { hasText: 'ux1.4-geometry' })
+    .click({ modifiers: ['Control'] })
+  await page.getByRole('button', { name: '组合选中图层', exact: true }).click()
+  await page.locator('.component-layer-row', { hasText: 'ux1.4-geometry' }).click()
+  await page.locator('.component-managed-svg-row', { hasText: '@bodyShape' }).click()
+  assert.equal(await page.locator('.component-managed-svg-geometry-section input:not(:disabled)').count(), 0)
+  const fill = page.locator('.component-managed-svg-properties .property-field')
+    .filter({ has: page.locator('span', { hasText: /^Fill$/ }) }).locator('input')
+  assert.equal(await fill.isEnabled(), true, 'grouped presentation remains editable')
+  assert.equal(await page.getByRole('button', { name: '替换文件', exact: true }).isDisabled(), true)
+  await page.getByRole('button', { name: '打开 SVG 源码与标记工作台', exact: true }).click()
+  const sourceModal = page.getByRole('dialog', { name: 'SVG 源码编辑器', exact: true })
+  assert.equal(await sourceModal.locator('textarea').isDisabled(), true)
+  assert.equal(await sourceModal.getByRole('button', { name: '应用', exact: true }).isDisabled(), true)
+  await sourceModal.getByRole('button', { name: '关闭', exact: true }).click()
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(

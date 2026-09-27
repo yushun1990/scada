@@ -40,7 +40,7 @@ export function ComponentLayerMethodInspector({
         data-portable-action-execution="disabled"
       >
         <div className="component-methods-status-banner" role="status">
-          当前图层没有可配置的声明式行为。可移植用户组件不会在图层检查器中创建或执行 Action/Event。
+          当前图层没有专用的主题行为；通用声明式行为在视觉规则中配置。可移植用户组件不会在图层检查器中创建或执行 Action/Event。
         </div>
       </div>
     )

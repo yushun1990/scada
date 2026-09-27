@@ -6,6 +6,9 @@ on:
     paths:
       - 'src/**'
       - 'scripts/pages-component-*.mjs'
+      - 'scripts/pages-smoke.mjs'
+      - 'scripts/pages-managed-svg-*.mjs'
+      - 'scripts/pages-svg-import-compatibility-smoke.mjs'
       - '.github/workflows/component-editor-smoke.yml'
       - 'package*.json'
       - 'vite.config.ts'
@@ -60,6 +63,7 @@ jobs:
             exit 1
           fi
           {
+            node scripts/pages-smoke.mjs
             node scripts/pages-component-document-history-smoke.mjs
             node scripts/pages-component-navigation-smoke.mjs
             node scripts/pages-component-inspector-scope-smoke.mjs
@@ -75,6 +79,10 @@ jobs:
             node scripts/pages-component-group-selection-smoke.mjs
             node scripts/pages-component-toolbar-smoke.mjs
             node scripts/pages-component-package-transfer-smoke.mjs
+            node scripts/pages-managed-svg-authoring-smoke.mjs
+            node scripts/pages-managed-svg-author-ref-smoke.mjs
+            node scripts/pages-managed-svg-geometry-smoke.mjs
+            node scripts/pages-svg-import-compatibility-smoke.mjs
           } 2>&1 | tee artifacts/component-browser.log
       - name: Upload interaction captures
         if: always()

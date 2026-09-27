@@ -988,7 +988,7 @@ function LayerInspectorContent({
       </CollapsibleInspectorGroup>
 
 
-      {layer.kind === 'image' && (
+      {(layer.kind === 'image' || layer.kind === 'svg') && (
         <CollapsibleInspectorGroup title="资源">
           <ComponentVisualAssetImportControl
             visual={visual}
