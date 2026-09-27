@@ -688,7 +688,7 @@ The current product phase is hands-on use and polishing of the editor, component
 
 Preserve accepted M6–M9 and M6.3P1 boundaries while fixing defects exposed by dogfooding. In particular, do not reopen flattened `props`, Attribute binding, hidden package installation, standalone authoring state, a second renderer/runtime authority or broad media-library scope through incidental polish work.
 
-Current component-editor polish: searchable/collapsible layer navigation, explicit selection/component-settings entry points, and Preview history locking. Implementation and verification are tracked in `docs/progress/product-polish-component-navigation.md`; this does not open a new architecture milestone.
+Current component-editor polish: searchable/collapsible layer navigation, explicit selection/component-settings entry points, and Preview history locking. Implementation and verification are tracked in `docs/progress/product-polish-component-navigation.md`; this does not open a new architecture milestone. A follow-up polish defect fixed canvas selection pass-through — a selected layer's loose transform bounds must not block clicks on lower layers (`docs/progress/product-polish-canvas-selection-pass-through.md`).
 
 The R0 correction gate is accepted with exact-revision evidence ([closeout record](docs/progress/m10-r0-closeout.md)). Product-polish work must not bypass M10A boundaries or introduce M10B+ contracts incidentally.
 

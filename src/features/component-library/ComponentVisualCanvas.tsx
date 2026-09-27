@@ -2136,7 +2136,6 @@ export function ComponentVisualCanvas({
                     visible
                     opacity={1}
                     listening={isEditable}
-                    draggableLayerId={isEditable && !activeCreateTool ? primaryLayerId : undefined}
                     dragEnabled={isEditable && !activeCreateTool}
                     // Stroke-width compensation is a viewing property of the
                     // fitted artboard: keep it on in preview so switching
