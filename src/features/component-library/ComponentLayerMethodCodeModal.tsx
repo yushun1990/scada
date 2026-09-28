@@ -682,7 +682,7 @@ export function ComponentLayerMethodCodeModal({
                   </div>
                 ) : (
                   <div className="component-method-test-result-placeholder">
-                    <span>点击底栏「预览」执行当前代码并在上方观察画面响应</span>
+                    <span>点击底栏「▶ 预览」执行当前代码并在上方观察画面响应</span>
                   </div>
                 )}
               </div>
@@ -712,7 +712,7 @@ export function ComponentLayerMethodCodeModal({
               onClick={() => void handleRunInsideModal()}
               title="执行当前代码以测试运行效果并更新画面"
             >
-              {running ? '预览中…' : '预览'}
+              {running ? '预览中…' : '▶ 预览'}
             </Button>
             <Button
               variant="primary"
@@ -720,7 +720,7 @@ export function ComponentLayerMethodCodeModal({
               disabled={readOnly || !method.methodName.trim() || !method.title.trim() || !method.code.trim()}
               onClick={() => onSave(method)}
             >
-              保存方法实现
+              保存并引用
             </Button>
           </div>
         </div>

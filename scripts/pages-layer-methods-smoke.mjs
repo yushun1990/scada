@@ -128,7 +128,7 @@ function applyLevel(state = 'running') {
   }
   return $self.setTheme('default');
 }`)
-  await modal.getByRole('button', { name: '保存方法实现' }).click()
+  await modal.getByRole('button', { name: '保存并引用' }).click()
   await modal.waitFor({ state: 'detached' })
 
   const customRow = methodsInspector.locator('.component-method-item', { hasText: 'applyLevel' })
