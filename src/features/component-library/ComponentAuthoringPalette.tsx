@@ -699,11 +699,9 @@ export function ComponentAuthoringPalette({
               title="双击居中 · 拖到画布"
             >
               <span>基础图元</span>
-              <div className="component-palette-summary-actions">
-                <small className="component-palette-summary-count">
-                  {PALETTE_PRIMITIVES.length + 1} 个
-                </small>
-              </div>
+              <small className="component-palette-summary-count">
+                {PALETTE_PRIMITIVES.length + 1} 个
+              </small>
             </summary>
             <div className="component-palette-disclosure-body">
               <div className="component-palette-grid">
@@ -760,41 +758,11 @@ export function ComponentAuthoringPalette({
               title="双击居中复制，或拖到画布"
             >
               <span>组件</span>
-              <div className="component-palette-summary-actions">
-                <small className="component-palette-summary-count">
-                  {componentSearch
-                    ? `${filteredComponents.length}/${editableComponents.length} 个`
-                    : `${editableComponents.length} 个`}
-                </small>
-                {editableComponents.length > 0 && (
-                  <Button
-                    size="small"
-                    variant="ghost"
-                    className={`component-palette-search-btn${
-                      isComponentSearchOpen || componentSearch ? ' is-active' : ''
-                    }`}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      if (componentDetailsRef.current) {
-                        componentDetailsRef.current.open = true
-                      }
-                      setIsComponentSearchOpen((prev) => !prev)
-                      if (isComponentSearchOpen && componentSearch) {
-                        setComponentSearch('')
-                      }
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === ' ' || event.key === 'Enter') {
-                        event.stopPropagation()
-                      }
-                    }}
-                    title={isComponentSearchOpen ? '收起搜索' : '搜索组件'}
-                    aria-label="搜索组件"
-                  >
-                    <SearchIcon />
-                  </Button>
-                )}
-              </div>
+              <small className="component-palette-summary-count">
+                {componentSearch
+                  ? `${filteredComponents.length}/${editableComponents.length} 个`
+                  : `${editableComponents.length} 个`}
+              </small>
             </summary>
             <div className="component-palette-disclosure-body">
               <Input
@@ -823,6 +791,33 @@ export function ComponentAuthoringPalette({
                   setNamingModalOpen(true)
                 }}
               />
+
+              {editableComponents.length > 0 && (
+                <div className="component-palette-group-toolbar">
+                  {componentSearch && (
+                    <span className="component-palette-group-filter-status">
+                      匹配到 {filteredComponents.length} 个
+                    </span>
+                  )}
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    className={`component-palette-search-btn${
+                      isComponentSearchOpen || componentSearch ? ' is-active' : ''
+                    }`}
+                    onClick={() => {
+                      setIsComponentSearchOpen((prev) => !prev)
+                      if (isComponentSearchOpen && componentSearch) {
+                        setComponentSearch('')
+                      }
+                    }}
+                    title={isComponentSearchOpen ? '收起搜索' : '搜索组件'}
+                    aria-label="搜索组件"
+                  >
+                    <SearchIcon />
+                  </Button>
+                </div>
+              )}
 
               {(isComponentSearchOpen || componentSearch) && (
                 <div className="component-palette-search-bar">
@@ -930,41 +925,11 @@ export function ComponentAuthoringPalette({
               title="双击居中添加，或拖到画布"
             >
               <span>其他资源</span>
-              <div className="component-palette-summary-actions">
-                <small className="component-palette-summary-count">
-                  {resourceSearch
-                    ? `${filteredResources.length}/${resources.length} 个`
-                    : `${resources.length} 个`}
-                </small>
-                {resources.length > 0 && (
-                  <Button
-                    size="small"
-                    variant="ghost"
-                    className={`component-palette-search-btn${
-                      isResourceSearchOpen || resourceSearch ? ' is-active' : ''
-                    }`}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      if (resourceDetailsRef.current) {
-                        resourceDetailsRef.current.open = true
-                      }
-                      setIsResourceSearchOpen((prev) => !prev)
-                      if (isResourceSearchOpen && resourceSearch) {
-                        setResourceSearch('')
-                      }
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === ' ' || event.key === 'Enter') {
-                        event.stopPropagation()
-                      }
-                    }}
-                    title={isResourceSearchOpen ? '收起搜索' : '搜索资源'}
-                    aria-label="搜索资源"
-                  >
-                    <SearchIcon />
-                  </Button>
-                )}
-              </div>
+              <small className="component-palette-summary-count">
+                {resourceSearch
+                  ? `${filteredResources.length}/${resources.length} 个`
+                  : `${resources.length} 个`}
+              </small>
             </summary>
             <div className="component-palette-disclosure-body component-palette-resource-library">
               <Input
@@ -982,6 +947,33 @@ export function ComponentAuthoringPalette({
                   void uploadResources(files)
                 }}
               />
+
+              {resources.length > 0 && (
+                <div className="component-palette-group-toolbar">
+                  {resourceSearch && (
+                    <span className="component-palette-group-filter-status">
+                      匹配到 {filteredResources.length} 个
+                    </span>
+                  )}
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    className={`component-palette-search-btn${
+                      isResourceSearchOpen || resourceSearch ? ' is-active' : ''
+                    }`}
+                    onClick={() => {
+                      setIsResourceSearchOpen((prev) => !prev)
+                      if (isResourceSearchOpen && resourceSearch) {
+                        setResourceSearch('')
+                      }
+                    }}
+                    title={isResourceSearchOpen ? '收起搜索' : '搜索资源'}
+                    aria-label="搜索资源"
+                  >
+                    <SearchIcon />
+                  </Button>
+                </div>
+              )}
 
               {(isResourceSearchOpen || resourceSearch) && (
                 <div className="component-palette-search-bar">
