@@ -397,6 +397,8 @@ export function ComponentAuthoringPalette({
   const createTool = useComponentCreateTool()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const multiImageInputRef = useRef<HTMLInputElement>(null)
+  const componentDetailsRef = useRef<HTMLDetailsElement>(null)
+  const resourceDetailsRef = useRef<HTMLDetailsElement>(null)
   const [components, setComponents] = useState<ComponentLibraryEntry[]>([])
   const [resources, setResources] = useState<ComponentVisualAssetResource[]>([])
   const [busy, setBusy] = useState(false)
@@ -702,10 +704,35 @@ export function ComponentAuthoringPalette({
             </div>
           </details>
 
-          <details className="component-palette-disclosure" open={editableComponents.length > 0}>
+          <details
+            ref={componentDetailsRef}
+            className="component-palette-disclosure"
+            open={editableComponents.length > 0}
+          >
             <summary className="component-palette-summary">
               <span>组件</span>
               <small>{editableComponents.length} 个可复用</small>
+              <div className="component-palette-summary-actions">
+                <Button
+                  size="small"
+                  disabled={readOnly || busy}
+                  title="添加多图组件"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (componentDetailsRef.current) {
+                      componentDetailsRef.current.open = true
+                    }
+                    multiImageInputRef.current?.click()
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === ' ' || event.key === 'Enter') {
+                      event.stopPropagation()
+                    }
+                  }}
+                >
+                  {busy ? '处理中…' : '+ 多图组件'}
+                </Button>
+              </div>
             </summary>
             <div className="component-palette-disclosure-body">
               <Input
@@ -734,13 +761,6 @@ export function ComponentAuthoringPalette({
                   setNamingModalOpen(true)
                 }}
               />
-              <Button
-                size="small"
-                disabled={readOnly || busy}
-                onClick={() => multiImageInputRef.current?.click()}
-              >
-                {busy ? '处理中…' : '+ 多图组件'}
-              </Button>
               {editableComponents.length > 0 ? (
                 <div className="component-palette-component-grid">
                   {editableComponents.map((component) => {
@@ -790,10 +810,35 @@ export function ComponentAuthoringPalette({
             </div>
           </details>
 
-          <details className="component-palette-disclosure" open>
+          <details
+            ref={resourceDetailsRef}
+            className="component-palette-disclosure"
+            open
+          >
             <summary className="component-palette-summary">
               <span>其他资源</span>
               <small>{resources.length} 个</small>
+              <div className="component-palette-summary-actions">
+                <Button
+                  size="small"
+                  disabled={readOnly || busy}
+                  title="上传资源"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (resourceDetailsRef.current) {
+                      resourceDetailsRef.current.open = true
+                    }
+                    fileInputRef.current?.click()
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === ' ' || event.key === 'Enter') {
+                      event.stopPropagation()
+                    }
+                  }}
+                >
+                  {busy ? '处理中…' : '上传资源'}
+                </Button>
+              </div>
             </summary>
             <div className="component-palette-disclosure-body component-palette-resource-library">
               <Input
@@ -811,13 +856,6 @@ export function ComponentAuthoringPalette({
                   void uploadResources(files)
                 }}
               />
-              <Button
-                size="small"
-                disabled={readOnly || busy}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {busy ? '处理中…' : '上传资源'}
-              </Button>
               {resources.length > 0 ? (
                 <div className="component-palette-resource-grid">
                   {resources.map((resource) => (
