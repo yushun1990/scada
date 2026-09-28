@@ -1,7 +1,8 @@
 .component-layer-methods-inspector {
   display: flex;
   flex-direction: column;
-  gap: var(--ui-space-md);
+  gap: var(--ui-space-sm);
+  padding: var(--ui-space-sm) var(--ui-space-md);
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -43,6 +44,28 @@
   flex: 1;
 }
 
+.component-methods-toast {
+  padding: var(--ui-space-xs) var(--ui-space-sm);
+  border-radius: var(--ui-radius-control);
+  font-size: var(--ui-font-size-caption);
+  line-height: var(--ui-line-height-normal);
+  animation: fadeIn 0.15s ease-in-out;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.component-methods-toast-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--ui-color-success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.component-methods-toast-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--ui-color-danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
 .component-methods-status-banner {
   padding: var(--ui-space-xs) var(--ui-space-sm);
   background: rgba(16, 185, 129, 0.15);
@@ -64,6 +87,77 @@
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.component-method-run-dialog {
+  width: min(420px, 92vw);
+  max-width: 420px;
+  box-sizing: border-box;
+}
+
+.component-method-run-dialog-title {
+  font-size: var(--ui-font-size-title);
+  font-weight: 600;
+  color: var(--ui-color-text-primary);
+  margin: 0;
+}
+
+.component-method-run-dialog-subtitle {
+  font-size: var(--ui-font-size-caption);
+  color: var(--ui-color-text-secondary);
+  margin-top: 4px;
+}
+
+.component-method-run-dialog-subtitle code {
+  font-family: var(--ui-font-family-mono);
+  color: var(--ui-color-accent);
+}
+
+.component-method-run-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.component-method-run-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.component-method-run-field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ui-font-size-caption);
+}
+
+.component-method-run-field-title {
+  color: var(--ui-color-text-primary);
+  font-weight: 500;
+}
+
+.component-method-run-field-name {
+  font-family: var(--ui-font-family-mono);
+  color: var(--ui-color-accent);
+}
+
+.component-method-run-field-kind {
+  color: var(--ui-color-text-secondary);
+  font-size: 11px;
+}
+
+.component-method-run-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 /* Method Card adopting the same style as SVG tag cards in the Properties inspector */

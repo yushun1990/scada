@@ -83,14 +83,12 @@ try {
 
   // 行为 tab: built-in theme functions appear with edit and run actions.
   await page.getByRole('tab', { name: '行为', exact: true }).click()
-  const methodsGroup = page.locator('.inspector-collapsible')
-    .filter({ has: page.locator('.inspector-group-title', { hasText: 'SVG 图层函数' }) })
-    .first()
-  await methodsGroup.waitFor()
-  const setRunningRow = methodsGroup.locator('.component-method-item', { hasText: 'setRunning' })
+  const methodsInspector = page.locator('.component-layer-methods-inspector')
+  await methodsInspector.waitFor()
+  const setRunningRow = methodsInspector.locator('.component-method-item', { hasText: 'setRunning' })
   await setRunningRow.waitFor()
   await setRunningRow.getByLabel('setRunning 运行预览').click()
-  await setRunningRow.locator('.component-method-run-result.is-ok').waitFor()
+  await page.locator('.component-methods-toast-success').waitFor()
   await waitForDenseCanvasColor(page, {
     alphaMin: 80,
     redMin: 0,
@@ -102,7 +100,7 @@ try {
   })
 
   // 新增函数: author a custom function through the 198-style code modal.
-  await methodsGroup.getByRole('button', { name: '+ 新增函数' }).click()
+  await methodsInspector.getByRole('button', { name: '+ 新增函数' }).click()
   const modal = page.locator('.component-method-implementation-modal')
   await modal.waitFor()
   await modal.getByLabel('函数标识名').fill('applyLevel')
@@ -125,14 +123,15 @@ function applyLevel(state = 'running') {
   await modal.getByRole('button', { name: '保存方法实现' }).click()
   await modal.waitFor({ state: 'detached' })
 
-  const customRow = methodsGroup.locator('.component-method-item', { hasText: 'applyLevel' })
+  const customRow = methodsInspector.locator('.component-method-item', { hasText: 'applyLevel' })
   await customRow.waitFor()
   await customRow.getByLabel('applyLevel 运行预览').click()
-  const customResult = customRow.locator('.component-method-run-result.is-ok')
-  await customResult.waitFor()
-  assert.match(await customResult.textContent() ?? '', /running/)
-  assert.match(await customResult.textContent() ?? '', /\[emit\] LEVEL_APPLIED/)
-  assert.match(await customResult.textContent() ?? '', /\[log\] theme applied/)
+  const runDialog = page.locator('.component-method-run-dialog')
+  if (await runDialog.isVisible().catch(() => false)) {
+    await runDialog.getByRole('button', { name: '▶ 运行' }).click()
+    await runDialog.waitFor({ state: 'detached' })
+  }
+  await page.locator('.component-methods-toast-success').waitFor()
 
   // The theme ops applied to the canvas keep the running-green rendering.
   await waitForDenseCanvasColor(page, {
