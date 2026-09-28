@@ -35,7 +35,6 @@ import {
 import { ComponentAuthoringPalette } from './ComponentAuthoringPalette'
 import { ComponentLayerOrderActions } from './ComponentLayerCommands'
 import { moveComponentLayersToTarget } from './component-layer-order'
-import { ComponentVisualAssetImportControl } from './ComponentVisualAssetImportControl'
 import { componentLayerAncestorIds, componentNavigatorRows } from './component-layer-navigation'
 import { clearComponentCreateTool } from './component-create-mode'
 import './component-visual-palette.css'
@@ -855,7 +854,6 @@ function LayerInspectorContent({
   visual,
   readOnly,
   layer,
-  onSelectionChange,
   onChange,
 }: LayerInspectorContentProps) {
   const geometryReadOnly = readOnly || layer.parentId !== null
@@ -986,32 +984,6 @@ function LayerInspectorContent({
           </div>
         </div>
       </CollapsibleInspectorGroup>
-
-
-      {layer.kind === 'image' && (
-        <CollapsibleInspectorGroup title="资源">
-          <ComponentVisualAssetImportControl
-            visual={visual}
-            readOnly={geometryReadOnly}
-            selectedLayerId={layer.id}
-            requireReplacement
-            onSelectionChange={onSelectionChange}
-            onChange={onChange}
-          />
-          <label className="property-field">
-            <span>资源引用</span>
-            <Input
-              value={layer.assetRef}
-              disabled={geometryReadOnly}
-              placeholder="assets/vendor-logo.png"
-              onChange={(event) => updateLayer({ ...layer, assetRef: event.target.value })}
-            />
-          </label>
-          <p className="component-inspector-help">
-            旧资源引用保持兼容；通过“替换文件”可转换为自包含的正常本地资源。
-          </p>
-        </CollapsibleInspectorGroup>
-      )}
 
       {layer.kind === 'vector' && layer.primitive === 'path' && (
         <CollapsibleInspectorGroup title="Path">
