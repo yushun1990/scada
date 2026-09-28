@@ -20,6 +20,7 @@ import {
   DialogDescription,
   DialogRoot,
   DialogTitle,
+  IconButton,
   Input,
   Pressable,
 } from '../../ui'
@@ -397,6 +398,8 @@ export function ComponentAuthoringPalette({
   const createTool = useComponentCreateTool()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const multiImageInputRef = useRef<HTMLInputElement>(null)
+  const componentDetailsRef = useRef<HTMLDetailsElement>(null)
+  const resourceDetailsRef = useRef<HTMLDetailsElement>(null)
   const [components, setComponents] = useState<ComponentLibraryEntry[]>([])
   const [resources, setResources] = useState<ComponentVisualAssetResource[]>([])
   const [busy, setBusy] = useState(false)
@@ -405,6 +408,8 @@ export function ComponentAuthoringPalette({
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [pendingTitle, setPendingTitle] = useState('')
   const [namingError, setNamingError] = useState<string | null>(null)
+  const [componentSearch, setComponentSearch] = useState('')
+  const [resourceSearch, setResourceSearch] = useState('')
 
   const currentComponentId = useMemo(currentComponentIdFromHash, [])
   const editableComponents = useMemo(
@@ -416,6 +421,22 @@ export function ComponentAuthoringPalette({
     ),
     [components, currentComponentId],
   )
+
+  const filteredComponents = useMemo(() => {
+    const q = componentSearch.trim().toLowerCase()
+    if (!q) return editableComponents
+    return editableComponents.filter((component) =>
+      component.definition.title.toLowerCase().includes(q),
+    )
+  }, [editableComponents, componentSearch])
+
+  const filteredResources = useMemo(() => {
+    const q = resourceSearch.trim().toLowerCase()
+    if (!q) return resources
+    return resources.filter((resource) =>
+      resource.name.toLowerCase().includes(q),
+    )
+  }, [resources, resourceSearch])
 
   useEffect(() => {
     let active = true
@@ -653,9 +674,14 @@ export function ComponentAuthoringPalette({
       {visual.mode === 'composite' ? (
         <>
           <details className="component-palette-disclosure" open>
-            <summary className="component-palette-summary">
+            <summary
+              className="component-palette-summary"
+              title="双击居中 · 拖到画布"
+            >
               <span>基础图元</span>
-              <small>双击居中 · 拖到画布</small>
+              <small className="component-palette-summary-count">
+                {PALETTE_PRIMITIVES.length + 1} 个
+              </small>
             </summary>
             <div className="component-palette-disclosure-body">
               <div className="component-palette-grid">
@@ -670,7 +696,7 @@ export function ComponentAuthoringPalette({
                       draggable={!readOnly}
                       aria-label={tool.label}
                       aria-pressed={active}
-                      title="单击进入绘制；双击居中添加；也可拖到画布任意位置"
+                      title={tool.label}
                       onClick={() => selectComponentCreateTool(tool)}
                       onDoubleClick={(event) => {
                         event.preventDefault()
@@ -692,7 +718,7 @@ export function ComponentAuthoringPalette({
                   disabled={readOnly}
                   draggable={!readOnly}
                   aria-label="文本"
-                  title="双击居中添加；也可拖到画布任意位置"
+                  title="文本"
                   onDoubleClick={() => placeText()}
                   onDragStart={(event) => setDragPayload(event, { kind: 'text' })}
                 >
@@ -702,10 +728,21 @@ export function ComponentAuthoringPalette({
             </div>
           </details>
 
-          <details className="component-palette-disclosure" open={editableComponents.length > 0}>
-            <summary className="component-palette-summary">
+          <details
+            ref={componentDetailsRef}
+            className="component-palette-disclosure"
+            open={editableComponents.length > 0}
+          >
+            <summary
+              className="component-palette-summary"
+              title="双击居中复制，或拖到画布"
+            >
               <span>组件</span>
-              <small>{editableComponents.length} 个可复用</small>
+              <small className="component-palette-summary-count">
+                {componentSearch
+                  ? `${filteredComponents.length}/${editableComponents.length} 个`
+                  : `${editableComponents.length} 个`}
+              </small>
             </summary>
             <div className="component-palette-disclosure-body">
               <Input
@@ -734,16 +771,37 @@ export function ComponentAuthoringPalette({
                   setNamingModalOpen(true)
                 }}
               />
-              <Button
-                size="small"
-                disabled={readOnly || busy}
-                onClick={() => multiImageInputRef.current?.click()}
-              >
-                {busy ? '处理中…' : '+ 多图组件'}
-              </Button>
-              {editableComponents.length > 0 ? (
+
+              {editableComponents.length > 0 && (
+                <div className="component-layer-search">
+                  <Input
+                    aria-label="查找组件"
+                    placeholder="查找组件名称"
+                    value={componentSearch}
+                    onChange={(event) => setComponentSearch(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        setComponentSearch('')
+                      }
+                    }}
+                  />
+                  {componentSearch && (
+                    <IconButton
+                      aria-label="清除组件查找"
+                      size="small"
+                      onClick={() => setComponentSearch('')}
+                    >
+                      ×
+                    </IconButton>
+                  )}
+                </div>
+              )}
+
+              {filteredComponents.length > 0 ? (
                 <div className="component-palette-component-grid">
-                  {editableComponents.map((component) => {
+                  {filteredComponents.map((component) => {
                     const previewAsset = getComponentPreviewAsset(component)
                     return (
                       <Pressable
@@ -751,7 +809,7 @@ export function ComponentAuthoringPalette({
                         className="component-palette-component-card"
                         disabled={readOnly}
                         draggable={!readOnly}
-                        title={`${component.definition.title} · 双击居中复制，或拖到画布`}
+                        title={component.definition.title}
                         onDoubleClick={() => placeComponent(component)}
                         onDragStart={(event) => setDragPayload(event, {
                           kind: 'component',
@@ -784,16 +842,51 @@ export function ComponentAuthoringPalette({
                     )
                   })}
                 </div>
+              ) : componentSearch ? (
+                <div className="component-palette-search-empty">
+                  <span>未找到匹配 “{componentSearch}” 的组件</span>
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    onClick={() => setComponentSearch('')}
+                  >
+                    清空搜索
+                  </Button>
+                </div>
               ) : (
                 <p className="component-palette-empty">保存过的 Composite 组件会显示在这里。</p>
               )}
+
+              <Button
+                size="small"
+                variant="secondary"
+                className="component-palette-bottom-action"
+                disabled={readOnly || busy}
+                title="添加多图组件"
+                onClick={() => {
+                  multiImageInputRef.current?.click()
+                }}
+              >
+                {busy ? '处理中…' : '+ 多图组件'}
+              </Button>
             </div>
           </details>
 
-          <details className="component-palette-disclosure" open>
-            <summary className="component-palette-summary">
+          <details
+            ref={resourceDetailsRef}
+            className="component-palette-disclosure"
+            open
+          >
+            <summary
+              className="component-palette-summary"
+              title="双击居中添加，或拖到画布"
+            >
               <span>其他资源</span>
-              <small>{resources.length} 个</small>
+              <small className="component-palette-summary-count">
+                {resourceSearch
+                  ? `${filteredResources.length}/${resources.length} 个`
+                  : `${resources.length} 个`}
+              </small>
             </summary>
             <div className="component-palette-disclosure-body component-palette-resource-library">
               <Input
@@ -811,22 +904,43 @@ export function ComponentAuthoringPalette({
                   void uploadResources(files)
                 }}
               />
-              <Button
-                size="small"
-                disabled={readOnly || busy}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {busy ? '处理中…' : '上传资源'}
-              </Button>
-              {resources.length > 0 ? (
+
+              {resources.length > 0 && (
+                <div className="component-layer-search">
+                  <Input
+                    aria-label="查找资源"
+                    placeholder="查找资源名称"
+                    value={resourceSearch}
+                    onChange={(event) => setResourceSearch(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        setResourceSearch('')
+                      }
+                    }}
+                  />
+                  {resourceSearch && (
+                    <IconButton
+                      aria-label="清除资源查找"
+                      size="small"
+                      onClick={() => setResourceSearch('')}
+                    >
+                      ×
+                    </IconButton>
+                  )}
+                </div>
+              )}
+
+              {filteredResources.length > 0 ? (
                 <div className="component-palette-resource-grid">
-                  {resources.map((resource) => (
+                  {filteredResources.map((resource) => (
                     <Pressable
                       key={resource.id}
                       className="component-palette-resource-item"
                       disabled={readOnly}
                       draggable={!readOnly}
-                      title={`${resource.name} · 双击居中添加，或拖到画布`}
+                      title={resource.name}
                       onDoubleClick={() => placeResource(resource)}
                       onDragStart={(event) => setDragPayload(event, {
                         kind: 'resource',
@@ -838,17 +952,41 @@ export function ComponentAuthoringPalette({
                     </Pressable>
                   ))}
                 </div>
+              ) : resourceSearch ? (
+                <div className="component-palette-search-empty">
+                  <span>未找到匹配 “{resourceSearch}” 的资源</span>
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    onClick={() => setResourceSearch('')}
+                  >
+                    清空搜索
+                  </Button>
+                </div>
               ) : (
                 <p className="component-palette-empty">上传后的资源会持久保存在这里，供后续组件复用。</p>
               )}
+
+              <Button
+                size="small"
+                variant="secondary"
+                className="component-palette-bottom-action"
+                disabled={readOnly || busy}
+                title="上传资源"
+                onClick={() => {
+                  fileInputRef.current?.click()
+                }}
+              >
+                {busy ? '处理中…' : '上传资源'}
+              </Button>
             </div>
           </details>
 
-          <p className="component-palette-help">
-            {createTool
-              ? `绘制${createTool.label}：在画布拖拽或单击，Esc 取消。`
-              : '双击素材会放到画布中央；拖动素材可精确放到目标位置。'}
-          </p>
+          {createTool && (
+            <p className="component-palette-help">
+              {`绘制${createTool.label}：在画布拖拽或单击，Esc 取消。`}
+            </p>
+          )}
           {message && <p className="component-palette-message" role="status">{message}</p>}
         </>
       ) : (
