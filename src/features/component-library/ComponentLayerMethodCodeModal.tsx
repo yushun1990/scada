@@ -266,10 +266,6 @@ export function ComponentLayerMethodCodeModal({
               <DialogTitle className="component-method-dialog-title">
                 {method.isNew ? '新建函数实现' : '函数实现编辑器'}
               </DialogTitle>
-              <span className="component-method-dialog-divider">/</span>
-              <span className="component-method-dialog-subtitle">
-                受控沙箱 · Form 驱动形参 · 左右布局 · 统一控制台
-              </span>
             </div>
             <Button
               variant="ghost"
@@ -720,7 +716,7 @@ export function ComponentLayerMethodCodeModal({
               disabled={readOnly || !method.methodName.trim() || !method.title.trim() || !method.code.trim()}
               onClick={() => onSave(method)}
             >
-              保存并引用
+              保存并应用
             </Button>
           </div>
         </div>

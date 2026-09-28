@@ -96,7 +96,12 @@ try {
   const setRunningRow = methodsInspector.locator('.component-method-item', { hasText: 'setRunning' })
   await setRunningRow.waitFor()
   await setRunningRow.getByLabel('setRunning 运行预览').click()
-  await page.locator('.component-methods-toast-success').waitFor()
+  const toast = page.locator('.component-methods-toast')
+  await toast.waitFor()
+  const toastClass = await toast.getAttribute('class')
+  const toastText = await toast.textContent()
+  console.log(`[TOAST DETECTED] class=${toastClass}, text=${toastText}`)
+  assert.match(toastClass ?? '', /component-methods-toast-success/, `Toast must be success but got ${toastClass}: ${toastText}`)
   await waitForDenseCanvasColor(page, {
     alphaMin: 80,
     redMin: 0,
@@ -128,7 +133,7 @@ function applyLevel(state = 'running') {
   }
   return $self.setTheme('default');
 }`)
-  await modal.getByRole('button', { name: '保存并引用' }).click()
+  await modal.getByRole('button', { name: '保存并应用' }).click()
   await modal.waitFor({ state: 'detached' })
 
   const customRow = methodsInspector.locator('.component-method-item', { hasText: 'applyLevel' })

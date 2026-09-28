@@ -391,7 +391,7 @@ export function ComponentLayerMethodInspector({
                     variant="ghost"
                     disabled={readOnly || runningName !== null}
                     aria-label={`${row.name} 运行预览`}
-                    title="在受控沙箱试运行并应用到当前画布"
+                    title="运行预览并应用到当前画布"
                     onClick={() => handleRowRunClick(row)}
                   >
                     <PlayIcon />
