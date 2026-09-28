@@ -20,6 +20,7 @@ import {
   DialogDescription,
   DialogRoot,
   DialogTitle,
+  IconButton,
   Input,
   Pressable,
 } from '../../ui'
@@ -387,25 +388,6 @@ function centeredPoint(visual: ComponentVisualDefinition): ComponentDesignPoint 
   }
 }
 
-function SearchIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="11" cy="11" r="8" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  )
-}
-
 export function ComponentAuthoringPalette({
   visual,
   readOnly,
@@ -427,9 +409,7 @@ export function ComponentAuthoringPalette({
   const [pendingTitle, setPendingTitle] = useState('')
   const [namingError, setNamingError] = useState<string | null>(null)
   const [componentSearch, setComponentSearch] = useState('')
-  const [isComponentSearchOpen, setIsComponentSearchOpen] = useState(false)
   const [resourceSearch, setResourceSearch] = useState('')
-  const [isResourceSearchOpen, setIsResourceSearchOpen] = useState(false)
 
   const currentComponentId = useMemo(currentComponentIdFromHash, [])
   const editableComponents = useMemo(
@@ -793,51 +773,28 @@ export function ComponentAuthoringPalette({
               />
 
               {editableComponents.length > 0 && (
-                <div className="component-palette-group-toolbar">
-                  {componentSearch && (
-                    <span className="component-palette-group-filter-status">
-                      匹配到 {filteredComponents.length} 个
-                    </span>
-                  )}
-                  <Button
-                    size="small"
-                    variant="ghost"
-                    className={`component-palette-search-btn${
-                      isComponentSearchOpen || componentSearch ? ' is-active' : ''
-                    }`}
-                    onClick={() => {
-                      setIsComponentSearchOpen((prev) => !prev)
-                      if (isComponentSearchOpen && componentSearch) {
+                <div className="component-layer-search">
+                  <Input
+                    aria-label="查找组件"
+                    placeholder="查找组件名称"
+                    value={componentSearch}
+                    onChange={(event) => setComponentSearch(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        event.stopPropagation()
                         setComponentSearch('')
                       }
                     }}
-                    title={isComponentSearchOpen ? '收起搜索' : '搜索组件'}
-                    aria-label="搜索组件"
-                  >
-                    <SearchIcon />
-                  </Button>
-                </div>
-              )}
-
-              {(isComponentSearchOpen || componentSearch) && (
-                <div className="component-palette-search-bar">
-                  <Input
-                    className="component-palette-search-input"
-                    value={componentSearch}
-                    onChange={(e) => setComponentSearch(e.target.value)}
-                    placeholder="搜索组件名称..."
-                    autoFocus
                   />
                   {componentSearch && (
-                    <Button
+                    <IconButton
+                      aria-label="清除组件查找"
                       size="small"
-                      variant="ghost"
-                      className="component-palette-search-clear"
                       onClick={() => setComponentSearch('')}
-                      title="清空搜索"
                     >
-                      ✕
-                    </Button>
+                      ×
+                    </IconButton>
                   )}
                 </div>
               )}
@@ -949,51 +906,28 @@ export function ComponentAuthoringPalette({
               />
 
               {resources.length > 0 && (
-                <div className="component-palette-group-toolbar">
-                  {resourceSearch && (
-                    <span className="component-palette-group-filter-status">
-                      匹配到 {filteredResources.length} 个
-                    </span>
-                  )}
-                  <Button
-                    size="small"
-                    variant="ghost"
-                    className={`component-palette-search-btn${
-                      isResourceSearchOpen || resourceSearch ? ' is-active' : ''
-                    }`}
-                    onClick={() => {
-                      setIsResourceSearchOpen((prev) => !prev)
-                      if (isResourceSearchOpen && resourceSearch) {
+                <div className="component-layer-search">
+                  <Input
+                    aria-label="查找资源"
+                    placeholder="查找资源名称"
+                    value={resourceSearch}
+                    onChange={(event) => setResourceSearch(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        event.stopPropagation()
                         setResourceSearch('')
                       }
                     }}
-                    title={isResourceSearchOpen ? '收起搜索' : '搜索资源'}
-                    aria-label="搜索资源"
-                  >
-                    <SearchIcon />
-                  </Button>
-                </div>
-              )}
-
-              {(isResourceSearchOpen || resourceSearch) && (
-                <div className="component-palette-search-bar">
-                  <Input
-                    className="component-palette-search-input"
-                    value={resourceSearch}
-                    onChange={(e) => setResourceSearch(e.target.value)}
-                    placeholder="搜索资源名称..."
-                    autoFocus
                   />
                   {resourceSearch && (
-                    <Button
+                    <IconButton
+                      aria-label="清除资源查找"
                       size="small"
-                      variant="ghost"
-                      className="component-palette-search-clear"
                       onClick={() => setResourceSearch('')}
-                      title="清空搜索"
                     >
-                      ✕
-                    </Button>
+                      ×
+                    </IconButton>
                   )}
                 </div>
               )}
