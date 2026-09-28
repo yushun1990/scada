@@ -16,12 +16,18 @@
   display: flex;
   align-items: center;
   gap: var(--ui-space-2);
-  min-height: 32px;
+  min-height: var(--ui-inspector-group-height, 28px);
+  height: var(--ui-inspector-group-height, 28px);
   padding: 0 var(--ui-space-2);
-  color: var(--ui-color-text);
+  color: var(--ui-color-text-secondary);
   cursor: pointer;
   list-style: none;
   user-select: none;
+}
+
+.component-palette-summary:hover {
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface-subtle);
 }
 
 .component-palette-summary::-webkit-details-marker {
@@ -45,20 +51,10 @@
 
 .component-palette-summary > span {
   flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-}
-
-.component-palette-summary > small {
-  flex-shrink: 0;
-  color: var(--ui-color-text-subtle);
-  font-size: 10px;
-  font-weight: 500;
-}
-
-.component-palette-summary > small:last-child {
-  margin-left: auto;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-tool);
+  line-height: var(--ui-line-height-tool);
+  font-weight: 600;
 }
 
 .component-palette-summary-actions {
@@ -68,12 +64,79 @@
 }
 
 .component-palette-summary-actions .ui-button {
-  height: 24px;
-  min-height: 24px;
-  padding: 0 var(--ui-space-2);
+  height: 22px;
+  min-height: 22px;
+  padding: 0 6px;
   font-size: var(--ui-font-size-status);
   font-weight: 500;
   line-height: 1;
+}
+
+.component-palette-group-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 2px;
+  flex-shrink: 0;
+}
+
+.component-palette-group-count {
+  font-size: var(--ui-font-size-status);
+  font-weight: 500;
+  color: var(--ui-color-text-subtle);
+}
+
+.component-palette-search-btn {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-color-text-secondary);
+}
+
+.component-palette-search-btn:hover,
+.component-palette-search-btn.is-active {
+  color: var(--ui-color-accent);
+  background: var(--ui-color-accent-soft);
+}
+
+.component-palette-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+  margin-bottom: var(--ui-space-1);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.component-palette-search-input {
+  flex: 1;
+  font-size: 11px;
+}
+
+.component-palette-search-clear {
+  position: absolute;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0;
+  font-size: 10px;
+  color: var(--ui-color-text-subtle);
+}
+
+.component-palette-search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  gap: 4px;
+  padding: var(--ui-space-2) var(--ui-space-1);
+  font-size: var(--ui-font-size-status);
+  color: var(--ui-color-text-subtle);
+  text-align: center;
 }
 
 .component-palette-disclosure-body {
