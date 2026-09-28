@@ -99,8 +99,8 @@ try {
     blueMax: 120,
   })
 
-  // 新增函数: author a custom function through the 198-style code modal.
-  await methodsInspector.getByRole('button', { name: '+ 新增函数' }).click()
+  // 新增: author a custom function through the 198-style code modal.
+  await methodsInspector.getByRole('button', { name: '新增', exact: true }).click()
   const modal = page.locator('.component-method-implementation-modal')
   await modal.waitFor()
   await modal.getByLabel('函数标识名').fill('applyLevel')
@@ -165,9 +165,13 @@ function applyLevel(state = 'running') {
   await page.locator('.component-layer-row', { hasText: 'theme-lamp' }).click()
   await page.getByRole('tab', { name: '行为', exact: true }).click()
   const reloadedRow = page.locator('.component-method-item', { hasText: 'applyLevel' })
-  await reloadedRow.waitFor()
   await reloadedRow.getByLabel('applyLevel 运行预览').click()
-  await reloadedRow.locator('.component-method-run-result.is-ok').waitFor()
+  const runDialogReloaded = page.locator('.component-method-run-dialog')
+  if (await runDialogReloaded.isVisible().catch(() => false)) {
+    await runDialogReloaded.getByRole('button', { name: '▶ 运行' }).click()
+    await runDialogReloaded.waitFor({ state: 'detached' })
+  }
+  await page.locator('.component-methods-toast-success').waitFor()
 
   await mkdir('artifacts', { recursive: true })
   await page.screenshot({ path: 'artifacts/layer-methods-behavior-tab-1440.png' })

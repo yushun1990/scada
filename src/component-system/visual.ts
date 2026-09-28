@@ -131,6 +131,8 @@ type VisualLayerBase = {
   origin?: VisualAnchorOrigin
   visible: boolean
   opacity: number
+  /** Private authored functions, executed only through the controlled engine. */
+  methods?: readonly SvgLayerMethodDefinition[]
 }
 
 export type GroupVisualLayer = VisualLayerBase & {
@@ -267,6 +269,13 @@ export function assertSvgLayerMethods(
     }
   }
 }
+
+export type LayerMethodParameterKind = SvgLayerMethodParameterKind
+export type LayerMethodParameter = SvgLayerMethodParameter
+export type LayerMethodDefinition = SvgLayerMethodDefinition
+export const LAYER_METHOD_LIMITS = SVG_LAYER_METHOD_LIMITS
+export const isLayerMethodName = isSvgLayerMethodName
+export const assertLayerMethods = assertSvgLayerMethods
 
 export type SvgVisualLayer = VisualLayerBase & {
   kind: 'svg'
@@ -560,6 +569,13 @@ function assertLayer(value: unknown, index: number): asserts value is ComponentV
 
   if (!isFiniteNumber(value.opacity) || value.opacity < 0 || value.opacity > 1) {
     throw new Error(`Visual Layer ${String(value.id)} 的 opacity 必须位于 0..1`)
+  }
+
+  if (value.methods !== undefined) {
+    if (!Array.isArray(value.methods)) {
+      throw new Error(`Visual Layer ${String(value.id)} 的 methods 必须是数组`)
+    }
+    assertSvgLayerMethods(value.methods, `Visual Layer ${String(value.id)} methods`)
   }
 
   if (value.kind === 'svg' || value.kind === 'image') {
@@ -874,13 +890,25 @@ function cloneDesignSize(
 function cloneVisualLayer(layer: ComponentVisualLayer): ComponentVisualLayer {
   const transform = { ...layer.transform }
   const origin = layer.origin
+  const methods = layer.methods
+    ? layer.methods.map((m) => ({
+        ...m,
+        parameters: m.parameters
+          ? m.parameters.map((p) => ({
+              ...p,
+              options: p.options ? p.options.map((o) => ({ ...o })) : undefined,
+            }))
+          : undefined,
+      }))
+    : undefined
 
-  if (layer.kind === 'group') return { ...layer, transform, origin }
+  if (layer.kind === 'group') return { ...layer, transform, origin, methods }
   if (layer.kind === 'vector') {
     return {
       ...layer,
       transform,
       origin,
+      methods,
       style: layer.style
         ? {
             ...layer.style,
@@ -903,6 +931,7 @@ function cloneVisualLayer(layer: ComponentVisualLayer): ComponentVisualLayer {
       ...layer,
       transform,
       origin,
+      methods,
       style: layer.style
         ? {
             ...layer.style,
@@ -916,6 +945,7 @@ function cloneVisualLayer(layer: ComponentVisualLayer): ComponentVisualLayer {
       ...layer,
       transform,
       origin,
+      methods,
       document: layer.document ? cloneManagedSvgDocument(layer.document) : undefined,
       style: layer.style ? { ...layer.style } : undefined,
     }
@@ -924,6 +954,7 @@ function cloneVisualLayer(layer: ComponentVisualLayer): ComponentVisualLayer {
     ...layer,
     transform,
     origin,
+    methods,
     style: layer.style ? { ...layer.style } : undefined,
   }
 }

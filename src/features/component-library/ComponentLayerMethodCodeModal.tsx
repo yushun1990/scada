@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { TrashIcon } from '../../components/toolbar-icons'
 import { SVG_LAYER_BUILTIN_METHODS } from '../../component-system/managedSvgTheme'
-import type { SvgLayerMethodParameter, SvgVisualLayer } from '../../component-system/visual'
+import type { ComponentVisualLayer, SvgLayerMethodParameter } from '../../component-system/visual'
 import type { LayerMethodRunResult } from '../../runtime/controlled-layer-method-engine'
 import {
   Button,
@@ -50,7 +50,7 @@ export type LayerMethodEditState = {
 type ComponentLayerMethodCodeModalProps = {
   editState: LayerMethodEditState | null
   readOnly: boolean
-  svgLayer: SvgVisualLayer
+  layer: ComponentVisualLayer
   liveCurrentTheme: string | null
   livePreviewAssetRef: string | null
   onClose: () => void
@@ -68,7 +68,7 @@ type ComponentLayerMethodCodeModalProps = {
 export function ComponentLayerMethodCodeModal({
   editState,
   readOnly,
-  svgLayer,
+  layer,
   liveCurrentTheme,
   livePreviewAssetRef,
   onClose,
@@ -556,15 +556,15 @@ export function ComponentLayerMethodCodeModal({
                 )}
               </div>
               <div className="component-method-preview-viewport">
-                {livePreviewAssetRef || svgLayer.assetRef ? (
+                {livePreviewAssetRef || ('assetRef' in layer && layer.assetRef) ? (
                   <img
-                    src={livePreviewAssetRef || svgLayer.assetRef}
-                    alt={svgLayer.name}
+                    src={livePreviewAssetRef || ('assetRef' in layer ? layer.assetRef : '')}
+                    alt={layer.name}
                     className="component-method-preview-image"
                   />
                 ) : (
                   <div className="component-method-preview-empty">
-                    <span>暂无图层矢量图形预览</span>
+                    <span>暂无图层图形预览</span>
                   </div>
                 )}
               </div>

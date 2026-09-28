@@ -42,17 +42,16 @@ try {
   await row.click()
   assert.match(await layerInspector.textContent(), new RegExp(layer.name))
 
-  // Layer scope owns its own tab set: behaviors expose SVG layer functions
-  // only (issue #209 / PR198 design) and must not leak public Action/Event
-  // authoring affordances.
+  // Layer scope owns its own tab set: behaviors expose layer functions
+  // and must not leak public Action/Event authoring affordances.
   const layerPanel = page.locator('.component-property-panel')
   const layerTab = (name) => layerPanel.getByRole('tab', { name, exact: true })
   await layerTab('行为').click()
-  await layerPanel.getByText(/图层函数仅对 SVG 图层开放/).waitFor()
+  await layerPanel.getByText(/暂无函数/).waitFor()
   assert.equal(await layerPanel.locator('.component-rule-editor').count(), 0, 'visual rule authoring left the behaviors tab')
   assert.equal(await layerPanel.locator('.component-animation-item').count(), 0, 'animation authoring left the behaviors tab')
   assert.equal(await button('+ 添加 Spin 动画').count(), 0, 'animation group must stay removed from the behaviors tab')
-  assert.equal(await button('+ 新增函数').count(), 0, 'non-SVG layers must not offer SVG layer functions')
+  assert.equal(await button('新增').count(), 1, 'visual layers offer custom layer function authoring')
 
   await layerTab('属性').click()
   const width = layerPanel

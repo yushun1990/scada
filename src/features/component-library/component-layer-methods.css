@@ -20,8 +20,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--ui-space-xs);
-  gap: 6px;
+  padding: 4px 0 6px;
+  gap: var(--ui-space-sm);
   width: 100%;
   min-width: 0;
   box-sizing: border-box;

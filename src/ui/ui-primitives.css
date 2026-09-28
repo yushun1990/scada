@@ -434,7 +434,7 @@
 
 .ui-select-positioner,
 .ui-menu-positioner {
-  z-index: 200;
+  z-index: 1000;
 }
 
 .ui-select-popup,
@@ -729,7 +729,7 @@
 }
 
 .ui-popover-positioner {
-  z-index: 200;
+  z-index: 1000;
 }
 
 .ui-popover-popup {

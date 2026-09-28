@@ -96,12 +96,12 @@ export function ComponentLayerMethodInspector({
 
   const svgLayer = layer && layer.kind === 'svg' ? (layer as SvgVisualLayer) : null
 
-  const customMethods = svgLayer?.methods ?? []
+  const customMethods = layer?.methods ?? []
 
   useEffect(() => {
     latestDocumentRef.current = svgLayer?.document ?? null
-    setLivePreviewAssetRef(svgLayer?.assetRef ?? null)
-  }, [svgLayer?.document, svgLayer?.assetRef])
+    setLivePreviewAssetRef(layer && 'assetRef' in layer ? layer.assetRef : null)
+  }, [svgLayer?.document, layer])
 
   const hasThemeClasses = useMemo(() => {
     return svgLayer?.document ? hasManagedSvgThemeClasses(svgLayer.document) : false
@@ -142,20 +142,20 @@ export function ComponentLayerMethodInspector({
     return rows
   }, [customMethods, hasThemeClasses, svgLayer])
 
-  if (!layer || layer.kind !== 'svg' || !svgLayer) {
+  if (!layer) {
     return (
       <div
         className="component-layer-methods-inspector"
         data-portable-action-execution="disabled"
       >
-        <div className="component-methods-status-banner" role="status">
-          当前图层没有 SVG 函数；图层函数仅对 SVG 图层开放。
+        <div className="component-methods-empty">
+          请选择图层以管理函数。
         </div>
       </div>
     )
   }
 
-  const selfLayer: SvgVisualLayer = svgLayer
+  const selfLayer: ComponentVisualLayer = layer
 
   function saveMethods(next: SvgLayerMethodDefinition[]) {
     onUpdateLayer({ ...selfLayer, methods: next })
@@ -251,7 +251,7 @@ export function ComponentLayerMethodInspector({
       if (result.ok) {
         let currentLayer = selfLayer
         for (const op of result.ops) {
-          if (op.kind === 'setTheme' && currentLayer.document) {
+          if (op.kind === 'setTheme' && currentLayer.kind === 'svg' && currentLayer.document) {
             const nextDoc = applyThemeToManagedSvgDocument(currentLayer.document, op.state)
             const nextAssetRef = serializeManagedSvgDataUrl(nextDoc)
             currentLayer = { ...currentLayer, document: nextDoc, assetRef: nextAssetRef }
@@ -333,11 +333,11 @@ export function ComponentLayerMethodInspector({
         </span>
         <Button
           size="small"
-          variant="primary"
+          variant="secondary"
           disabled={readOnly || customMethods.length >= 16}
           onClick={openCreate}
         >
-          + 新增函数
+          新增
         </Button>
       </div>
 
@@ -351,10 +351,18 @@ export function ComponentLayerMethodInspector({
         </div>
       )}
 
-      {!hasThemeClasses && customMethods.length === 0 ? (
+      {methodRows.length === 0 ? (
         <div className="component-methods-empty">
-          暂无函数。导入的 SVG 标注 <code>scada-theme-*</code> 语义类名后，会自动提供主题函数；
-          也可以点击右上角新增自定义函数。
+          {selfLayer.kind === 'svg' ? (
+            <>
+              暂无函数。导入的 SVG 标注 <code>scada-theme-*</code> 语义类名后，会自动提供主题函数；
+              也可以点击右上角“新增”定义函数。
+            </>
+          ) : (
+            <>
+              暂无函数。可点击右上角“新增”定义图层函数。
+            </>
+          )}
         </div>
       ) : (
         <ul className="component-methods-list">
@@ -502,7 +510,7 @@ export function ComponentLayerMethodInspector({
       <ComponentLayerMethodCodeModal
         editState={editState}
         readOnly={readOnly}
-        svgLayer={selfLayer}
+        layer={selfLayer}
         liveCurrentTheme={liveCurrentTheme}
         livePreviewAssetRef={livePreviewAssetRef}
         onClose={() => setEditState(null)}
