@@ -172,7 +172,22 @@ export function ComponentLayerMethodCodeModal({
     syncSignature({ parameters: currentParams, testParamValues: nextTestValues })
   }
 
-  function handleResetToInitial() {
+  function handleReset() {
+    if (method.isBuiltin) {
+      const builtin = SVG_LAYER_BUILTIN_METHODS.find((m) => m.name === method.originalMethodName)
+      if (builtin && method.code !== builtin.implementation) {
+        setCurrent({
+          ...method,
+          methodName: builtin.name,
+          title: builtin.title,
+          description: builtin.description ?? '',
+          parameters: [...(builtin.parameters ?? [])],
+          code: builtin.implementation,
+        })
+        showStatus('已重置为默认出厂实现')
+        return
+      }
+    }
     if (!method.initialSnapshot) return
     setCurrent({
       ...method,
@@ -183,14 +198,6 @@ export function ComponentLayerMethodCodeModal({
       code: method.initialSnapshot.code,
     })
     showStatus('已重置为打开时的代码与形参设置')
-  }
-
-  function handleResetDefaultCode() {
-    const builtin = SVG_LAYER_BUILTIN_METHODS.find((m) => m.name === method.originalMethodName)
-    if (builtin) {
-      setCurrent({ ...method, code: builtin.implementation })
-      showStatus('已恢复默认出厂实现代码')
-    }
   }
 
   function handleGenerateAiCode(customPrompt?: string) {
@@ -675,7 +682,7 @@ export function ComponentLayerMethodCodeModal({
                   </div>
                 ) : (
                   <div className="component-method-test-result-placeholder">
-                    <span>点击底栏「预览 / 试运行」执行当前代码并在上方观察画面响应</span>
+                    <span>点击底栏「预览」执行当前代码并在上方观察画面响应</span>
                   </div>
                 )}
               </div>
@@ -685,27 +692,13 @@ export function ComponentLayerMethodCodeModal({
 
         {/* Unified Bottom Action Bar */}
         <div className="component-method-dialog-actions">
-          <div className="component-method-dialog-actions-left">
-            {method.isBuiltin && (
-              <Button
-                variant="ghost"
-                size="normal"
-                disabled={readOnly}
-                onClick={handleResetDefaultCode}
-                title="恢复此函数的出厂默认实现"
-              >
-                恢复出厂默认
-              </Button>
-            )}
-          </div>
-
           <div className="component-method-dialog-actions-right">
             <Button
               variant="secondary"
               size="normal"
               disabled={readOnly}
-              onClick={handleResetToInitial}
-              title="重置为打开本弹窗时的初始状态"
+              onClick={handleReset}
+              title={method.isBuiltin ? '恢复默认出厂实现或重置初始状态' : '重置为打开本弹窗时的初始状态'}
             >
               重置
             </Button>
@@ -719,7 +712,7 @@ export function ComponentLayerMethodCodeModal({
               onClick={() => void handleRunInsideModal()}
               title="执行当前代码以测试运行效果并更新画面"
             >
-              {running ? '运行中…' : '▶ 预览 / 试运行'}
+              {running ? '预览中…' : '预览'}
             </Button>
             <Button
               variant="primary"

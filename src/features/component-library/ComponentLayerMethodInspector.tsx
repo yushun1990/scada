@@ -334,10 +334,11 @@ export function ComponentLayerMethodInspector({
         <Button
           size="small"
           variant="secondary"
+          className="component-methods-add-button"
           disabled={readOnly || customMethods.length >= 16}
           onClick={openCreate}
         >
-          新增
+          + 新增
         </Button>
       </div>
 

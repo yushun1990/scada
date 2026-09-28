@@ -1785,7 +1785,7 @@
   background: transparent;
   border-bottom: 2px solid transparent;
   color: var(--ui-color-text-subtle);
-  font-size: 11px;
+  font-size: var(--ui-font-size-status);
   font-weight: 500;
   box-shadow: none;
   cursor: pointer;

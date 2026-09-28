@@ -164,7 +164,7 @@ try {
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
   await page.getByRole('tab', { name: '行为', exact: true }).click()
   assert.equal(
-    await page.getByRole('button', { name: '新增', exact: true }).isDisabled(),
+    await page.getByRole('button', { name: '+ 新增', exact: true }).isDisabled(),
     true,
     'Preview keeps SVG layer function authoring read-only',
   )

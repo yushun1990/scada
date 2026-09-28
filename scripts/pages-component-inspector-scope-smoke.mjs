@@ -51,7 +51,7 @@ try {
   assert.equal(await layerPanel.locator('.component-rule-editor').count(), 0, 'visual rule authoring left the behaviors tab')
   assert.equal(await layerPanel.locator('.component-animation-item').count(), 0, 'animation authoring left the behaviors tab')
   assert.equal(await button('+ 添加 Spin 动画').count(), 0, 'animation group must stay removed from the behaviors tab')
-  assert.equal(await button('新增').count(), 1, 'visual layers offer custom layer function authoring')
+  assert.equal(await button('+ 新增').count(), 1, 'visual layers offer custom layer function authoring')
 
   await layerTab('属性').click()
   const width = layerPanel

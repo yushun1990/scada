@@ -11,7 +11,15 @@ const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/sc
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
 const pageErrors = []
-page.on('pageerror', (error) => pageErrors.push(error.message))
+page.on('pageerror', (error) => {
+  console.error('[PAGE ERROR]', error)
+  pageErrors.push(error.message)
+})
+page.on('console', (msg) => {
+  if (msg.type() === 'error') {
+    console.error('[PAGE CONSOLE ERROR]', msg.text())
+  }
+})
 
 // The SVG carries semantic theme classes so built-in theme functions appear.
 const svgSource = `
@@ -100,7 +108,7 @@ try {
   })
 
   // 新增: author a custom function through the 198-style code modal.
-  await methodsInspector.getByRole('button', { name: '新增', exact: true }).click()
+  await methodsInspector.getByRole('button', { name: '+ 新增', exact: true }).click()
   const modal = page.locator('.component-method-implementation-modal')
   await modal.waitFor()
   await modal.getByLabel('函数标识名').fill('applyLevel')

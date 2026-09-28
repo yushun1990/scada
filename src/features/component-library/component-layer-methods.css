@@ -35,13 +35,24 @@
 }
 
 .component-methods-count-hint {
-  font-size: var(--ui-font-size-caption);
+  font-size: var(--ui-font-size-status);
   color: var(--ui-color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
   flex: 1;
+}
+
+.component-methods-add-button {
+  height: 24px;
+  min-width: 72px;
+  padding: 0 14px;
+  font-size: var(--ui-font-size-status);
+  font-weight: 500;
+  line-height: 22px;
+  border-radius: var(--ui-radius-control);
+  box-sizing: border-box;
 }
 
 .component-methods-toast {
@@ -1199,20 +1210,14 @@
 .component-method-dialog-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--ui-space-sm);
-  margin-top: 0;
-  padding-top: var(--ui-space-xs);
-  border-top: 1px solid var(--ui-color-border-subtle, #292a34);
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-color-border);
   flex-shrink: 0;
   width: 100%;
   box-sizing: border-box;
-}
-
-.component-method-dialog-actions-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .component-method-dialog-actions-right {
