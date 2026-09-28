@@ -819,6 +819,7 @@ export function ComponentEditorPage({
                     layer={selectedLayer}
                     visual={component.visual}
                     readOnly={editingDisabled}
+                    onApplied={setMessage}
                     onUpdateLayer={(updatedLayer) => {
                       const layers = component.visual.layers.map((l) =>
                         l.id === updatedLayer.id ? updatedLayer : l,

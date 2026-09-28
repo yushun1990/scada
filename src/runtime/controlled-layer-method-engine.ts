@@ -152,7 +152,7 @@ function buildPrelude(snapshot: readonly LayerMethodSnapshotLayer[]): string {
     const $self = {
       id: ${JSON.stringify(snapshot.length > 0 ? snapshot[0].id : '')},
       name: ${JSON.stringify(snapshot.length > 0 ? snapshot[0].name : '')},
-      kind: 'svg',
+      kind: ${JSON.stringify(snapshot.length > 0 ? snapshot[0].kind : '')},
       get layers() { return __layerProxies; },
       setTheme(state) { return __op('setTheme', String(state)); },
       applyTheme(state) { return __op('setTheme', String(state)); },

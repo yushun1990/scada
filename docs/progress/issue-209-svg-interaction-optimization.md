@@ -9,6 +9,13 @@ feedback).
 Base: `main@f469abf` (rev 2). Product polish under the current `PLAN.md`
 product-polish phase, driven by an open issue. No M10A boundary change.
 
+## Rev 4 (owner feedback: header button style, parameter dropdown z-index, layer functions for all visual layers)
+
+- Renamed button from `+ 新增函数` to `新增`, switched variant from `primary` to `secondary`, and refined header bar spacing and count hint weight to match inspector card styles naturally.
+- Fixed popup z-index layering (`.ui-select-positioner`, `.ui-menu-positioner`, `.ui-popover-positioner` set to `z-index: 1000` in `src/ui/ui-primitives.css`): Select dropdowns inside dialogs (z-index 300/301) now open above modal backdrops and are fully clickable.
+- Extended layer functions on the 行为 (behaviors) tab to all visual layers (images, vectors, etc.) rather than restricting to SVG. Moved `methods` onto `VisualLayerBase`, fail-closed validation in `assertLayer`, and deep cloning in `cloneVisualLayer`. Updated `$self.kind` in the sandbox prelude to dynamically reflect layer kind. Empty state shows appropriate guidance per layer kind, and modal preview works with image layers.
+- Updated smoke tests and checks (`scripts/check-layer-methods.ts`, `scripts/pages-component-inspector-scope-smoke.mjs`, `scripts/pages-layer-methods-smoke.mjs`, `scripts/pages-managed-svg-author-ref-smoke.mjs`).
+
 ## Rev 3 (behaviors tab per PR198, author direction)
 
 - The behaviors tab now contains the SVG layer functions panel ONLY, matching

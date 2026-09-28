@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
 import {
+  COMPONENT_VISUAL_VERSION,
+  assertComponentVisualDefinition,
+  assertLayerMethods,
   assertSvgLayerMethods,
   isSvgLayerMethodName,
   SVG_LAYER_METHOD_LIMITS,
@@ -237,6 +240,57 @@ assert.deepEqual(LAYER_METHOD_DEFAULT_LIMITS, {
   maxStackSizeBytes: 512 * 1024,
 })
 
+// 3. Multi-layer kind support: image, vector and other visual layers support layer methods.
+assert.doesNotThrow(() => assertLayerMethods([validMethod]))
+assert.doesNotThrow(() => {
+  assertComponentVisualDefinition({
+    version: COMPONENT_VISUAL_VERSION,
+    mode: 'composite',
+    designSize: { width: 100, height: 100 },
+    layers: [
+      {
+        id: 'img-1',
+        name: 'photo',
+        kind: 'image',
+        parentId: null,
+        transform: { x: 0, y: 0, width: 100, height: 100, rotation: 0, scaleX: 1, scaleY: 1 },
+        visible: true,
+        opacity: 1,
+        assetRef: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        methods: [validMethod],
+      },
+    ],
+    rules: [],
+    animations: [],
+  })
+})
+
+const imageLayers = [
+  { id: 'img-1', name: 'photo', kind: 'image', visible: true },
+  { id: 'vec-1', name: 'overlay', kind: 'vector', visible: false },
+]
+
+const imageLayerRun = await runLayerMethod({
+  method: {
+    name: 'toggleOverlay',
+    parameters: [],
+    implementation: `function toggleOverlay() {
+      if ($self.kind !== 'image') throw new Error('expected image self kind');
+      $self.layers[1].show = true;
+      $emit('OVERLAY_SHOWN', { imageId: $self.id });
+      return 'toggled';
+    }`,
+  },
+  args: {},
+  layers: imageLayers,
+})
+assert.equal(imageLayerRun.ok, true, imageLayerRun.message)
+assert.equal(imageLayerRun.message, 'toggled')
+assert.deepEqual(imageLayerRun.ops, [
+  { kind: 'setLayerVisible', layerId: 'vec-1', visible: true },
+  { kind: 'emit', eventName: 'OVERLAY_SHOWN', payload: { imageId: 'img-1' } },
+])
+
 console.log(
-  'Layer method checks passed: authored SVG layer functions validate fail-closed (names, duplicates, size caps, parameter shapes), and the controlled QuickJS engine executes them inside a sandbox with no host globals, structured whitelisted $self/$emit operations only, argument marshalling, timeout and memory interruption, and missing-function/syntax failure surfaces.',
+  'Layer method checks passed: authored layer functions across visual layers validate fail-closed (names, duplicates, size caps, parameter shapes), and the controlled QuickJS engine executes them inside a sandbox with no host globals, structured whitelisted $self/$emit operations only, argument marshalling, timeout and memory interruption, and missing-function/syntax failure surfaces.',
 )

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import { serializeManagedSvgDataUrl } from '../../component-system/managedSvg'
 import type { ManagedSvgDocument } from '../../component-system/managedSvg'
 import {
@@ -17,7 +16,17 @@ import {
   runLayerMethod,
   type LayerMethodRunResult,
 } from '../../runtime/controlled-layer-method-engine'
-import { Button } from '../../ui'
+import {
+  Button,
+  Checkbox,
+  DialogContent,
+  DialogDescription,
+  DialogRoot,
+  DialogTitle,
+  Input,
+  NumberInput,
+  Select,
+} from '../../ui'
 import { ComponentLayerMethodCodeModal, type LayerMethodEditState } from './ComponentLayerMethodCodeModal'
 import { CodeIcon, PlayIcon, buildMethodCode } from './component-layer-method-templates'
 import './component-layer-methods.css'
@@ -26,6 +35,7 @@ type ComponentLayerMethodInspectorProps = {
   layer?: ComponentVisualLayer | null
   visual: ComponentVisualDefinition
   readOnly: boolean
+  onApplied?: (message: string) => void
   onUpdateLayer: (layer: ComponentVisualLayer) => void
   onUpdateVisual: (visual: ComponentVisualDefinition) => void
 }
@@ -51,13 +61,33 @@ export function ComponentLayerMethodInspector({
   layer,
   visual,
   readOnly,
+  onApplied,
   onUpdateLayer,
   onUpdateVisual,
 }: ComponentLayerMethodInspectorProps) {
   const [editState, setEditState] = useState<LayerMethodEditState | null>(null)
-  const [runResults, setRunResults] = useState<Record<string, LayerMethodRunResult>>({})
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [runningName, setRunningName] = useState<string | null>(null)
+  const [paramModalMethod, setParamModalMethod] = useState<MethodRow | null>(null)
+  const [paramModalValues, setParamModalValues] = useState<Record<string, unknown>>({})
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    }
+  }, [])
+
+  function showToast(message: string, type: 'success' | 'error' = 'success') {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    setToast({ message, type })
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null)
+      toastTimeoutRef.current = null
+    }, 3000)
+    onApplied?.(message)
+  }
 
   // Live theme state for the code modal's visual preview.
   const [liveCurrentTheme, setLiveCurrentTheme] = useState<string | null>(null)
@@ -66,12 +96,12 @@ export function ComponentLayerMethodInspector({
 
   const svgLayer = layer && layer.kind === 'svg' ? (layer as SvgVisualLayer) : null
 
-  const customMethods = svgLayer?.methods ?? []
+  const customMethods = layer?.methods ?? []
 
   useEffect(() => {
     latestDocumentRef.current = svgLayer?.document ?? null
-    setLivePreviewAssetRef(svgLayer?.assetRef ?? null)
-  }, [svgLayer?.document, svgLayer?.assetRef])
+    setLivePreviewAssetRef(layer && 'assetRef' in layer ? layer.assetRef : null)
+  }, [svgLayer?.document, layer])
 
   const hasThemeClasses = useMemo(() => {
     return svgLayer?.document ? hasManagedSvgThemeClasses(svgLayer.document) : false
@@ -112,20 +142,20 @@ export function ComponentLayerMethodInspector({
     return rows
   }, [customMethods, hasThemeClasses, svgLayer])
 
-  if (!layer || layer.kind !== 'svg' || !svgLayer) {
+  if (!layer) {
     return (
       <div
         className="component-layer-methods-inspector"
         data-portable-action-execution="disabled"
       >
-        <div className="component-methods-status-banner" role="status">
-          当前图层没有 SVG 函数；图层函数仅对 SVG 图层开放。
+        <div className="component-methods-empty">
+          请选择图层以管理函数。
         </div>
       </div>
     )
   }
 
-  const selfLayer: SvgVisualLayer = svgLayer
+  const selfLayer: ComponentVisualLayer = layer
 
   function saveMethods(next: SvgLayerMethodDefinition[]) {
     onUpdateLayer({ ...selfLayer, methods: next })
@@ -218,12 +248,10 @@ export function ComponentLayerMethodInspector({
           })),
         ],
       })
-      setRunResults((prev) => ({ ...prev, [row.name]: result }))
-
       if (result.ok) {
         let currentLayer = selfLayer
         for (const op of result.ops) {
-          if (op.kind === 'setTheme' && currentLayer.document) {
+          if (op.kind === 'setTheme' && currentLayer.kind === 'svg' && currentLayer.document) {
             const nextDoc = applyThemeToManagedSvgDocument(currentLayer.document, op.state)
             const nextAssetRef = serializeManagedSvgDataUrl(nextDoc)
             currentLayer = { ...currentLayer, document: nextDoc, assetRef: nextAssetRef }
@@ -255,6 +283,10 @@ export function ComponentLayerMethodInspector({
             }),
           })
         }
+
+        showToast(`✓ 函数 "${row.title || row.name}" 运行成功`, 'success')
+      } else {
+        showToast(`✕ 函数 "${row.title || row.name}" 运行失败：${result.message}`, 'error')
       }
       return result
     } finally {
@@ -265,12 +297,29 @@ export function ComponentLayerMethodInspector({
   function defaultArgsFor(parameters: SvgLayerMethodDefinition['parameters']): Record<string, unknown> {
     const args: Record<string, unknown> = {}
     for (const parameter of parameters ?? []) {
-      if (parameter.defaultValue !== undefined) args[parameter.name] = parameter.defaultValue
-      else if (parameter.kind === 'select' && parameter.options?.length) {
+      if (parameter.defaultValue !== undefined) {
+        args[parameter.name] = parameter.defaultValue
+      } else if (parameter.kind === 'select' && parameter.options?.length) {
         args[parameter.name] = parameter.options[0].value
+      } else if (parameter.kind === 'number') {
+        args[parameter.name] = 0
+      } else if (parameter.kind === 'boolean') {
+        args[parameter.name] = false
+      } else {
+        args[parameter.name] = ''
       }
     }
     return args
+  }
+
+  function handleRowRunClick(row: MethodRow) {
+    const params = row.parameters ?? []
+    if (params.length === 0) {
+      void handleRun(row, {})
+    } else {
+      setParamModalMethod(row)
+      setParamModalValues(defaultArgsFor(params))
+    }
   }
 
   return (
@@ -278,111 +327,191 @@ export function ComponentLayerMethodInspector({
       className="component-layer-methods-inspector"
       data-layer-method-execution="controlled-sandbox"
     >
-      <CollapsibleInspectorGroup
-        title="SVG 图层函数"
-        defaultOpen={true}
-      >
-        <div className="component-methods-toolbar">
-          <p className="component-inspector-help">
-            为 SVG 定义的函数：可新增、<code>&lt;&gt;</code> 编辑源码、<code>▶</code> 在受控沙箱试运行并应用到当前画布。
-            函数属于图层私有实现，不会生成为公开 Action/Event。
-          </p>
-          <Button
-            size="small"
-            variant="primary"
-            disabled={readOnly || customMethods.length >= 16}
-            onClick={openCreate}
-          >
-            + 新增函数
-          </Button>
+      <div className="component-methods-header-bar">
+        <span className="component-methods-count-hint">
+          共 {methodRows.length} 个函数
+        </span>
+        <Button
+          size="small"
+          variant="secondary"
+          className="component-methods-add-button"
+          disabled={readOnly || customMethods.length >= 16}
+          onClick={openCreate}
+        >
+          + 新增
+        </Button>
+      </div>
+
+      {toast && (
+        <div
+          className={`component-methods-toast component-methods-toast-${toast.type}`}
+          role="status"
+          aria-live="polite"
+        >
+          {toast.message}
         </div>
+      )}
 
-        {!hasThemeClasses && customMethods.length === 0 ? (
-          <div className="component-methods-empty">
-            暂无函数。导入的 SVG 标注 <code>scada-theme-*</code> 语义类名后，会自动提供主题函数；
-            也可以直接新增自定义函数。
-          </div>
-        ) : (
-          <ul className="component-methods-list">
-            {methodRows.map((row) => (
-              <li key={row.key} className="component-method-item">
-                <div className="component-method-item-head">
-                  <div className="component-method-item-title">
-                    <code>{row.name}</code>
-                    <span>{row.title}</span>
-                    {row.isBuiltin && <span className="component-method-badge">内置</span>}
-                  </div>
-                  <div className="component-method-item-actions">
-                    <Button
-                      size="small"
-                      variant="ghost"
-                      disabled={readOnly}
-                      aria-label={`${row.name} 编辑源码`}
-                      title="编辑函数源码"
-                      onClick={() => openEdit(row)}
-                    >
-                      <CodeIcon />
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="ghost"
-                      disabled={readOnly || runningName !== null}
-                      aria-label={`${row.name} 运行预览`}
-                      title="在受控沙箱试运行并应用到当前画布"
-                      onClick={() => void handleRun(row, defaultArgsFor(row.parameters))}
-                    >
-                      <PlayIcon />
-                    </Button>
-                  </div>
+      {methodRows.length === 0 ? (
+        <div className="component-methods-empty">
+          {selfLayer.kind === 'svg' ? (
+            <>
+              暂无函数。导入的 SVG 标注 <code>scada-theme-*</code> 语义类名后，会自动提供主题函数；
+              也可以点击右上角“新增”定义函数。
+            </>
+          ) : (
+            <>
+              暂无函数。可点击右上角“新增”定义图层函数。
+            </>
+          )}
+        </div>
+      ) : (
+        <ul className="component-methods-list">
+          {methodRows.map((row) => (
+            <li key={row.key} className="component-method-item">
+              <div className="component-method-item-head">
+                <div className="component-method-item-title">
+                  <code>{row.name}</code>
+                  <span>{row.title}</span>
+                  {row.isBuiltin && <span className="component-method-badge">内置</span>}
                 </div>
-                {(row.description || (row.parameters ?? []).length > 0) && (
-                  <div className="component-method-item-desc">
-                    {row.description}
-                    {(row.parameters ?? []).length > 0 && (
-                      <span className="component-method-params-hint">
-                        {' '}参数：{(row.parameters ?? [])
-                          .map((parameter) => `${parameter.name}: ${parameter.kind}`)
-                          .join(', ')}
-                      </span>
-                    )}
-                  </div>
-                )}
-                {runResults[row.name] && (
-                  <div
-                    className={`component-method-run-result ${runResults[row.name].ok ? 'is-ok' : 'is-error'}`}
-                    role="status"
+                <div className="component-method-item-actions">
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    disabled={readOnly}
+                    aria-label={`${row.name} 编辑源码`}
+                    title="编辑函数源码"
+                    onClick={() => openEdit(row)}
                   >
-                    <div className="component-method-run-summary">
-                      {runResults[row.name].ok ? '✓' : '✕'} {runResults[row.name].message}
-                      {runResults[row.name].elapsedMs > 0 && ` · ${runResults[row.name].elapsedMs}ms`}
-                    </div>
-                    {runResults[row.name].ops
-                      .filter((op) => op.kind === 'log' || op.kind === 'emit')
-                      .map((op, index) => (
-                        <div key={index} className="component-method-run-log">
-                          {op.kind === 'log'
-                            ? `[${op.level}] ${op.message}`
-                            : `[emit] ${op.eventName} ${JSON.stringify(op.payload)}`}
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+                    <CodeIcon />
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    disabled={readOnly || runningName !== null}
+                    aria-label={`${row.name} 运行预览`}
+                    title="运行预览并应用到当前画布"
+                    onClick={() => handleRowRunClick(row)}
+                  >
+                    <PlayIcon />
+                  </Button>
+                </div>
+              </div>
+              {row.description && (
+                <div className="component-method-item-desc">
+                  {row.description}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
-        {statusMessage && (
-          <div className="component-methods-status-banner" role="status">
-            {statusMessage}
+      {statusMessage && (
+        <div className="component-methods-status-banner" role="status">
+          {statusMessage}
+        </div>
+      )}
+
+      <DialogRoot
+        open={paramModalMethod !== null}
+        onOpenChange={(open) => {
+          if (!open) setParamModalMethod(null)
+        }}
+      >
+        <DialogContent className="component-method-run-dialog">
+          <div className="component-method-dialog-header">
+            <DialogTitle className="component-method-run-dialog-title">
+              运行参数设置
+            </DialogTitle>
+            <DialogDescription className="component-method-run-dialog-subtitle">
+              函数 <code>{paramModalMethod?.name}</code>（{paramModalMethod?.title}）需要输入参数：
+            </DialogDescription>
           </div>
-        )}
-      </CollapsibleInspectorGroup>
+
+          <div className="component-method-run-fields">
+            {(paramModalMethod?.parameters ?? []).map((param) => (
+              <div key={param.name} className="component-method-run-field">
+                <label className="component-method-run-field-label">
+                  <span className="component-method-run-field-title">{param.title || param.name}</span>
+                  <code className="component-method-run-field-name">{param.name}</code>
+                  <span className="component-method-run-field-kind">({param.kind})</span>
+                </label>
+                <div className="component-method-run-field-input">
+                  {param.kind === 'select' ? (
+                    <Select
+                      value={String(paramModalValues[param.name] ?? '')}
+                      ariaLabel={param.title || param.name}
+                      options={(param.options ?? []).map((opt) => ({
+                        value: String(opt.value),
+                        label: opt.label,
+                      }))}
+                      onValueChange={(val) => {
+                        setParamModalValues((prev) => ({ ...prev, [param.name]: val }))
+                      }}
+                    />
+                  ) : param.kind === 'boolean' ? (
+                    <Checkbox
+                      checked={Boolean(paramModalValues[param.name])}
+                      label={paramModalValues[param.name] ? 'true' : 'false'}
+                      onCheckedChange={(checked) => {
+                        setParamModalValues((prev) => ({ ...prev, [param.name]: checked }))
+                      }}
+                    />
+                  ) : param.kind === 'number' ? (
+                    <NumberInput
+                      value={typeof paramModalValues[param.name] === 'number' ? (paramModalValues[param.name] as number) : 0}
+                      onChange={(e) => {
+                        const val = Number(e.target.value)
+                        setParamModalValues((prev) => ({ ...prev, [param.name]: Number.isFinite(val) ? val : 0 }))
+                      }}
+                    />
+                  ) : (
+                    <Input
+                      value={String(paramModalValues[param.name] ?? '')}
+                      placeholder="参数值"
+                      onChange={(e) => {
+                        setParamModalValues((prev) => ({ ...prev, [param.name]: e.target.value }))
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="component-method-run-dialog-actions">
+            <Button
+              variant="ghost"
+              size="small"
+              onClick={() => setParamModalMethod(null)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="primary"
+              size="small"
+              disabled={runningName !== null}
+              onClick={async () => {
+                const targetMethod = paramModalMethod
+                const targetValues = { ...paramModalValues }
+                setParamModalMethod(null)
+                if (targetMethod) {
+                  await handleRun(targetMethod, targetValues)
+                }
+              }}
+            >
+              ▶ 运行
+            </Button>
+          </div>
+        </DialogContent>
+      </DialogRoot>
 
       <ComponentLayerMethodCodeModal
         editState={editState}
         readOnly={readOnly}
-        svgLayer={selfLayer}
+        layer={selfLayer}
         liveCurrentTheme={liveCurrentTheme}
         livePreviewAssetRef={livePreviewAssetRef}
         onClose={() => setEditState(null)}
