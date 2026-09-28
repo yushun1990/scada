@@ -15,10 +15,10 @@
 .component-palette-summary {
   display: flex;
   align-items: center;
-  gap: var(--ui-space-2);
+  gap: 6px;
   min-height: var(--ui-inspector-group-height, 28px);
   height: var(--ui-inspector-group-height, 28px);
-  padding: 0 var(--ui-space-2);
+  padding: 0 6px;
   color: var(--ui-color-text-secondary);
   cursor: pointer;
   list-style: none;
@@ -39,8 +39,9 @@
   width: 12px;
   color: var(--ui-color-text-subtle);
   content: '›';
-  font-size: 14px;
+  font-size: 11px;
   line-height: 1;
+  text-align: center;
   transform: rotate(0deg);
   transition: transform 120ms ease;
 }
@@ -52,51 +53,37 @@
 .component-palette-summary > span {
   flex-shrink: 0;
   color: var(--ui-color-text);
-  font-size: var(--ui-font-size-tool);
-  line-height: var(--ui-line-height-tool);
-  font-weight: 600;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }
 
 .component-palette-summary-actions {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   margin-left: auto;
 }
 
-.component-palette-summary-actions .ui-button {
-  height: 22px;
-  min-height: 22px;
-  padding: 0 6px;
-  font-size: var(--ui-font-size-status);
+.component-palette-summary-count {
+  font-size: 11px;
   font-weight: 500;
-  line-height: 1;
+  color: var(--ui-color-text-subtle);
+  user-select: none;
 }
 
-.component-palette-group-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 0 2px;
-  flex-shrink: 0;
-}
-
-.component-palette-group-count {
-  font-size: var(--ui-font-size-status);
-  font-weight: 500;
+.component-palette-summary-actions .component-palette-search-btn {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+  border-radius: var(--ui-radius-control);
   color: var(--ui-color-text-subtle);
 }
 
-.component-palette-search-btn {
-  width: 22px;
-  height: 22px;
-  min-width: 22px;
-  padding: 0;
-  border-radius: var(--ui-radius-control);
-  color: var(--ui-color-text-secondary);
-}
-
-.component-palette-search-btn:hover,
-.component-palette-search-btn.is-active {
+.component-palette-summary-actions .component-palette-search-btn:hover,
+.component-palette-summary-actions .component-palette-search-btn.is-active {
   color: var(--ui-color-accent);
   background: var(--ui-color-accent-soft);
 }
@@ -134,9 +121,24 @@
   min-height: 60px;
   gap: 4px;
   padding: var(--ui-space-2) var(--ui-space-1);
-  font-size: var(--ui-font-size-status);
+  font-size: 11px;
   color: var(--ui-color-text-subtle);
   text-align: center;
+}
+
+.component-palette-bottom-action {
+  width: 100%;
+  height: 26px;
+  min-height: 26px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  border-style: dashed;
+}
+
+.component-palette-bottom-action:hover:not(:disabled) {
+  border-color: var(--ui-color-accent);
+  color: var(--ui-color-accent);
 }
 
 .component-palette-disclosure-body {
@@ -299,7 +301,7 @@
 
 .component-palette-component-card-title {
   overflow: hidden;
-  font-size: var(--ui-font-size-status);
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ui-color-text);
@@ -321,7 +323,7 @@
 .component-palette-dialog-error {
   margin: 6px 0 0;
   color: var(--ui-color-danger);
-  font-size: var(--ui-font-size-status);
+  font-size: 11px;
 }
 
 
@@ -360,7 +362,7 @@
 
 .component-palette-resource-item span {
   overflow: hidden;
-  font-size: var(--ui-font-size-status);
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -370,7 +372,7 @@
 .component-palette-message {
   margin: 0;
   color: var(--ui-color-text-subtle);
-  font-size: var(--ui-font-size-status);
+  font-size: 11px;
   line-height: 1.45;
 }
 
@@ -386,7 +388,7 @@
   margin: 0;
   padding-top: 2px;
   color: var(--ui-color-text-subtle);
-  font-size: var(--ui-font-size-status);
+  font-size: 11px;
   line-height: 1.45;
 }
 

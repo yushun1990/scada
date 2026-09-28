@@ -699,6 +699,11 @@ export function ComponentAuthoringPalette({
               title="双击居中 · 拖到画布"
             >
               <span>基础图元</span>
+              <div className="component-palette-summary-actions">
+                <small className="component-palette-summary-count">
+                  {PALETTE_PRIMITIVES.length + 1} 个
+                </small>
+              </div>
             </summary>
             <div className="component-palette-disclosure-body">
               <div className="component-palette-grid">
@@ -756,25 +761,39 @@ export function ComponentAuthoringPalette({
             >
               <span>组件</span>
               <div className="component-palette-summary-actions">
-                <Button
-                  size="small"
-                  disabled={readOnly || busy}
-                  title="添加多图组件"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    if (componentDetailsRef.current) {
-                      componentDetailsRef.current.open = true
-                    }
-                    multiImageInputRef.current?.click()
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === ' ' || event.key === 'Enter') {
+                <small className="component-palette-summary-count">
+                  {componentSearch
+                    ? `${filteredComponents.length}/${editableComponents.length} 个`
+                    : `${editableComponents.length} 个`}
+                </small>
+                {editableComponents.length > 0 && (
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    className={`component-palette-search-btn${
+                      isComponentSearchOpen || componentSearch ? ' is-active' : ''
+                    }`}
+                    onClick={(event) => {
                       event.stopPropagation()
-                    }
-                  }}
-                >
-                  {busy ? '处理中…' : '+ 多图组件'}
-                </Button>
+                      if (componentDetailsRef.current) {
+                        componentDetailsRef.current.open = true
+                      }
+                      setIsComponentSearchOpen((prev) => !prev)
+                      if (isComponentSearchOpen && componentSearch) {
+                        setComponentSearch('')
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === ' ' || event.key === 'Enter') {
+                        event.stopPropagation()
+                      }
+                    }}
+                    title={isComponentSearchOpen ? '收起搜索' : '搜索组件'}
+                    aria-label="搜索组件"
+                  >
+                    <SearchIcon />
+                  </Button>
+                )}
               </div>
             </summary>
             <div className="component-palette-disclosure-body">
@@ -804,31 +823,6 @@ export function ComponentAuthoringPalette({
                   setNamingModalOpen(true)
                 }}
               />
-              <div className="component-palette-group-toolbar">
-                <span className="component-palette-group-count">
-                  {filteredComponents.length}
-                  {componentSearch ? `/${editableComponents.length}` : ''} 个可复用
-                </span>
-                {editableComponents.length > 0 && (
-                  <Button
-                    size="small"
-                    variant="ghost"
-                    className={`component-palette-search-btn${
-                      isComponentSearchOpen || componentSearch ? ' is-active' : ''
-                    }`}
-                    onClick={() => {
-                      setIsComponentSearchOpen((prev) => !prev)
-                      if (isComponentSearchOpen && componentSearch) {
-                        setComponentSearch('')
-                      }
-                    }}
-                    title={isComponentSearchOpen ? '收起搜索' : '搜索组件'}
-                    aria-label="搜索组件"
-                  >
-                    <SearchIcon />
-                  </Button>
-                )}
-              </div>
 
               {(isComponentSearchOpen || componentSearch) && (
                 <div className="component-palette-search-bar">
@@ -910,6 +904,19 @@ export function ComponentAuthoringPalette({
               ) : (
                 <p className="component-palette-empty">保存过的 Composite 组件会显示在这里。</p>
               )}
+
+              <Button
+                size="small"
+                variant="secondary"
+                className="component-palette-bottom-action"
+                disabled={readOnly || busy}
+                title="添加多图组件"
+                onClick={() => {
+                  multiImageInputRef.current?.click()
+                }}
+              >
+                {busy ? '处理中…' : '+ 多图组件'}
+              </Button>
             </div>
           </details>
 
@@ -924,25 +931,39 @@ export function ComponentAuthoringPalette({
             >
               <span>其他资源</span>
               <div className="component-palette-summary-actions">
-                <Button
-                  size="small"
-                  disabled={readOnly || busy}
-                  title="上传资源"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    if (resourceDetailsRef.current) {
-                      resourceDetailsRef.current.open = true
-                    }
-                    fileInputRef.current?.click()
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === ' ' || event.key === 'Enter') {
+                <small className="component-palette-summary-count">
+                  {resourceSearch
+                    ? `${filteredResources.length}/${resources.length} 个`
+                    : `${resources.length} 个`}
+                </small>
+                {resources.length > 0 && (
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    className={`component-palette-search-btn${
+                      isResourceSearchOpen || resourceSearch ? ' is-active' : ''
+                    }`}
+                    onClick={(event) => {
                       event.stopPropagation()
-                    }
-                  }}
-                >
-                  {busy ? '处理中…' : '上传资源'}
-                </Button>
+                      if (resourceDetailsRef.current) {
+                        resourceDetailsRef.current.open = true
+                      }
+                      setIsResourceSearchOpen((prev) => !prev)
+                      if (isResourceSearchOpen && resourceSearch) {
+                        setResourceSearch('')
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === ' ' || event.key === 'Enter') {
+                        event.stopPropagation()
+                      }
+                    }}
+                    title={isResourceSearchOpen ? '收起搜索' : '搜索资源'}
+                    aria-label="搜索资源"
+                  >
+                    <SearchIcon />
+                  </Button>
+                )}
               </div>
             </summary>
             <div className="component-palette-disclosure-body component-palette-resource-library">
@@ -961,31 +982,6 @@ export function ComponentAuthoringPalette({
                   void uploadResources(files)
                 }}
               />
-              <div className="component-palette-group-toolbar">
-                <span className="component-palette-group-count">
-                  {filteredResources.length}
-                  {resourceSearch ? `/${resources.length}` : ''} 个
-                </span>
-                {resources.length > 0 && (
-                  <Button
-                    size="small"
-                    variant="ghost"
-                    className={`component-palette-search-btn${
-                      isResourceSearchOpen || resourceSearch ? ' is-active' : ''
-                    }`}
-                    onClick={() => {
-                      setIsResourceSearchOpen((prev) => !prev)
-                      if (isResourceSearchOpen && resourceSearch) {
-                        setResourceSearch('')
-                      }
-                    }}
-                    title={isResourceSearchOpen ? '收起搜索' : '搜索资源'}
-                    aria-label="搜索资源"
-                  >
-                    <SearchIcon />
-                  </Button>
-                )}
-              </div>
 
               {(isResourceSearchOpen || resourceSearch) && (
                 <div className="component-palette-search-bar">
@@ -1044,6 +1040,19 @@ export function ComponentAuthoringPalette({
               ) : (
                 <p className="component-palette-empty">上传后的资源会持久保存在这里，供后续组件复用。</p>
               )}
+
+              <Button
+                size="small"
+                variant="secondary"
+                className="component-palette-bottom-action"
+                disabled={readOnly || busy}
+                title="上传资源"
+                onClick={() => {
+                  fileInputRef.current?.click()
+                }}
+              >
+                {busy ? '处理中…' : '上传资源'}
+              </Button>
             </div>
           </details>
 
