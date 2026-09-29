@@ -39,7 +39,7 @@
   width: 12px;
   color: var(--ui-color-text-subtle);
   content: '›';
-  font-size: var(--ui-font-size-compact);
+  font-size: var(--ui-font-size-tool);
   line-height: 1;
   text-align: center;
   transform: rotate(0deg);
@@ -50,19 +50,19 @@
   transform: rotate(90deg);
 }
 
+/* Left dock is a navigation surface: group titles follow the same
+ * role token as the 图层 heading (tool/600); counts are meta text (compact). */
 .component-palette-summary > span {
   flex-shrink: 0;
   color: var(--ui-color-text);
-  font-size: var(--ui-font-size-compact);
-  line-height: 1.2;
-  font-weight: 650;
+  font-size: var(--ui-font-size-tool);
+  font-weight: 600;
   letter-spacing: 0.02em;
 }
 
 .component-palette-summary-count {
   margin-left: auto;
   font-size: var(--ui-font-size-compact);
-  font-weight: 500;
   color: var(--ui-color-text-subtle);
   user-select: none;
 }
@@ -83,17 +83,7 @@
 
 .component-palette-bottom-action {
   width: 100%;
-  height: var(--ui-control-height-small);
-  min-height: var(--ui-control-height-small);
   margin-top: 4px;
-  font-size: var(--ui-font-size-compact);
-  font-weight: 500;
-  border-style: dashed;
-}
-
-.component-palette-bottom-action:hover:not(:disabled) {
-  border-color: var(--ui-color-accent);
-  color: var(--ui-color-accent);
 }
 
 .component-palette-disclosure-body {
