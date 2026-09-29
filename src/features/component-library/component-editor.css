@@ -1761,15 +1761,18 @@
   white-space: nowrap;
 }
 
+.component-layer-inspector-header .ui-tabs {
+  margin-bottom: -1px;
+}
+
 .component-layer-inspector-header .ui-tabs-list.component-inspector-tabs {
-  position: static;
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   width: 100%;
-  height: 32px;
+  height: 34px;
   margin: 0;
-  padding: 0 12px;
+  padding: 0;
   border: 0;
   border-top: 1px solid var(--ui-color-border-subtle);
   border-radius: 0;
@@ -1778,17 +1781,25 @@
 }
 
 .component-layer-inspector-header .component-inspector-tabs > .ui-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
   height: 100%;
-  padding: 0 4px;
+  padding: 0 var(--ui-space-2);
   border: 0;
   border-radius: 0;
   background: transparent;
   border-bottom: 2px solid transparent;
   color: var(--ui-color-text-subtle);
-  font-size: var(--ui-font-size-status);
+  font-size: var(--ui-font-size-tool);
   font-weight: 500;
   box-shadow: none;
   cursor: pointer;
+  white-space: nowrap;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 
