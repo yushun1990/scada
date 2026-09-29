@@ -117,6 +117,25 @@
   background: var(--ui-color-accent-soft);
 }
 
+/* Soft-accent: quiet accent-tinted chip for add/insert affordances. */
+.ui-button-soft {
+  border-color: var(--ui-color-border);
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+}
+
+.ui-button-soft:hover:not(:disabled):not([data-disabled]) {
+  border-color: var(--ui-color-accent);
+  color: #ffffff;
+  background: var(--ui-color-accent);
+}
+
+.ui-button-soft:active:not(:disabled):not([data-disabled]) {
+  border-color: var(--ui-color-accent-pressed);
+  color: #ffffff;
+  background: var(--ui-color-accent-pressed);
+}
+
 .ui-button-ghost {
   border-color: transparent;
   color: var(--ui-color-text-secondary);

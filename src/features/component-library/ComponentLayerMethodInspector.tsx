@@ -330,7 +330,7 @@ export function ComponentLayerMethodInspector({
         </span>
         <Button
           size="small"
-          variant="secondary"
+          variant="soft"
           className="component-methods-add-button"
           disabled={readOnly || customMethods.length >= 16}
           onClick={openCreate}

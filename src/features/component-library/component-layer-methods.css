@@ -37,7 +37,6 @@
   min-width: 72px;
   padding: 0 14px;
   font-size: var(--ui-font-size-status);
-  font-weight: 500;
   line-height: 22px;
   border-radius: var(--ui-radius-control);
   box-sizing: border-box;
@@ -192,11 +191,7 @@
 
 .component-method-dialog-title.ui-dialog-title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ui-color-text, #202428) !important;
   white-space: nowrap;
-  letter-spacing: 0.2px;
 }
 
 .component-method-close-btn {
@@ -458,7 +453,7 @@
 }
 
 .component-method-file-name {
-  font-weight: bold;
+  font-weight: 600;
   color: #cbd5e1;
 }
 

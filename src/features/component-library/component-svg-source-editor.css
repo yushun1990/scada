@@ -85,7 +85,7 @@
 
 .component-svg-tag-search-input {
   flex: 1;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
 }
 
 .component-svg-tag-search-clear {
@@ -95,7 +95,7 @@
   height: 18px;
   min-width: 18px;
   padding: 0;
-  font-size: 10px;
+  font-size: var(--ui-font-size-caption);
   color: var(--ui-color-text-muted);
 }
 
@@ -141,7 +141,7 @@
   align-items: center;
   padding: 1px 5px;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   font-family: var(--ui-font-mono);
   font-weight: 600;
 }
@@ -164,7 +164,7 @@
 
 .component-svg-tag-associated-classes {
   font-family: var(--ui-font-mono);
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   color: var(--ui-color-text-secondary);
   background: var(--ui-color-surface-subtle);
   padding: 1px 5px;
@@ -190,7 +190,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   color: var(--ui-color-text-secondary);
   background: var(--ui-color-surface);
   padding: 2px 6px;
@@ -200,7 +200,7 @@
 }
 
 .component-svg-tag-desc-icon {
-  font-size: 10px;
+  font-size: var(--ui-font-size-caption);
   flex-shrink: 0;
 }
 
@@ -226,7 +226,7 @@
 
 .component-svg-tag-signature {
   font-family: var(--ui-font-mono);
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   color: var(--ui-color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -236,7 +236,7 @@
 .component-svg-tag-copy-action {
   height: 20px;
   padding: 0 6px;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   color: var(--ui-color-primary);
   flex-shrink: 0;
 }
@@ -413,7 +413,7 @@
   padding: var(--ui-space-2) 0;
   font-family: var(--ui-font-mono);
   font-size: var(--ui-font-size-tool);
-  line-height: 20px;
+  line-height: var(--ui-line-height-tool);
   color: var(--ui-color-text-disabled);
   background: var(--ui-color-surface-subtle);
   border-right: 1px solid var(--ui-color-border);
@@ -425,7 +425,7 @@
 
 .component-svg-line-number {
   height: 20px;
-  line-height: 20px;
+  line-height: var(--ui-line-height-tool);
   padding-right: 6px;
   box-sizing: border-box;
   text-align: right;
@@ -469,7 +469,7 @@
   outline: none;
   font-family: var(--ui-font-mono);
   font-size: var(--ui-font-size-tool);
-  line-height: 20px;
+  line-height: var(--ui-line-height-tool);
   padding: var(--ui-space-2);
   white-space: pre;
   overflow-wrap: normal;
@@ -624,7 +624,7 @@
 .component-svg-preset-btn {
   height: 22px;
   padding: 0 6px;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
 }
 
 .component-svg-preset-btn.is-bake {
@@ -644,7 +644,7 @@
 }
 
 .component-svg-master-color-text {
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   color: var(--ui-color-text-secondary);
   user-select: none;
 }
@@ -667,7 +667,7 @@
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-control);
   padding: 1px 6px;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   cursor: default;
   transition: border-color 0.15s, background-color 0.15s;
 }
@@ -689,13 +689,13 @@
 }
 
 .component-svg-class-chip-count {
-  font-size: 10px;
+  font-size: var(--ui-font-size-caption);
   color: var(--ui-color-text-subtle);
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
   border-radius: 9px;
   padding: 0 4px;
-  line-height: 14px;
+  line-height: var(--ui-line-height-caption);
 }
 
 .component-svg-class-color-wrap {
@@ -728,7 +728,7 @@
 
 .component-svg-class-color-hex {
   font-family: var(--ui-font-mono);
-  font-size: 10px;
+  font-size: var(--ui-font-size-caption);
   color: var(--ui-color-text-secondary);
   user-select: all;
 }
@@ -818,8 +818,8 @@
   gap: 3px;
   padding: 1px 6px;
   font-family: var(--ui-font-mono);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: var(--ui-font-size-compact);
+  line-height: var(--ui-line-height-compact);
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-accent);
   border-radius: var(--ui-radius-control);
@@ -861,7 +861,7 @@
 
 .component-svg-marker-class {
   color: var(--ui-color-text-secondary);
-  font-size: 10px;
+  font-size: var(--ui-font-size-caption);
 }
 
 .component-svg-preview-error {
@@ -936,7 +936,7 @@
 
 .component-svg-tag-existing-badge {
   font-family: var(--ui-font-mono);
-  font-size: 10px;
+  font-size: var(--ui-font-size-caption);
   padding: 1px 5px;
   border-radius: var(--ui-radius-control);
   font-weight: 500;
@@ -969,7 +969,7 @@
   height: 22px;
   padding: 0;
   min-width: 22px;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
 }
 
 .component-svg-tag-floating-body {
@@ -992,7 +992,7 @@
 }
 
 .component-svg-tag-floating-error {
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   color: var(--ui-color-danger);
 }
 

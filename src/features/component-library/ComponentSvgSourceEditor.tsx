@@ -2120,7 +2120,7 @@ export function ComponentSvgSourceEditor({
                   )}
                 </div>
                 {isDirty && (
-                  <span style={{ color: 'var(--ui-color-warning)', fontSize: '12px' }}>
+                  <span style={{ color: 'var(--ui-color-warning)', fontSize: 'var(--ui-font-size-status)' }}>
                     ● 未保存
                   </span>
                 )}
@@ -2240,11 +2240,11 @@ export function ComponentSvgSourceEditor({
                     🏷 {showMarkers ? '图层标记' : '隐藏标记'} ({layerMarkers.length})
                   </Button>
                   {validationResult.valid ? (
-                    <span style={{ color: 'var(--ui-color-success)', fontSize: '12px' }}>
+                    <span style={{ color: 'var(--ui-color-success)', fontSize: 'var(--ui-font-size-status)' }}>
                       ✓ 语法有效
                     </span>
                   ) : (
-                    <span style={{ color: 'var(--ui-color-danger)', fontSize: '12px' }}>
+                    <span style={{ color: 'var(--ui-color-danger)', fontSize: 'var(--ui-font-size-status)' }}>
                       ✕ 格式错误
                     </span>
                   )}

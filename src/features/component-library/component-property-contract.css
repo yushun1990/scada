@@ -64,7 +64,7 @@
 .property-contract-identity code {
   min-width: 0;
   color: var(--ui-color-text-subtle);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--ui-font-mono);
   font-size: var(--ui-font-size-status);
 }
 
