@@ -16,8 +16,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: var(--ui-inspector-group-height, 28px);
-  height: var(--ui-inspector-group-height, 28px);
+  min-height: var(--ui-inspector-group-height);
+  height: var(--ui-inspector-group-height);
   padding: 0 6px;
   color: var(--ui-color-text-secondary);
   cursor: pointer;
@@ -39,7 +39,7 @@
   width: 12px;
   color: var(--ui-color-text-subtle);
   content: '›';
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   line-height: 1;
   text-align: center;
   transform: rotate(0deg);
@@ -53,7 +53,7 @@
 .component-palette-summary > span {
   flex-shrink: 0;
   color: var(--ui-color-text);
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   line-height: 1.2;
   font-weight: 650;
   letter-spacing: 0.02em;
@@ -61,7 +61,7 @@
 
 .component-palette-summary-count {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   font-weight: 500;
   color: var(--ui-color-text-subtle);
   user-select: none;
@@ -76,17 +76,17 @@
   min-height: 60px;
   gap: 4px;
   padding: var(--ui-space-2) var(--ui-space-1);
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   color: var(--ui-color-text-subtle);
   text-align: center;
 }
 
 .component-palette-bottom-action {
   width: 100%;
-  height: 26px;
-  min-height: 26px;
+  height: var(--ui-control-height-small);
+  min-height: var(--ui-control-height-small);
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   font-weight: 500;
   border-style: dashed;
 }
@@ -120,7 +120,7 @@
 }
 
 .component-layer-navigator > .component-layer-dock-heading,
-.component-layer-search,
+.component-layer-navigator .ui-search-input,
 .component-layer-navigator-help {
   flex-shrink: 0;
 }
@@ -132,20 +132,6 @@
 }
 
 .component-layer-navigator .component-layer-dock-heading button {
-  font-size: var(--ui-font-size-tool);
-}
-
-.component-layer-search {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.component-layer-search .ui-input {
-  width: 100%;
-  min-width: 0;
-  height: 28px;
-  padding: 0 8px;
   font-size: var(--ui-font-size-tool);
 }
 
@@ -205,10 +191,10 @@
   overflow: auto;
 }
 
-.component-palette-component-card {
+.component-palette-component-card,
+.component-palette-resource-item {
   display: grid;
   min-width: 0;
-  width: 100%;
   gap: 3px;
   padding: 4px;
   border: 1px solid var(--ui-color-border);
@@ -216,13 +202,18 @@
   color: var(--ui-color-text-secondary);
   background: var(--ui-color-surface);
   cursor: pointer;
-  text-align: center;
-  transition: border-color 120ms ease, background-color 120ms ease;
 }
 
-.component-palette-component-card:hover:not(:disabled) {
+.component-palette-component-card:hover:not(:disabled),
+.component-palette-resource-item:hover:not(:disabled) {
   border-color: var(--ui-color-accent);
   background: var(--ui-color-surface-subtle);
+}
+
+.component-palette-component-card {
+  width: 100%;
+  text-align: center;
+  transition: border-color 120ms ease, background-color 120ms ease;
 }
 
 .component-palette-component-card-preview {
@@ -256,7 +247,7 @@
 
 .component-palette-component-card-title {
   overflow: hidden;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ui-color-text);
@@ -268,17 +259,10 @@
   width: min(380px, 90vw);
 }
 
-.component-palette-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
-}
-
 .component-palette-dialog-error {
   margin: 6px 0 0;
   color: var(--ui-color-danger);
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
 }
 
 
@@ -290,22 +274,7 @@
   overflow: auto;
 }
 
-.component-palette-resource-item {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-  padding: 4px;
-  border: 1px solid var(--ui-color-border);
-  border-radius: 6px;
-  color: var(--ui-color-text-secondary);
-  background: var(--ui-color-surface);
-  cursor: pointer;
-}
 
-.component-palette-resource-item:hover:not(:disabled) {
-  border-color: var(--ui-color-accent);
-  background: var(--ui-color-surface-subtle);
-}
 
 .component-palette-resource-item img {
   width: 100%;
@@ -317,22 +286,19 @@
 
 .component-palette-resource-item span {
   overflow: hidden;
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .component-palette-empty,
 .component-palette-help,
-.component-palette-message {
+.component-palette-message,
+.component-layer-navigator-help {
   margin: 0;
   color: var(--ui-color-text-subtle);
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   line-height: 1.45;
-}
-
-.component-palette-empty {
-  color: var(--ui-color-text-subtle);
 }
 
 .component-palette-message {
@@ -340,11 +306,7 @@
 }
 
 .component-layer-navigator-help {
-  margin: 0;
   padding-top: 2px;
-  color: var(--ui-color-text-subtle);
-  font-size: 11px;
-  line-height: 1.45;
 }
 
 .component-artboard.component-palette-drop-active {

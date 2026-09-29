@@ -5,7 +5,6 @@ import type { ComponentVisualLayer, SvgLayerMethodParameter } from '../../compon
 import type { LayerMethodRunResult } from '../../runtime/controlled-layer-method-engine'
 import {
   Button,
-  Checkbox,
   DialogContent,
   DialogRoot,
   DialogTitle,
@@ -14,6 +13,7 @@ import {
   Select,
   Textarea,
 } from '../../ui'
+import { LayerMethodParamControl } from './ComponentLayerMethodParamControl'
 import {
   AI_QUICK_PRESETS,
   buildMethodCode,
@@ -23,7 +23,6 @@ import {
   highlightJsToNodes,
   PARAM_KIND_OPTIONS,
   parseInputToOptions,
-  SVG_THEME_PRESET_OPTIONS,
   THEME_PRESET_META,
 } from './component-layer-method-templates'
 
@@ -592,63 +591,20 @@ export function ComponentLayerMethodCodeModal({
                           {param.title || param.name} <code className="component-method-test-field-kind">({param.kind})</code>:
                         </span>
                         <div className="component-method-test-field-control">
-                          {param.kind === 'select' ? (
-                            <Select
-                              value={String(currentVal ?? '')}
-                              ariaLabel={param.title || param.name}
-                              options={(param.options ?? SVG_THEME_PRESET_OPTIONS).map((opt) => ({
-                                value: String(opt.value),
-                                label: opt.label,
-                              }))}
-                              onValueChange={(nextVal) => {
-                                setCurrent((prev) =>
-                                  prev
-                                    ? {
-                                        ...prev,
-                                        testParamValues: { ...prev.testParamValues, [param.name]: nextVal },
-                                      }
-                                    : null,
-                                )
-                              }}
-                            />
-                          ) : param.kind === 'boolean' ? (
-                            <Checkbox
-                              checked={Boolean(currentVal)}
-                              label={currentVal ? 'true' : 'false'}
-                              onCheckedChange={(checked) => {
-                                setCurrent((prev) =>
-                                  prev
-                                    ? {
-                                        ...prev,
-                                        testParamValues: { ...prev.testParamValues, [param.name]: checked },
-                                      }
-                                    : null,
-                                )
-                              }}
-                            />
-                          ) : (
-                            <Input
-                              value={String(currentVal ?? '')}
-                              aria-label={param.title || param.name}
-                              placeholder={param.kind === 'number' ? '0' : '测试值'}
-                              onChange={(e) => {
-                                setCurrent((prev) =>
-                                  prev
-                                    ? {
-                                        ...prev,
-                                        testParamValues: {
-                                          ...prev.testParamValues,
-                                          [param.name]:
-                                            param.kind === 'number' && e.target.value !== ''
-                                              ? Number(e.target.value)
-                                              : e.target.value,
-                                        },
-                                      }
-                                    : null,
-                                )
-                              }}
-                            />
-                          )}
+                          <LayerMethodParamControl
+                            param={param}
+                            value={currentVal}
+                            onChange={(next) => {
+                              setCurrent((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      testParamValues: { ...prev.testParamValues, [param.name]: next },
+                                    }
+                                  : null,
+                              )
+                            }}
+                          />
                         </div>
                       </div>
                     )

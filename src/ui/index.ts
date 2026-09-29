@@ -18,6 +18,7 @@ export {
   MenuSeparator,
 } from './Menu'
 export { NumberInput, type NumberInputProps } from './NumberInput'
+export { SearchInput, type SearchInputProps } from './SearchInput'
 export { Pressable, type PressableProps } from './Pressable'
 export { SegmentedControl, type SegmentedControlItem } from './SegmentedControl'
 export { Select, type SelectOption, type SelectProps } from './Select'
