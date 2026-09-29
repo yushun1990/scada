@@ -1177,7 +1177,7 @@ export function ComponentEditorPage({
                 <div className="component-collapsed-pill">
                   <DesignNibIcon />
                   <span className="component-collapsed-pill-label">图形画布</span>
-                  <span className="component-collapsed-pill-arrow">‹</span>
+                  <span className="component-collapsed-pill-arrow">›</span>
                 </div>
               </div>
             )}
