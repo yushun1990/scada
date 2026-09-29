@@ -727,7 +727,7 @@ export function ComponentEditorPage({
                   items={LAYER_INSPECTOR_TABS}
                   onValueChange={setLayerInspectorTab}
                   ariaLabel="图层检查器"
-                  className="component-inspector-tabs"
+                  className="component-inspector-tabs underline-tabs"
                 />
               </>
             ) : (
@@ -845,8 +845,7 @@ export function ComponentEditorPage({
                     }}
                   >
                     {definition.title || '未命名组件'}
-                  </span>
-                </div>
+                  </span>               </div>
               )}
 
               <div className="component-definition-status-wrapper">
@@ -924,7 +923,7 @@ export function ComponentEditorPage({
               items={builtInReadOnly ? TRUSTED_INSPECTOR_TABS : PORTABLE_INSPECTOR_TABS}
               onValueChange={setInspectorTab}
               ariaLabel="组件定义配置"
-              className="component-inspector-tabs"
+              className="component-inspector-tabs underline-tabs"
             />
           </div>
 

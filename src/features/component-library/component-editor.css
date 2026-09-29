@@ -283,12 +283,13 @@
   background: transparent;
 }
 
-.component-semantic-inspector .inspector-group-header {
-  min-height: 28px;
-  height: 28px;
+.component-semantic-inspector .inspector-group-header,
+.component-layer-inspector-body .inspector-group-header {
+  min-height: var(--ui-inspector-group-height);
+  height: var(--ui-inspector-group-height);
   padding: 0 6px;
   color: var(--ui-color-text);
-  font-size: 11px;
+  font-size: var(--ui-font-size-compact);
   font-weight: 650;
   letter-spacing: 0.02em;
 }
@@ -653,19 +654,6 @@
   position: static;
 }
 
-.component-semantic-inspector .component-inspector-tabs > .ui-tab {
-  height: 32px;
-  border-radius: 0;
-  background: transparent;
-  border-bottom: 2px solid transparent;
-}
-
-.component-semantic-inspector .component-inspector-tabs > .ui-tab[aria-selected='true'] {
-  color: var(--ui-color-accent);
-  background: transparent;
-  border-bottom-color: var(--ui-color-accent);
-}
-
 .component-inspector-scope {
   position: sticky;
   top: 0;
@@ -866,6 +854,49 @@
   font-size: var(--ui-font-size-status);
 }
 
+/* Contract method listing rows shared by Actions/Events contract cards. */
+.contract-method-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding-top: 3px;
+  border-top: 1px dashed var(--ui-color-border);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.contract-method-signature {
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-font-size-compact);
+  color: var(--ui-color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+.contract-method-description {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--ui-font-size-compact);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  padding: 2px 6px;
+  border-radius: var(--ui-radius-control);
+  border-left: 2px solid var(--ui-color-accent);
+  line-height: 1.4;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .contract-grid,
 .contract-grid-three {
   display: grid;
@@ -1004,7 +1035,7 @@
   box-shadow:
     -3px 0 0 2px var(--ui-color-accent),
     0 0 0 1px var(--ui-color-accent-soft),
-    0 0 8px rgb(23 105 170 / 50%);
+    0 0 8px color-mix(in srgb, var(--ui-color-accent) 50%, transparent);
   pointer-events: none;
   animation: component-drop-line-glow 1.2s ease-in-out infinite alternate;
 }
@@ -1020,13 +1051,13 @@
     box-shadow:
       -3px 0 0 2px var(--ui-color-accent),
       0 0 0 1px var(--ui-color-accent-soft),
-      0 0 6px rgb(23 105 170 / 35%);
+      0 0 6px color-mix(in srgb, var(--ui-color-accent) 35%, transparent);
   }
   100% {
     box-shadow:
       -3px 0 0 2px var(--ui-color-accent),
       0 0 0 1px var(--ui-color-accent-soft),
-      0 0 10px rgb(23 105 170 / 65%);
+      0 0 10px color-mix(in srgb, var(--ui-color-accent) 65%, transparent);
   }
 }
 .component-layer-row { grid-template-columns: 18px minmax(0, 1fr) auto; }
@@ -1535,7 +1566,7 @@
 
 .component-definition-title-text:hover {
   color: var(--ui-color-accent);
-  background: var(--ui-color-surface-hover, var(--ui-color-surface-subtle));
+  background: var(--ui-color-surface-subtle);
   border-color: var(--ui-color-border-subtle);
 }
 
@@ -1632,7 +1663,7 @@
 
 .component-definition-desc-text:hover {
   color: var(--ui-color-accent);
-  background: var(--ui-color-surface-hover, var(--ui-color-surface-subtle));
+  background: var(--ui-color-surface-subtle);
   border-color: var(--ui-color-border-subtle);
 }
 
@@ -1701,41 +1732,9 @@
   box-sizing: border-box;
 }
 
-.component-definition-page-tabs .component-inspector-tabs > .ui-tab {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  padding: 0 var(--ui-space-2);
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  border-bottom: 2px solid transparent;
-  color: var(--ui-color-text-subtle);
-  font-size: var(--ui-font-size-tool);
-  font-weight: 500;
-  box-shadow: none;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.component-definition-page-tabs .component-inspector-tabs > .ui-tab:hover {
-  color: var(--ui-color-text);
-}
-
-.component-definition-page-tabs .component-inspector-tabs > .ui-tab[aria-selected='true'],
-.component-definition-page-tabs .component-inspector-tabs > .ui-tab.is-active {
-  color: var(--ui-color-accent);
-  background: transparent;
-  border-bottom-color: var(--ui-color-accent);
-  font-weight: 600;
-  box-shadow: none;
-}
+/* Both full-height underline tab bars share the ui-tabs-list.underline-tabs
+ * variant and only add their local geometry and idle weight here. */
+.component-definition-page-tabs .component-inspector-tabs > .ui-tab,
 
 /* Inspector style on Component Definition Page (consistent with left/right docks, flat & compact) */
 .component-definition-page .property-section-list {
@@ -2186,7 +2185,7 @@
 
 .component-layer-name-text:hover {
   color: var(--ui-color-accent);
-  background: var(--ui-color-surface-hover);
+  background: var(--ui-color-surface-subtle);
   border-color: var(--ui-color-border-subtle);
 }
 
@@ -2243,7 +2242,7 @@
 }
 
 .component-layer-cancel-btn:hover {
-  background: var(--ui-color-surface-hover);
+  background: var(--ui-color-surface-subtle);
 }
 
 .component-layer-name-error {
@@ -2298,37 +2297,11 @@
 .component-layer-inspector-header .component-inspector-tabs > .ui-tab {
   position: relative;
   z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-width: 0;
   height: 100%;
   padding: 0 var(--ui-space-2);
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  border-bottom: 2px solid transparent;
   color: var(--ui-color-text-subtle);
-  font-size: var(--ui-font-size-tool);
   font-weight: 500;
-  box-shadow: none;
-  cursor: pointer;
-  white-space: nowrap;
   transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.component-layer-inspector-header .component-inspector-tabs > .ui-tab:hover {
-  color: var(--ui-color-text);
-}
-
-.component-layer-inspector-header .component-inspector-tabs > .ui-tab[aria-selected='true'],
-.component-layer-inspector-header .component-inspector-tabs > .ui-tab.is-active {
-  color: var(--ui-color-accent);
-  background: transparent;
-  border-bottom-color: var(--ui-color-accent);
-  font-weight: 600;
-  box-shadow: none;
 }
 
 .component-layer-selection-empty {
@@ -2416,13 +2389,6 @@
 }
 
 .component-layer-inspector-body .inspector-group-header {
-  min-height: 28px;
-  height: 28px;
-  padding: 0 6px;
-  color: var(--ui-color-text);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.02em;
   flex-shrink: 0;
 }
 
@@ -2460,17 +2426,17 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  border-radius: var(--ui-radius-control, 4px);
+  border-radius: var(--ui-radius-control);
   border: 1px solid var(--ui-color-border);
-  background: var(--ui-color-panel-muted, #f8fafc);
-  color: var(--ui-color-text-subtle, #64748b);
+  background: var(--ui-color-surface-subtle);
+  color: var(--ui-color-text-subtle);
   transition: all 0.15s ease;
   box-sizing: border-box;
 }
 
 .component-layer-inspector-body .component-inline-input-with-action .component-direction-toggle-btn:hover {
-  background: var(--ui-color-surface-hover, #e2e8f0);
-  border-color: var(--ui-color-border-hover, #94a3b8);
+  background: var(--ui-color-accent-soft);
+  border-color: var(--ui-color-border-strong);
 }
 
 .component-layer-inspector-body .component-inline-input-with-action .component-direction-toggle-btn:active {

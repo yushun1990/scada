@@ -245,6 +245,12 @@
   grid-column: 2;
 }
 
+.ui-search-input {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-micro);
+}
+
 /* Segmented controls + tabs ------------------------------------------------ */
 .ui-segmented-control,
 .ui-tabs-list {
@@ -581,6 +587,14 @@
   padding: 0 var(--ui-space-2);
 }
 
+.ui-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ui-space-2);
+  margin-top: var(--ui-space-4);
+}
+
 /* Split pane -------------------------------------------------------------- */
 .ui-split-pane {
   display: grid;
@@ -711,6 +725,38 @@
 .ui-tabs-list.component-inspector-tabs > .ui-tab.is-active {
   color: var(--ui-color-accent-pressed);
   background: var(--ui-color-accent-soft);
+  box-shadow: none;
+}
+
+/* Underline tab variant: borderless list whose tabs signal the active value
+ * with an accent underline instead of the boxed highlight. */
+.ui-tabs-list.underline-tabs {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ui-tabs-list.underline-tabs > .ui-tab {
+  height: 32px;
+  border-radius: 0;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  box-shadow: none;
+}
+
+.ui-tabs-list.underline-tabs > .ui-tab:hover:not(:disabled) {
+  color: var(--ui-color-text);
+  background: transparent;
+}
+
+.ui-tabs-list.underline-tabs > .ui-tab[aria-selected='true'],
+.ui-tabs-list.underline-tabs > .ui-tab.is-active {
+  color: var(--ui-color-accent);
+  background: transparent;
+  border-bottom-color: var(--ui-color-accent);
+  font-weight: 600;
   box-shadow: none;
 }
 

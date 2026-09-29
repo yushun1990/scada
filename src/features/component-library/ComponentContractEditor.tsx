@@ -285,14 +285,14 @@ function InteractionContractView({
               </Button>
             )}
           </div>
-          <div className="component-method-action-row">
-            <code className="component-method-signature">{key}</code>
+          <div className="contract-method-action-row">
+            <code className="contract-method-signature">{key}</code>
             <span className="component-methods-count-hint">
               {portableUser ? '旧声明 · 不可激活' : '可信内置契约'}
             </span>
           </div>
           {item.description && (
-            <p className="component-method-description">{item.description}</p>
+            <p className="contract-method-description">{item.description}</p>
           )}
         </article>
       ))}

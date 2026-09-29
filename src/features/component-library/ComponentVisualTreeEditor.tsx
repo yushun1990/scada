@@ -27,9 +27,9 @@ import {
 import { recomputeBoundLinesInVisual } from '../../component-system/component-line-routing'
 import {
   IconButton,
-  Input,
   NumberInput,
   Pressable,
+  SearchInput,
   Textarea,
 } from '../../ui'
 import { ComponentAuthoringPalette } from './ComponentAuthoringPalette'
@@ -635,22 +635,13 @@ export function ComponentVisualTreeEditor({
         {!navigatorCollapsed && (
           <>
             {visual.mode === 'composite' && visual.layers.length > 0 && (
-              <div className="component-layer-search">
-                <Input
-                  aria-label="查找图层"
-                  placeholder="查找名称、类型或 ID"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      setSearch('')
-                    }
-                  }}
-                />
-                {search && <IconButton aria-label="清除图层查找" size="small" onClick={() => setSearch('')}>×</IconButton>}
-              </div>
+              <SearchInput
+                aria-label="查找图层"
+                placeholder="查找名称、类型或 ID"
+                value={search}
+                onValueChange={setSearch}
+                clearLabel="清除图层查找"
+              />
             )}
 
             <div className="component-layer-tree" ref={navigatorRef}>

@@ -18,16 +18,13 @@ import {
 } from '../../runtime/controlled-layer-method-engine'
 import {
   Button,
-  Checkbox,
   DialogContent,
   DialogDescription,
   DialogRoot,
   DialogTitle,
-  Input,
-  NumberInput,
-  Select,
 } from '../../ui'
 import { ComponentLayerMethodCodeModal, type LayerMethodEditState } from './ComponentLayerMethodCodeModal'
+import { LayerMethodParamControl } from './ComponentLayerMethodParamControl'
 import { CodeIcon, PlayIcon, buildMethodCode } from './component-layer-method-templates'
 import './component-layer-methods.css'
 
@@ -439,49 +436,19 @@ export function ComponentLayerMethodInspector({
                   <span className="component-method-run-field-kind">({param.kind})</span>
                 </label>
                 <div className="component-method-run-field-input">
-                  {param.kind === 'select' ? (
-                    <Select
-                      value={String(paramModalValues[param.name] ?? '')}
-                      ariaLabel={param.title || param.name}
-                      options={(param.options ?? []).map((opt) => ({
-                        value: String(opt.value),
-                        label: opt.label,
-                      }))}
-                      onValueChange={(val) => {
-                        setParamModalValues((prev) => ({ ...prev, [param.name]: val }))
-                      }}
-                    />
-                  ) : param.kind === 'boolean' ? (
-                    <Checkbox
-                      checked={Boolean(paramModalValues[param.name])}
-                      label={paramModalValues[param.name] ? 'true' : 'false'}
-                      onCheckedChange={(checked) => {
-                        setParamModalValues((prev) => ({ ...prev, [param.name]: checked }))
-                      }}
-                    />
-                  ) : param.kind === 'number' ? (
-                    <NumberInput
-                      value={typeof paramModalValues[param.name] === 'number' ? (paramModalValues[param.name] as number) : 0}
-                      onChange={(e) => {
-                        const val = Number(e.target.value)
-                        setParamModalValues((prev) => ({ ...prev, [param.name]: Number.isFinite(val) ? val : 0 }))
-                      }}
-                    />
-                  ) : (
-                    <Input
-                      value={String(paramModalValues[param.name] ?? '')}
-                      placeholder="参数值"
-                      onChange={(e) => {
-                        setParamModalValues((prev) => ({ ...prev, [param.name]: e.target.value }))
-                      }}
-                    />
-                  )}
+                  <LayerMethodParamControl
+                    param={param}
+                    value={paramModalValues[param.name]}
+                    onChange={(next) => {
+                      setParamModalValues((prev) => ({ ...prev, [param.name]: next }))
+                    }}
+                  />
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="component-method-run-dialog-actions">
+          <div className="ui-dialog-actions">
             <Button
               variant="ghost"
               size="small"

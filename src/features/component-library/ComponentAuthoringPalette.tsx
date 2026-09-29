@@ -20,9 +20,9 @@ import {
   DialogDescription,
   DialogRoot,
   DialogTitle,
-  IconButton,
   Input,
   Pressable,
+  SearchInput,
 } from '../../ui'
 import {
   EllipseIcon,
@@ -388,6 +388,17 @@ function centeredPoint(visual: ComponentVisualDefinition): ComponentDesignPoint 
   }
 }
 
+function PaletteSearchEmpty({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <div className="component-palette-search-empty">
+      <span>{label}</span>
+      <Button size="small" variant="ghost" onClick={onClear}>
+        清空搜索
+      </Button>
+    </div>
+  )
+}
+
 export function ComponentAuthoringPalette({
   visual,
   readOnly,
@@ -398,8 +409,6 @@ export function ComponentAuthoringPalette({
   const createTool = useComponentCreateTool()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const multiImageInputRef = useRef<HTMLInputElement>(null)
-  const componentDetailsRef = useRef<HTMLDetailsElement>(null)
-  const resourceDetailsRef = useRef<HTMLDetailsElement>(null)
   const [components, setComponents] = useState<ComponentLibraryEntry[]>([])
   const [resources, setResources] = useState<ComponentVisualAssetResource[]>([])
   const [busy, setBusy] = useState(false)
@@ -729,7 +738,6 @@ export function ComponentAuthoringPalette({
           </details>
 
           <details
-            ref={componentDetailsRef}
             className="component-palette-disclosure"
             open={editableComponents.length > 0}
           >
@@ -773,30 +781,13 @@ export function ComponentAuthoringPalette({
               />
 
               {editableComponents.length > 0 && (
-                <div className="component-layer-search">
-                  <Input
-                    aria-label="查找组件"
-                    placeholder="查找组件名称"
-                    value={componentSearch}
-                    onChange={(event) => setComponentSearch(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Escape') {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        setComponentSearch('')
-                      }
-                    }}
-                  />
-                  {componentSearch && (
-                    <IconButton
-                      aria-label="清除组件查找"
-                      size="small"
-                      onClick={() => setComponentSearch('')}
-                    >
-                      ×
-                    </IconButton>
-                  )}
-                </div>
+                <SearchInput
+                  aria-label="查找组件"
+                  placeholder="查找组件名称"
+                  value={componentSearch}
+                  onValueChange={setComponentSearch}
+                  clearLabel="清除组件查找"
+                />
               )}
 
               {filteredComponents.length > 0 ? (
@@ -843,16 +834,10 @@ export function ComponentAuthoringPalette({
                   })}
                 </div>
               ) : componentSearch ? (
-                <div className="component-palette-search-empty">
-                  <span>未找到匹配 “{componentSearch}” 的组件</span>
-                  <Button
-                    size="small"
-                    variant="ghost"
-                    onClick={() => setComponentSearch('')}
-                  >
-                    清空搜索
-                  </Button>
-                </div>
+                <PaletteSearchEmpty
+                  label={`未找到匹配 “${componentSearch}” 的组件`}
+                  onClear={() => setComponentSearch('')}
+                />
               ) : (
                 <p className="component-palette-empty">保存过的 Composite 组件会显示在这里。</p>
               )}
@@ -873,7 +858,6 @@ export function ComponentAuthoringPalette({
           </details>
 
           <details
-            ref={resourceDetailsRef}
             className="component-palette-disclosure"
             open
           >
@@ -906,30 +890,13 @@ export function ComponentAuthoringPalette({
               />
 
               {resources.length > 0 && (
-                <div className="component-layer-search">
-                  <Input
-                    aria-label="查找资源"
-                    placeholder="查找资源名称"
-                    value={resourceSearch}
-                    onChange={(event) => setResourceSearch(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Escape') {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        setResourceSearch('')
-                      }
-                    }}
-                  />
-                  {resourceSearch && (
-                    <IconButton
-                      aria-label="清除资源查找"
-                      size="small"
-                      onClick={() => setResourceSearch('')}
-                    >
-                      ×
-                    </IconButton>
-                  )}
-                </div>
+                <SearchInput
+                  aria-label="查找资源"
+                  placeholder="查找资源名称"
+                  value={resourceSearch}
+                  onValueChange={setResourceSearch}
+                  clearLabel="清除资源查找"
+                />
               )}
 
               {filteredResources.length > 0 ? (
@@ -953,16 +920,10 @@ export function ComponentAuthoringPalette({
                   ))}
                 </div>
               ) : resourceSearch ? (
-                <div className="component-palette-search-empty">
-                  <span>未找到匹配 “{resourceSearch}” 的资源</span>
-                  <Button
-                    size="small"
-                    variant="ghost"
-                    onClick={() => setResourceSearch('')}
-                  >
-                    清空搜索
-                  </Button>
-                </div>
+                <PaletteSearchEmpty
+                  label={`未找到匹配 “${resourceSearch}” 的资源`}
+                  onClear={() => setResourceSearch('')}
+                />
               ) : (
                 <p className="component-palette-empty">上传后的资源会持久保存在这里，供后续组件复用。</p>
               )}
@@ -1021,7 +982,7 @@ export function ComponentAuthoringPalette({
           {namingError && (
             <p className="component-palette-dialog-error">{namingError}</p>
           )}
-          <div className="component-palette-dialog-actions">
+          <div className="ui-dialog-actions">
             <Button
               variant="ghost"
               size="small"
