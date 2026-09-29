@@ -420,7 +420,7 @@ export function ComponentPropertyContractEditor({
 
       {!readOnly && (
         <Button
-          variant="secondary"
+          variant="soft"
           size="small"
           className="contract-add-button property-contract-add"
           onClick={addProperty}

@@ -397,7 +397,7 @@ export function ComponentAttributeContractEditor({
       })}
 
       {!readOnly && (
-        <Button variant="secondary" size="small" className="contract-add-button" onClick={addAttribute}>
+        <Button variant="soft" size="small" className="contract-add-button" onClick={addAttribute}>
           + 添加配置
         </Button>
       )}

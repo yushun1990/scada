@@ -499,7 +499,7 @@ export function ComponentContractEditor({
             <div className="contract-empty">尚未定义公开 Property。</div>
           )}
           {!readOnly && (
-            <Button variant="secondary" size="small" className="contract-add-button" onClick={addProperty}>
+            <Button variant="soft" size="small" className="contract-add-button" onClick={addProperty}>
               + 添加属性
             </Button>
           )}
@@ -655,7 +655,7 @@ export function ComponentContractEditor({
             <div className="contract-empty">尚未定义 Visual Anchor。</div>
           )}
           {!readOnly && (
-            <Button variant="secondary" size="small" className="contract-add-button" onClick={addAnchor}>
+            <Button variant="soft" size="small" className="contract-add-button" onClick={addAnchor}>
               + 添加锚点
             </Button>
           )}

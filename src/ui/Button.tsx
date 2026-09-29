@@ -1,7 +1,7 @@
 import { Button as BaseButton } from '@base-ui/react/button'
 import type { ButtonHTMLAttributes } from 'react'
 
-export type StudioButtonVariant = 'primary' | 'accent' | 'secondary' | 'ghost' | 'danger'
+export type StudioButtonVariant = 'primary' | 'accent' | 'secondary' | 'ghost' | 'danger' | 'soft'
 export type StudioButtonSize = 'small' | 'normal'
 
 export type StudioButtonProps = Omit<
