@@ -63,11 +63,11 @@ try {
   if (await workPageSwitch.count()) {
     await workPageSwitch.click()
   }
-  const componentName = page.locator('.component-root-inspector .property-field')
-    .filter({ has: page.locator('span', { hasText: /^名称$/ }) }).locator('input').first()
+  await page.locator('.component-definition-title-display').click()
+  const componentName = page.locator('.component-definition-title-input')
   const longName = '用于检查长名称省略与操作可达性的组件'.repeat(6)
   await componentName.fill(longName)
-  await componentName.press('Tab')
+  await componentName.press('Enter')
   for (const width of [1000, 600]) {
     await page.setViewportSize({ width, height: 900 })
     await assertChrome(`Component ${width}px long title`, '返回组件库工作台')

@@ -13,18 +13,11 @@ const pageErrors = []
 page.on('pageerror', (error) => pageErrors.push(error.message))
 
 const componentTitle = 'R0 声明式 SVG 主题组件'
-const componentType = 'custom.r0.browser-capability'
 const svgSource = `
 <svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">
   <rect id="body" class="scada-theme-base" x="10" y="10" width="100" height="60" fill="#6b7280"/>
 </svg>
 `.trim()
-
-function fieldInput(label) {
-  return page.locator('.property-field').filter({
-    has: page.locator('span', { hasText: new RegExp(`^${label}$`) }),
-  }).locator('input').first()
-}
 
 try {
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
@@ -53,8 +46,9 @@ try {
   await page.getByText(/未生成公开 Action/).waitFor()
 
   await page.getByRole('button', { name: 'Coding 开发', exact: true }).click()
-  await fieldInput('名称').fill(componentTitle)
-  await fieldInput('类型标识').fill(componentType)
+  await page.locator('.component-definition-title-display').click()
+  await page.locator('.component-definition-title-input').fill(componentTitle)
+  await page.locator('.component-definition-title-input').press('Enter')
 
   const definitionPage = page.locator('.component-definition-page')
   await definitionPage.getByRole('tab', { name: '方法（未开放）', exact: true }).click()
@@ -72,11 +66,10 @@ try {
   )
 
   await definitionPage.getByRole('tab', { name: '属性', exact: true }).click()
-  await page.getByLabel('组件状态').click()
-  await page.getByRole('option', { name: '可用', exact: true }).click()
+  assert.equal(await page.locator('.component-status-badge').textContent(), '草稿')
   const saved = await saveAndWait(page)
 
-  assert.equal(saved.document.status, 'ready')
+  assert.equal(saved.document.status, 'draft')
   assert.deepEqual(saved.document.definition.actions, {})
   assert.deepEqual(saved.document.definition.events, {})
   assert.equal(saved.document.definition.properties.state.kind, 'select')

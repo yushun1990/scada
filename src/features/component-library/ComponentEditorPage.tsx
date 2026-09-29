@@ -1,6 +1,6 @@
 import '../../m2.css'
 import '../../workbench.css'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import {
   DesignNibIcon,
@@ -27,7 +27,6 @@ import {
   Input,
   NumberInput,
   SegmentedControl,
-  Select,
   Tabs,
   Textarea,
   ToolbarButton,
@@ -40,16 +39,13 @@ import { ComponentGroupCommand } from './ComponentLayerCommands'
 import { ComponentGeometryToolbarGroup } from './ComponentGeometryToolbarGroup'
 import { ComponentPreviewValues } from './ComponentPreviewValues'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
-import { ComponentPublicationPanel } from './ComponentPublicationPanel'
 import {
   inspectPortableUserComponentCapability,
-  portableUserComponentCapabilityMessage,
 } from './portable-user-component-capability'
 import {
   ComponentPublicationClientError,
   HttpComponentPublicationClient,
   loadComponentPublicationObservation,
-  observeLatestComponentPublication,
   publishComponentExplicitly,
   type ComponentPublicationObservation,
   type ComponentPublicationSession,
@@ -74,7 +70,6 @@ import {
   getComponentDefinition,
   saveComponentDefinitionAsync,
   type ComponentLibraryEntry,
-  type ComponentStatus,
 } from './storage'
 import './component-editor.css'
 
@@ -107,11 +102,6 @@ const MODE_ITEMS: Array<SegmentedControlItem<ComponentWorkbenchMode>> = [
 const WORK_PAGE_ITEMS: Array<SegmentedControlItem<ComponentWorkPage>> = [
   { value: 'canvas', label: '图形化设计', icon: <DesignNibIcon /> },
   { value: 'definition', label: 'Coding 开发', icon: <SettingsHorizontalIcon /> },
-]
-
-const STATUS_OPTIONS = [
-  { value: 'draft', label: '草稿' },
-  { value: 'ready', label: '可用' },
 ]
 
 const NUMERIC_RULE_OPERATORS = new Set<VisualRuleOperator>([
@@ -355,8 +345,6 @@ export function ComponentEditorPage({
     useState<ComponentPublicationSession | null>(null)
   const [publicationObservation, setPublicationObservation] =
     useState<ComponentPublicationObservation | null>(null)
-  const [publicationUsername, setPublicationUsername] = useState('')
-  const [publicationPassword, setPublicationPassword] = useState('')
   const [publicationBusy, setPublicationBusy] = useState(false)
   const builtInReadOnly = component.builtIn
   const editingDisabled = builtInReadOnly || mode === 'preview'
@@ -370,14 +358,36 @@ export function ComponentEditorPage({
   const { definition } = component
   const portableCapability = inspectPortableUserComponentCapability(definition)
   const publicationReady =
-    !builtInReadOnly && component.status === 'ready' && portableCapability.activatable
-  const statusOptions = STATUS_OPTIONS.map((option) => ({
-    ...option,
-    disabled:
-      option.value === 'ready' &&
-      !builtInReadOnly &&
-      !portableCapability.activatable,
-  }))
+    !builtInReadOnly && portableCapability.activatable
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(definition.title)
+  const [isEditingDesc, setIsEditingDesc] = useState(false)
+  const [descDraft, setDescDraft] = useState(definition.description ?? '')
+  const titleInputRef = useRef<HTMLInputElement>(null)
+  const descInputRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    setTitleDraft(definition.title)
+  }, [definition.title])
+
+  useEffect(() => {
+    setDescDraft(definition.description ?? '')
+  }, [definition.description])
+
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus()
+      titleInputRef.current.select()
+    }
+  }, [isEditingTitle])
+
+  useEffect(() => {
+    if (isEditingDesc && descInputRef.current) {
+      descInputRef.current.focus()
+      descInputRef.current.select()
+    }
+  }, [isEditingDesc])
+
   const canPublish = Boolean(
     publicationClient
     && remotePublicationRepository
@@ -517,19 +527,6 @@ export function ComponentEditorPage({
     setMessage('')
   }
 
-  function updateStatus(status: ComponentStatus) {
-    if (status === 'ready' && !builtInReadOnly && !portableCapability.activatable) {
-      setWorkPage('definition')
-      setInspectorTab(portableCapability.actionKeys.length > 0 ? 'actions' : 'events')
-      setMessage(
-        `无法标记为可用：${portableUserComponentCapabilityMessage(portableCapability)}`,
-      )
-      return
-    }
-
-    updatePackage('status', status)
-  }
-
   function updateDefinition(nextDefinition: ComponentDefinition) {
     mutateComponent((current) => ({
       ...current,
@@ -549,6 +546,26 @@ export function ComponentEditorPage({
   ) {
     updateDefinition({ ...definition, [key]: value })
   }
+
+  const commitTitle = useCallback(() => {
+    const trimmed = titleDraft.trim()
+    if (trimmed && trimmed !== definition.title) {
+      updateDefinitionField('title', trimmed)
+    } else {
+      setTitleDraft(definition.title)
+    }
+    setIsEditingTitle(false)
+  }, [definition.title, titleDraft])
+
+  const commitDesc = useCallback(() => {
+    const trimmed = descDraft.trim()
+    if (trimmed !== (definition.description ?? '')) {
+      updateDefinitionField('description', trimmed)
+    } else {
+      setDescDraft(definition.description ?? '')
+    }
+    setIsEditingDesc(false)
+  }, [definition.description, descDraft])
 
   function updateSize(
     key: keyof ComponentDefinition['size'],
@@ -612,59 +629,6 @@ export function ComponentEditorPage({
     }
   }
 
-  async function loginPublication() {
-    if (!publicationClient) return
-    setPublicationBusy(true)
-    try {
-      const session = await publicationClient.login(
-        publicationUsername,
-        publicationPassword,
-      )
-      setPublicationSession(session)
-      setPublicationPassword('')
-      setMessage(`已登录发布服务：${session.authenticated ? session.identity.displayName : ''}`)
-    } catch (error) {
-      setMessage(publicationErrorMessage(error, publicationObservation))
-    } finally {
-      setPublicationBusy(false)
-    }
-  }
-
-  async function logoutPublication() {
-    if (!publicationClient) return
-    setPublicationBusy(true)
-    try {
-      const session = await publicationClient.logout()
-      setPublicationSession(session)
-      setPublicationPassword('')
-      setMessage('已退出发布服务')
-    } catch (error) {
-      setMessage(publicationErrorMessage(error, publicationObservation))
-    } finally {
-      setPublicationBusy(false)
-    }
-  }
-
-  async function refreshPublicationObservation() {
-    if (!remotePublicationRepository) return
-    setPublicationBusy(true)
-    try {
-      const observation = await observeLatestComponentPublication(
-        definition.type,
-        remotePublicationRepository,
-      )
-      setPublicationObservation(observation)
-      setMessage(
-        observation.revision === null
-          ? '已刷新远端状态：当前尚无已发布 revision'
-          : `已刷新远端状态：revision ${observation.revision}`,
-      )
-    } catch (error) {
-      setMessage(publicationErrorMessage(error, publicationObservation))
-    } finally {
-      setPublicationBusy(false)
-    }
-  }
 
   async function publishRemote() {
     if (!publicationClient || !remotePublicationRepository || !canPublish) return
@@ -675,6 +639,7 @@ export function ComponentEditorPage({
         remoteRepository: remotePublicationRepository,
       })
       setPublicationObservation(result.observation)
+      updatePackage('status', 'ready')
       setMessage(`组件已发布：revision ${result.revision.revision}`)
     } catch (error) {
       if (
@@ -840,189 +805,206 @@ export function ComponentEditorPage({
   function renderComponentDefinitionPage() {
     return (
       <section className="component-definition-page component-semantic-inspector" aria-label="组件定义工作页">
-        <header className="component-definition-page-header">
-          <div>
-            <span>组件定义</span>
-            <h1>{definition.title}</h1>
-          </div>
-          <p>编辑组件基本信息与公开数据契约。可移植用户组件的 Action/Event 暂不开放；内部图层仍固定显示在右侧检查器。</p>
-        </header>
-        <div className="component-definition-page-tabs">
-          <Tabs
-            value={inspectorTab}
-            items={builtInReadOnly ? TRUSTED_INSPECTOR_TABS : PORTABLE_INSPECTOR_TABS}
-            onValueChange={setInspectorTab}
-            ariaLabel="组件定义配置"
-            className="component-inspector-tabs"
-          />
-        </div>
-
-        {inspectorTab === 'properties' && (
-          <div className="property-section-list component-root-inspector">
-            {mode === 'preview' && component.visual.mode === 'composite' && (
-              <CollapsibleInspectorGroup title="预览数据">
-                <ComponentPreviewValues
-                  definition={definition}
-                  values={previewProps}
-                  onChange={setPreviewProps}
-                />
-              </CollapsibleInspectorGroup>
-            )}
-
-            <CollapsibleInspectorGroup title="基本信息">
-              {builtInReadOnly && (
-                <div className="component-readonly-note">
-                  内置组件可查看配置与预览，不能在这里修改内部图形。
+        <div className="component-root-inspector">
+          <header className="component-definition-header">
+            <div className="component-definition-header-title-row">
+              {isEditingTitle ? (
+                <div className="component-definition-title-edit-form">
+                  <Input
+                    ref={titleInputRef}
+                    autoFocus
+                    value={titleDraft}
+                    disabled={editingDisabled}
+                    aria-label="组件名称"
+                    placeholder="输入组件名称"
+                    className="component-definition-title-input"
+                    onChange={(event) => setTitleDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        commitTitle()
+                      } else if (event.key === 'Escape') {
+                        event.preventDefault()
+                        setTitleDraft(definition.title)
+                        setIsEditingTitle(false)
+                      }
+                    }}
+                    onBlur={commitTitle}
+                  />
+                </div>
+              ) : (
+                <div className="component-definition-title-display">
+                  <span
+                    className="component-definition-title-text"
+                    title={editingDisabled ? undefined : `${definition.title || '未命名组件'}（点击编辑名称）`}
+                    onClick={() => {
+                      if (!editingDisabled) {
+                        setTitleDraft(definition.title)
+                        setIsEditingTitle(true)
+                      }
+                    }}
+                  >
+                    {definition.title || '未命名组件'}
+                  </span>
                 </div>
               )}
-              <label className="property-field">
-                <span>名称</span>
-                <Input
-                  value={definition.title}
-                  disabled={editingDisabled}
-                  onChange={(event) => updateDefinitionField('title', event.target.value)}
-                />
-              </label>
-              <label className="property-field">
-                <span>类型标识</span>
-                <Input
-                  value={definition.type}
-                  disabled={editingDisabled}
-                  onChange={(event) => updateDefinitionField('type', event.target.value)}
-                />
-              </label>
-              <label className="property-field">
-                <span>分类</span>
-                <Input
-                  value={definition.category}
-                  disabled={editingDisabled}
-                  onChange={(event) => updateDefinitionField('category', event.target.value)}
-                />
-              </label>
-              <label className="property-field">
-                <span>状态</span>
-                <Select
-                  value={component.status}
-                  disabled={editingDisabled}
-                  ariaLabel="组件状态"
-                  options={statusOptions}
-                  onValueChange={(value) => updateStatus(value as ComponentStatus)}
-                />
-              </label>
-              {!builtInReadOnly && !portableCapability.activatable && (
-                <p className="component-inspector-help" role="status">
-                  当前含有旧 Action/Event 声明，不能激活、导出或发布。请在“方法（未开放）”或“事件（未开放）”页删除这些声明。
-                </p>
-              )}
-              <label className="property-field">
-                <span>说明</span>
-                <Textarea
-                  rows={2}
-                  value={definition.description}
-                  disabled={editingDisabled}
-                  onChange={(event) => updateDefinitionField('description', event.target.value)}
-                />
-              </label>
-            </CollapsibleInspectorGroup>
 
-            <CollapsibleInspectorGroup title="尺寸">
-              <div className="property-grid">
-                {([
-                  ['defaultWidth', '默认宽'],
-                  ['defaultHeight', '默认高'],
-                  ['minWidth', '最小宽'],
-                  ['minHeight', '最小高'],
-                ] as Array<[keyof ComponentDefinition['size'], string]>).map(([field, label]) => (
-                  <label key={field} className="property-field compact">
-                    <span>{label}</span>
-                    <NumberInput
-                      min="1"
-                      value={definition.size[field]}
-                      disabled={editingDisabled}
-                      onChange={(event) => updateSize(field, Number(event.target.value))}
-                    />
-                  </label>
-                ))}
+              <div className="component-definition-status-wrapper">
+                <span
+                  className={`component-status-badge status-${component.status}`}
+                  title={`组件状态：${component.status === 'ready' ? '已发布' : '草稿'}`}
+                >
+                  {component.status === 'ready' ? '已发布' : '草稿'}
+                </span>
               </div>
-            </CollapsibleInspectorGroup>
+            </div>
 
-            <CollapsibleInspectorGroup title="静态配置" className="component-root-public-attributes">
-              <p className="component-inspector-help">
-                放入组态画布后可配置的固定参数，例如运行色、报警色和显示精度。
-              </p>
-              <ComponentAttributeContractEditor
-                definition={definition}
-                readOnly={editingDisabled}
-                onChange={updateDefinition}
-              />
-            </CollapsibleInspectorGroup>
+            <div className="component-definition-desc-row">
+              {isEditingDesc ? (
+                <div className="component-definition-desc-edit-form">
+                  <Textarea
+                    ref={descInputRef}
+                    autoFocus
+                    rows={3}
+                    value={descDraft}
+                    disabled={editingDisabled}
+                    aria-label="组件说明"
+                    placeholder="输入组件说明"
+                    className="component-definition-desc-textarea"
+                    onChange={(event) => setDescDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                        event.preventDefault()
+                        commitDesc()
+                      } else if (event.key === 'Escape') {
+                        event.preventDefault()
+                        setDescDraft(definition.description ?? '')
+                        setIsEditingDesc(false)
+                      }
+                    }}
+                    onBlur={commitDesc}
+                  />
+                </div>
+              ) : (
+                <div
+                  className="component-definition-desc-display"
+                  onClick={() => {
+                    if (!editingDisabled) {
+                      setDescDraft(definition.description ?? '')
+                      setIsEditingDesc(true)
+                    }
+                  }}
+                >
+                  <p
+                    className={`component-definition-desc-text ${!definition.description?.trim() ? 'is-empty' : ''}`}
+                    title={editingDisabled ? undefined : definition.description?.trim() ? `${definition.description}（点击编辑说明）` : '点击编辑说明'}
+                  >
+                    {definition.description?.trim() || '\u00A0'}
+                  </p>
+                </div>
+              )}
+            </div>
 
-            <CollapsibleInspectorGroup title="运行属性" className="component-root-public-properties">
-              <p className="component-inspector-help">
-                可绑定设备数据的运行值，例如开关状态、温度和液位。未绑定时使用配置的默认值。
-              </p>
-              <ComponentPropertyContractEditor
-                definition={definition}
-                readOnly={editingDisabled}
-                onChange={updateDefinition}
-              />
-            </CollapsibleInspectorGroup>
+            {builtInReadOnly && (
+              <div className="component-readonly-note">
+                内置组件可查看配置与预览，不能在这里修改内部图形。
+              </div>
+            )}
 
-            <CollapsibleInspectorGroup title="连接点" className="component-anchor-group">
-              <p className="component-inspector-help">
-                设置管线或导线可以连接到组件的哪些位置。
+            {!builtInReadOnly && !portableCapability.activatable && (
+              <p className="component-inspector-help" role="status">
+                当前含有旧 Action/Event 声明，不能激活、导出或发布。请在“方法（未开放）”或“事件（未开放）”页删除这些声明。
               </p>
-              <div className="component-anchor-editor">
-                <ComponentContractEditor
+            )}
+          </header>
+
+          <div className="component-definition-page-tabs">
+            <Tabs
+              value={inspectorTab}
+              items={builtInReadOnly ? TRUSTED_INSPECTOR_TABS : PORTABLE_INSPECTOR_TABS}
+              onValueChange={setInspectorTab}
+              ariaLabel="组件定义配置"
+              className="component-inspector-tabs"
+            />
+          </div>
+
+          {inspectorTab === 'properties' && (
+            <div className="property-section-list component-root-inspector-body">
+              {mode === 'preview' && component.visual.mode === 'composite' && (
+                <CollapsibleInspectorGroup title="预览数据">
+                  <ComponentPreviewValues
+                    definition={definition}
+                    values={previewProps}
+                    onChange={setPreviewProps}
+                  />
+                </CollapsibleInspectorGroup>
+              )}
+
+              <CollapsibleInspectorGroup title="静态属性" className="component-root-public-attributes">
+                <p className="component-inspector-help">
+                  放入组态画布后可配置的固定参数，例如运行色、报警色和显示精度。
+                </p>
+                <div className="component-static-size-block">
+                  <div className="property-grid component-definition-size-grid">
+                    {([
+                      ['defaultWidth', 'W', '默认宽 (Default Width)'],
+                      ['defaultHeight', 'H', '默认高 (Default Height)'],
+                      ['minWidth', 'Min W', '最小宽 (Min Width)'],
+                      ['minHeight', 'Min H', '最小高 (Min Height)'],
+                    ] as Array<[keyof ComponentDefinition['size'], string, string]>).map(([field, label, title]) => (
+                      <label key={field} className="property-field compact" title={title}>
+                        <span>{label}</span>
+                        <NumberInput
+                          min="1"
+                          value={definition.size[field]}
+                          disabled={editingDisabled}
+                          onChange={(event) => updateSize(field, Number(event.target.value))}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <ComponentAttributeContractEditor
                   definition={definition}
                   readOnly={editingDisabled}
-                  portableUser={!builtInReadOnly}
-                  tab="anchors"
                   onChange={updateDefinition}
                 />
-              </div>
-            </CollapsibleInspectorGroup>
+              </CollapsibleInspectorGroup>
 
-            {!builtInReadOnly && (
-              <CollapsibleInspectorGroup title="远端发布" defaultOpen={false}>
-                <ComponentPublicationPanel
-                  configured={Boolean(publicationBaseUrl)}
-                  session={publicationSession}
-                  observation={publicationObservation}
-                  username={publicationUsername}
-                  password={publicationPassword}
-                  busy={publicationBusy}
-                  publishReady={publicationReady}
-                  onUsernameChange={setPublicationUsername}
-                  onPasswordChange={setPublicationPassword}
-                  onLogin={() => void loginPublication()}
-                  onLogout={() => void logoutPublication()}
-                  onRefreshObservation={() => void refreshPublicationObservation()}
+              <CollapsibleInspectorGroup title="运行属性" className="component-root-public-properties">
+                <p className="component-inspector-help">
+                  可绑定设备数据的运行值，例如开关状态、温度和液位。未绑定时使用配置的默认值。
+                </p>
+                <ComponentPropertyContractEditor
+                  definition={definition}
+                  readOnly={editingDisabled}
+                  onChange={updateDefinition}
                 />
               </CollapsibleInspectorGroup>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
-        {inspectorTab === 'actions' && (
-          <ComponentContractEditor
-            definition={definition}
-            readOnly={editingDisabled}
-            portableUser={!builtInReadOnly}
-            tab="actions"
-            onChange={updateDefinition}
-          />
-        )}
+          {inspectorTab === 'actions' && (
+            <ComponentContractEditor
+              definition={definition}
+              readOnly={editingDisabled}
+              portableUser={!builtInReadOnly}
+              tab="actions"
+              onChange={updateDefinition}
+            />
+          )}
 
-        {inspectorTab === 'events' && (
-          <ComponentContractEditor
-            definition={definition}
-            readOnly={editingDisabled}
-            portableUser={!builtInReadOnly}
-            tab="events"
-            onChange={updateDefinition}
-          />
-        )}
+          {inspectorTab === 'events' && (
+            <ComponentContractEditor
+              definition={definition}
+              readOnly={editingDisabled}
+              portableUser={!builtInReadOnly}
+              tab="events"
+              onChange={updateDefinition}
+            />
+          )}
+        </div>
       </section>
     )
   }

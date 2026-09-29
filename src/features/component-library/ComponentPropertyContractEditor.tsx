@@ -264,7 +264,7 @@ export function ComponentPropertyContractEditor({
   }
 
   return (
-    <div className="property-contract-list">
+    <div className={`property-contract-list${Object.keys(definition.properties).length > 0 ? ' has-items' : ''}`}>
       {Object.entries(definition.properties).map(([key, property]) => {
         const expanded = expandedKey === key
         const detailId = `property-contract-detail-${encodeURIComponent(key)}`

@@ -1476,79 +1476,594 @@
 .component-definition-page {
   display: grid;
   align-content: start;
-  width: min(100%, 980px);
+  width: min(100%, 760px);
   min-height: 100%;
   margin: 0 auto;
-  padding: 24px 32px 48px;
+  padding: 16px 28px 40px;
   box-sizing: border-box;
 }
 
-.component-definition-page-header {
+.component-definition-header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 16px;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.component-definition-page-header > div {
+.component-definition-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0 16px;
+  margin-bottom: 6px;
+}
+
+.component-definition-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+  width: 100%;
+}
+
+/* Title Direct Display with Dynamic Pencil Cursor */
+.component-definition-title-display {
+  display: inline-flex;
+  align-items: center;
   min-width: 0;
+  max-width: calc(100% - 100px);
 }
 
-.component-definition-page-header span {
-  color: var(--ui-color-accent);
-  font-size: var(--ui-font-size-status);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.component-definition-page-header h1 {
-  margin: 3px 0 0;
-  overflow: hidden;
-  color: var(--ui-color-text);
+.component-definition-title-text {
+  display: inline-block;
   font-size: var(--ui-font-size-workbench-title);
-  line-height: var(--ui-line-height-workbench-title);
+  font-weight: 600;
+  color: var(--ui-color-text);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  padding: 3px 6px;
+  margin: -3px -6px;
+  border-radius: var(--ui-radius-control);
+  border: 1px solid transparent;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  user-select: none;
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24'%3E%3Cpath d='M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z' fill='%23ffffff' stroke='%23334155' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m15 5 4 4' fill='none' stroke='%23334155' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") 1 12, pointer;
 }
 
-.component-definition-page-header p {
-  max-width: 360px;
+.component-definition-title-text:hover {
+  color: var(--ui-color-accent);
+  background: var(--ui-color-surface-hover, var(--ui-color-surface-subtle));
+  border-color: var(--ui-color-border-subtle);
+}
+
+/* Title Inline Editing Form */
+.component-definition-title-edit-form {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 420px;
+}
+
+.component-definition-title-input {
+  font-size: 16px;
+  font-weight: 600;
+  height: 32px;
+  width: 100%;
+}
+
+/* Status Badge - Industrial precision indicator */
+.component-definition-status-wrapper {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.component-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  padding: 0 8px;
+  border-radius: var(--ui-radius-control);
+  font-size: var(--ui-font-size-status);
+  font-weight: 600;
+  user-select: none;
+  box-sizing: border-box;
+  border: 0;
+  margin-top: 1px;
+}
+
+/* 草稿: 暖琥珀主题，直观传达开发中/草稿状态 */
+.component-status-badge.status-draft {
+  background: color-mix(in srgb, var(--ui-color-warning) 12%, var(--ui-color-surface));
+  color: var(--ui-color-warning);
+  border: 0;
+}
+
+/* 已发布: 翠绿主题，直观传达就绪/已发布状态 */
+.component-status-badge.status-ready {
+  background: color-mix(in srgb, var(--ui-color-success) 12%, var(--ui-color-surface));
+  color: var(--ui-color-success);
+  border: 0;
+}
+
+/* Description Row in document flow */
+.component-definition-desc-row {
+  display: flex;
+  align-items: flex-start;
+  min-height: 22px;
+  width: 100%;
+  padding-top: 2px;
+}
+
+.component-definition-desc-display {
+  display: inline-flex;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 600px;
+  min-height: 22px;
+}
+
+/* Description Display with Dynamic Pencil Cursor */
+.component-definition-desc-text {
+  display: inline-block;
   margin: 0;
-  color: var(--ui-color-text-subtle);
+  min-height: 20px;
   font-size: var(--ui-font-size-tool);
-  line-height: 1.5;
-  text-align: right;
+  color: var(--ui-color-text-secondary);
+  line-height: var(--ui-line-height-tool);
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: var(--ui-radius-control);
+  border: 1px solid transparent;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  word-break: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
+  width: 100%;
+  user-select: none;
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24'%3E%3Cpath d='M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z' fill='%23ffffff' stroke='%23334155' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m15 5 4 4' fill='none' stroke='%23334155' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") 1 12, pointer;
+}
+
+.component-definition-desc-text:hover {
+  color: var(--ui-color-accent);
+  background: var(--ui-color-surface-hover, var(--ui-color-surface-subtle));
+  border-color: var(--ui-color-border-subtle);
+}
+
+.component-definition-desc-text.is-empty {
+  color: transparent;
+}
+
+.component-definition-desc-text.is-empty:hover {
+  background: var(--ui-color-surface-subtle);
+  border-color: var(--ui-color-border-subtle);
+}
+
+.component-definition-desc-edit-form {
+  width: 100%;
+  max-width: 600px;
+}
+
+.component-definition-desc-textarea {
+  width: 100%;
+  min-height: 60px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: var(--ui-font-size-tool);
+  font-family: inherit;
+  line-height: 1.45;
+  resize: vertical;
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.component-definition-desc-textarea:focus {
+  border-color: var(--ui-color-accent);
+  box-shadow: var(--ui-focus-ring);
+  outline: none;
 }
 
 .component-definition-page-tabs {
   position: sticky;
   top: 0;
-  z-index: 2;
-  margin-bottom: 12px;
+  z-index: 5;
+  width: 100%;
+  margin-bottom: 0;
   border-bottom: 1px solid var(--ui-color-border);
   background: var(--ui-color-panel);
 }
 
-.component-definition-page-tabs .ui-tabs-list {
-  width: min(360px, 100%);
+.component-definition-page-tabs .ui-tabs {
+  width: 100%;
+  margin-bottom: -1px;
+}
+
+.component-definition-page-tabs .ui-tabs-list.component-inspector-tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  height: 34px;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+  box-sizing: border-box;
 }
 
-.component-definition-page-tabs .ui-tab {
-  height: 32px;
+.component-definition-page-tabs .component-inspector-tabs > .ui-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--ui-space-2);
+  border: 0;
   border-radius: 0;
-  border-bottom: 2px solid transparent;
   background: transparent;
+  border-bottom: 2px solid transparent;
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-tool);
+  font-weight: 500;
+  box-shadow: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.component-definition-page-tabs .ui-tab[aria-selected='true'] {
+.component-definition-page-tabs .component-inspector-tabs > .ui-tab:hover {
+  color: var(--ui-color-text);
+}
+
+.component-definition-page-tabs .component-inspector-tabs > .ui-tab[aria-selected='true'],
+.component-definition-page-tabs .component-inspector-tabs > .ui-tab.is-active {
   color: var(--ui-color-accent);
   background: transparent;
   border-bottom-color: var(--ui-color-accent);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* Inspector style on Component Definition Page (consistent with left/right docks, flat & compact) */
+.component-definition-page .property-section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.component-definition-page .inspector-collapsible {
+  border: 0;
+  border-bottom: 1px solid var(--ui-color-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.component-definition-page .property-section-list > .inspector-collapsible:first-child,
+.component-definition-page .component-root-inspector > .inspector-collapsible:first-child,
+.component-definition-page .inspector-collapsible:first-child {
+  border-top: 0;
+}
+
+.component-definition-page .inspector-group-header {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 4px;
+  gap: 6px;
+  background: transparent;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-tool);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  border: 0;
+  border-bottom: 0;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.component-definition-page .inspector-group-header:hover {
+  background: var(--ui-color-surface-subtle);
+  color: var(--ui-color-text);
+}
+
+.component-definition-page .inspector-group-chevron {
+  width: 9px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--ui-color-text-subtle);
+  transition: transform 120ms ease;
+}
+
+.component-definition-page .inspector-collapsible.is-open .inspector-group-chevron {
+  transform: rotate(90deg);
+}
+
+.component-definition-page .inspector-group-content {
+  padding: 6px 4px 10px;
+  gap: 8px;
+  background: transparent;
+}
+
+/* Form Fields inside Definition Page */
+.component-definition-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 20px;
+}
+
+.component-definition-form-grid .property-field-full {
+  grid-column: 1 / -1;
+}
+
+.component-definition-page .property-field {
+  display: grid;
+  grid-template-columns: minmax(68px, 80px) minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 8px;
+  min-height: 27px;
+  margin: 0;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-tool);
+}
+
+.component-definition-page .property-field.property-field-full {
+  align-items: start;
+  padding-top: 2px;
+}
+
+.component-definition-page .property-field > span:first-child {
+  font-size: var(--ui-font-size-tool);
+  font-weight: 500;
+  color: var(--ui-color-text-secondary);
+  white-space: nowrap;
+}
+
+.component-definition-page .property-field input,
+.component-definition-page .property-field select {
+  height: var(--ui-control-height);
+  padding: 0 8px;
+  box-sizing: border-box;
+  font-size: var(--ui-font-size-tool);
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.component-definition-page .property-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font-size: var(--ui-font-size-tool);
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  line-height: 1.4;
+  resize: vertical;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.component-definition-page .property-field input:focus,
+.component-definition-page .property-field select:focus,
+.component-definition-page .property-field textarea:focus {
+  border-color: var(--ui-color-accent);
+  box-shadow: var(--ui-focus-ring);
+  outline: none;
+}
+
+.component-static-size-block {
+  padding-bottom: 2px;
+  margin-bottom: 8px;
+}
+
+/* Size Grid (matching right properties panel transform style) */
+.component-definition-page .property-grid.component-definition-size-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+
+.component-definition-page .property-grid.component-definition-size-grid .property-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-height: 27px;
+}
+
+.component-definition-page .property-grid.component-definition-size-grid .property-field > span:first-child {
+  min-width: 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ui-color-text-subtle);
+  text-align: right;
+}
+
+.component-definition-page .property-grid.component-definition-size-grid .property-field input {
+  height: var(--ui-control-height);
+  padding: 0 6px;
+  font-size: var(--ui-font-size-tool);
+  font-family: var(--ui-font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+/* Help text */
+.component-definition-page .component-inspector-help {
+  font-size: var(--ui-font-size-status);
+  line-height: 1.4;
+  color: var(--ui-color-text-subtle);
+  margin: 0 0 6px 0;
+}
+
+/* Empty states */
+.component-definition-page .contract-empty {
+  padding: 10px 8px;
+  background: transparent;
+  border: 1px dashed var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  font-size: var(--ui-font-size-status);
+  color: var(--ui-color-text-subtle);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+/* Add Buttons */
+.component-definition-page .contract-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  gap: 4px;
+  height: var(--ui-control-height-small);
+  padding: 0 10px;
+  border-radius: var(--ui-radius-control);
+  font-size: var(--ui-font-size-status);
+  font-weight: 600;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+  border: 1px solid var(--ui-color-border);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.component-definition-page .contract-add-button:hover:not(:disabled) {
+  background: var(--ui-color-accent);
+  color: #ffffff;
+  border-color: var(--ui-color-accent);
+}
+
+/* Contract Items when populated */
+.component-definition-page .property-contract-list {
+  display: grid;
+  gap: 0;
+  border-radius: 0;
+  background: transparent;
+  margin-bottom: 6px;
+}
+
+.component-definition-page .property-contract-list:has(.property-contract-item),
+.component-definition-page .property-contract-list.has-items {
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.component-definition-page .property-contract-item + .contract-add-button,
+.component-definition-page .contract-empty + .contract-add-button {
+  margin-top: 8px;
+}
+
+.component-definition-page .property-contract-item {
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.component-definition-page .property-contract-summary {
+  min-height: 29px;
+  padding: 3px 4px;
+  gap: 6px;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.component-definition-page .property-contract-summary:hover {
+  background: var(--ui-color-surface-subtle);
+}
+
+.component-definition-page .property-contract-identity strong {
+  font-size: var(--ui-font-size-tool);
+}
+
+.component-definition-page .property-contract-detail {
+  padding: 6px 8px 10px;
+  background: var(--ui-color-surface-subtle);
+  border-top: 1px solid var(--ui-color-border);
+  border-left: 2px solid var(--ui-color-accent);
+}
+
+.component-definition-page .property-contract-detail .contract-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+}
+
+.component-definition-page .property-contract-detail .contract-grid label,
+.component-definition-page .property-contract-detail .contract-block-field {
+  display: grid;
+  gap: 3px;
+}
+
+.component-definition-page .property-contract-detail .contract-grid label > span,
+.component-definition-page .property-contract-detail .contract-block-field > span {
+  font-size: var(--ui-font-size-status);
+  font-weight: 500;
+  color: var(--ui-color-text-secondary);
+}
+
+.component-definition-page .property-contract-detail .contract-grid input,
+.component-definition-page .property-contract-detail .contract-grid select,
+.component-definition-page .property-contract-detail .contract-block-field textarea {
+  height: var(--ui-control-height);
+  padding: 0 6px;
+  font-size: var(--ui-font-size-tool);
+  border-radius: var(--ui-radius-control);
+}
+
+.component-definition-page .property-contract-detail .contract-block-field textarea {
+  height: auto;
+  min-height: 48px;
+  padding: 4px 6px;
+}
+
+.component-definition-page .property-contract-detail-actions {
+  margin-top: 6px;
+  padding-top: 5px;
+}
+
+.component-definition-page > .component-contract-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 12px 0 0;
+}
+
+.component-definition-page .component-methods-status-banner {
+  padding: 8px 10px;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface-subtle);
+  border: 1px solid var(--ui-color-border);
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-status);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 680px) {
+  .component-definition-page {
+    padding: 12px 14px;
+  }
+  .component-definition-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .component-definition-page .property-grid.component-definition-size-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .component-definition-page .property-contract-detail .contract-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .component-layer-inspector-shell {
