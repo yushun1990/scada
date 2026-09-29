@@ -15,7 +15,7 @@ import {
 import { serializeManagedSvgDataUrl } from './managedSvg'
 import { applyThemeToManagedSvgDocument } from './managedSvgTheme'
 import {
-  cloneComponentVisual,
+  cloneVisualLayer,
   resolveVisualAssetStyle,
   resolveVisualTextStyle,
   resolveVisualVectorStyle,
@@ -515,9 +515,13 @@ export function resolveComponentVisualRules(
   const rules = visual.rules ?? []
   if (rules.length === 0) return visual
 
-  const resolved = cloneComponentVisual(visual)
-  const layerIndex = new Map(resolved.layers.map((layer, index) => [layer.id, index]))
-  const layers = [...resolved.layers]
+  // Copy-on-write: only layers actually targeted by an enabled, matching rule
+  // are cloned. Untouched layers keep their identity so renderers can memoize
+  // per-layer derived work (a managed SVG document must not be re-serialized
+  // just because some other layer has a rule).
+  const layers = visual.layers.slice()
+  const layerIndex = new Map(visual.layers.map((layer, index) => [layer.id, index]))
+  const clonedIndexes = new Set<number>()
 
   for (const rule of rules) {
     if (!rule.enabled || !matchesRule(rule, context)) continue
@@ -525,8 +529,14 @@ export function resolveComponentVisualRules(
     if (index === undefined) continue
     const value = readRuleTargetValue(rule, context)
     if (value === undefined) continue
+
+    if (!clonedIndexes.has(index)) {
+      layers[index] = cloneVisualLayer(layers[index])
+      clonedIndexes.add(index)
+    }
+
     layers[index] = applyRuleTarget(layers[index], rule.target, value, rule.svgTagId)
   }
 
-  return { ...resolved, layers }
+  return { ...visual, layers }
 }

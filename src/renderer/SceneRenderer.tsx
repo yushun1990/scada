@@ -12,6 +12,10 @@ import {
 } from 'react-konva'
 import { builtInComponentRegistry } from '../component-system/builtins'
 import {
+  cacheNodeForDragPreview,
+  releaseDragPreviewCache,
+} from '../components/canvas-drag-cache'
+import {
   getNodePortDefinitions,
   getPortDefinition,
   getPortWorldPosition,
@@ -413,6 +417,7 @@ export function SceneRenderer({
   const selectionRectRefs = useRef(new Map<string, Konva.Rect>())
   const pendingSelectionRef = useRef<string[] | null>(null)
   const dragSessionRef = useRef<DragSession | null>(null)
+  const dragCachedNodesRef = useRef<Konva.Node[]>([])
   const dragPreviewRef = useRef<TransformUpdates>({})
   const dragFrameRef = useRef<number | null>(null)
   const pendingDragTargetRef = useRef<Konva.Node | null>(null)
@@ -545,6 +550,8 @@ export function SceneRenderer({
       cancelScheduledDrag()
       cancelScheduledConnectionPreview()
       cancelScheduledReconnect()
+      releaseDragPreviewCache(dragCachedNodesRef.current)
+      dragCachedNodesRef.current = []
 
       if (transformFrameRef.current !== null) {
         cancelAnimationFrame(transformFrameRef.current)
@@ -559,7 +566,9 @@ export function SceneRenderer({
 
     cancelScheduledDrag()
     cancelScheduledConnectionPreview()
-    cancelReconnectSession()
+    cancelScheduledReconnect()
+    releaseDragPreviewCache(dragCachedNodesRef.current)
+    dragCachedNodesRef.current = []
     pendingSelectionRef.current = null
     marqueeSessionRef.current = null
     connectionSessionRef.current = null
@@ -1168,6 +1177,21 @@ export function SceneRenderer({
     pendingSelectionRef.current = null
     dragPreviewRef.current = {}
     hideGuides()
+
+    // Drag frames must not pay the vector repaint cost of every session node
+    // (an oversized SVG raster dominates that cost); rasterize each subtree
+    // once here and restore vector rendering on dragend.
+    const cachedNodes: Konva.Node[] = []
+
+    for (const id of nodeIds) {
+      const node = nodeRefs.current.get(id)
+
+      if (node && cacheNodeForDragPreview(node)) {
+        cachedNodes.push(node)
+      }
+    }
+
+    dragCachedNodesRef.current = cachedNodes
   }
 
   function processDragMove(target: Konva.Node) {
@@ -1259,6 +1283,8 @@ export function SceneRenderer({
 
   function handleDragEnd(target: Konva.Node) {
     flushScheduledDrag(target)
+    releaseDragPreviewCache(dragCachedNodesRef.current)
+    dragCachedNodesRef.current = []
     const session = dragSessionRef.current
 
     if (!session) {

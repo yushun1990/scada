@@ -88,6 +88,7 @@ export function computeComponentLayerSnap(
   artboardScale: number,
   gridSize = COMPONENT_SNAP_GRID_SIZE,
   movingLayerIds: readonly string[] = [],
+  nodeLookup?: ReadonlyMap<string, Konva.Group>,
 ): ComponentSnapResult {
   const movingLayerId = getCompositeVisualLayerId(node)
   const movingLayer = movingLayerId
@@ -101,6 +102,9 @@ export function computeComponentLayerSnap(
     }
   }
 
+  const resolveLayerNode = nodeLookup
+    ? (layerId: string) => nodeLookup.get(layerId)
+    : (layerId: string) => findLayerNode(stage, layerId)
   const gridSizePx = Math.max(1, gridSize) * artboardScale
   const movingIds = new Set(movingLayerIds.length > 0 ? movingLayerIds : [movingLayer.id])
   const origin = node.getAbsolutePosition()
@@ -119,7 +123,7 @@ export function computeComponentLayerSnap(
       continue
     }
 
-    const siblingNode = findLayerNode(stage, sibling.id)
+    const siblingNode = resolveLayerNode(sibling.id)
 
     if (!siblingNode) {
       continue

@@ -887,7 +887,7 @@ function cloneDesignSize(
   }
 }
 
-function cloneVisualLayer(layer: ComponentVisualLayer): ComponentVisualLayer {
+export function cloneVisualLayer(layer: ComponentVisualLayer): ComponentVisualLayer {
   const transform = { ...layer.transform }
   const origin = layer.origin
   const methods = layer.methods

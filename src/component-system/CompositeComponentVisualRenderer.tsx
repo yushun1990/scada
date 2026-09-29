@@ -14,7 +14,7 @@ import {
   Shape,
   Text,
 } from 'react-konva'
-import { serializeManagedSvgCanvasDataUrl } from './managedSvg'
+import { computeSvgCanvasRasterScale, serializeManagedSvgCanvasDataUrl } from './managedSvg'
 import {
   resolveVisualAssetStyle,
   resolveVisualLineDashArray,
@@ -141,27 +141,98 @@ type VisualLayerNodeProps = {
   nonScalingStrokes: boolean
 }
 
+type VisualAssetImageEntry = {
+  image: HTMLImageElement
+  ready: boolean
+  failed: boolean
+  listeners: Set<() => void>
+}
+
+// Decoded visual assets are shared across every instance that renders the same
+// data URL: without this cache each placed instance builds and decodes its own
+// copy of the (potentially multi-megabyte) raster.
+const visualAssetImageCache = new Map<string, VisualAssetImageEntry>()
+const VISUAL_ASSET_IMAGE_CACHE_LIMIT = 24
+
+function acquireVisualAssetImage(source: string): VisualAssetImageEntry {
+  const existing = visualAssetImageCache.get(source)
+
+  if (existing) {
+    visualAssetImageCache.delete(source)
+    visualAssetImageCache.set(source, existing)
+    return existing
+  }
+
+  const entry: VisualAssetImageEntry = {
+    image: new window.Image(),
+    ready: false,
+    failed: false,
+    listeners: new Set(),
+  }
+
+  entry.image.decoding = 'async'
+  entry.image.addEventListener('load', () => {
+    entry.ready = true
+    for (const listener of entry.listeners) listener()
+  })
+  entry.image.addEventListener('error', () => {
+    entry.failed = true
+    for (const listener of entry.listeners) listener()
+  })
+  entry.image.src = source
+  visualAssetImageCache.set(source, entry)
+
+  // Evict oldest settled entries; in-flight entries keep their slot until
+  // they settle. Evicted images stay alive while any consumer still renders
+  // them — only the cache reference is dropped.
+  for (const [key, candidate] of visualAssetImageCache) {
+    if (visualAssetImageCache.size <= VISUAL_ASSET_IMAGE_CACHE_LIMIT) {
+      break
+    }
+
+    if (candidate.ready || candidate.failed) {
+      visualAssetImageCache.delete(key)
+    }
+  }
+
+  return entry
+}
+
+function peekLoadedVisualAssetImage(source: string): HTMLImageElement | null {
+  const entry = visualAssetImageCache.get(source)
+  return entry?.ready ? entry.image : null
+}
+
 function useVisualAsset(assetRef: string) {
-  const [image, setImage] = useState<HTMLImageElement | null>(null)
+  const [image, setImage] = useState<HTMLImageElement | null>(() =>
+    assetRef.trim() ? peekLoadedVisualAssetImage(assetRef) : null,
+  )
 
   useEffect(() => {
-    if (!assetRef.trim()) {
+    const source = assetRef.trim()
+
+    if (!source) {
       setImage(null)
       return
     }
 
-    const nextImage = new window.Image()
+    const entry = acquireVisualAssetImage(source)
 
-    const handleLoad = () => setImage(nextImage)
-    const handleError = () => setImage(null)
+    if (entry.ready) {
+      setImage(entry.image)
+      return
+    }
 
-    nextImage.addEventListener('load', handleLoad)
-    nextImage.addEventListener('error', handleError)
-    nextImage.src = assetRef
+    if (entry.failed) {
+      setImage(null)
+      return
+    }
+
+    const notify = () => setImage(entry.ready ? entry.image : null)
+    entry.listeners.add(notify)
 
     return () => {
-      nextImage.removeEventListener('load', handleLoad)
-      nextImage.removeEventListener('error', handleError)
+      entry.listeners.delete(notify)
     }
   }, [assetRef])
 
@@ -206,8 +277,7 @@ function VisualAssetLayer({
                 h = parseFloat(hMatch?.[1] || '') || 0
               }
               if (w > 0 && h > 0) {
-                const maxDim = Math.max(w, h)
-                const scale = Math.min(8, Math.max(2, Math.ceil(2048 / maxDim)))
+                const scale = computeSvgCanvasRasterScale(w, h)
                 const targetW = Math.round(w * scale)
                 const targetH = Math.round(h * scale)
                 let enhancedRoot = rootMatch[0]

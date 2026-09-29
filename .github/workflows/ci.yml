@@ -39,6 +39,7 @@ jobs:
           npx --yes tsx scripts/check-managed-svg-authoring.ts
           npx --yes tsx scripts/check-managed-svg-geometry-authoring.ts
           npx --yes tsx scripts/check-managed-svg-visual-rules.ts
+          npx --yes tsx scripts/check-visual-asset-raster-budget.ts
           npx --yes tsx scripts/check-managed-svg-portability.ts
           npx --yes tsx scripts/check-animation-runtime-adapters.ts
           npx --yes tsx scripts/check-animation-model.ts
