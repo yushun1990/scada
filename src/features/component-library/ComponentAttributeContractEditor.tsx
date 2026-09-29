@@ -264,7 +264,7 @@ export function ComponentAttributeContractEditor({
   }
 
   return (
-    <div className="property-contract-list">
+    <div className={`property-contract-list${Object.keys(definition.attributes).length > 0 ? ' has-items' : ''}`}>
       {Object.entries(definition.attributes).map(([key, attribute]) => {
         const expanded = expandedKey === key
         const detailId = `attribute-contract-detail-${encodeURIComponent(key)}`
@@ -395,10 +395,6 @@ export function ComponentAttributeContractEditor({
           </article>
         )
       })}
-
-      {Object.keys(definition.attributes).length === 0 && (
-        <div className="contract-empty">尚未添加静态配置</div>
-      )}
 
       {!readOnly && (
         <Button variant="secondary" size="small" className="contract-add-button" onClick={addAttribute}>

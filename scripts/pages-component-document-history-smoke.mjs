@@ -48,30 +48,28 @@ try {
   await openDefinitionPage()
   const rootInspector = page.locator('.component-root-inspector')
   await rootInspector.waitFor()
-  const titleField = rootInspector
-    .locator('.property-field')
-    .filter({ has: page.locator('span', { hasText: /^名称$/ }) })
-    .locator('input')
-    .first()
-  await titleField.waitFor()
-
-  const originalTitle = await titleField.inputValue()
+  const titleDisplay = page.locator('.component-definition-title-display')
+  await titleDisplay.waitFor()
+  const originalTitle = (await page.locator('.component-definition-title-text').textContent()).trim()
   assert.ok(originalTitle.length > 0, 'new component must have a title')
 
+  await titleDisplay.click()
+  const titleField = page.locator('.component-definition-title-input')
+  await titleField.waitFor()
   await titleField.click()
   await titleField.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
   await titleField.press('Backspace')
   await titleField.pressSequentially('History Component', { delay: 5 })
-  assert.equal(await titleField.inputValue(), 'History Component')
+  await titleField.press('Enter')
 
   // Switching to the canvas page first blurs/commits the focused document
   // field, then the toolbar invokes the same full-document undo authority
   // used for visual operations.
   await undoViaCanvasToolbar()
   await openDefinitionPage()
-  await titleField.waitFor()
+  await page.locator('.component-definition-title-text').waitFor()
   assert.equal(
-    await titleField.inputValue(),
+    (await page.locator('.component-definition-title-text').textContent()).trim(),
     originalTitle,
     'first undo must revert the complete Component definition field transaction',
   )
@@ -91,18 +89,18 @@ try {
   await redoViaCanvasToolbar()
   await row('txt_1').waitFor()
   await openDefinitionPage()
-  await titleField.waitFor()
+  await page.locator('.component-definition-title-text').waitFor()
   assert.equal(
-    await titleField.inputValue(),
+    (await page.locator('.component-definition-title-text').textContent()).trim(),
     originalTitle,
     'first redo must restore only the visual edit',
   )
 
   await redoViaCanvasToolbar()
   await openDefinitionPage()
-  await titleField.waitFor()
+  await page.locator('.component-definition-title-text').waitFor()
   assert.equal(
-    await titleField.inputValue(),
+    (await page.locator('.component-definition-title-text').textContent()).trim(),
     'History Component',
     'second redo must restore the Component definition edit',
   )

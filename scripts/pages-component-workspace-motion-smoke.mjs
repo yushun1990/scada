@@ -102,9 +102,10 @@ try {
   assert.equal(await button('撤销').count(), 0, 'collapsed commands are absent from the accessibility tree')
   assert.equal(await page.locator('.component-canvas-page-content').evaluate((element) => element.inert), true)
 
-  const name = page.locator('.component-root-inspector label').filter({ has: page.getByText('名称', { exact: true }) }).locator('input')
+  await page.locator('.component-definition-title-display').click()
+  const name = page.locator('.component-definition-title-input')
   await name.fill('伸缩切换测试')
-  await name.press('Tab')
+  await name.press('Enter')
   const definition = await page.locator('.component-definition-page-content').elementHandle()
   const scrollTop = await definition.evaluate((element) => {
     element.scrollTop = 180

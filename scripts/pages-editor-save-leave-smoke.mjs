@@ -88,19 +88,36 @@ async function beforeUnloadIsBlocked() {
 
 async function componentRootTitleField() {
   // Component contracts live on the central Coding 开发 work page.
-  const workPageSwitch = page.getByRole('button', { name: 'Coding 开发', exact: true })
-  if (await workPageSwitch.count()) {
-    await workPageSwitch.click()
+  const codingBtn = page.getByRole('button', { name: 'Coding 开发', exact: true })
+  await codingBtn.waitFor()
+  if (await codingBtn.getAttribute('aria-pressed') !== 'true') {
+    await codingBtn.click()
   }
+  await page.locator('.component-definition-page-host[data-active="true"]').waitFor()
   const rootInspector = page.locator('.component-root-inspector')
   await rootInspector.waitFor()
-  const input = rootInspector
-    .locator('.property-field')
-    .filter({ has: page.locator('span', { hasText: /^名称$/ }) })
-    .locator('input')
-    .first()
-  await input.waitFor()
-  return input
+  const display = rootInspector.locator('.component-definition-title-display')
+  const input = rootInspector.locator('.component-definition-title-input')
+  return {
+    fill: async (val) => {
+      if (!await input.isVisible()) {
+        await display.click()
+        await input.waitFor()
+      }
+      await input.fill(val)
+    },
+    press: async (key) => {
+      if (await input.isVisible()) {
+        await input.press(key)
+      }
+    },
+    inputValue: async () => {
+      if (await input.isVisible()) {
+        return input.inputValue()
+      }
+      return (await rootInspector.locator('.component-definition-title-text').textContent()).trim()
+    },
+  }
 }
 
 async function fillAndCommit(input, value) {

@@ -2,6 +2,10 @@
   display: grid;
   gap: 0;
   min-width: 0;
+}
+
+.property-contract-list:has(.property-contract-item),
+.property-contract-list.has-items {
   border-top: 1px solid var(--ui-color-border);
 }
 
