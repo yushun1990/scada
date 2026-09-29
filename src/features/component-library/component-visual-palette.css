@@ -81,9 +81,18 @@
   text-align: center;
 }
 
+/* Import actions (file-picker driven) stay neutral dashed: accent marks
+ * inline list-add actions, dashed marks content ingest into the library.
+ * Button metrics (12px/600/26px) still come from the shared small button. */
 .component-palette-bottom-action {
   width: 100%;
   margin-top: 4px;
+  border-style: dashed;
+}
+
+.component-palette-bottom-action:hover:not(:disabled) {
+  border-color: var(--ui-color-accent);
+  color: var(--ui-color-accent);
 }
 
 .component-palette-disclosure-body {

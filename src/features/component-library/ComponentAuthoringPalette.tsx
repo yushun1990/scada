@@ -844,7 +844,7 @@ export function ComponentAuthoringPalette({
 
               <Button
                 size="small"
-                variant="soft"
+                variant="secondary"
                 className="component-palette-bottom-action"
                 disabled={readOnly || busy}
                 title="添加多图组件"
@@ -930,7 +930,7 @@ export function ComponentAuthoringPalette({
 
               <Button
                 size="small"
-                variant="soft"
+                variant="secondary"
                 className="component-palette-bottom-action"
                 disabled={readOnly || busy}
                 title="上传资源"
