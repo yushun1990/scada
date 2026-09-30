@@ -33,6 +33,7 @@ import {
 import { calculateOriginOffset } from '../../component-system/visual-primitives'
 import { resolveComponentVisualRules } from '../../component-system/visualRules'
 import {
+  cacheExpensiveDrawBystanders,
   cacheNodeForDragPreview,
   releaseDragPreviewCache,
 } from '../../components/canvas-drag-cache'
@@ -1562,6 +1563,14 @@ export function ComponentVisualCanvas({
       if (node && cacheNodeForDragPreview(node)) {
         cachedNodes.push(node)
       }
+    }
+
+    // Every drag frame repaints the whole layer, so expensive bystanders
+    // (an oversized SVG raster sitting next to the dragged layer) must be
+    // cached for the gesture too, or the drag pays their raster cost per
+    // frame. Bystanders cannot change during the drag, keeping caches valid.
+    if (stage) {
+      cachedNodes.push(...cacheExpensiveDrawBystanders(stage, cachedNodes))
     }
 
     layerDragSessionRef.current = {

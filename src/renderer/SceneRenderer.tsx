@@ -12,6 +12,7 @@ import {
 } from 'react-konva'
 import { builtInComponentRegistry } from '../component-system/builtins'
 import {
+  cacheExpensiveDrawBystanders,
   cacheNodeForDragPreview,
   releaseDragPreviewCache,
 } from '../components/canvas-drag-cache'
@@ -1194,6 +1195,14 @@ export function SceneRenderer({
       if (node && cacheNodeForDragPreview(node)) {
         cachedNodes.push(node)
       }
+    }
+
+    // The whole dynamic layer repaints per drag frame, so expensive
+    // non-session content (oversized SVG rasters placed elsewhere on the
+    // scene) is cached for the gesture as well.
+    const bystanderRoot = dynamicLayerRef.current
+    if (bystanderRoot) {
+      cachedNodes.push(...cacheExpensiveDrawBystanders(bystanderRoot, cachedNodes))
     }
 
     dragCachedNodesRef.current = cachedNodes

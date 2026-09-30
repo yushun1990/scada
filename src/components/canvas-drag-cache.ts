@@ -4,7 +4,7 @@ const DRAG_CACHE_MAX_PIXEL_RATIO = 3
 const DRAG_CACHE_MIN_PIXEL_RATIO = 0.5
 const DRAG_CACHE_MAX_PIXELS = 12_000_000
 
-// Caching only pays when the subtree's own drawing is expensive per frame —
+// Caching only pays when a subtree's own drawing is expensive per frame —
 // concretely, when an oversized raster gets scaled far down each frame (the
 // imported complex-SVG shape). A raster displayed near its natural size, or a
 // handful of vector shapes, draws faster directly; routing them through a
@@ -33,29 +33,35 @@ function rasterSourcePixels(source: unknown): number {
   return width * height
 }
 
-function cacheBufferPixels(node: Konva.Node): number {
-  const rect = node.getClientRect({
-    skipTransform: true,
-    relativeTo: node.getParent() || undefined,
-  })
-
-  if (!(rect.width > 0) || !(rect.height > 0)) {
-    return 0
-  }
-
+function cachePixelRatioFor(node: Konva.Node): number {
   const scale = node.getAbsoluteScale()
   const devicePixelRatio =
     typeof window !== 'undefined' && window.devicePixelRatio
       ? window.devicePixelRatio
       : 1
-  const pixelRatio = Math.min(
-    DRAG_CACHE_MAX_PIXEL_RATIO,
-    Math.max(
-      DRAG_CACHE_MIN_PIXEL_RATIO,
-      Math.max(Math.abs(scale.x), Math.abs(scale.y)) * devicePixelRatio,
-    ),
-  )
+  const absoluteScale = Math.max(Math.abs(scale.x), Math.abs(scale.y))
 
+  return Math.min(
+    DRAG_CACHE_MAX_PIXEL_RATIO,
+    Math.max(DRAG_CACHE_MIN_PIXEL_RATIO, absoluteScale * devicePixelRatio),
+  )
+}
+
+function nodeCacheRect(node: Konva.Node) {
+  return node.getClientRect({
+    skipTransform: true,
+    relativeTo: node.getParent() || undefined,
+  })
+}
+
+function cacheBufferPixels(node: Konva.Node): number {
+  const rect = nodeCacheRect(node)
+
+  if (!(rect.width > 0) || !(rect.height > 0)) {
+    return 0
+  }
+
+  const pixelRatio = cachePixelRatioFor(node)
   return rect.width * rect.height * pixelRatio * pixelRatio
 }
 
@@ -76,55 +82,14 @@ function isExpensiveDrawNode(node: Konva.Node, bufferPixels: number): boolean {
   return false
 }
 
-function hasExpensiveDrawNode(node: Konva.Node, bufferPixels: number): boolean {
-  if (isExpensiveDrawNode(node, bufferPixels)) {
-    return true
-  }
+function applyNodeCache(node: Konva.Node): boolean {
+  const rect = nodeCacheRect(node)
 
-  const container = node as Konva.Container
-
-  if (typeof container.find !== 'function') {
+  if (!(rect.width > 0) || !(rect.height > 0)) {
     return false
   }
 
-  return container.find('*').some((child) => isExpensiveDrawNode(child, bufferPixels))
-}
-
-/**
- * Rasterize a dragged node's subtree once so every drag frame becomes a
- * bitmap blit instead of a full vector repaint. Only subtrees whose own
- * drawing is expensive (oversized SVG rasters, huge photos, long vector
- * paths) are cached; cheap subtrees keep direct drawing.
- *
- * The cache pixel ratio tracks the node's absolute scale times the device
- * pixel ratio (capped) so the cached bitmap stays sharp at the current zoom,
- * and the pixel budget keeps the buffer bounded for very large subtrees.
- * Returns false when the node cannot be usefully cached; callers must pair
- * any true result with releaseDragPreviewCache.
- */
-export function cacheNodeForDragPreview(node: Konva.Node): boolean {
-  const bufferPixels = cacheBufferPixels(node)
-
-  if (bufferPixels <= 0 || !hasExpensiveDrawNode(node, bufferPixels)) {
-    return false
-  }
-
-  const rect = node.getClientRect({
-    skipTransform: true,
-    relativeTo: node.getParent() || undefined,
-  })
-
-  const scale = node.getAbsoluteScale()
-  const devicePixelRatio =
-    typeof window !== 'undefined' && window.devicePixelRatio
-      ? window.devicePixelRatio
-      : 1
-  const absoluteScale = Math.max(Math.abs(scale.x), Math.abs(scale.y))
-
-  let pixelRatio = Math.min(
-    DRAG_CACHE_MAX_PIXEL_RATIO,
-    Math.max(DRAG_CACHE_MIN_PIXEL_RATIO, absoluteScale * devicePixelRatio),
-  )
+  let pixelRatio = cachePixelRatioFor(node)
 
   while (
     pixelRatio > DRAG_CACHE_MIN_PIXEL_RATIO &&
@@ -146,6 +111,80 @@ export function cacheNodeForDragPreview(node: Konva.Node): boolean {
   })
 
   return node.isCached()
+}
+
+/**
+ * Rasterize a dragged node's subtree once so every drag frame becomes a
+ * bitmap blit instead of a full vector repaint. Only subtrees whose own
+ * drawing is expensive (oversized SVG rasters, huge photos, long vector
+ * paths) are cached; cheap subtrees keep direct drawing.
+ *
+ * The cache pixel ratio tracks the node's absolute scale times the device
+ * pixel ratio (capped) so the cached bitmap stays sharp at the current zoom,
+ * and the pixel budget keeps the buffer bounded for very large subtrees.
+ * Returns false when the node cannot be usefully cached; callers must pair
+ * any true result with releaseDragPreviewCache.
+ */
+export function cacheNodeForDragPreview(node: Konva.Node): boolean {
+  const bufferPixels = cacheBufferPixels(node)
+
+  if (bufferPixels <= 0 || !hasExpensiveDrawDescendant(node, bufferPixels)) {
+    return false
+  }
+
+  return applyNodeCache(node)
+}
+
+/**
+ * Cache expensive drawing nodes that are NOT part of the drag session.
+ * Every drag frame repaints the whole layer, so an oversized raster merely
+ * sitting next to the dragged layer dominates the frame cost — caching those
+ * bystanders turns their per-frame contribution into a bitmap blit. Bystander
+ * content cannot change during a drag, which keeps the cache valid for the
+ * whole gesture; callers must release the returned nodes when it ends.
+ */
+export function cacheExpensiveDrawBystanders(
+  root: Konva.Node,
+  exclude: readonly Konva.Node[] = [],
+): Konva.Node[] {
+  const cached: Konva.Node[] = []
+
+  const visit = (node: Konva.Node) => {
+    if (exclude.includes(node) || node.isCached()) {
+      // Session nodes cached at group level already cover their subtree.
+      return
+    }
+
+    const bufferPixels = cacheBufferPixels(node)
+
+    if (bufferPixels > 0 && isExpensiveDrawNode(node, bufferPixels)) {
+      if (applyNodeCache(node)) {
+        cached.push(node)
+      }
+      return
+    }
+
+    const children = (node as Konva.Container).getChildren?.() ?? []
+    for (const child of children) {
+      visit(child)
+    }
+  }
+
+  visit(root)
+
+  return cached
+}
+
+function hasExpensiveDrawDescendant(
+  node: Konva.Node,
+  bufferPixels: number,
+): boolean {
+  if (isExpensiveDrawNode(node, bufferPixels)) {
+    return true
+  }
+
+  const children = (node as Konva.Container).getChildren?.() ?? []
+  return children.some((child) => hasExpensiveDrawDescendant(child, bufferPixels))
 }
 
 /**

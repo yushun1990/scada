@@ -9,6 +9,17 @@ const cpuThrottle = Number(process.env.SCADA_CPU_THROTTLE ?? '1')
 
 const simpleSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80"><rect id="body" x="10" y="10" width="100" height="60" fill="#94a3b8" rx="6"/><circle cx="35" cy="40" r="12" fill="#475569"/><rect x="70" y="30" width="24" height="20" fill="#38bdf8"/></svg>`
 
+// The dense bystander: placed on the canvas but never dragged. Its raster
+// repaints every frame while OTHER layers drag, which is the reported
+// "every layer goes sluggish once a complex SVG is on the canvas" shape.
+const bystanderShapes = []
+for (let i = 0; i < 2400; i += 1) {
+  const x = (i % 80) * 24
+  const y = Math.floor(i / 80) * 24
+  bystanderShapes.push(`<path d="M${x} ${y} h14 l7 8 l-7 8 h-14 z" fill="hsl(${i % 360},70%,55%)" opacity="0.9"/>`)
+}
+const bystanderSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1440" viewBox="0 0 1920 1440">${bystanderShapes.join('')}</svg>`
+
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1200, height: 800 } })
 const cdp = await page.context().newCDPSession(page)
@@ -37,14 +48,21 @@ const pngBuffer = Buffer.from(
   }),
 )
 
-async function measureDrag(label, file) {
-  await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'load' })
+async function placeFile(label, file) {
   const fileInput = page.locator('.component-palette-resource-library .component-palette-resource-input')
   await fileInput.setInputFiles(file)
   const resource = page.locator('.component-palette-resource-item', { hasText: label })
   await resource.waitFor()
   await resource.dblclick()
   await page.locator('.component-layer-row', { hasText: label }).waitFor()
+}
+
+async function measureDrag(label, file, bystander) {
+  await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'load' })
+  if (bystander) {
+    await placeFile(bystander.label, bystander.file)
+  }
+  await placeFile(label, file)
 
   const artboard = page.locator('.component-artboard')
   const box = await artboard.boundingBox()
@@ -113,8 +131,14 @@ async function measureDrag(label, file) {
 }
 
 try {
+  await measureDrag('warmup-only', { name: 'warmup-only.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(simpleSvg) })
   await measureDrag('simple-shape', { name: 'simple-shape.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(simpleSvg) })
   await measureDrag('plain-photo', { name: 'plain-photo.png', mimeType: 'image/png', buffer: pngBuffer })
+  await measureDrag(
+    'target-simple',
+    { name: 'target-simple.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(simpleSvg) },
+    { label: 'dense-bystander', file: { name: 'dense-bystander.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(bystanderSvg) } },
+  )
 } finally {
   await browser.close()
 }
