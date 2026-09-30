@@ -162,7 +162,7 @@
   font-size: var(--ui-font-size-status);
 }
 
-/* 枚举选项结构化编辑：标签+值逐项添加；值留空代表 key=标签（无索引） */
+/* 枚举选项结构化编辑：行首圆点标记默认值；key/value 占位符表意；+/− 行操作 */
 .contract-row-enum-editor {
   display: grid;
   gap: 5px;
@@ -171,29 +171,6 @@
 .contract-row-enum-title {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-status);
-}
-
-.contract-row-enum-captions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-left: 52px;
-  padding-right: 28px;
-  color: var(--ui-color-text-subtle);
-  font-size: var(--ui-font-size-status);
-}
-
-.contract-row-enum-captions span:first-child {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-.contract-row-enum-captions span:last-child {
-  flex: 0 1 38%;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .contract-row-enum-rows {
@@ -205,7 +182,7 @@
 .contract-row-enum-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -215,30 +192,48 @@
 }
 
 .contract-row-enum-row .contract-row-enum-value {
-  flex: 0 1 38%;
+  flex: 0 1 36%;
 }
 
-.contract-row-enum-remove {
+.contract-row-enum-mark {
   flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
   color: var(--ui-color-text-subtle);
+  font-size: 12px;
+  line-height: 1;
 }
 
-.contract-row-enum-remove svg {
-  width: 12px;
-  height: 12px;
+.contract-row-enum-mark.is-default {
+  color: var(--ui-color-accent);
 }
 
-.contract-row-enum-remove:hover {
-  color: var(--ui-color-danger);
+.contract-row-enum-mark:hover {
+  background: transparent;
+  color: var(--ui-color-accent);
+}
+
+.contract-row-enum-op {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-status);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.contract-row-enum-op:hover {
+  color: var(--ui-color-text);
   background: var(--ui-color-surface-subtle);
 }
 
-.contract-row-enum-add {
-  justify-self: start;
-  padding: 2px 6px;
-  font-size: var(--ui-font-size-status);
+.contract-row-enum-op.contract-row-enum-op-minus:hover:not(:disabled) {
+  color: var(--ui-color-danger);
 }
 
 .contract-row-form-actions {

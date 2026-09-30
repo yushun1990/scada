@@ -34,17 +34,19 @@ inspector's ordinary attribute rows.
   required and keeps legacy authored titles untouched unless the entry is
   renamed.
 - Enum options are configured through a structured editor: one row per
-  option with 标签 + 值 inputs (identified by a 标签 / 值（留空=标签）
-  caption row), individual delete buttons and a `+ 添加选项` button. An
-  empty 值 means key = label (无索引); a filled 值 (number or any text
-  key) makes the option indexed — no explicit mode switch. Dropdowns
-  show `标签 · 值` when the two differ and the label alone when they are
-  equal. The 默认值 dropdown follows the rows live. At save time the
-  definition validation contract is enforced up front: at least one
-  option, non-empty labels, no duplicate values (保存 stays disabled
-  with the reason as its tooltip; fully blank rows are ignored).
-  Changing options keeps the default when it is still valid, otherwise
-  it falls back to the first option. 说明 edits in a two-row textarea.
+  option — a dot marker (●/○) that marks the default in place, a `key`
+  input, a `value（空=key）` input, and `+`/`−` row buttons (insert
+  below / delete; at least one row always exists, the 枚举 type seeds
+  one). An empty value means key = label (无索引); a filled value
+  (number or any text key) makes the option indexed — no explicit mode
+  switch. Saved-row dropdowns show `标签 · 值` when the two differ and
+  the label alone when they are equal. At save time the definition
+  validation contract is enforced up front: at least one option,
+  non-empty labels, no duplicate values (保存 stays disabled with the
+  reason as its tooltip; fully blank rows are ignored). The marked
+  row's value becomes the default; deleting the marked row moves the
+  mark to the first row. 说明 edits in a two-row textarea at the tail
+  of the form; non-enum kinds keep a wide 默认值 field.
 - 运行属性 keeps the M9A2 authority: only the Property editor offers
   允许 SCADA 数据绑定 (form checkbox, saved-row 绑定 badge); the
   Attribute editor has no bindable control.
@@ -89,6 +91,22 @@ Round 3 removed the explicit 枚举形式 tabs and polished the form:
    placeholder copy (请选择 / 暂无选项), and a divider above the
    取消/保存 actions.
 
+Round 4 merged the default value into the option list:
+
+10. For enum entries there is no separate 默认值 field: each option row
+    starts with a dot marker (● default / ○ not) that marks the default
+    in place. Deleting the marked row moves the mark to the first row;
+    at save the marked row's materialized value becomes the default
+    (falling back to the first option).
+11. The 标签/值 caption row is gone — the two inputs identify
+    themselves through placeholders (`key` and `value（空=key）`).
+12. Selecting the 枚举 type seeds one empty option row (an enum always
+    has at least one). Each row ends with `+` (insert a row below it)
+    and `−` (delete the row; disabled with 至少保留一个选项 when only
+    one row remains) instead of a trailing global add button.
+13. 说明 moved to the tail of the form (after the option list and the
+    bindable checkbox). Non-enum kinds keep 默认值 as a wide field.
+
 ## Changes
 
 - `src/features/component-library/ComponentContractRowTable.tsx` (new) —
@@ -126,16 +144,16 @@ consuming the same `attributes` / `properties` records.
   - 添加配置 opens the labeled form focused on a generated
     `attributeN` name; `alarm_color` + 类型=颜色 + 说明=报警色常量
     saved into a one-line row with the color control;
-  - enum authoring: `work_mode` + 枚举 with options added one by one —
-    one option with an empty 值 (key=label) and one with 值=`2`; the
-    默认值 dropdown followed the rows live and displayed `待机 · 2`
-    beside the bare-label option; after saving, the saved-row dropdown
-    showed both forms, and re-editing round-tripped the empty and filled
-    值 inputs verbatim; the multi-line 说明 textarea round-tripped;
-    per-row delete removed options; an invalid default fell back to the
-    first option;
+  - enum authoring: `work_mode` + 枚举 seeded one option row; `+`
+    inserted a row below the first; keys/values filled as `运行` (value
+    empty) and `待机`/`2`; marking the second row (○→●) and saving made
+    it the default (`待机 · 2` in the saved-row dropdown); re-editing
+    round-tripped the marker position and both rows verbatim; deleting
+    the marked row moved the mark to the first row; the last remaining
+    row's `−` stayed disabled with 至少保留一个选项; the multi-line
+    说明 textarea round-tripped;
   - save gating: duplicate values disable 保存 with 枚举选项值重复：…,
-    no options with 枚举至少需要一个选项;
+    no meaningful options with 枚举至少需要一个选项;
   - adding a Property with 允许 SCADA 数据绑定 produced the 绑定 badge;
     delete removed it; header 保存 + reload persisted the enum attribute
     and its selected default exactly;

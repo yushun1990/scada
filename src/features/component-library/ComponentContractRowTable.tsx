@@ -13,7 +13,7 @@ import {
   Select,
   Textarea,
 } from '../../ui'
-import { CloseIcon, EditIcon, TrashIcon } from '../../components/toolbar-icons'
+import { EditIcon, TrashIcon } from '../../components/toolbar-icons'
 import { ColorPickerInput } from './ColorPickerInput'
 import './component-contract-rows.css'
 
@@ -150,16 +150,6 @@ function enumOptionsIssue(rows: readonly ContractEnumOptionDraft[]): string | nu
   return null
 }
 
-function previewEnumOptions(rows: readonly ContractEnumOptionDraft[]): ComponentValueOption[] {
-  return meaningfulEnumRows(rows)
-    .filter((row) => row.label.trim())
-    .map((row) => {
-      const label = row.label.trim()
-      const rawValue = row.value.trim() || label
-      return { label, value: parseOptionValue(rawValue) }
-    })
-}
-
 /** 下拉框同时展示标签与值；key=标签（无索引）时只展示标签 */
 function formatEnumOptionLabel(option: ComponentValueOption) {
   return String(option.value) === option.label
@@ -167,12 +157,19 @@ function formatEnumOptionLabel(option: ComponentValueOption) {
     : `${option.label} · ${String(option.value)}`
 }
 
-function resolveDefaultValue(
-  defaultValue: ComponentScalarValue,
+/** 选项行内标记的默认值；被标记行为空或不在有效选项中时回退第一项 */
+function markedOptionDefault(
+  enumOptions: readonly ContractEnumOptionDraft[],
+  defaultOptionIndex: number,
   options: readonly ComponentValueOption[],
 ): ComponentScalarValue {
-  const valid = options.some((option) => option.value === defaultValue)
-  return valid ? defaultValue : options[0]?.value ?? ''
+  const marked = enumOptions[defaultOptionIndex]
+  const markedValue = marked ? marked.value.trim() || marked.label.trim() : ''
+  if (markedValue) {
+    const value = parseOptionValue(markedValue)
+    if (options.some((option) => option.value === value)) return value
+  }
+  return options[0]?.value ?? ''
 }
 
 function ContractRowValueEditor({
@@ -258,6 +255,8 @@ type ContractRowDraft<T extends ContractRowEntry> = {
   entry: T
   /** 枚举选项逐项编辑；值留空代表 key=标签（无索引） */
   enumOptions: ContractEnumOptionDraft[]
+  /** 选项行内标记为默认值的行 */
+  defaultOptionIndex: number
 }
 
 type ContractRowTableProps<T extends ContractRowEntry> = {
@@ -311,15 +310,21 @@ export function ContractRowTable<T extends ContractRowEntry>({
       draftKey: key,
       entry: createEntry(key),
       enumOptions: [],
+      defaultOptionIndex: 0,
     })
   }
 
   function startEdit(key: string) {
+    const options = entries[key].options ?? []
+    const defaultIndex = options.findIndex(
+      (option) => option.value === entries[key].defaultValue,
+    )
     setDraft({
       originalKey: key,
       draftKey: key,
       entry: entries[key],
-      enumOptions: enumRowsFromEntry(entries[key].options),
+      enumOptions: enumRowsFromEntry(options),
+      defaultOptionIndex: defaultIndex >= 0 ? defaultIndex : 0,
     })
   }
 
@@ -335,7 +340,7 @@ export function ContractRowTable<T extends ContractRowEntry>({
       title: key,
       options,
       defaultValue: draft.entry.kind === 'select'
-        ? resolveDefaultValue(draft.entry.defaultValue, options ?? [])
+        ? markedOptionDefault(draft.enumOptions, draft.defaultOptionIndex, options ?? [])
         : draft.entry.defaultValue,
     } as T
 
@@ -466,9 +471,6 @@ function ContractRowForm<T extends ContractRowEntry>({
   onSave: () => void
 }) {
   const entry = draft.entry
-  const formEntry = entry.kind === 'select'
-    ? { ...entry, options: previewEnumOptions(draft.enumOptions) }
-    : entry
 
   function updateEnumOption(index: number, patch: Partial<ContractEnumOptionDraft>) {
     onDraftChange({
@@ -476,6 +478,25 @@ function ContractRowForm<T extends ContractRowEntry>({
       enumOptions: draft.enumOptions.map((option, currentIndex) =>
         currentIndex === index ? { ...option, ...patch } : option,
       ),
+    })
+  }
+
+  function insertEnumOptionAfter(index: number) {
+    const next = [...draft.enumOptions]
+    next.splice(index + 1, 0, { label: '', value: '' })
+    onDraftChange({ ...draft, enumOptions: next })
+  }
+
+  function removeEnumOption(index: number) {
+    if (draft.enumOptions.length <= 1) return
+    onDraftChange({
+      ...draft,
+      enumOptions: draft.enumOptions.filter((_, currentIndex) => currentIndex !== index),
+      defaultOptionIndex: draft.defaultOptionIndex === index
+        ? 0
+        : draft.defaultOptionIndex > index
+          ? draft.defaultOptionIndex - 1
+          : draft.defaultOptionIndex,
     })
   }
 
@@ -503,88 +524,83 @@ function ContractRowForm<T extends ContractRowEntry>({
           onValueChange={(value) => onDraftChange({
             ...draft,
             entry: convertContractRowKind(entry, value as ComponentValueKind),
-            enumOptions: [],
+            enumOptions: value === 'select' ? [{ label: '', value: '' }] : [],
+            defaultOptionIndex: 0,
           })}
         />
       </label>
 
-      <label>
-        <span>默认值</span>
-        <ContractRowValueEditor
-          entry={formEntry}
-          entryLabel={entryLabel}
-          disabled={false}
-          onChange={(defaultValue) => onDraftChange({
-            ...draft,
-            entry: { ...entry, defaultValue },
-          })}
-        />
-      </label>
-
-      <label className="contract-row-form-description">
-        <span>说明</span>
-        <Textarea
-          rows={2}
-          value={entry.description ?? ''}
-          placeholder="说明"
-          onChange={(event) => onDraftChange({
-            ...draft,
-            entry: { ...entry, description: event.target.value },
-          })}
-        />
-      </label>
+      {entry.kind !== 'select' && (
+        <label className="contract-row-form-wide">
+          <span>默认值</span>
+          <ContractRowValueEditor
+            entry={entry}
+            entryLabel={entryLabel}
+            disabled={false}
+            onChange={(defaultValue) => onDraftChange({
+              ...draft,
+              entry: { ...entry, defaultValue },
+            })}
+          />
+        </label>
+      )}
 
       {entry.kind === 'select' && (
         <div className="contract-row-form-wide contract-row-enum-editor">
-          <span className="contract-row-enum-title">选项</span>
-          <div className="contract-row-enum-captions" aria-hidden="true">
-            <span>标签</span>
-            <span>值（留空=标签）</span>
-          </div>
+          <span className="contract-row-enum-title">选项（行首圆点标记默认值）</span>
 
           <div className="contract-row-enum-rows">
             {draft.enumOptions.map((option, index) => (
               <div className="contract-row-enum-row" key={index}>
+                <Button
+                  variant="ghost"
+                  size="small"
+                  className={`contract-row-enum-mark${draft.defaultOptionIndex === index ? ' is-default' : ''}`}
+                  title={draft.defaultOptionIndex === index ? '默认值' : '设为默认值'}
+                  aria-label={`设为默认值：${option.label || `选项 ${index + 1}`}`}
+                  aria-pressed={draft.defaultOptionIndex === index}
+                  onClick={() => onDraftChange({ ...draft, defaultOptionIndex: index })}
+                >
+                  {draft.defaultOptionIndex === index ? '●' : '○'}
+                </Button>
                 <Input
                   value={option.label}
-                  placeholder="标签"
-                  aria-label={`枚举选项 ${index + 1} 标签`}
+                  placeholder="key"
+                  aria-label={`枚举选项 ${index + 1} key`}
                   spellCheck={false}
                   onChange={(event) => updateEnumOption(index, { label: event.target.value })}
                 />
                 <Input
                   className="contract-row-enum-value"
                   value={option.value}
-                  placeholder="值"
-                  aria-label={`枚举选项 ${index + 1} 值`}
+                  placeholder="value（空=key）"
+                  aria-label={`枚举选项 ${index + 1} value`}
                   spellCheck={false}
                   onChange={(event) => updateEnumOption(index, { value: event.target.value })}
                 />
-                <IconButton
-                  className="contract-row-enum-remove"
-                  title={`删除选项 ${index + 1}`}
-                  aria-label={`删除选项 ${index + 1}`}
-                  onClick={() => onDraftChange({
-                    ...draft,
-                    enumOptions: draft.enumOptions.filter((_, currentIndex) => currentIndex !== index),
-                  })}
+                <Button
+                  variant="ghost"
+                  size="small"
+                  className="contract-row-enum-op"
+                  title="在下方插入选项"
+                  aria-label={`在选项 ${index + 1} 下方插入选项`}
+                  onClick={() => insertEnumOptionAfter(index)}
                 >
-                  <CloseIcon />
-                </IconButton>
+                  +
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="small"
+                  className="contract-row-enum-op contract-row-enum-op-minus"
+                  title={draft.enumOptions.length <= 1 ? '至少保留一个选项' : '删除此选项'}
+                  aria-label={`删除选项 ${index + 1}`}
+                  disabled={draft.enumOptions.length <= 1}
+                  onClick={() => removeEnumOption(index)}
+                >
+                  −
+                </Button>
               </div>
             ))}
-
-            <Button
-              variant="ghost"
-              size="small"
-              className="contract-row-enum-add"
-              onClick={() => onDraftChange({
-                ...draft,
-                enumOptions: [...draft.enumOptions, { label: '', value: '' }],
-              })}
-            >
-              + 添加选项
-            </Button>
           </div>
         </div>
       )}
@@ -600,6 +616,19 @@ function ContractRowForm<T extends ContractRowEntry>({
           })}
         />
       )}
+
+      <label className="contract-row-form-wide contract-row-form-description">
+        <span>说明</span>
+        <Textarea
+          rows={2}
+          value={entry.description ?? ''}
+          placeholder="说明"
+          onChange={(event) => onDraftChange({
+            ...draft,
+            entry: { ...entry, description: event.target.value },
+          })}
+        />
+      </label>
 
       <div className="contract-row-form-actions">
         <Button variant="ghost" size="small" onClick={onCancel}>
