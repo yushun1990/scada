@@ -33,18 +33,18 @@ inspector's ordinary attribute rows.
   label. No schema change; `ComponentAttributeDefinition.title` remains
   required and keeps legacy authored titles untouched unless the entry is
   renamed.
-- Enum options are configured through a structured editor: an 枚举形式
-  segmented control — 无索引 (label-only rows; value = label, e.g.
-  `run, stop, alarm`) or 带索引 (one 标签+值 row per option, e.g.
-  `run=1`; the value may be a number or any text key) — plus per-option
-  rows with individual delete buttons and a `+ 添加选项` button. Editing
-  an existing entry auto-detects the form. The 默认值 dropdown follows
-  the rows live. At save time the definition validation contract is
-  enforced up front: at least one option, non-empty labels and values,
-  no duplicate values (保存 stays disabled with the reason as its
-  tooltip; fully blank rows are ignored). Changing options keeps the
-  default when it is still valid, otherwise it falls back to the first
-  option.
+- Enum options are configured through a structured editor: one row per
+  option with 标签 + 值 inputs (identified by a 标签 / 值（留空=标签）
+  caption row), individual delete buttons and a `+ 添加选项` button. An
+  empty 值 means key = label (无索引); a filled 值 (number or any text
+  key) makes the option indexed — no explicit mode switch. Dropdowns
+  show `标签 · 值` when the two differ and the label alone when they are
+  equal. The 默认值 dropdown follows the rows live. At save time the
+  definition validation contract is enforced up front: at least one
+  option, non-empty labels, no duplicate values (保存 stays disabled
+  with the reason as its tooltip; fully blank rows are ignored).
+  Changing options keeps the default when it is still valid, otherwise
+  it falls back to the first option. 说明 edits in a two-row textarea.
 - 运行属性 keeps the M9A2 authority: only the Property editor offers
   允许 SCADA 数据绑定 (form checkbox, saved-row 绑定 badge); the
   Attribute editor has no bindable control.
@@ -68,16 +68,26 @@ Round 2 replaced the round-1 free-text option line entirely and
 rebalanced the saved row:
 
 5. Enum options are configured through a structured editor, not a
-   comma/`=` constrained text line: an 枚举形式 segmented control
-   (无索引 = label-only rows, 值=标签; 带索引 = one 标签+值 row per
-   option, the value may be a number or any text key), per-option rows
-   with individual delete buttons, and a `+ 添加选项` row button.
-   Switching 无索引→带索引 pre-fills each value with its label; editing
-   an existing entry auto-detects the form (all values equal labels →
-   无索引). Fully blank rows are ignored on save.
+   comma/`=` constrained text line: per-option 标签+值 rows with
+   individual delete buttons and a `+ 添加选项` row button. The value
+   input left empty means key = label (无索引); filling it (number or
+   any text key) makes the option indexed. A 标签 / 值（留空=标签）
+   caption row identifies the two columns.
 6. The saved row places the description inline between the name and the
    value control (ellipsis when long), removing the empty middle gap;
    the value control stays right-aligned with icon actions at the end.
+
+Round 3 removed the explicit 枚举形式 tabs and polished the form:
+
+7. There is no 无索引/带索引 mode switch — every option row always
+   shows 标签 + 值 inputs; an empty 值 means key = label. Options whose
+   value differs from the label display as `标签 · 值` in both the
+   默认值 dropdown and the saved-row dropdown (identical values show
+   the label only), so key and value are both visible.
+8. 说明 is a two-row multi-line textarea.
+9. Visual cleanup: caption row aligned to the option input columns,
+   placeholder copy (请选择 / 暂无选项), and a divider above the
+   取消/保存 actions.
 
 ## Changes
 
@@ -116,16 +126,16 @@ consuming the same `attributes` / `properties` records.
   - 添加配置 opens the labeled form focused on a generated
     `attributeN` name; `alarm_color` + 类型=颜色 + 说明=报警色常量
     saved into a one-line row with the color control;
-  - enum authoring: `mode` + 枚举 with options added one by one
-    (无索引 rows for `run/stop/alarm`), the 默认值 dropdown following
-    the rows live; switching to 带索引 revealed per-row 值 inputs
-    pre-filled from labels and `run=1, stop=2, alarm=3` round-tripped
-    with the form auto-detected as 带索引 on re-edit; switching back to
-    无索引 kept the labels; per-row delete removed options; an invalid
-    default fell back to the first option;
+  - enum authoring: `work_mode` + 枚举 with options added one by one —
+    one option with an empty 值 (key=label) and one with 值=`2`; the
+    默认值 dropdown followed the rows live and displayed `待机 · 2`
+    beside the bare-label option; after saving, the saved-row dropdown
+    showed both forms, and re-editing round-tripped the empty and filled
+    值 inputs verbatim; the multi-line 说明 textarea round-tripped;
+    per-row delete removed options; an invalid default fell back to the
+    first option;
   - save gating: duplicate values disable 保存 with 枚举选项值重复：…,
-    blank indexed values with 枚举选项的值不能为空, no options with
-    枚举至少需要一个选项;
+    no options with 枚举至少需要一个选项;
   - adding a Property with 允许 SCADA 数据绑定 produced the 绑定 badge;
     delete removed it; header 保存 + reload persisted the enum attribute
     and its selected default exactly;

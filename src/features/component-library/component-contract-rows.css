@@ -136,6 +136,15 @@
   grid-column: 1 / -1;
 }
 
+/* 说明为多行文本控件 */
+.contract-row-form textarea {
+  min-height: 46px;
+  padding: 4px 6px;
+  font-size: var(--ui-font-size-status);
+  line-height: 1.4;
+  resize: vertical;
+}
+
 .contract-row-name-input {
   font-family: var(--ui-font-mono);
   font-size: var(--ui-font-size-status);
@@ -153,32 +162,38 @@
   font-size: var(--ui-font-size-status);
 }
 
-/* 枚举选项结构化编辑：枚举形式（无索引/带索引）+ 逐项添加 */
+/* 枚举选项结构化编辑：标签+值逐项添加；值留空代表 key=标签（无索引） */
 .contract-row-enum-editor {
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
-.contract-row-enum-mode {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.contract-row-enum-mode-label {
-  flex: 0 0 46px;
+.contract-row-enum-title {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-status);
 }
 
-.contract-row-enum-mode-hint {
+.contract-row-enum-captions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 52px;
+  padding-right: 28px;
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-status);
+}
+
+.contract-row-enum-captions span:first-child {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.contract-row-enum-captions span:last-child {
+  flex: 0 1 38%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--ui-color-text-subtle);
-  font-size: var(--ui-font-size-status);
 }
 
 .contract-row-enum-rows {
@@ -231,7 +246,9 @@
   display: flex;
   justify-content: flex-end;
   gap: 6px;
-  margin-top: 2px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--ui-color-border);
 }
 
 .contract-row-empty {
