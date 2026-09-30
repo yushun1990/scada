@@ -131,6 +131,7 @@ type LayerDragSession = {
   draggedLayerId: string
   layerIds: string[]
   initialTransforms: Record<string, LayerPositionSnapshot>
+  nodeLookup: Map<string, Konva.Group>
 }
 
 const TRANSFORMER_ANCHORS = [
@@ -1029,6 +1030,8 @@ export function ComponentVisualCanvas({
   const marqueeSessionRef = useRef<MarqueeSession | null>(null)
   const pendingLayerSelectionRef = useRef<readonly string[] | null>(null)
   const layerDragSessionRef = useRef<LayerDragSession | null>(null)
+  const layerDragFrameRef = useRef<number | null>(null)
+  const pendingLayerDragTargetRef = useRef<Konva.Node | null>(null)
   const selectedLayer = visual.layers.find((layer) => layer.id === primaryLayerId) ?? null
   const selectedVisibleLayerIds = useMemo(
     () => selectedLayerIds.filter((layerId) =>
@@ -1236,6 +1239,17 @@ export function ComponentVisualCanvas({
   }, [isEditable, snapEnabled])
 
   useEffect(() => () => clearMarqueeSession(), [])
+
+  useEffect(() => {
+    return () => {
+      if (layerDragFrameRef.current !== null) {
+        cancelAnimationFrame(layerDragFrameRef.current)
+        layerDragFrameRef.current = null
+      }
+
+      pendingLayerDragTargetRef.current = null
+    }
+  }, [])
 
   useEffect(() => {
     if (isEditable) return
@@ -1494,9 +1508,22 @@ export function ComponentVisualCanvas({
     const layerIds = getMovableLayerIds(selectedIds)
     const initialTransforms: Record<string, LayerPositionSnapshot> = {}
     const stage = stageRef.current
+    // One traversal for the whole session: resolving each layer node through
+    // findLayerNode would walk the entire stage tree per sibling per frame.
+    const nodeLookup = new Map<string, Konva.Group>()
+
+    if (stage) {
+      for (const node of stage.find(`.${COMPOSITE_VISUAL_LAYER_NODE_NAME}`)) {
+        const layerId = getCompositeVisualLayerId(node)
+
+        if (layerId) {
+          nodeLookup.set(layerId, node as Konva.Group)
+        }
+      }
+    }
 
     for (const layerId of layerIds) {
-      const node = stage ? findLayerNode(stage, layerId) : undefined
+      const node = nodeLookup.get(layerId)
 
       if (!node) {
         continue
@@ -1517,6 +1544,7 @@ export function ComponentVisualCanvas({
       draggedLayerId,
       layerIds: Object.keys(initialTransforms),
       initialTransforms,
+      nodeLookup,
     }
 
     for (const layerId of Object.keys(initialTransforms)) {
@@ -1524,8 +1552,7 @@ export function ComponentVisualCanvas({
         continue
       }
 
-      const node = stage ? findLayerNode(stage, layerId) : undefined
-      node?.draggable(false)
+      nodeLookup.get(layerId)?.draggable(false)
     }
     pendingLayerSelectionRef.current = null
   }
@@ -1562,7 +1589,7 @@ export function ComponentVisualCanvas({
     }
 
     for (const layerId of session.layerIds) {
-      const node = stage ? findLayerNode(stage, layerId) : undefined
+      const node = session.nodeLookup.get(layerId)
       const initial = session.initialTransforms[layerId]
 
       if (!node || !initial || node === draggedNode) {
@@ -1580,9 +1607,7 @@ export function ComponentVisualCanvas({
       return
     }
 
-    const node = resolveLayerNode(target)
-
-    if (!stage || !node) {
+    if (!stage) {
       clearSnapGuides()
       return
     }
@@ -1590,13 +1615,42 @@ export function ComponentVisualCanvas({
     renderSnapGuides(
       computeComponentLayerSnap(
         stage,
-        node,
+        draggedNode,
         visual,
         artboardScale,
         gridSize,
         session.layerIds,
+        session.nodeLookup,
       ),
     )
+  }
+
+  function scheduleLayerDragPreview(target: Konva.Node) {
+    pendingLayerDragTargetRef.current = target
+
+    if (layerDragFrameRef.current !== null) {
+      return
+    }
+
+    layerDragFrameRef.current = requestAnimationFrame(() => {
+      layerDragFrameRef.current = null
+      const pendingTarget = pendingLayerDragTargetRef.current
+      pendingLayerDragTargetRef.current = null
+
+      if (pendingTarget) {
+        previewLayerDrag(pendingTarget)
+      }
+    })
+  }
+
+  function flushLayerDragPreview(target: Konva.Node) {
+    if (layerDragFrameRef.current !== null) {
+      cancelAnimationFrame(layerDragFrameRef.current)
+      layerDragFrameRef.current = null
+    }
+
+    pendingLayerDragTargetRef.current = null
+    previewLayerDrag(target)
   }
 
   function finishLayerDrag(target: Konva.Node) {
@@ -1613,6 +1667,8 @@ export function ComponentVisualCanvas({
       layerDragSessionRef.current = null
       return
     }
+
+    flushLayerDragPreview(target)
 
     if (getCompositeVisualLayerId(node, 'outermost') !== session.draggedLayerId) {
       return
@@ -1638,6 +1694,7 @@ export function ComponentVisualCanvas({
           artboardScale,
           gridSize,
           session.layerIds,
+          session.nodeLookup,
         ),
       )
       snapCorrection = {
@@ -1650,7 +1707,7 @@ export function ComponentVisualCanvas({
 
     for (const layerId of session.layerIds) {
       const initial = session.initialTransforms[layerId]
-      const currentNode = findLayerNode(stage, layerId)
+      const currentNode = session.nodeLookup.get(layerId)
 
       if (!initial || !currentNode) {
         continue
@@ -1677,7 +1734,7 @@ export function ComponentVisualCanvas({
     }
 
     for (const layerId of session.layerIds) {
-      findLayerNode(stage, layerId)?.draggable(true)
+      session.nodeLookup.get(layerId)?.draggable(true)
     }
 
     if (updates.size > 0) {
@@ -2120,7 +2177,7 @@ export function ComponentVisualCanvas({
                 }}
                 onMouseLeave={() => clearMarqueeSession()}
                 onDragStart={(event) => beginLayerDrag(event.target)}
-                onDragMove={(event) => previewLayerDrag(event.target)}
+                onDragMove={(event) => scheduleLayerDragPreview(event.target)}
                 onDragEnd={(event) => finishLayerDrag(event.target)}
                 onDblClick={(event) => handleCanvasDblClick(event)}
                 onDblTap={(event) => handleCanvasDblClick(event)}

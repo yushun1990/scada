@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type Konva from 'konva'
 import {
   Circle,
@@ -559,7 +559,7 @@ export function SceneRenderer({
 
     cancelScheduledDrag()
     cancelScheduledConnectionPreview()
-    cancelReconnectSession()
+    cancelScheduledReconnect()
     pendingSelectionRef.current = null
     marqueeSessionRef.current = null
     connectionSessionRef.current = null
@@ -1066,12 +1066,15 @@ export function SceneRenderer({
     onSelectionChange(nextSelection)
   }
 
-  function resolveNodeDragPosition(nodeId: string, position: Point) {
+  // useCallback keeps SceneNodeRenderer memoization effective: an inline
+  // resolver identity would re-render every node subtree on each stage render.
+  const resolveNodeDragPosition = useCallback(
+    function resolveNodeDragPosition(nodeId: string, position: Point) {
     const activeSession =
       dragSessionRef.current?.nodeId === nodeId
         ? dragSessionRef.current
         : null
-    const node = rootNodes.find((candidate) => candidate.id === nodeId)
+    const node = getRootNodes(scene).find((candidate) => candidate.id === nodeId)
     const draggedTransform =
       activeSession?.initialTransforms[nodeId] ?? node?.transform
     const nodeIds = activeSession?.nodeIds ?? (node ? [node.id] : [])
@@ -1112,7 +1115,9 @@ export function SceneRenderer({
       x: draggedTransform.x + boundedDelta.x,
       y: draggedTransform.y + boundedDelta.y,
     }
-  }
+    },
+    [scene, snapSettings],
+  )
 
   function handleDragStart(target: Konva.Node) {
     if (mode !== 'editor') {

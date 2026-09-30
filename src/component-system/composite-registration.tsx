@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  memo,
   useEffect,
   useMemo,
   useState,
@@ -33,8 +34,12 @@ export function createCompositeComponentRegistration(
     )
   }
 
-  const renderer = forwardRef<Konva.Group, ComponentRendererProps>(
-    function RegisteredCompositeComponentRenderer(
+  // Memoized so an editor re-render that does not change this instance's
+  // effective attributes/properties/geometry skips the whole visual subtree
+  // (pointer selection and unrelated node commits re-render the stage tree).
+  const renderer = memo(
+    forwardRef<Konva.Group, ComponentRendererProps>(
+      function RegisteredCompositeComponentRenderer(
       {
         nodeId,
         attributes,
@@ -114,6 +119,7 @@ export function createCompositeComponentRegistration(
         </Group>
       )
     },
+    ),
   )
 
   return {

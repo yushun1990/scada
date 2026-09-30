@@ -1,5 +1,5 @@
 import { calculateOriginOffset, resolveConcaveRectRadius, traceConcaveRect, drawVisualScale } from './visual-primitives'
-import { forwardRef, useEffect, useMemo, useState } from 'react'
+import { forwardRef, memo, useEffect, useMemo, useState } from 'react'
 import type Konva from 'konva'
 import {
   Arc,
@@ -14,7 +14,7 @@ import {
   Shape,
   Text,
 } from 'react-konva'
-import { serializeManagedSvgCanvasDataUrl } from './managedSvg'
+import { computeSvgCanvasRasterScale, serializeManagedSvgCanvasDataUrl } from './managedSvg'
 import {
   resolveVisualAssetStyle,
   resolveVisualLineDashArray,
@@ -141,27 +141,184 @@ type VisualLayerNodeProps = {
   nonScalingStrokes: boolean
 }
 
+type VisualAssetImageEntry = {
+  image: HTMLImageElement
+  ready: boolean
+  failed: boolean
+  listeners: Set<() => void>
+}
+
+// Decoded visual assets are shared across every instance that renders the same
+// data URL: without this cache each placed instance builds and decodes its own
+// copy of the (potentially multi-megabyte) raster.
+const visualAssetImageCache = new Map<string, VisualAssetImageEntry>()
+const VISUAL_ASSET_IMAGE_CACHE_LIMIT = 24
+
+function acquireVisualAssetImage(source: string): VisualAssetImageEntry {
+  const existing = visualAssetImageCache.get(source)
+
+  if (existing) {
+    visualAssetImageCache.delete(source)
+    visualAssetImageCache.set(source, existing)
+    return existing
+  }
+
+  const entry: VisualAssetImageEntry = {
+    image: new window.Image(),
+    ready: false,
+    failed: false,
+    listeners: new Set(),
+  }
+
+  entry.image.decoding = 'async'
+  entry.image.addEventListener('load', () => {
+    entry.ready = true
+    for (const listener of entry.listeners) listener()
+  })
+  entry.image.addEventListener('error', () => {
+    entry.failed = true
+    for (const listener of entry.listeners) listener()
+  })
+  entry.image.src = source
+  // Force full rasterization at load time so the first draw — often the first
+  // drag frame — does not pay the decode/rasterization stall.
+  void entry.image.decode?.().catch(() => {
+    // Load failures surface through the error listener above.
+  })
+  visualAssetImageCache.set(source, entry)
+
+  // Evict oldest settled entries; in-flight entries keep their slot until
+  // they settle. Evicted images stay alive while any consumer still renders
+  // them — only the cache reference is dropped.
+  for (const [key, candidate] of visualAssetImageCache) {
+    if (visualAssetImageCache.size <= VISUAL_ASSET_IMAGE_CACHE_LIMIT) {
+      break
+    }
+
+    if (candidate.ready || candidate.failed) {
+      visualAssetImageCache.delete(key)
+    }
+  }
+
+  return entry
+}
+
+function peekLoadedVisualAssetImage(source: string): HTMLImageElement | null {
+  const entry = visualAssetImageCache.get(source)
+  return entry?.ready ? entry.image : null
+}
+
+// Display-resolution rasters: the decoded asset (an oversized SVG raster or a
+// large photo) is drawn ONCE into a canvas sized for its on-canvas display
+// size. Every subsequent frame blits that canvas near 1:1 instead of
+// downscaling a multi-megapixel source per draw — which is what made drags
+// sluggish for every layer sharing the canvas with such an asset.
+const displayRasterCache = new Map<string, HTMLCanvasElement>()
+const DISPLAY_RASTER_CACHE_LIMIT = 12
+const DISPLAY_RASTER_MAX_PIXELS = 2_500_000
+
+function acquireDisplayRaster(
+  source: string,
+  image: HTMLImageElement,
+  sourceRect: { x: number; y: number; width: number; height: number },
+  drawWidth: number,
+  drawHeight: number,
+): HTMLCanvasElement | HTMLImageElement {
+  if (!(drawWidth > 0) || !(drawHeight > 0) || !(sourceRect.width > 0) || !(sourceRect.height > 0)) {
+    return image
+  }
+
+  const key = `${source}\u0000${sourceRect.x},${sourceRect.y},${sourceRect.width},${sourceRect.height}\u0000${drawWidth.toFixed(2)}x${drawHeight.toFixed(2)}`
+  const cached = displayRasterCache.get(key)
+
+  if (cached) {
+    displayRasterCache.delete(key)
+    displayRasterCache.set(key, cached)
+    return cached
+  }
+
+  // Supersample beyond the device pixel ratio so viewport zoom stays sharp;
+  // cap the total pixels so huge layers cannot balloon the buffer.
+  const devicePixelRatio =
+    typeof window !== 'undefined' && window.devicePixelRatio
+      ? window.devicePixelRatio
+      : 1
+  let pixelScale = Math.min(3, Math.max(1.5, devicePixelRatio))
+  const rawPixels = drawWidth * pixelScale * drawHeight * pixelScale
+
+  if (rawPixels > DISPLAY_RASTER_MAX_PIXELS) {
+    pixelScale *= Math.sqrt(DISPLAY_RASTER_MAX_PIXELS / rawPixels)
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(drawWidth * pixelScale))
+  canvas.height = Math.max(1, Math.round(drawHeight * pixelScale))
+
+  const context = canvas.getContext('2d')
+
+  if (!context) {
+    return image
+  }
+
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
+  context.drawImage(
+    image,
+    sourceRect.x,
+    sourceRect.y,
+    sourceRect.width,
+    sourceRect.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  )
+
+  displayRasterCache.set(key, canvas)
+
+  while (displayRasterCache.size > DISPLAY_RASTER_CACHE_LIMIT) {
+    const oldestKey = displayRasterCache.keys().next().value
+
+    if (oldestKey === undefined) {
+      break
+    }
+
+    displayRasterCache.delete(oldestKey)
+  }
+
+  return canvas
+}
+
 function useVisualAsset(assetRef: string) {
-  const [image, setImage] = useState<HTMLImageElement | null>(null)
+  const [image, setImage] = useState<HTMLImageElement | null>(() =>
+    assetRef.trim() ? peekLoadedVisualAssetImage(assetRef) : null,
+  )
 
   useEffect(() => {
-    if (!assetRef.trim()) {
+    const source = assetRef.trim()
+
+    if (!source) {
       setImage(null)
       return
     }
 
-    const nextImage = new window.Image()
+    const entry = acquireVisualAssetImage(source)
 
-    const handleLoad = () => setImage(nextImage)
-    const handleError = () => setImage(null)
+    if (entry.ready) {
+      setImage(entry.image)
+      return
+    }
 
-    nextImage.addEventListener('load', handleLoad)
-    nextImage.addEventListener('error', handleError)
-    nextImage.src = assetRef
+    if (entry.failed) {
+      setImage(null)
+      return
+    }
+
+    const notify = () => setImage(entry.ready ? entry.image : null)
+    entry.listeners.add(notify)
 
     return () => {
-      nextImage.removeEventListener('load', handleLoad)
-      nextImage.removeEventListener('error', handleError)
+      entry.listeners.delete(notify)
     }
   }, [assetRef])
 
@@ -206,8 +363,7 @@ function VisualAssetLayer({
                 h = parseFloat(hMatch?.[1] || '') || 0
               }
               if (w > 0 && h > 0) {
-                const maxDim = Math.max(w, h)
-                const scale = Math.min(8, Math.max(2, Math.ceil(2048 / maxDim)))
+                const scale = computeSvgCanvasRasterScale(w, h)
                 const targetW = Math.round(w * scale)
                 const targetH = Math.round(h * scale)
                 let enhancedRoot = rootMatch[0]
@@ -233,23 +389,62 @@ function VisualAssetLayer({
   }, [layer])
   const image = useVisualAsset(assetRef)
 
-  if (!image) {
+  // Resolve the exact source crop and on-canvas draw size per fit style, then
+  // rasterize once at display resolution. This must run on the same code path
+  // whether or not the decoded image is available yet: the early return below
+  // has to come AFTER every hook, or the hook count changes between renders.
+  const { width, height } = layer.transform
+  const style = resolveVisualAssetStyle(layer)
+  const imageWidth = image ? Math.max(1, image.naturalWidth || image.width) : 0
+  const imageHeight = image ? Math.max(1, image.naturalHeight || image.height) : 0
+  const sourceRect = { x: 0, y: 0, width: imageWidth, height: imageHeight }
+  let drawWidth = width
+  let drawHeight = height
+
+  if (style.fit === 'contain') {
+    const scale = Math.min(width / Math.max(1, imageWidth), height / Math.max(1, imageHeight))
+    drawWidth = imageWidth * scale
+    drawHeight = imageHeight * scale
+  } else if (style.fit === 'cover') {
+    const imageRatio = imageWidth / imageHeight
+    const targetRatio = width / height
+
+    if (imageRatio > targetRatio) {
+      sourceRect.width = imageHeight * targetRatio
+      sourceRect.x = (imageWidth - sourceRect.width) / 2
+    } else {
+      sourceRect.height = imageWidth / targetRatio
+      sourceRect.y = (imageHeight - sourceRect.height) / 2
+    }
+  }
+
+  const raster = useMemo(
+    () =>
+      image
+        ? acquireDisplayRaster(assetRef, image, sourceRect, drawWidth, drawHeight)
+        : null,
+    [
+      assetRef,
+      image,
+      imageWidth,
+      imageHeight,
+      sourceRect.x,
+      sourceRect.y,
+      sourceRect.width,
+      sourceRect.height,
+      drawWidth,
+      drawHeight,
+    ],
+  )
+
+  if (!image || !raster) {
     return null
   }
 
-  const { width, height } = layer.transform
-  const style = resolveVisualAssetStyle(layer)
-  const imageWidth = Math.max(1, image.naturalWidth || image.width)
-  const imageHeight = Math.max(1, image.naturalHeight || image.height)
-
   if (style.fit === 'contain') {
-    const scale = Math.min(width / imageWidth, height / imageHeight)
-    const drawWidth = imageWidth * scale
-    const drawHeight = imageHeight * scale
-
     return (
       <KonvaImage
-        image={image}
+        image={raster}
         x={(width - drawWidth) / 2}
         y={(height - drawHeight) / 2}
         width={drawWidth}
@@ -260,40 +455,9 @@ function VisualAssetLayer({
     )
   }
 
-  if (style.fit === 'cover') {
-    const imageRatio = imageWidth / imageHeight
-    const targetRatio = width / height
-    let cropX = 0
-    let cropY = 0
-    let cropWidth = imageWidth
-    let cropHeight = imageHeight
-
-    if (imageRatio > targetRatio) {
-      cropWidth = imageHeight * targetRatio
-      cropX = (imageWidth - cropWidth) / 2
-    } else {
-      cropHeight = imageWidth / targetRatio
-      cropY = (imageHeight - cropHeight) / 2
-    }
-
-    return (
-      <KonvaImage
-        image={image}
-        width={width}
-        height={height}
-        cropX={cropX}
-        cropY={cropY}
-        cropWidth={cropWidth}
-        cropHeight={cropHeight}
-        listening={listening}
-        perfectDrawEnabled={false}
-      />
-    )
-  }
-
   return (
     <KonvaImage
-      image={image}
+      image={raster}
       width={width}
       height={height}
       listening={listening}
@@ -715,7 +879,10 @@ function LayerBoundsHitArea({
   )
 }
 
-function VisualLayerNode({
+// Layer identity is stable across re-renders (rule resolution is
+// copy-on-write), so memoizing per layer keeps pointer-selection and drag
+// commits from re-rendering the visual subtree of every untouched layer.
+const VisualLayerNode = memo(function VisualLayerNode({
   layer,
   childrenByParent,
   listening,
@@ -787,12 +954,13 @@ function VisualLayerNode({
       ))}
     </Group>
   )
-}
+})
 
-export const CompositeComponentVisualRenderer = forwardRef<
-  Konva.Group,
-  CompositeComponentVisualRendererProps
->(function CompositeComponentVisualRendererImpl(
+export const CompositeComponentVisualRenderer = memo(
+  forwardRef<
+    Konva.Group,
+    CompositeComponentVisualRendererProps
+  >(function CompositeComponentVisualRendererImpl(
   {
     visual,
     x,
@@ -857,4 +1025,5 @@ export const CompositeComponentVisualRenderer = forwardRef<
       ))}
     </Group>
   )
-})
+}),
+)

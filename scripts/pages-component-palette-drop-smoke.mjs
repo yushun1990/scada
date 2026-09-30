@@ -68,6 +68,37 @@ try {
     await dragToArtboard(resource, 0.7, 0.68)
     await expectLayerCount(5 + index)
   }
+
+  // Dropped asset layers must be visible on the canvas without any further
+  // interaction (regression guard: async image load once left the layer
+  // unpainted until the layer row was clicked).
+  await page.waitForTimeout(400)
+  const paintedPixels = await page.evaluate(() => {
+    const artboard = document.querySelector('.component-artboard')
+    if (!artboard) return -1
+    const rect = artboard.getBoundingClientRect()
+    let painted = 0
+    for (const canvas of document.querySelectorAll('canvas')) {
+      const canvasRect = canvas.getBoundingClientRect()
+      if (canvasRect.width === 0) continue
+      const context = canvas.getContext('2d')
+      if (!context) continue
+      const scaleX = canvas.width / canvasRect.width
+      const scaleY = canvas.height / canvasRect.height
+      const sx = Math.max(0, Math.round((rect.left - canvasRect.left) * scaleX))
+      const sy = Math.max(0, Math.round((rect.top - canvasRect.top) * scaleY))
+      const sw = Math.min(canvas.width - sx, Math.round(rect.width * scaleX))
+      const sh = Math.min(canvas.height - sy, Math.round(rect.height * scaleY))
+      if (sw <= 0 || sh <= 0) continue
+      const data = context.getImageData(sx, sy, sw, sh).data
+      for (let i = 3; i < data.length; i += 4) {
+        if (data[i] > 8) painted += 1
+      }
+    }
+    return painted
+  })
+  assert.ok(paintedPixels > 0, `dropped SVG/image layers must paint without a layer-row click (painted=${paintedPixels})`)
+
   await saveAndWait(page)
   document = (await readPersistedComponent(page)).document
   assert.deepEqual(document.visual.layers.slice(-2).map((layer) => layer.kind), ['svg', 'image'])

@@ -673,9 +673,41 @@ export function serializeManagedSvgDataUrl(document: ManagedSvgDocument) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serializeManagedSvgDocument(document))}`
 }
 
+export const SVG_CANVAS_RASTER_TARGET_DIMENSION = 2048
+const SVG_CANVAS_RASTER_MAX_SCALE = 8
+
+/**
+ * Upscale factor applied when a managed SVG document is rasterized for canvas
+ * display. Small viewBoxes are enlarged so the bitmap stays sharp when the
+ * layer is displayed larger than its authored viewBox; the total pixel budget
+ * keeps large-viewBox illustrations from ballooning into oversized rasters
+ * (previously a 3000x2000 viewBox forced a 6000x4000, ~96MB bitmap).
+ */
+export function computeSvgCanvasRasterScale(
+  width: number,
+  height: number,
+  targetDimension: number = SVG_CANVAS_RASTER_TARGET_DIMENSION,
+): number {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return 1
+  }
+
+  const maxPixels = targetDimension * targetDimension
+  let scale = Math.min(
+    SVG_CANVAS_RASTER_MAX_SCALE,
+    Math.max(1, Math.ceil(targetDimension / Math.max(width, height))),
+  )
+
+  while (scale > 1 && width * scale * height * scale > maxPixels) {
+    scale -= 1
+  }
+
+  return scale
+}
+
 export function serializeManagedSvgCanvasDocument(
   document: ManagedSvgDocument,
-  targetDimension = 2048,
+  targetDimension = SVG_CANVAS_RASTER_TARGET_DIMENSION,
 ): string {
   assertManagedSvgDocument(document)
 
@@ -709,8 +741,7 @@ export function serializeManagedSvgCanvasDocument(
   const rootOverrides = new Map<string, string>()
 
   if (w > 0 && h > 0) {
-    const maxDim = Math.max(w, h)
-    const scale = Math.min(8, Math.max(2, Math.ceil(targetDimension / maxDim)))
+    const scale = computeSvgCanvasRasterScale(w, h, targetDimension)
     const targetWidth = Math.round(w * scale)
     const targetHeight = Math.round(h * scale)
 
@@ -724,13 +755,32 @@ export function serializeManagedSvgCanvasDocument(
   return serializeManagedSvgNode(document.root, true, rootOverrides)
 }
 
+// Managed SVG documents follow a clone-before-mutate convention (authoring and
+// rule updates return new documents), so the serialized data URL is stable per
+// document reference and can be memoized for the default raster target.
+const canvasDataUrlMemo = new WeakMap<ManagedSvgDocument, string>()
+
 export function serializeManagedSvgCanvasDataUrl(
   document: ManagedSvgDocument,
-  targetDimension = 2048,
+  targetDimension = SVG_CANVAS_RASTER_TARGET_DIMENSION,
 ): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-    serializeManagedSvgCanvasDocument(document, targetDimension),
-  )}`
+  const serialize = () =>
+    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+      serializeManagedSvgCanvasDocument(document, targetDimension),
+    )}`
+
+  if (targetDimension !== SVG_CANVAS_RASTER_TARGET_DIMENSION) {
+    return serialize()
+  }
+
+  const memoized = canvasDataUrlMemo.get(document)
+  if (memoized !== undefined) {
+    return memoized
+  }
+
+  const dataUrl = serialize()
+  canvasDataUrlMemo.set(document, dataUrl)
+  return dataUrl
 }
 
 function cloneManagedSvgNode(node: ManagedSvgNode): ManagedSvgNode {
