@@ -389,24 +389,20 @@ function VisualAssetLayer({
   }, [layer])
   const image = useVisualAsset(assetRef)
 
-  if (!image) {
-    return null
-  }
-
+  // Resolve the exact source crop and on-canvas draw size per fit style, then
+  // rasterize once at display resolution. This must run on the same code path
+  // whether or not the decoded image is available yet: the early return below
+  // has to come AFTER every hook, or the hook count changes between renders.
   const { width, height } = layer.transform
   const style = resolveVisualAssetStyle(layer)
-  const imageWidth = Math.max(1, image.naturalWidth || image.width)
-  const imageHeight = Math.max(1, image.naturalHeight || image.height)
-
-  // Resolve the exact source crop and on-canvas draw size per fit style, then
-  // rasterize once at display resolution. All branches below draw the same
-  // raster near 1:1 instead of scaling the decoded source per frame.
+  const imageWidth = image ? Math.max(1, image.naturalWidth || image.width) : 0
+  const imageHeight = image ? Math.max(1, image.naturalHeight || image.height) : 0
   const sourceRect = { x: 0, y: 0, width: imageWidth, height: imageHeight }
   let drawWidth = width
   let drawHeight = height
 
   if (style.fit === 'contain') {
-    const scale = Math.min(width / imageWidth, height / imageHeight)
+    const scale = Math.min(width / Math.max(1, imageWidth), height / Math.max(1, imageHeight))
     drawWidth = imageWidth * scale
     drawHeight = imageHeight * scale
   } else if (style.fit === 'cover') {
@@ -423,7 +419,10 @@ function VisualAssetLayer({
   }
 
   const raster = useMemo(
-    () => acquireDisplayRaster(assetRef, image, sourceRect, drawWidth, drawHeight),
+    () =>
+      image
+        ? acquireDisplayRaster(assetRef, image, sourceRect, drawWidth, drawHeight)
+        : null,
     [
       assetRef,
       image,
@@ -437,6 +436,10 @@ function VisualAssetLayer({
       drawHeight,
     ],
   )
+
+  if (!image || !raster) {
+    return null
+  }
 
   if (style.fit === 'contain') {
     return (

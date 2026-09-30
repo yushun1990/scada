@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import {
   TextAlignBottomIcon,
@@ -13,6 +14,7 @@ import {
   resolveVisualVectorStyle,
   type ComponentVisualDefinition,
   type ComponentVisualLayer,
+  type SvgVisualLayer,
   type VisualAssetFit,
   type VisualGradient,
   type VisualLineCap,
@@ -39,6 +41,64 @@ type ComponentVisualStyleInspectorProps = {
   selectedLayerId: string
   readOnly: boolean
   onChange: (visual: ComponentVisualDefinition) => void
+}
+
+// The SVG source editor parses, serializes and renders one row per document
+// element, so mounting it costs O(SVG size). Deferring the mount to the next
+// idle slot keeps canvas pointer-down selection (and the start of a drag)
+// responsive; the panel content appears a moment later.
+function DeferredSvgSourceEditor({
+  layer,
+  readOnly,
+  onChange,
+}: {
+  layer: SvgVisualLayer
+  readOnly: boolean
+  onChange: (layer: SvgVisualLayer) => void
+}) {
+  const [mountedLayer, setMountedLayer] = useState<SvgVisualLayer | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const mount = () => {
+      if (!cancelled) {
+        setMountedLayer(layer)
+      }
+    }
+
+    let idleId = -1
+    let timeoutId = -1
+
+    if (typeof requestIdleCallback === 'function') {
+      idleId = requestIdleCallback(mount, { timeout: 600 })
+    } else {
+      timeoutId = window.setTimeout(mount, 150)
+    }
+
+    return () => {
+      cancelled = true
+
+      if (idleId !== -1 && typeof cancelIdleCallback === 'function') {
+        cancelIdleCallback(idleId)
+      }
+
+      if (timeoutId !== -1) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [layer])
+
+  if (!mountedLayer) {
+    return null
+  }
+
+  return (
+    <ComponentSvgSourceEditor
+      layer={mountedLayer}
+      readOnly={readOnly}
+      onChange={onChange}
+    />
+  )
 }
 
 const ASSET_FIT_OPTIONS = [
@@ -1148,7 +1208,7 @@ export function ComponentVisualStyleInspector({
   if (layer.kind === 'svg') {
     return (
       <div className="component-layer-style-inspector">
-        <ComponentSvgSourceEditor
+        <DeferredSvgSourceEditor
           layer={layer}
           readOnly={readOnly || layer.parentId !== null}
           onChange={updateLayer}
