@@ -269,10 +269,8 @@ type ContractRowTableProps<T extends ContractRowEntry> = {
   onEntriesChange: (entries: Record<string, T>) => void
   addLabel: string
   emptyLabel?: string
-  bindableOption?: {
-    isBindable: (entry: T) => boolean
-    setBindable: (entry: T, bindable: boolean) => T
-  }
+  /** 运行属性保存行的“绑定”徽标;表单不再提供 bindable 编辑 */
+  isBindable?: (entry: T) => boolean
 }
 
 export function ContractRowTable<T extends ContractRowEntry>({
@@ -284,7 +282,7 @@ export function ContractRowTable<T extends ContractRowEntry>({
   onEntriesChange,
   addLabel,
   emptyLabel,
-  bindableOption,
+  isBindable,
 }: ContractRowTableProps<T>) {
   const [draft, setDraft] = useState<ContractRowDraft<T> | null>(null)
 
@@ -364,7 +362,6 @@ export function ContractRowTable<T extends ContractRowEntry>({
               draft={draft}
               saveBlockedReason={saveBlockedReason}
               entryLabel={entryLabel}
-              bindableOption={bindableOption}
               onDraftChange={setDraft}
               onCancel={() => setDraft(null)}
               onSave={saveDraft}
@@ -375,12 +372,7 @@ export function ContractRowTable<T extends ContractRowEntry>({
         return (
           <div className="contract-row-item" key={key}>
             <div className="contract-row-display">
-              <div className="contract-row-info">
-                <span className="contract-row-name">{key}</span>
-                {entry.description && (
-                  <span className="contract-row-description">{entry.description}</span>
-                )}
-              </div>
+              <span className="contract-row-name">{key}</span>
               <div className="contract-row-value">
                 <ContractRowValueEditor
                   entry={entry}
@@ -389,7 +381,10 @@ export function ContractRowTable<T extends ContractRowEntry>({
                   onChange={(defaultValue) => updateEntry(key, { ...entry, defaultValue })}
                 />
               </div>
-              {bindableOption?.isBindable(entry) && (
+              {entry.description && (
+                <span className="contract-row-description">{entry.description}</span>
+              )}
+              {isBindable?.(entry) && (
                 <span className="contract-row-badge" title="允许 SCADA 数据绑定">绑定</span>
               )}
               {!readOnly && (
@@ -426,7 +421,6 @@ export function ContractRowTable<T extends ContractRowEntry>({
           draft={draft}
           saveBlockedReason={saveBlockedReason}
           entryLabel={entryLabel}
-          bindableOption={bindableOption}
           onDraftChange={setDraft}
           onCancel={() => setDraft(null)}
           onSave={saveDraft}
@@ -455,7 +449,6 @@ function ContractRowForm<T extends ContractRowEntry>({
   draft,
   saveBlockedReason,
   entryLabel,
-  bindableOption,
   onDraftChange,
   onCancel,
   onSave,
@@ -463,10 +456,6 @@ function ContractRowForm<T extends ContractRowEntry>({
   draft: ContractRowDraft<T>
   saveBlockedReason: string | null
   entryLabel: string
-  bindableOption?: {
-    isBindable: (entry: T) => boolean
-    setBindable: (entry: T, bindable: boolean) => T
-  }
   onDraftChange: (draft: ContractRowDraft<T>) => void
   onCancel: () => void
   onSave: () => void
@@ -604,18 +593,6 @@ function ContractRowForm<T extends ContractRowEntry>({
             </RadioGroup>
           </div>
         </div>
-      )}
-
-      {bindableOption && (
-        <Checkbox
-          className="contract-row-form-wide contract-row-form-bindable"
-          checked={bindableOption.isBindable(entry)}
-          label="允许 SCADA 数据绑定"
-          onCheckedChange={(checked) => onDraftChange({
-            ...draft,
-            entry: bindableOption.setBindable(entry, checked),
-          })}
-        />
       )}
 
       <label className="contract-row-form-wide contract-row-form-description">

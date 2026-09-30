@@ -21,7 +21,7 @@ inspector's ordinary attribute rows.
 ## Accepted interaction design
 
 - Saved entries render exactly like ordinary inspector attribute rows:
-  `名称 + 说明(可见小字) + 按类型的值控件 + [绑定徽标] + 图标编辑/删除`.
+  `名称 + 按类型的值控件 + 说明(可见小字) + [绑定徽标] + 图标编辑/删除`.
   The type is not displayed; an enum's value is a dropdown, a color is
   the color input, a boolean is a checkbox. The value control stays live:
   changing it in the saved row edits the contract default directly.
@@ -50,9 +50,12 @@ inspector's ordinary attribute rows.
   the marked row moves the mark to the first row. 说明 edits in a
   two-row textarea at the tail of the form with its label aligned to
   the first text line; non-enum kinds keep a wide 默认值 field.
-- 运行属性 keeps the M9A2 authority: only the Property editor offers
-  允许 SCADA 数据绑定 (form checkbox, saved-row 绑定 badge); the
-  Attribute editor has no bindable control.
+- 运行属性 keeps the M9A2 authority: the Property form has no bindable
+  control (runtime properties are bindable by design and default to
+  `bindable: true`); the saved-row 绑定 badge reflects
+  `definition.properties[key].bindable`, which remains the sole
+  authority for SCADA Inspector binding controls; the Attribute editor
+  has no bindable concept at all.
 
 ## Review revisions · 2026-09-30
 
@@ -125,6 +128,18 @@ Round 5 refined the option row into a labelled radio triplet:
     edited value is never overwritten.
 17. The 说明 label aligns with the first line of its textarea instead
     of centering against the whole control.
+
+Round 6 reordered the saved row and simplified the Property form:
+
+18. In the saved row the description now follows the default value
+    (名称 → 值控件 → 说明 → 绑定徽标 → 图标操作) instead of sitting
+    between the name and the value.
+19. The Property add/edit form no longer offers the 允许 SCADA 数据绑定
+    checkbox — runtime properties are bindable by design, so new
+    properties default to `bindable: true`; existing stored flags pass
+    through untouched and the saved-row 绑定 badge still reflects
+    `definition.properties[key].bindable`, which remains the sole
+    authority for SCADA Inspector binding controls (M9A2 unchanged).
 
 ## Changes
 

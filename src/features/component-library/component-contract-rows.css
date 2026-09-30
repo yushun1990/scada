@@ -21,14 +21,6 @@
   padding: 4px 0;
 }
 
-.contract-row-info {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
 .contract-row-name {
   flex: 0 1 auto;
   min-width: 0;
@@ -42,7 +34,7 @@
   line-height: 1.3;
 }
 
-/* 说明内联填在名称与值控件之间，不再留出大片空白 */
+/* 说明跟在默认值之后，填充至行尾 */
 .contract-row-description {
   flex: 1 1 40px;
   min-width: 0;
@@ -160,13 +152,6 @@
 }
 
 .contract-row-toggle {
-  gap: 5px;
-  font-size: var(--ui-font-size-status);
-}
-
-.contract-row-form-bindable {
-  display: flex;
-  align-items: center;
   gap: 5px;
   font-size: var(--ui-font-size-status);
 }

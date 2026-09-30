@@ -23,11 +23,8 @@ export function ComponentPropertyContractEditor({
       readOnly={readOnly}
       addLabel="+ 添加属性"
       emptyLabel="尚未添加运行属性"
-      createEntry={(key) => ({ ...createContractRowEntry(key), bindable: false })}
-      bindableOption={{
-        isBindable: (property) => Boolean(property.bindable),
-        setBindable: (property, bindable) => ({ ...property, bindable }),
-      }}
+      createEntry={(key) => ({ ...createContractRowEntry(key), bindable: true })}
+      isBindable={(property) => Boolean(property.bindable)}
       onEntriesChange={(properties) => onChange({ ...definition, properties })}
     />
   )
