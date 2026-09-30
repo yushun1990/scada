@@ -1,5 +1,5 @@
 import { calculateOriginOffset, resolveConcaveRectRadius, traceConcaveRect, drawVisualScale } from './visual-primitives'
-import { forwardRef, useEffect, useMemo, useState } from 'react'
+import { forwardRef, memo, useEffect, useMemo, useState } from 'react'
 import type Konva from 'konva'
 import {
   Arc,
@@ -180,6 +180,11 @@ function acquireVisualAssetImage(source: string): VisualAssetImageEntry {
     for (const listener of entry.listeners) listener()
   })
   entry.image.src = source
+  // Force full rasterization at load time so the first draw — often the first
+  // drag frame — does not pay the decode/rasterization stall.
+  void entry.image.decode?.().catch(() => {
+    // Load failures surface through the error listener above.
+  })
   visualAssetImageCache.set(source, entry)
 
   // Evict oldest settled entries; in-flight entries keep their slot until
@@ -785,7 +790,10 @@ function LayerBoundsHitArea({
   )
 }
 
-function VisualLayerNode({
+// Layer identity is stable across re-renders (rule resolution is
+// copy-on-write), so memoizing per layer keeps pointer-selection and drag
+// commits from re-rendering the visual subtree of every untouched layer.
+const VisualLayerNode = memo(function VisualLayerNode({
   layer,
   childrenByParent,
   listening,
@@ -857,12 +865,13 @@ function VisualLayerNode({
       ))}
     </Group>
   )
-}
+})
 
-export const CompositeComponentVisualRenderer = forwardRef<
-  Konva.Group,
-  CompositeComponentVisualRendererProps
->(function CompositeComponentVisualRendererImpl(
+export const CompositeComponentVisualRenderer = memo(
+  forwardRef<
+    Konva.Group,
+    CompositeComponentVisualRendererProps
+  >(function CompositeComponentVisualRendererImpl(
   {
     visual,
     x,
@@ -927,4 +936,5 @@ export const CompositeComponentVisualRenderer = forwardRef<
       ))}
     </Group>
   )
-})
+}),
+)

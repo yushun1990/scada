@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  memo,
   useCallback,
   useEffect,
   useRef,
@@ -50,10 +51,14 @@ export type SceneNodeRendererProps = {
   runtimeValues?: RuntimeValueSnapshot
 }
 
-export const SceneNodeRenderer = forwardRef<
-  Konva.Group,
-  SceneNodeRendererProps
->(function SceneNodeRendererImpl(
+// Memoized with stable props (scene/node/transform references plus the
+// parent's useCallback resolver): pointer selection and unrelated node
+// commits re-render the stage tree without touching each node subtree.
+export const SceneNodeRenderer = memo(
+  forwardRef<
+    Konva.Group,
+    SceneNodeRendererProps
+  >(function SceneNodeRendererImpl(
   {
     scene,
     node,
@@ -366,4 +371,5 @@ export const SceneNodeRenderer = forwardRef<
       />
     </Group>
   )
-})
+}),
+)
