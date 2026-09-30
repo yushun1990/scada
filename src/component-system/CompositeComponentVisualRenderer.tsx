@@ -208,6 +208,87 @@ function peekLoadedVisualAssetImage(source: string): HTMLImageElement | null {
   return entry?.ready ? entry.image : null
 }
 
+// Display-resolution rasters: the decoded asset (an oversized SVG raster or a
+// large photo) is drawn ONCE into a canvas sized for its on-canvas display
+// size. Every subsequent frame blits that canvas near 1:1 instead of
+// downscaling a multi-megapixel source per draw — which is what made drags
+// sluggish for every layer sharing the canvas with such an asset.
+const displayRasterCache = new Map<string, HTMLCanvasElement>()
+const DISPLAY_RASTER_CACHE_LIMIT = 12
+const DISPLAY_RASTER_MAX_PIXELS = 2_500_000
+
+function acquireDisplayRaster(
+  source: string,
+  image: HTMLImageElement,
+  sourceRect: { x: number; y: number; width: number; height: number },
+  drawWidth: number,
+  drawHeight: number,
+): HTMLCanvasElement | HTMLImageElement {
+  if (!(drawWidth > 0) || !(drawHeight > 0) || !(sourceRect.width > 0) || !(sourceRect.height > 0)) {
+    return image
+  }
+
+  const key = `${source}\u0000${sourceRect.x},${sourceRect.y},${sourceRect.width},${sourceRect.height}\u0000${drawWidth.toFixed(2)}x${drawHeight.toFixed(2)}`
+  const cached = displayRasterCache.get(key)
+
+  if (cached) {
+    displayRasterCache.delete(key)
+    displayRasterCache.set(key, cached)
+    return cached
+  }
+
+  // Supersample beyond the device pixel ratio so viewport zoom stays sharp;
+  // cap the total pixels so huge layers cannot balloon the buffer.
+  const devicePixelRatio =
+    typeof window !== 'undefined' && window.devicePixelRatio
+      ? window.devicePixelRatio
+      : 1
+  let pixelScale = Math.min(3, Math.max(1.5, devicePixelRatio))
+  const rawPixels = drawWidth * pixelScale * drawHeight * pixelScale
+
+  if (rawPixels > DISPLAY_RASTER_MAX_PIXELS) {
+    pixelScale *= Math.sqrt(DISPLAY_RASTER_MAX_PIXELS / rawPixels)
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(drawWidth * pixelScale))
+  canvas.height = Math.max(1, Math.round(drawHeight * pixelScale))
+
+  const context = canvas.getContext('2d')
+
+  if (!context) {
+    return image
+  }
+
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
+  context.drawImage(
+    image,
+    sourceRect.x,
+    sourceRect.y,
+    sourceRect.width,
+    sourceRect.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  )
+
+  displayRasterCache.set(key, canvas)
+
+  while (displayRasterCache.size > DISPLAY_RASTER_CACHE_LIMIT) {
+    const oldestKey = displayRasterCache.keys().next().value
+
+    if (oldestKey === undefined) {
+      break
+    }
+
+    displayRasterCache.delete(oldestKey)
+  }
+
+  return canvas
+}
+
 function useVisualAsset(assetRef: string) {
   const [image, setImage] = useState<HTMLImageElement | null>(() =>
     assetRef.trim() ? peekLoadedVisualAssetImage(assetRef) : null,
@@ -317,14 +398,50 @@ function VisualAssetLayer({
   const imageWidth = Math.max(1, image.naturalWidth || image.width)
   const imageHeight = Math.max(1, image.naturalHeight || image.height)
 
+  // Resolve the exact source crop and on-canvas draw size per fit style, then
+  // rasterize once at display resolution. All branches below draw the same
+  // raster near 1:1 instead of scaling the decoded source per frame.
+  const sourceRect = { x: 0, y: 0, width: imageWidth, height: imageHeight }
+  let drawWidth = width
+  let drawHeight = height
+
   if (style.fit === 'contain') {
     const scale = Math.min(width / imageWidth, height / imageHeight)
-    const drawWidth = imageWidth * scale
-    const drawHeight = imageHeight * scale
+    drawWidth = imageWidth * scale
+    drawHeight = imageHeight * scale
+  } else if (style.fit === 'cover') {
+    const imageRatio = imageWidth / imageHeight
+    const targetRatio = width / height
 
+    if (imageRatio > targetRatio) {
+      sourceRect.width = imageHeight * targetRatio
+      sourceRect.x = (imageWidth - sourceRect.width) / 2
+    } else {
+      sourceRect.height = imageWidth / targetRatio
+      sourceRect.y = (imageHeight - sourceRect.height) / 2
+    }
+  }
+
+  const raster = useMemo(
+    () => acquireDisplayRaster(assetRef, image, sourceRect, drawWidth, drawHeight),
+    [
+      assetRef,
+      image,
+      imageWidth,
+      imageHeight,
+      sourceRect.x,
+      sourceRect.y,
+      sourceRect.width,
+      sourceRect.height,
+      drawWidth,
+      drawHeight,
+    ],
+  )
+
+  if (style.fit === 'contain') {
     return (
       <KonvaImage
-        image={image}
+        image={raster}
         x={(width - drawWidth) / 2}
         y={(height - drawHeight) / 2}
         width={drawWidth}
@@ -335,40 +452,9 @@ function VisualAssetLayer({
     )
   }
 
-  if (style.fit === 'cover') {
-    const imageRatio = imageWidth / imageHeight
-    const targetRatio = width / height
-    let cropX = 0
-    let cropY = 0
-    let cropWidth = imageWidth
-    let cropHeight = imageHeight
-
-    if (imageRatio > targetRatio) {
-      cropWidth = imageHeight * targetRatio
-      cropX = (imageWidth - cropWidth) / 2
-    } else {
-      cropHeight = imageWidth / targetRatio
-      cropY = (imageHeight - cropHeight) / 2
-    }
-
-    return (
-      <KonvaImage
-        image={image}
-        width={width}
-        height={height}
-        cropX={cropX}
-        cropY={cropY}
-        cropWidth={cropWidth}
-        cropHeight={cropHeight}
-        listening={listening}
-        perfectDrawEnabled={false}
-      />
-    )
-  }
-
   return (
     <KonvaImage
-      image={image}
+      image={raster}
       width={width}
       height={height}
       listening={listening}

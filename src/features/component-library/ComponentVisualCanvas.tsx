@@ -33,11 +33,6 @@ import {
 import { calculateOriginOffset } from '../../component-system/visual-primitives'
 import { resolveComponentVisualRules } from '../../component-system/visualRules'
 import {
-  cacheExpensiveDrawBystanders,
-  cacheNodeForDragPreview,
-  releaseDragPreviewCache,
-} from '../../components/canvas-drag-cache'
-import {
   CopyIcon,
   GridIcon,
   RedoIcon,
@@ -137,7 +132,6 @@ type LayerDragSession = {
   layerIds: string[]
   initialTransforms: Record<string, LayerPositionSnapshot>
   nodeLookup: Map<string, Konva.Group>
-  cachedNodes: Konva.Node[]
 }
 
 const TRANSFORMER_ANCHORS = [
@@ -1246,17 +1240,8 @@ export function ComponentVisualCanvas({
 
   useEffect(() => () => clearMarqueeSession(), [])
 
-  // Drag preview caches and the coalesced preview frame are session-scoped;
-  // release both when the canvas goes away mid-drag.
   useEffect(() => {
     return () => {
-      const session = layerDragSessionRef.current
-
-      if (session) {
-        releaseDragPreviewCache(session.cachedNodes)
-        layerDragSessionRef.current = null
-      }
-
       if (layerDragFrameRef.current !== null) {
         cancelAnimationFrame(layerDragFrameRef.current)
         layerDragFrameRef.current = null
@@ -1555,30 +1540,11 @@ export function ComponentVisualCanvas({
       return
     }
 
-    const cachedNodes: Konva.Node[] = []
-
-    for (const layerId of Object.keys(initialTransforms)) {
-      const node = nodeLookup.get(layerId)
-
-      if (node && cacheNodeForDragPreview(node)) {
-        cachedNodes.push(node)
-      }
-    }
-
-    // Every drag frame repaints the whole layer, so expensive bystanders
-    // (an oversized SVG raster sitting next to the dragged layer) must be
-    // cached for the gesture too, or the drag pays their raster cost per
-    // frame. Bystanders cannot change during the drag, keeping caches valid.
-    if (stage) {
-      cachedNodes.push(...cacheExpensiveDrawBystanders(stage, cachedNodes))
-    }
-
     layerDragSessionRef.current = {
       draggedLayerId,
       layerIds: Object.keys(initialTransforms),
       initialTransforms,
       nodeLookup,
-      cachedNodes,
     }
 
     for (const layerId of Object.keys(initialTransforms)) {
@@ -1695,10 +1661,6 @@ export function ComponentVisualCanvas({
     const session = layerDragSessionRef.current
     const stage = stageRef.current
     const node = resolveLayerNode(target)
-
-    if (session) {
-      releaseDragPreviewCache(session.cachedNodes)
-    }
 
     if (!session || !stage || !node) {
       clearSnapGuides()
