@@ -7,18 +7,21 @@ import type {
 import {
   Button,
   Checkbox,
+  IconButton,
   Input,
   NumberInput,
   Select,
 } from '../../ui'
+import { EditIcon, TrashIcon } from '../../components/toolbar-icons'
 import { ColorPickerInput } from './ColorPickerInput'
 import './component-contract-rows.css'
 
 /**
  * Public-contract row shape shared by the Attribute and Property contract
  * editors. Saved entries render like inspector attribute rows
- * (名称 + 按类型的值控件 + 编辑/删除); adding or editing opens one compact
- * labeled form (名称 / 类型 / 默认值 / 说明 / 枚举选项) committed by 保存.
+ * (名称 + 说明 + 按类型的值控件 + 图标编辑/删除); adding or editing opens
+ * one compact labeled form (名称 / 类型 / 默认值 / 说明 / 枚举选项) committed
+ * by 保存.
  */
 export type ContractRowEntry = {
   title: string
@@ -40,8 +43,9 @@ const CONTRACT_VALUE_KIND_OPTIONS = Object.entries(CONTRACT_VALUE_KIND_LABELS).m
   ([value, label]) => ({ value, label }),
 )
 
-const OPTION_LIST_PLACEHOLDER = '关闭=closed, 打开=open'
-const OPTION_LIST_HINT = '每项格式：标题=值；多项用逗号分隔；纯数字值保存为 number'
+const OPTION_LIST_PLACEHOLDER = 'run, stop, alarm 或 run=1, stop=2'
+const OPTION_LIST_HINT =
+  '选项用逗号分隔；每项可写 标签=值，或只写标签（值=标签）；纯数字值保存为 number；枚举至少需要一个选项且值不能重复'
 
 function nextContractKey(prefix: string, keys: readonly string[]) {
   const keySet = new Set(keys)
@@ -54,12 +58,7 @@ function defaultContractValueForKind(kind: ComponentValueKind): ComponentScalarV
   if (kind === 'number') return 0
   if (kind === 'boolean') return false
   if (kind === 'color') return '#2563eb'
-  if (kind === 'select') return 'value1'
   return ''
-}
-
-function defaultContractOptionsForKind(kind: ComponentValueKind) {
-  return kind === 'select' ? [{ label: '选项 1', value: 'value1' }] : undefined
 }
 
 export function createContractRowEntry(
@@ -70,7 +69,7 @@ export function createContractRowEntry(
     title: key,
     kind,
     defaultValue: defaultContractValueForKind(kind),
-    options: defaultContractOptionsForKind(kind),
+    options: kind === 'select' ? [] : undefined,
   }
 }
 
@@ -84,7 +83,7 @@ function convertContractRowKind<T extends ContractRowEntry>(
     ...entry,
     kind,
     defaultValue: defaultContractValueForKind(kind),
-    options: defaultContractOptionsForKind(kind),
+    options: kind === 'select' ? [] : undefined,
   }
 }
 
@@ -102,10 +101,6 @@ function renameContractRecord<T extends { title: string }>(
   )
 }
 
-function formatOptions(options: readonly ComponentValueOption[] | undefined) {
-  return (options ?? []).map((option) => `${option.label}=${String(option.value)}`).join(', ')
-}
-
 function parseOptionValue(value: string): string | number {
   const trimmed = value.trim()
 
@@ -117,6 +112,10 @@ function parseOptionValue(value: string): string | number {
   return trimmed
 }
 
+/**
+ * 枚举选项解析：逗号分隔；每项 `标题=值` 或只写标签（值=标签）。
+ * 与 definition validation 一致：至少一项、标签非空、值不重复。
+ */
 function parseOptions(value: string): ComponentValueOption[] {
   return value
     .split(/[，,]/)
@@ -134,15 +133,36 @@ function parseOptions(value: string): ComponentValueOption[] {
     })
 }
 
-function applyOptionsText<T extends ContractRowEntry>(entry: T, text: string): T {
-  const options = parseOptions(text)
-  const currentDefaultValid = options.some((option) => option.value === entry.defaultValue)
+function formatOptions(options: readonly ComponentValueOption[] | undefined) {
+  return (options ?? [])
+    .map((option) =>
+      String(option.value) === option.label
+        ? option.label
+        : `${option.label}=${String(option.value)}`,
+    )
+    .join(', ')
+}
 
-  return {
-    ...entry,
-    options,
-    defaultValue: currentDefaultValid ? entry.defaultValue : options[0]?.value ?? '',
+function selectOptionsIssue(optionsText: string): string | null {
+  const parsed = parseOptions(optionsText)
+  if (parsed.length === 0) return '枚举至少需要一个选项'
+
+  const seen = new Set<string>()
+  for (const option of parsed) {
+    if (!option.label.trim()) return '枚举选项的标题不能为空'
+    const identity = `${typeof option.value}:${String(option.value)}`
+    if (seen.has(identity)) return `枚举选项值重复：${String(option.value)}`
+    seen.add(identity)
   }
+  return null
+}
+
+function resolveDefaultValue(
+  defaultValue: ComponentScalarValue,
+  options: readonly ComponentValueOption[],
+): ComponentScalarValue {
+  const valid = options.some((option) => option.value === defaultValue)
+  return valid ? defaultValue : options[0]?.value ?? ''
 }
 
 function ContractRowValueEditor({
@@ -225,6 +245,8 @@ type ContractRowDraft<T extends ContractRowEntry> = {
   originalKey: string | null
   draftKey: string
   entry: T
+  /** 枚举选项以草稿文本编辑，仅在默认值下拉和保存时解析，避免输入被回写重写 */
+  optionsText: string
 }
 
 type ContractRowTableProps<T extends ContractRowEntry> = {
@@ -257,9 +279,15 @@ export function ContractRowTable<T extends ContractRowEntry>({
 
   const records = Object.entries(entries)
   const draftKey = draft?.draftKey.trim() ?? ''
-  const draftKeyInvalid = Boolean(
-    draft && (!draftKey || (draftKey !== draft.originalKey && entries[draftKey])),
-  )
+  const saveBlockedReason = !draft
+    ? null
+    : !draftKey
+      ? '名称不能为空'
+      : draftKey !== draft.originalKey && entries[draftKey]
+        ? '名称与现有条目重复'
+        : draft.entry.kind === 'select'
+          ? selectOptionsIssue(draft.optionsText)
+          : null
 
   function updateEntry(key: string, entry: T) {
     onEntriesChange({ ...entries, [key]: entry })
@@ -267,22 +295,35 @@ export function ContractRowTable<T extends ContractRowEntry>({
 
   function startCreate() {
     const key = nextContractKey(keyPrefix, Object.keys(entries))
-    setDraft({ originalKey: null, draftKey: key, entry: createEntry(key) })
+    setDraft({ originalKey: null, draftKey: key, entry: createEntry(key), optionsText: '' })
   }
 
   function startEdit(key: string) {
-    setDraft({ originalKey: key, draftKey: key, entry: entries[key] })
+    setDraft({
+      originalKey: key,
+      draftKey: key,
+      entry: entries[key],
+      optionsText: formatOptions(entries[key].options),
+    })
   }
 
   function saveDraft() {
-    if (!draft || draftKeyInvalid) return
+    if (!draft || saveBlockedReason) return
 
     const key = draftKey
-    const entry = { ...draft.entry, title: key } as T
+    const options = draft.entry.kind === 'select'
+      ? parseOptions(draft.optionsText)
+      : draft.entry.options
+    const entry = {
+      ...draft.entry,
+      title: key,
+      options,
+      defaultValue: draft.entry.kind === 'select'
+        ? resolveDefaultValue(draft.entry.defaultValue, options ?? [])
+        : draft.entry.defaultValue,
+    } as T
 
-    if (draft.originalKey === null) {
-      onEntriesChange({ ...entries, [key]: entry })
-    } else if (draft.originalKey === key) {
+    if (draft.originalKey === null || draft.originalKey === key) {
       onEntriesChange({ ...entries, [key]: entry })
     } else {
       onEntriesChange(renameContractRecord(entries, draft.originalKey, key, entry))
@@ -299,7 +340,7 @@ export function ContractRowTable<T extends ContractRowEntry>({
             <ContractRowForm
               key={key}
               draft={draft}
-              draftKeyInvalid={draftKeyInvalid}
+              saveBlockedReason={saveBlockedReason}
               entryLabel={entryLabel}
               bindableOption={bindableOption}
               onDraftChange={setDraft}
@@ -312,9 +353,12 @@ export function ContractRowTable<T extends ContractRowEntry>({
         return (
           <div className="contract-row-item" key={key}>
             <div className="contract-row-display">
-              <span className="contract-row-name" title={entry.description || key}>
-                {key}
-              </span>
+              <div className="contract-row-info">
+                <span className="contract-row-name">{key}</span>
+                {entry.description && (
+                  <span className="contract-row-description">{entry.description}</span>
+                )}
+              </div>
               <div className="contract-row-value">
                 <ContractRowValueEditor
                   entry={entry}
@@ -328,26 +372,26 @@ export function ContractRowTable<T extends ContractRowEntry>({
               )}
               {!readOnly && (
                 <span className="contract-row-actions">
-                  <Button
-                    variant="ghost"
-                    size="small"
+                  <IconButton
                     className="contract-row-action"
+                    title={`编辑 ${key}`}
+                    aria-label={`编辑 ${key}`}
                     onClick={() => startEdit(key)}
                   >
-                    编辑
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="small"
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton
                     className="contract-row-action contract-row-action-danger"
+                    title={`删除 ${key}`}
+                    aria-label={`删除 ${key}`}
                     onClick={() => onEntriesChange(
                       Object.fromEntries(
                         Object.entries(entries).filter(([current]) => current !== key),
                       ),
                     )}
                   >
-                    删除
-                  </Button>
+                    <TrashIcon />
+                  </IconButton>
                 </span>
               )}
             </div>
@@ -358,7 +402,7 @@ export function ContractRowTable<T extends ContractRowEntry>({
       {draft?.originalKey === null && (
         <ContractRowForm
           draft={draft}
-          draftKeyInvalid={draftKeyInvalid}
+          saveBlockedReason={saveBlockedReason}
           entryLabel={entryLabel}
           bindableOption={bindableOption}
           onDraftChange={setDraft}
@@ -387,7 +431,7 @@ export function ContractRowTable<T extends ContractRowEntry>({
 
 function ContractRowForm<T extends ContractRowEntry>({
   draft,
-  draftKeyInvalid,
+  saveBlockedReason,
   entryLabel,
   bindableOption,
   onDraftChange,
@@ -395,7 +439,7 @@ function ContractRowForm<T extends ContractRowEntry>({
   onSave,
 }: {
   draft: ContractRowDraft<T>
-  draftKeyInvalid: boolean
+  saveBlockedReason: string | null
   entryLabel: string
   bindableOption?: {
     isBindable: (entry: T) => boolean
@@ -406,6 +450,9 @@ function ContractRowForm<T extends ContractRowEntry>({
   onSave: () => void
 }) {
   const entry = draft.entry
+  const formEntry = entry.kind === 'select'
+    ? { ...entry, options: parseOptions(draft.optionsText) }
+    : entry
 
   return (
     <form className="contract-row-form" onSubmit={(event) => { event.preventDefault(); onSave() }}>
@@ -431,6 +478,7 @@ function ContractRowForm<T extends ContractRowEntry>({
           onValueChange={(value) => onDraftChange({
             ...draft,
             entry: convertContractRowKind(entry, value as ComponentValueKind),
+            optionsText: '',
           })}
         />
       </label>
@@ -438,7 +486,7 @@ function ContractRowForm<T extends ContractRowEntry>({
       <label>
         <span>默认值</span>
         <ContractRowValueEditor
-          entry={entry}
+          entry={formEntry}
           entryLabel={entryLabel}
           disabled={false}
           onChange={(defaultValue) => onDraftChange({
@@ -464,13 +512,13 @@ function ContractRowForm<T extends ContractRowEntry>({
         <label className="contract-row-form-wide">
           <span>选项</span>
           <Input
-            value={formatOptions(entry.options)}
+            className="contract-row-options-input"
+            value={draft.optionsText}
             placeholder={OPTION_LIST_PLACEHOLDER}
             title={OPTION_LIST_HINT}
-            onChange={(event) => onDraftChange({
-              ...draft,
-              entry: applyOptionsText(entry, event.target.value),
-            })}
+            aria-label={`${entryLabel} 枚举选项`}
+            spellCheck={false}
+            onChange={(event) => onDraftChange({ ...draft, optionsText: event.target.value })}
           />
         </label>
       )}
@@ -495,8 +543,8 @@ function ContractRowForm<T extends ContractRowEntry>({
           variant="accent"
           size="small"
           type="submit"
-          disabled={draftKeyInvalid}
-          title={draftKeyInvalid ? '名称不能为空，且不能与现有条目重复' : undefined}
+          disabled={Boolean(saveBlockedReason)}
+          title={saveBlockedReason ?? undefined}
         >
           保存
         </Button>
