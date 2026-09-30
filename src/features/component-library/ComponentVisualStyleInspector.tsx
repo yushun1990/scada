@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CollapsibleInspectorGroup } from '../../components/CollapsibleInspectorGroup'
 import {
   TextAlignBottomIcon,
@@ -44,9 +44,18 @@ type ComponentVisualStyleInspectorProps = {
 }
 
 // The SVG source editor parses, serializes and renders one row per document
-// element, so mounting it costs O(SVG size). Deferring the mount to the next
-// idle slot keeps canvas pointer-down selection (and the start of a drag)
-// responsive; the panel content appears a moment later.
+// element, so mounting it costs O(SVG size). The mount is gated on pointer
+// quiet: every pointer/wheel event restarts the delay, so an active drag or
+// zoom never pays it — the panel appears shortly after the user stops
+// interacting. Updates for an already-mounted layer (drag commits) stay
+// immediate; its internals are memoized by content identity.
+const DEFERRED_SVG_EDITOR_MOUNT_DELAY_MS = 300
+const SVG_EDITOR_ACTIVITY_EVENTS: readonly (keyof DocumentEventMap)[] = [
+  'pointerdown',
+  'pointermove',
+  'wheel',
+]
+
 function DeferredSvgSourceEditor({
   layer,
   readOnly,
@@ -57,33 +66,44 @@ function DeferredSvgSourceEditor({
   onChange: (layer: SvgVisualLayer) => void
 }) {
   const [mountedLayer, setMountedLayer] = useState<SvgVisualLayer | null>(null)
+  const mountedLayerIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-    const mount = () => {
-      if (!cancelled) {
-        setMountedLayer(layer)
+    // Already showing this layer: apply updates immediately. Heavy work only
+    // happens when a different (or the first) SVG layer opens the editor.
+    if (mountedLayerIdRef.current === layer.id) {
+      setMountedLayer(layer)
+      return
+    }
+
+    let timer = -1
+
+    const schedule = () => {
+      if (timer !== -1) {
+        window.clearTimeout(timer)
       }
+
+      timer = window.setTimeout(() => {
+        timer = -1
+        mountedLayerIdRef.current = layer.id
+        setMountedLayer(layer)
+      }, DEFERRED_SVG_EDITOR_MOUNT_DELAY_MS)
+    }
+    const onActivity = () => schedule()
+
+    for (const type of SVG_EDITOR_ACTIVITY_EVENTS) {
+      document.addEventListener(type, onActivity, { capture: true })
     }
 
-    let idleId = -1
-    let timeoutId = -1
-
-    if (typeof requestIdleCallback === 'function') {
-      idleId = requestIdleCallback(mount, { timeout: 600 })
-    } else {
-      timeoutId = window.setTimeout(mount, 150)
-    }
+    schedule()
 
     return () => {
-      cancelled = true
-
-      if (idleId !== -1 && typeof cancelIdleCallback === 'function') {
-        cancelIdleCallback(idleId)
+      if (timer !== -1) {
+        window.clearTimeout(timer)
       }
 
-      if (timeoutId !== -1) {
-        window.clearTimeout(timeoutId)
+      for (const type of SVG_EDITOR_ACTIVITY_EVENTS) {
+        document.removeEventListener(type, onActivity, { capture: true })
       }
     }
   }, [layer])
