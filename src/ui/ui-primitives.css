@@ -414,6 +414,47 @@
   visibility: hidden;
 }
 
+/* Radio ------------------------------------------------------------------- */
+.ui-radio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: 50%;
+  background: var(--ui-color-surface);
+  cursor: pointer;
+}
+
+.ui-radio[data-checked] {
+  border-color: var(--ui-color-accent);
+}
+
+.ui-radio[data-disabled] {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface-subtle);
+  cursor: not-allowed;
+}
+
+.ui-radio:focus-visible {
+  outline: 2px solid var(--ui-color-accent);
+  outline-offset: 2px;
+}
+
+.ui-radio-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ui-color-accent);
+  visibility: hidden;
+}
+
+.ui-radio[data-checked] .ui-radio-indicator {
+  visibility: visible;
+}
+
 /* Select ------------------------------------------------------------------ */
 .ui-select-trigger {
   display: inline-flex;

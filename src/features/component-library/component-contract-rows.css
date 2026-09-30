@@ -136,6 +136,15 @@
   grid-column: 1 / -1;
 }
 
+/* 说明标签与多行文本第一行对齐 */
+.contract-row-form .contract-row-form-description {
+  align-items: flex-start;
+}
+
+.contract-row-form .contract-row-form-description > span {
+  padding-top: 6px;
+}
+
 /* 说明为多行文本控件 */
 .contract-row-form textarea {
   min-height: 46px;
@@ -162,25 +171,34 @@
   font-size: var(--ui-font-size-status);
 }
 
-/* 枚举选项结构化编辑：行首圆点标记默认值；key/value 占位符表意；+/− 行操作 */
-.contract-row-enum-editor {
+/* 枚举选项：与“选项”标签同一行的 radio 三元组 + 图标增删 */
+.contract-row-enum-field {
   display: grid;
-  gap: 5px;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
 }
 
-.contract-row-enum-title {
+.contract-row-enum-label {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-status);
 }
 
 .contract-row-enum-rows {
+  min-width: 0;
+}
+
+.ui-radio-group.contract-row-enum-rows {
   display: grid;
   gap: 4px;
-  padding-left: 52px;
 }
 
 .contract-row-enum-row {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px;
   min-width: 0;
@@ -192,27 +210,7 @@
 }
 
 .contract-row-enum-row .contract-row-enum-value {
-  flex: 0 1 36%;
-}
-
-.contract-row-enum-mark {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 0;
-  color: var(--ui-color-text-subtle);
-  font-size: 12px;
-  line-height: 1;
-}
-
-.contract-row-enum-mark.is-default {
-  color: var(--ui-color-accent);
-}
-
-.contract-row-enum-mark:hover {
-  background: transparent;
-  color: var(--ui-color-accent);
+  flex: 0 1 34%;
 }
 
 .contract-row-enum-op {
@@ -220,11 +218,12 @@
   width: 20px;
   height: 20px;
   padding: 0;
-  border: 0;
   color: var(--ui-color-text-subtle);
-  font-size: var(--ui-font-size-status);
-  font-weight: 700;
-  line-height: 1;
+}
+
+.contract-row-enum-op svg {
+  width: 12px;
+  height: 12px;
 }
 
 .contract-row-enum-op:hover {

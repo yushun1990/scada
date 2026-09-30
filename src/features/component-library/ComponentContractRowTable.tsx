@@ -10,10 +10,12 @@ import {
   IconButton,
   Input,
   NumberInput,
+  RadioGroup,
+  RadioItem,
   Select,
   Textarea,
 } from '../../ui'
-import { EditIcon, TrashIcon } from '../../components/toolbar-icons'
+import { EditIcon, MinusIcon, PlusIcon, TrashIcon } from '../../components/toolbar-icons'
 import { ColorPickerInput } from './ColorPickerInput'
 import './component-contract-rows.css'
 
@@ -112,10 +114,9 @@ function parseOptionValue(value: string): string | number {
 }
 
 function enumRowsFromEntry(options: readonly ComponentValueOption[] | undefined) {
-  // 值=标签的选项在界面上展示为“值留空”，留空即代表无索引（key=标签）
   return (options ?? []).map((option) => ({
     label: option.label,
-    value: String(option.value) === option.label ? '' : String(option.value),
+    value: String(option.value),
   }))
 }
 
@@ -475,9 +476,15 @@ function ContractRowForm<T extends ContractRowEntry>({
   function updateEnumOption(index: number, patch: Partial<ContractEnumOptionDraft>) {
     onDraftChange({
       ...draft,
-      enumOptions: draft.enumOptions.map((option, currentIndex) =>
-        currentIndex === index ? { ...option, ...patch } : option,
-      ),
+      enumOptions: draft.enumOptions.map((option, currentIndex) => {
+        if (currentIndex !== index) return option
+        const next = { ...option, ...patch }
+        // 填写 key 时，空 value（或仍等于旧 key 的同步态）自动跟随 key
+        if (patch.label !== undefined && (option.value === '' || option.value === option.label)) {
+          next.value = patch.label
+        }
+        return next
+      }),
     })
   }
 
@@ -546,61 +553,55 @@ function ContractRowForm<T extends ContractRowEntry>({
       )}
 
       {entry.kind === 'select' && (
-        <div className="contract-row-form-wide contract-row-enum-editor">
-          <span className="contract-row-enum-title">选项（行首圆点标记默认值）</span>
-
+        <div className="contract-row-form-wide contract-row-enum-field">
+          <span className="contract-row-enum-label">选项</span>
           <div className="contract-row-enum-rows">
-            {draft.enumOptions.map((option, index) => (
-              <div className="contract-row-enum-row" key={index}>
-                <Button
-                  variant="ghost"
-                  size="small"
-                  className={`contract-row-enum-mark${draft.defaultOptionIndex === index ? ' is-default' : ''}`}
-                  title={draft.defaultOptionIndex === index ? '默认值' : '设为默认值'}
-                  aria-label={`设为默认值：${option.label || `选项 ${index + 1}`}`}
-                  aria-pressed={draft.defaultOptionIndex === index}
-                  onClick={() => onDraftChange({ ...draft, defaultOptionIndex: index })}
-                >
-                  {draft.defaultOptionIndex === index ? '●' : '○'}
-                </Button>
-                <Input
-                  value={option.label}
-                  placeholder="key"
-                  aria-label={`枚举选项 ${index + 1} key`}
-                  spellCheck={false}
-                  onChange={(event) => updateEnumOption(index, { label: event.target.value })}
-                />
-                <Input
-                  className="contract-row-enum-value"
-                  value={option.value}
-                  placeholder="value（空=key）"
-                  aria-label={`枚举选项 ${index + 1} value`}
-                  spellCheck={false}
-                  onChange={(event) => updateEnumOption(index, { value: event.target.value })}
-                />
-                <Button
-                  variant="ghost"
-                  size="small"
-                  className="contract-row-enum-op"
-                  title="在下方插入选项"
-                  aria-label={`在选项 ${index + 1} 下方插入选项`}
-                  onClick={() => insertEnumOptionAfter(index)}
-                >
-                  +
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="small"
-                  className="contract-row-enum-op contract-row-enum-op-minus"
-                  title={draft.enumOptions.length <= 1 ? '至少保留一个选项' : '删除此选项'}
-                  aria-label={`删除选项 ${index + 1}`}
-                  disabled={draft.enumOptions.length <= 1}
-                  onClick={() => removeEnumOption(index)}
-                >
-                  −
-                </Button>
-              </div>
-            ))}
+            <RadioGroup
+              value={draft.defaultOptionIndex}
+              ariaLabel="默认枚举选项"
+              onValueChange={(index) => onDraftChange({ ...draft, defaultOptionIndex: index })}
+            >
+              {draft.enumOptions.map((option, index) => (
+                <div className="contract-row-enum-row" key={index}>
+                  <RadioItem
+                    value={index}
+                    ariaLabel={`设为默认值：${option.label || `选项 ${index + 1}`}`}
+                  />
+                  <Input
+                    value={option.label}
+                    placeholder="key"
+                    aria-label={`枚举选项 ${index + 1} key`}
+                    spellCheck={false}
+                    onChange={(event) => updateEnumOption(index, { label: event.target.value })}
+                  />
+                  <Input
+                    className="contract-row-enum-value"
+                    value={option.value}
+                    placeholder="value（空=key）"
+                    aria-label={`枚举选项 ${index + 1} value`}
+                    spellCheck={false}
+                    onChange={(event) => updateEnumOption(index, { value: event.target.value })}
+                  />
+                  <IconButton
+                    className="contract-row-enum-op"
+                    title="在下方插入选项"
+                    aria-label={`在选项 ${index + 1} 下方插入选项`}
+                    onClick={() => insertEnumOptionAfter(index)}
+                  >
+                    <PlusIcon />
+                  </IconButton>
+                  <IconButton
+                    className="contract-row-enum-op contract-row-enum-op-minus"
+                    title={draft.enumOptions.length <= 1 ? '至少保留一个选项' : '删除此选项'}
+                    aria-label={`删除选项 ${index + 1}`}
+                    disabled={draft.enumOptions.length <= 1}
+                    onClick={() => removeEnumOption(index)}
+                  >
+                    <MinusIcon />
+                  </IconButton>
+                </div>
+              ))}
+            </RadioGroup>
           </div>
         </div>
       )}

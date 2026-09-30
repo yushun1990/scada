@@ -33,20 +33,23 @@ inspector's ordinary attribute rows.
   label. No schema change; `ComponentAttributeDefinition.title` remains
   required and keeps legacy authored titles untouched unless the entry is
   renamed.
-- Enum options are configured through a structured editor: one row per
-  option — a dot marker (●/○) that marks the default in place, a `key`
-  input, a `value（空=key）` input, and `+`/`−` row buttons (insert
-  below / delete; at least one row always exists, the 枚举 type seeds
-  one). An empty value means key = label (无索引); a filled value
-  (number or any text key) makes the option indexed — no explicit mode
-  switch. Saved-row dropdowns show `标签 · 值` when the two differ and
-  the label alone when they are equal. At save time the definition
-  validation contract is enforced up front: at least one option,
-  non-empty labels, no duplicate values (保存 stays disabled with the
-  reason as its tooltip; fully blank rows are ignored). The marked
-  row's value becomes the default; deleting the marked row moves the
-  mark to the first row. 说明 edits in a two-row textarea at the tail
-  of the form; non-enum kinds keep a wide 默认值 field.
+- Enum options are configured through a structured editor aligned with
+  the 选项 label on one line: each option row is one radio triplet —
+  radio (marks the default) + `key` input + `value（空=key）` input —
+  plus shared icon insert/delete buttons, all on a single row. Typing a
+  key auto-syncs an empty value to the key (a bare option visibly shows
+  value = key; a manually edited value is never overwritten); a filled
+  value (number or any text key) makes the option indexed — no explicit
+  mode switch. At least one row always exists (the 枚举 type seeds one;
+  delete is disabled on the last row). Saved-row dropdowns show
+  `标签 · 值` when the two differ and the label alone when they are
+  equal. At save time the definition validation contract is enforced up
+  front: at least one option, non-empty labels, no duplicate values
+  (保存 stays disabled with the reason as its tooltip; fully blank rows
+  are ignored). The marked row's value becomes the default; deleting
+  the marked row moves the mark to the first row. 说明 edits in a
+  two-row textarea at the tail of the form with its label aligned to
+  the first text line; non-enum kinds keep a wide 默认值 field.
 - 运行属性 keeps the M9A2 authority: only the Property editor offers
   允许 SCADA 数据绑定 (form checkbox, saved-row 绑定 badge); the
   Attribute editor has no bindable control.
@@ -94,18 +97,34 @@ Round 3 removed the explicit 枚举形式 tabs and polished the form:
 Round 4 merged the default value into the option list:
 
 10. For enum entries there is no separate 默认值 field: each option row
-    starts with a dot marker (● default / ○ not) that marks the default
-    in place. Deleting the marked row moves the mark to the first row;
-    at save the marked row's materialized value becomes the default
-    (falling back to the first option).
+    starts with a dot marker that marks the default in place. Deleting
+    the marked row moves the mark to the first row; at save the marked
+    row's materialized value becomes the default (falling back to the
+    first option).
 11. The 标签/值 caption row is gone — the two inputs identify
     themselves through placeholders (`key` and `value（空=key）`).
 12. Selecting the 枚举 type seeds one empty option row (an enum always
-    has at least one). Each row ends with `+` (insert a row below it)
-    and `−` (delete the row; disabled with 至少保留一个选项 when only
-    one row remains) instead of a trailing global add button.
+    has at least one). Each row ends with insert/delete buttons instead
+    of a trailing global add button.
 13. 说明 moved to the tail of the form (after the option list and the
     bindable checkbox). Non-enum kinds keep 默认值 as a wide field.
+
+Round 5 refined the option row into a labelled radio triplet:
+
+14. The 选项 label sits on the same line as the option list (46px label
+    column like every other form field); the explanatory suffix
+    （行首圆点标记默认值） is gone.
+15. The default marker is a real radio button: a new `RadioGroup` /
+    `RadioItem` primitive over Base UI Radio renders one triplet per
+    row — radio + key + value + insert/delete — kept on a single line.
+    The insert/delete buttons are shared icon buttons
+    (`PlusIcon`/`MinusIcon` added to the toolbar icon set) matching the
+    editor's icon language.
+16. Typing a key auto-syncs an empty (or still-synced) value to the key
+    content, so a bare option visibly shows value = key; a manually
+    edited value is never overwritten.
+17. The 说明 label aligns with the first line of its textarea instead
+    of centering against the whole control.
 
 ## Changes
 
@@ -116,6 +135,11 @@ Round 4 merged the default value into the option list:
   record rename with title sync, bindable-column hook, and save
   validation (non-empty, unique key). Editing state is local; commits go
   through one `onEntriesChange` callback.
+- `src/ui/Radio.tsx` (new) — `RadioGroup` / `RadioItem` primitives over
+  Base UI Radio with `.ui-radio` styles in `ui-primitives.css`, used for
+  marking the default enum option.
+- `src/components/toolbar-icons.tsx` — `PlusIcon` / `MinusIcon` added to
+  the shared icon set for per-row insert/delete.
 - `src/features/component-library/component-contract-rows.css` (new) —
   compact token-based styles for the saved row and the form.
 - `src/features/component-library/ComponentAttributeContractEditor.tsx`
