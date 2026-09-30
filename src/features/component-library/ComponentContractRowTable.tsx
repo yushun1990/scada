@@ -10,9 +10,10 @@ import {
   IconButton,
   Input,
   NumberInput,
+  SegmentedControl,
   Select,
 } from '../../ui'
-import { EditIcon, TrashIcon } from '../../components/toolbar-icons'
+import { CloseIcon, EditIcon, TrashIcon } from '../../components/toolbar-icons'
 import { ColorPickerInput } from './ColorPickerInput'
 import './component-contract-rows.css'
 
@@ -31,6 +32,9 @@ export type ContractRowEntry = {
   options?: readonly ComponentValueOption[]
 }
 
+type ContractEnumMode = 'bare' | 'indexed'
+type ContractEnumOptionDraft = { label: string; value: string }
+
 const CONTRACT_VALUE_KIND_LABELS: Record<ComponentValueKind, string> = {
   string: '文本',
   number: '数字',
@@ -43,9 +47,10 @@ const CONTRACT_VALUE_KIND_OPTIONS = Object.entries(CONTRACT_VALUE_KIND_LABELS).m
   ([value, label]) => ({ value, label }),
 )
 
-const OPTION_LIST_PLACEHOLDER = 'run, stop, alarm 或 run=1, stop=2'
-const OPTION_LIST_HINT =
-  '选项用逗号分隔；每项可写 标签=值，或只写标签（值=标签）；纯数字值保存为 number；枚举至少需要一个选项且值不能重复'
+const CONTRACT_ENUM_MODE_ITEMS: Array<{ value: ContractEnumMode; label: string }> = [
+  { value: 'bare', label: '无索引' },
+  { value: 'indexed', label: '带索引' },
+]
 
 function nextContractKey(prefix: string, keys: readonly string[]) {
   const keySet = new Set(keys)
@@ -112,49 +117,64 @@ function parseOptionValue(value: string): string | number {
   return trimmed
 }
 
-/**
- * 枚举选项解析：逗号分隔；每项 `标题=值` 或只写标签（值=标签）。
- * 与 definition validation 一致：至少一项、标签非空、值不重复。
- */
-function parseOptions(value: string): ComponentValueOption[] {
-  return value
-    .split(/[，,]/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const separator = part.indexOf('=')
-      const label = separator >= 0 ? part.slice(0, separator).trim() : part
-      const rawValue = separator >= 0 ? part.slice(separator + 1) : part
-
-      return {
-        label: label || rawValue.trim(),
-        value: parseOptionValue(rawValue),
-      }
-    })
+function enumRowsFromEntry(options: readonly ComponentValueOption[] | undefined) {
+  const rows = (options ?? []).map((option) => ({
+    label: option.label,
+    value: String(option.value),
+  }))
+  const bare = rows.length > 0 && rows.every((row) => row.value === row.label)
+  return { mode: (bare ? 'bare' : 'indexed') as ContractEnumMode, rows }
 }
 
-function formatOptions(options: readonly ComponentValueOption[] | undefined) {
-  return (options ?? [])
-    .map((option) =>
-      String(option.value) === option.label
-        ? option.label
-        : `${option.label}=${String(option.value)}`,
-    )
-    .join(', ')
+/** 完全空白的行在保存时静默忽略 */
+function meaningfulEnumRows(rows: readonly ContractEnumOptionDraft[]) {
+  return rows.filter((row) => row.label.trim() || row.value.trim())
 }
 
-function selectOptionsIssue(optionsText: string): string | null {
-  const parsed = parseOptions(optionsText)
-  if (parsed.length === 0) return '枚举至少需要一个选项'
+function materializeEnumRows(
+  mode: ContractEnumMode,
+  rows: readonly ContractEnumOptionDraft[],
+): ComponentValueOption[] {
+  return meaningfulEnumRows(rows).map((row) => {
+    const label = row.label.trim()
+    const rawValue = mode === 'bare' ? label : row.value.trim()
+    return { label, value: parseOptionValue(rawValue) }
+  })
+}
+
+/** 与 definition validation 一致：至少一项、标签/值非空、值不重复 */
+function enumOptionsIssue(
+  mode: ContractEnumMode,
+  rows: readonly ContractEnumOptionDraft[],
+): string | null {
+  const meaningful = meaningfulEnumRows(rows)
+  if (meaningful.length === 0) return '枚举至少需要一个选项'
+
+  for (const row of meaningful) {
+    if (!row.label.trim()) return '枚举选项的标签不能为空'
+    if (mode === 'indexed' && !row.value.trim()) return '枚举选项的值不能为空'
+  }
 
   const seen = new Set<string>()
-  for (const option of parsed) {
-    if (!option.label.trim()) return '枚举选项的标题不能为空'
+  for (const option of materializeEnumRows(mode, rows)) {
     const identity = `${typeof option.value}:${String(option.value)}`
     if (seen.has(identity)) return `枚举选项值重复：${String(option.value)}`
     seen.add(identity)
   }
   return null
+}
+
+function previewEnumOptions(
+  mode: ContractEnumMode,
+  rows: readonly ContractEnumOptionDraft[],
+): ComponentValueOption[] {
+  return meaningfulEnumRows(rows)
+    .filter((row) => row.label.trim())
+    .map((row) => {
+      const label = row.label.trim()
+      const rawValue = mode === 'bare' ? label : row.value.trim() || label
+      return { label, value: parseOptionValue(rawValue) }
+    })
 }
 
 function resolveDefaultValue(
@@ -245,8 +265,9 @@ type ContractRowDraft<T extends ContractRowEntry> = {
   originalKey: string | null
   draftKey: string
   entry: T
-  /** 枚举选项以草稿文本编辑，仅在默认值下拉和保存时解析，避免输入被回写重写 */
-  optionsText: string
+  /** 枚举选项逐项编辑；无索引=值=标签，带索引=每项 标签+值 */
+  enumMode: ContractEnumMode
+  enumOptions: ContractEnumOptionDraft[]
 }
 
 type ContractRowTableProps<T extends ContractRowEntry> = {
@@ -286,7 +307,7 @@ export function ContractRowTable<T extends ContractRowEntry>({
       : draftKey !== draft.originalKey && entries[draftKey]
         ? '名称与现有条目重复'
         : draft.entry.kind === 'select'
-          ? selectOptionsIssue(draft.optionsText)
+          ? enumOptionsIssue(draft.enumMode, draft.enumOptions)
           : null
 
   function updateEntry(key: string, entry: T) {
@@ -295,15 +316,23 @@ export function ContractRowTable<T extends ContractRowEntry>({
 
   function startCreate() {
     const key = nextContractKey(keyPrefix, Object.keys(entries))
-    setDraft({ originalKey: null, draftKey: key, entry: createEntry(key), optionsText: '' })
+    setDraft({
+      originalKey: null,
+      draftKey: key,
+      entry: createEntry(key),
+      enumMode: 'bare',
+      enumOptions: [],
+    })
   }
 
   function startEdit(key: string) {
+    const { mode, rows } = enumRowsFromEntry(entries[key].options)
     setDraft({
       originalKey: key,
       draftKey: key,
       entry: entries[key],
-      optionsText: formatOptions(entries[key].options),
+      enumMode: mode,
+      enumOptions: rows,
     })
   }
 
@@ -312,7 +341,7 @@ export function ContractRowTable<T extends ContractRowEntry>({
 
     const key = draftKey
     const options = draft.entry.kind === 'select'
-      ? parseOptions(draft.optionsText)
+      ? materializeEnumRows(draft.enumMode, draft.enumOptions)
       : draft.entry.options
     const entry = {
       ...draft.entry,
@@ -451,8 +480,31 @@ function ContractRowForm<T extends ContractRowEntry>({
 }) {
   const entry = draft.entry
   const formEntry = entry.kind === 'select'
-    ? { ...entry, options: parseOptions(draft.optionsText) }
+    ? { ...entry, options: previewEnumOptions(draft.enumMode, draft.enumOptions) }
     : entry
+
+  function updateEnumOption(index: number, patch: Partial<ContractEnumOptionDraft>) {
+    onDraftChange({
+      ...draft,
+      enumOptions: draft.enumOptions.map((option, currentIndex) =>
+        currentIndex === index ? { ...option, ...patch } : option,
+      ),
+    })
+  }
+
+  function switchEnumMode(mode: ContractEnumMode) {
+    if (mode === draft.enumMode) return
+    onDraftChange({
+      ...draft,
+      enumMode: mode,
+      enumOptions: mode === 'indexed'
+        ? draft.enumOptions.map((option) => ({
+          label: option.label,
+          value: option.value.trim() || option.label.trim(),
+        }))
+        : draft.enumOptions,
+    })
+  }
 
   return (
     <form className="contract-row-form" onSubmit={(event) => { event.preventDefault(); onSave() }}>
@@ -478,7 +530,8 @@ function ContractRowForm<T extends ContractRowEntry>({
           onValueChange={(value) => onDraftChange({
             ...draft,
             entry: convertContractRowKind(entry, value as ComponentValueKind),
-            optionsText: '',
+            enumMode: 'bare',
+            enumOptions: [],
           })}
         />
       </label>
@@ -509,18 +562,69 @@ function ContractRowForm<T extends ContractRowEntry>({
       </label>
 
       {entry.kind === 'select' && (
-        <label className="contract-row-form-wide">
-          <span>选项</span>
-          <Input
-            className="contract-row-options-input"
-            value={draft.optionsText}
-            placeholder={OPTION_LIST_PLACEHOLDER}
-            title={OPTION_LIST_HINT}
-            aria-label={`${entryLabel} 枚举选项`}
-            spellCheck={false}
-            onChange={(event) => onDraftChange({ ...draft, optionsText: event.target.value })}
-          />
-        </label>
+        <div className="contract-row-form-wide contract-row-enum-editor">
+          <div className="contract-row-enum-mode">
+            <span className="contract-row-enum-mode-label">枚举形式</span>
+            <SegmentedControl
+              value={draft.enumMode}
+              ariaLabel="枚举形式"
+              items={CONTRACT_ENUM_MODE_ITEMS}
+              onValueChange={switchEnumMode}
+            />
+            <span className="contract-row-enum-mode-hint">
+              {draft.enumMode === 'bare'
+                ? '仅填标签，值=标签'
+                : '每项填 标签+值，值可为数字或任意文本'}
+            </span>
+          </div>
+
+          <div className="contract-row-enum-rows">
+            {draft.enumOptions.map((option, index) => (
+              <div className="contract-row-enum-row" key={index}>
+                <Input
+                  value={option.label}
+                  placeholder="标签"
+                  aria-label={`枚举选项 ${index + 1} 标签`}
+                  spellCheck={false}
+                  onChange={(event) => updateEnumOption(index, { label: event.target.value })}
+                />
+                {draft.enumMode === 'indexed' && (
+                  <Input
+                    className="contract-row-enum-value"
+                    value={option.value}
+                    placeholder="值"
+                    aria-label={`枚举选项 ${index + 1} 值`}
+                    spellCheck={false}
+                    onChange={(event) => updateEnumOption(index, { value: event.target.value })}
+                  />
+                )}
+                <IconButton
+                  className="contract-row-enum-remove"
+                  title={`删除选项 ${index + 1}`}
+                  aria-label={`删除选项 ${index + 1}`}
+                  onClick={() => onDraftChange({
+                    ...draft,
+                    enumOptions: draft.enumOptions.filter((_, currentIndex) => currentIndex !== index),
+                  })}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </div>
+            ))}
+
+            <Button
+              variant="ghost"
+              size="small"
+              className="contract-row-enum-add"
+              onClick={() => onDraftChange({
+                ...draft,
+                enumOptions: [...draft.enumOptions, { label: '', value: '' }],
+              })}
+            >
+              + 添加选项
+            </Button>
+          </div>
+        </div>
       )}
 
       {bindableOption && (

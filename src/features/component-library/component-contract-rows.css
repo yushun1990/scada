@@ -25,11 +25,12 @@
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: baseline;
+  gap: 10px;
 }
 
 .contract-row-name {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -41,7 +42,9 @@
   line-height: 1.3;
 }
 
+/* 说明内联填在名称与值控件之间，不再留出大片空白 */
 .contract-row-description {
+  flex: 1 1 40px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -147,6 +150,79 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  font-size: var(--ui-font-size-status);
+}
+
+/* 枚举选项结构化编辑：枚举形式（无索引/带索引）+ 逐项添加 */
+.contract-row-enum-editor {
+  display: grid;
+  gap: 6px;
+}
+
+.contract-row-enum-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.contract-row-enum-mode-label {
+  flex: 0 0 46px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-status);
+}
+
+.contract-row-enum-mode-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-status);
+}
+
+.contract-row-enum-rows {
+  display: grid;
+  gap: 4px;
+  padding-left: 52px;
+}
+
+.contract-row-enum-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.contract-row-enum-row .ui-input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.contract-row-enum-row .contract-row-enum-value {
+  flex: 0 1 38%;
+}
+
+.contract-row-enum-remove {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  color: var(--ui-color-text-subtle);
+}
+
+.contract-row-enum-remove svg {
+  width: 12px;
+  height: 12px;
+}
+
+.contract-row-enum-remove:hover {
+  color: var(--ui-color-danger);
+  background: var(--ui-color-surface-subtle);
+}
+
+.contract-row-enum-add {
+  justify-self: start;
+  padding: 2px 6px;
   font-size: var(--ui-font-size-status);
 }
 
