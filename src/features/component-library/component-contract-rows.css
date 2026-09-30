@@ -1,0 +1,146 @@
+/* 公共合同（静态属性 / 运行属性）紧凑行：
+   保存后 = 名称 + 按类型的值控件 + [绑定] + 编辑/删除；
+   添加/编辑 = 带标签的紧凑表单（名称/类型/默认值/说明/枚举选项）。 */
+.contract-row-list {
+  min-width: 0;
+}
+
+.contract-row-list.has-items {
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.contract-row-item {
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.contract-row-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 3px 0;
+}
+
+.contract-row-name {
+  flex: 1 1 84px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ui-color-text);
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-font-size-status);
+  font-weight: 600;
+}
+
+.contract-row-value {
+  flex: 1 1 110px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.contract-row-value > .ui-input,
+.contract-row-value > .component-color-input-row,
+.contract-row-value > .ui-select-trigger,
+.contract-row-value > .ui-checkbox-field {
+  width: 100%;
+}
+
+.contract-row-badge {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 3px;
+  color: var(--ui-color-accent-pressed);
+  background: var(--ui-color-accent-soft);
+  font-size: var(--ui-font-size-status);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.contract-row-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.contract-row-action {
+  padding: 2px 5px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-status);
+}
+
+.contract-row-action:hover {
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface-subtle);
+}
+
+.contract-row-action-danger:hover {
+  color: var(--ui-color-danger);
+}
+
+/* 添加 / 编辑表单 */
+.contract-row-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 8px 8px 10px;
+  border-bottom: 1px solid var(--ui-color-border);
+  border-left: 2px solid var(--ui-color-accent);
+  background: var(--ui-color-surface-subtle);
+}
+
+.contract-row-form label {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.contract-row-form label > span {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-status);
+}
+
+.contract-row-form-wide {
+  grid-column: 1 / -1;
+}
+
+.contract-row-name-input {
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-font-size-status);
+}
+
+.contract-row-toggle {
+  gap: 5px;
+  font-size: var(--ui-font-size-status);
+}
+
+.contract-row-form-bindable {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--ui-font-size-status);
+}
+
+.contract-row-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.contract-row-empty {
+  padding: 8px 2px;
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-status);
+}
+
+.contract-row-add {
+  margin-top: 6px;
+}
