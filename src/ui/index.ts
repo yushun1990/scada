@@ -1,5 +1,6 @@
 export { Button, type StudioButtonProps, type StudioButtonVariant } from './Button'
 export { Checkbox, type CheckboxProps } from './Checkbox'
+export { RadioGroup, RadioItem, type RadioGroupProps, type RadioItemProps } from './Radio'
 export {
   DialogRoot,
   DialogTrigger,

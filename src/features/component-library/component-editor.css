@@ -1925,88 +1925,8 @@
 }
 
 /* Contract Items when populated */
-.component-definition-page .property-contract-list {
-  display: grid;
-  gap: 0;
-  border-radius: 0;
-  background: transparent;
-  margin-bottom: 6px;
-}
-
-.component-definition-page .property-contract-list:has(.property-contract-item),
-.component-definition-page .property-contract-list.has-items {
-  border-top: 1px solid var(--ui-color-border);
-}
-
-.component-definition-page .property-contract-item + .contract-add-button,
 .component-definition-page .contract-empty + .contract-add-button {
   margin-top: 8px;
-}
-
-.component-definition-page .property-contract-item {
-  border-bottom: 1px solid var(--ui-color-border);
-}
-
-.component-definition-page .property-contract-summary {
-  min-height: 29px;
-  padding: 3px 4px;
-  gap: 6px;
-  background: transparent;
-  transition: background 120ms ease;
-}
-
-.component-definition-page .property-contract-summary:hover {
-  background: var(--ui-color-surface-subtle);
-}
-
-.component-definition-page .property-contract-identity strong {
-  font-size: var(--ui-font-size-tool);
-}
-
-.component-definition-page .property-contract-detail {
-  padding: 6px 8px 10px;
-  background: var(--ui-color-surface-subtle);
-  border-top: 1px solid var(--ui-color-border);
-  border-left: 2px solid var(--ui-color-accent);
-}
-
-.component-definition-page .property-contract-detail .contract-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 14px;
-}
-
-.component-definition-page .property-contract-detail .contract-grid label,
-.component-definition-page .property-contract-detail .contract-block-field {
-  display: grid;
-  gap: 3px;
-}
-
-.component-definition-page .property-contract-detail .contract-grid label > span,
-.component-definition-page .property-contract-detail .contract-block-field > span {
-  font-size: var(--ui-font-size-status);
-  font-weight: 500;
-  color: var(--ui-color-text-secondary);
-}
-
-.component-definition-page .property-contract-detail .contract-grid input,
-.component-definition-page .property-contract-detail .contract-grid select,
-.component-definition-page .property-contract-detail .contract-block-field textarea {
-  height: var(--ui-control-height);
-  padding: 0 6px;
-  font-size: var(--ui-font-size-tool);
-  border-radius: var(--ui-radius-control);
-}
-
-.component-definition-page .property-contract-detail .contract-block-field textarea {
-  height: auto;
-  min-height: 48px;
-  padding: 4px 6px;
-}
-
-.component-definition-page .property-contract-detail-actions {
-  margin-top: 6px;
-  padding-top: 5px;
 }
 
 .component-definition-page > .component-contract-card {
@@ -2037,9 +1957,6 @@
   }
   .component-definition-page .property-grid.component-definition-size-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .component-definition-page .property-contract-detail .contract-grid {
-    grid-template-columns: 1fr;
   }
 }
 
