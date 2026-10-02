@@ -9,8 +9,10 @@
   `f8a060dc4255b6695ddecffa60493ade5d761c74` (`origin/main`, PR #220 merge).
   `git pull --ff-only origin main` returned `Already up to date` after fetch.
   The starting worktree was clean; the previous local branch was left intact.
-- Delivery head: the documentation commit and exact SHA are recorded in the
-  associated PR handoff. No production code differs from the audited head.
+- Architecture/documentation head:
+  `b2a473aa16313d5aade6c6db2c87e0d516d74026`. This follow-up adds the revision and
+  final link-count evidence only; the exact PR delivery head is recorded in its
+  description. No production code differs from the audited head.
 - Work item: `CIO-ARCH`; findings: `CIO-001`–`CIO-008` below.
 - Architecture sections: [ADR §§1–7](../architecture/adr-component-input-output-composition.md),
   [Component system](../architecture/component-system.md),
@@ -271,7 +273,7 @@ fixtures were run to check this baseline, not to claim new implementation:
 | `npm run build` | PASS, exit 0 — TypeScript + Vite, 656 modules. Existing chunk warning retained; main JS 915.25 kB / 298.34 kB gzip. This is a build observation, not a new performance budget or before/after claim. |
 | `npm run lint` | PASS, exit 0 — oxlint and all three UI authority checks. 27 existing oxlint warnings in unchanged source/scripts; no warning cleanup in this PR. |
 | `git diff --check` | PASS, exit 0 — no whitespace errors. |
-| `python3 /tmp/scada-cio-doc-check.py` | PASS, exit 0 — 15 Markdown-only files, balanced fences and 95 local links/anchors resolve. One-off local documentation check; no repository test added. |
+| `python3 /tmp/scada-cio-doc-check.py` | PASS, exit 0 — 15 Markdown-only files, balanced fences and 96 local links/anchors resolve. One-off local documentation check; no repository test added. |
 
 Exact delivery head is recorded in the PR handoff. No browser, deployment, new
 migration, security audit or performance acceptance is claimed by this
