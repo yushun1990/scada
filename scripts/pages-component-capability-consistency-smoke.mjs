@@ -36,14 +36,21 @@ try {
   const layerRow = page.locator('.component-layer-row', { hasText: 'r0-theme' })
   await layerRow.waitFor()
   await layerRow.click()
-  await page.locator('.component-property-panel')
-    .getByRole('tab', { name: '行为', exact: true })
-    .click()
-  await page.getByRole('button', {
-    name: '一键绑定声明式运行状态',
-    exact: true,
-  }).click()
-  await page.getByText(/未生成公开 Action/).waitFor()
+
+  // Layer 行为 tab: imported scada-theme-* classes surface as controlled-sandbox
+  // built-in functions (declarative theme capability, never public Actions).
+  const layerPanel = page.locator('.component-property-panel')
+  await layerPanel.getByRole('tab', { name: '行为', exact: true }).click()
+  await layerPanel.getByText(/个函数/).waitFor()
+  assert.ok(
+    (await layerPanel.locator('.component-method-badge').count()) >= 1,
+    'themed SVG layers offer built-in theme functions',
+  )
+  assert.equal(
+    await page.getByRole('button', { name: '+ 添加方法', exact: true }).count(),
+    0,
+    'layer functions must not expose public Action creation',
+  )
 
   await page.getByRole('button', { name: 'Coding 开发', exact: true }).click()
   await page.locator('.component-definition-title-display').click()
@@ -51,8 +58,13 @@ try {
   await page.locator('.component-definition-title-input').press('Enter')
 
   const definitionPage = page.locator('.component-definition-page')
-  await definitionPage.getByRole('tab', { name: '方法（未开放）', exact: true }).click()
-  await definitionPage.getByText(/当前可移植用户组件仅支持 Property 驱动/).waitFor()
+  await definitionPage.getByRole('tab', { name: '行为', exact: true }).click()
+  await definitionPage.getByText(/个组件函数/).waitFor()
+  assert.equal(
+    await definitionPage.getByRole('button', { name: '+ 新增', exact: true }).count(),
+    1,
+    'the behaviors tab hosts the private component function list',
+  )
   assert.equal(
     await page.getByRole('button', { name: '+ 添加方法', exact: true }).count(),
     0,
@@ -72,32 +84,15 @@ try {
   assert.equal(saved.document.status, 'draft')
   assert.deepEqual(saved.document.definition.actions, {})
   assert.deepEqual(saved.document.definition.events, {})
-  assert.equal(saved.document.definition.properties.state.kind, 'select')
-  assert.equal(saved.document.definition.properties.state.bindable, true)
-  assert.deepEqual(
-    saved.document.visual.rules
-      .filter((rule) => rule.target === 'svg.themeState')
-      .map((rule) => rule.compareValue),
-    ['running', 'alarm', 'warning', 'standby', 'offline'],
-  )
 
   const persisted = (await readPersistedComponent(page)).document
-  assert.equal(persisted.status, 'ready')
+  assert.equal(persisted.status, 'draft')
   assert.deepEqual(persisted.definition.actions, {})
   assert.deepEqual(persisted.definition.events, {})
 
-  await page.goto(`${baseUrl}#/works`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: '+ 新建作品', exact: true }).click()
-  await page.locator('.studio-shell.scada-studio-shell').waitFor()
-  assert.equal(
-    await page.locator('.component-item', { hasText: componentTitle }).count(),
-    1,
-    'the ready declarative component activates into the normal SCADA palette',
-  )
-
   assert.deepEqual(pageErrors, [])
   console.log(
-    'Component capability browser smoke passed: normal SVG authoring binds a Property plus private theme rules, exposes no portable Action/Event creation, saves ready, and activates into the SCADA palette.',
+    'Component capability browser smoke passed: themed SVG authoring exposes controlled-sandbox layer and component functions, no portable Action/Event creation, and saves a private-contract draft.',
   )
 } finally {
   await browser.close()

@@ -49,7 +49,8 @@ export type LayerMethodEditState = {
 type ComponentLayerMethodCodeModalProps = {
   editState: LayerMethodEditState | null
   readOnly: boolean
-  layer: ComponentVisualLayer
+  /** Preview layer; component-level methods may have no layer to preview. */
+  layer: ComponentVisualLayer | null
   liveCurrentTheme: string | null
   livePreviewAssetRef: string | null
   onClose: () => void
@@ -558,10 +559,10 @@ export function ComponentLayerMethodCodeModal({
                 )}
               </div>
               <div className="component-method-preview-viewport">
-                {livePreviewAssetRef || ('assetRef' in layer && layer.assetRef) ? (
+                {livePreviewAssetRef || (layer && 'assetRef' in layer && layer.assetRef) ? (
                   <img
-                    src={livePreviewAssetRef || ('assetRef' in layer ? layer.assetRef : '')}
-                    alt={layer.name}
+                    src={livePreviewAssetRef || (layer && 'assetRef' in layer ? layer.assetRef : '')}
+                    alt={layer?.name ?? 'preview'}
                     className="component-method-preview-image"
                   />
                 ) : (

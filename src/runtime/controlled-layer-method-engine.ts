@@ -25,6 +25,17 @@ export type LayerMethodSnapshotLayer = {
   visible: boolean
 }
 
+/**
+ * Identity of the `$self` object exposed to the sandbox. Layer methods run
+ * with the edited layer as `$self`; component-level methods run with the
+ * component itself as `$self` while `layers` still lists every visual layer.
+ */
+export type LayerMethodSelfContext = {
+  id: string
+  name: string
+  kind: string
+}
+
 export type LayerMethodRunResult = {
   ok: boolean
   message: string
@@ -130,7 +141,10 @@ function describeVmError(
   return String(dumped)
 }
 
-function buildPrelude(snapshot: readonly LayerMethodSnapshotLayer[]): string {
+function buildPrelude(
+  snapshot: readonly LayerMethodSnapshotLayer[],
+  self?: LayerMethodSelfContext,
+): string {
   const layerProxies = snapshot
     .map((layer) => {
       const json = JSON.stringify({
@@ -146,13 +160,17 @@ function buildPrelude(snapshot: readonly LayerMethodSnapshotLayer[]): string {
     })
     .join(',')
 
+  const selfIdentity = self ?? (snapshot.length > 0
+    ? { id: snapshot[0].id, name: snapshot[0].name, kind: snapshot[0].kind }
+    : { id: '', name: '', kind: '' })
+
   return `
     "use strict";
     const __layerProxies = [${layerProxies}];
     const $self = {
-      id: ${JSON.stringify(snapshot.length > 0 ? snapshot[0].id : '')},
-      name: ${JSON.stringify(snapshot.length > 0 ? snapshot[0].name : '')},
-      kind: ${JSON.stringify(snapshot.length > 0 ? snapshot[0].kind : '')},
+      id: ${JSON.stringify(selfIdentity.id)},
+      name: ${JSON.stringify(selfIdentity.name)},
+      kind: ${JSON.stringify(selfIdentity.kind)},
       get layers() { return __layerProxies; },
       setTheme(state) { return __op('setTheme', String(state)); },
       applyTheme(state) { return __op('setTheme', String(state)); },
@@ -189,6 +207,7 @@ export async function runLayerMethod(options: {
   method: Pick<SvgLayerMethodDefinition, 'name' | 'implementation' | 'parameters'>
   args: Record<string, unknown>
   layers: readonly LayerMethodSnapshotLayer[]
+  self?: LayerMethodSelfContext
   limits?: Partial<LayerMethodExecutionLimits>
 }): Promise<LayerMethodRunResult> {
   const startTime = Date.now()
@@ -257,7 +276,7 @@ export async function runLayerMethod(options: {
     ctx.setProp(ctx.global, '__op', hostOp)
     hostOp.dispose()
 
-    const preludeResult = ctx.evalCode(buildPrelude(options.layers))
+    const preludeResult = ctx.evalCode(buildPrelude(options.layers, options.self))
     if (preludeResult.error) {
       const message = describeVmError(ctx, preludeResult.error)
       preludeResult.dispose()

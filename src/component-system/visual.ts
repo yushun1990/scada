@@ -277,6 +277,24 @@ export const LAYER_METHOD_LIMITS = SVG_LAYER_METHOD_LIMITS
 export const isLayerMethodName = isSvgLayerMethodName
 export const assertLayerMethods = assertSvgLayerMethods
 
+/**
+ * Private component-level function. Same authority rules as layer methods:
+ * authored source may only execute through the controlled engine, persisted
+ * as component-private visual data and never part of the public Action/Event
+ * contract.
+ */
+export type ComponentMethodDefinition = SvgLayerMethodDefinition
+export const COMPONENT_METHOD_LIMITS = SVG_LAYER_METHOD_LIMITS
+export const isComponentMethodName = isSvgLayerMethodName
+
+/** Fail-closed validation for authored component-level methods. */
+export function assertComponentMethods(
+  methods: readonly ComponentMethodDefinition[],
+  label = 'Component methods',
+) {
+  assertSvgLayerMethods(methods, label)
+}
+
 export type SvgVisualLayer = VisualLayerBase & {
   kind: 'svg'
   assetRef: string
@@ -352,6 +370,8 @@ export type ComponentVisualDefinition = {
   layers: readonly ComponentVisualLayer[]
   rules?: readonly VisualRule[]
   animations: readonly VisualAnimation[]
+  /** Private authored component-level functions, executed only through the controlled engine. */
+  methods?: readonly ComponentMethodDefinition[]
 }
 
 const LAYER_KINDS = new Set<VisualLayerKind>([
@@ -824,9 +844,14 @@ export function assertComponentVisualDefinition(
     (value.mode !== 'native' && value.mode !== 'composite') ||
     !Array.isArray(value.layers) ||
     (value.rules !== undefined && !Array.isArray(value.rules)) ||
-    !Array.isArray(value.animations)
+    !Array.isArray(value.animations) ||
+    (value.methods !== undefined && !Array.isArray(value.methods))
   ) {
     throw new Error('Component visual definition 无效')
+  }
+
+  if (value.methods !== undefined) {
+    assertComponentMethods(value.methods)
   }
 
   assertDesignSize(value.designSize)
@@ -991,10 +1016,26 @@ export function createNativeVisual(): ComponentVisualDefinition {
   }
 }
 
+function cloneComponentMethods(
+  methods: readonly ComponentMethodDefinition[] | undefined,
+): ComponentMethodDefinition[] | undefined {
+  return methods
+    ? methods.map((m) => ({
+        ...m,
+        parameters: m.parameters
+          ? m.parameters.map((p) => ({
+              ...p,
+              options: p.options ? p.options.map((o) => ({ ...o })) : undefined,
+            }))
+          : undefined,
+      }))
+    : undefined
+}
+
 export function cloneComponentVisual(
   visual: ComponentVisualDefinition,
 ): ComponentVisualDefinition {
-  return {
+  const cloned: ComponentVisualDefinition = {
     version: COMPONENT_VISUAL_VERSION,
     mode: visual.mode,
     designSize: cloneDesignSize(visual.designSize),
@@ -1002,4 +1043,8 @@ export function cloneComponentVisual(
     rules: visual.rules?.map((rule) => ({ ...rule })) ?? [],
     animations: visual.animations.map(cloneAnimation),
   }
+  if (visual.methods) {
+    cloned.methods = cloneComponentMethods(visual.methods)
+  }
+  return cloned
 }

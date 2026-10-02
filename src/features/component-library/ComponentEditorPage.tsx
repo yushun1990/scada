@@ -55,6 +55,7 @@ import { HttpRemoteComponentRepository } from './remote-component-repository'
 import { ComponentVisualCanvas } from './ComponentVisualCanvas'
 import { ComponentVisualStyleInspector } from './ComponentVisualStyleInspector'
 import { ComponentLayerMethodInspector } from './ComponentLayerMethodInspector'
+import { ComponentMethodInspector } from './ComponentMethodInspector'
 import {
   ComponentVisualLayerInspector,
   ComponentVisualTreeEditor,
@@ -73,7 +74,7 @@ import {
 } from './storage'
 import './component-editor.css'
 
-type InspectorTab = 'properties' | 'actions' | 'events'
+type InspectorTab = 'properties' | 'behaviors' | 'events'
 type LayerInspectorTab = 'properties' | 'behaviors'
 type ComponentWorkPage = 'canvas' | 'definition'
 
@@ -84,13 +85,13 @@ const LAYER_INSPECTOR_TABS: Array<StudioTabItem<LayerInspectorTab>> = [
 
 const TRUSTED_INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
   { value: 'properties', label: '属性' },
-  { value: 'actions', label: '方法' },
+  { value: 'behaviors', label: '行为' },
   { value: 'events', label: '事件' },
 ]
 
 const PORTABLE_INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
   { value: 'properties', label: '属性' },
-  { value: 'actions', label: '方法（未开放）' },
+  { value: 'behaviors', label: '行为' },
   { value: 'events', label: '事件（未开放）' },
 ]
 
@@ -912,7 +913,7 @@ export function ComponentEditorPage({
 
             {!builtInReadOnly && !portableCapability.activatable && (
               <p className="component-inspector-help" role="status">
-                当前含有旧 Action/Event 声明，不能激活、导出或发布。请在“方法（未开放）”或“事件（未开放）”页删除这些声明。
+                当前含有旧 Action/Event 声明，不能激活、导出或发布。请在“行为”或“事件（未开放）”页删除这些声明。
               </p>
             )}
           </header>
@@ -984,14 +985,26 @@ export function ComponentEditorPage({
             </div>
           )}
 
-          {inspectorTab === 'actions' && (
-            <ComponentContractEditor
-              definition={definition}
-              readOnly={editingDisabled}
-              portableUser={!builtInReadOnly}
-              tab="actions"
-              onChange={updateDefinition}
-            />
+          {inspectorTab === 'behaviors' && (
+            <div className="property-section-list component-root-inspector-body">
+              {!builtInReadOnly && Object.keys(definition.actions).length > 0 && (
+                <ComponentContractEditor
+                  definition={definition}
+                  readOnly={editingDisabled}
+                  portableUser
+                  tab="actions"
+                  onChange={updateDefinition}
+                />
+              )}
+              <ComponentMethodInspector
+                visual={component.visual}
+                componentId={component.id}
+                componentTitle={definition.title}
+                readOnly={editingDisabled}
+                onApplied={setMessage}
+                onUpdateVisual={(nextVisual) => updatePackage('visual', nextVisual)}
+              />
+            </div>
           )}
 
           {inspectorTab === 'events' && (
