@@ -1,8 +1,12 @@
 # SCADA Binding and Component Behavior Direction
 
-Status: **design direction under evaluation; not yet a frozen runtime contract**.
-
-This note records the architectural direction reached while reviewing M6.5. It is intentionally written before further QuickJS integration so that implementation does not outrun the product model.
+This note originated as M6.5 design exploration. Current accepted
+Value/Behavior/Interaction and DSL contracts belong to [PLAN](../../PLAN.md) and
+[SCADA DSL v1](scada-dsl-v1.md); their implementation and M6–M9 acceptance are
+not reopened by the remaining exploratory sections below. Public discrete
+input/output and the later Scene authoring direction are refined by the
+`active` [Component input/output amendment](adr-component-input-output-composition.md).
+Old scheduling/checkpoints here cannot authorize new runtime or scripting work.
 
 The key correction is:
 
@@ -50,9 +54,10 @@ If a derived value has business meaning beyond the current SCADA presentation �
 A reusable component exposes:
 
 ```text
+Attributes  — authored static configuration
 Properties  — what the component currently represents
-Actions     — what the component can be asked to do
-Events      — what the component reports happened
+Actions     — typed discrete input intent / operation request
+Events      — typed discrete occurrence/output; no consumer response attached
 Anchors     — visual connection geometry
 ```
 
@@ -77,6 +82,11 @@ body fill change
 ```
 
 The scene author sees only `enterFault`, not the private layers or Visual Runtime targets.
+
+In this example `enterFault` requests a transient presentation transition; it
+does not write semantic `Property.fault` or prove a device fault occurred.
+Prefer Properties for sustained semantic input and Actions for discrete intent.
+The example is not an accepted portable user Action implementation capability.
 
 This preserves the established rule:
 
@@ -210,7 +220,10 @@ Action
 
 The implementation may have an AST/expression representation, but the user should normally choose variables, operators, values, component Actions, and device Actions directly from the UI.
 
-Data references and callable capabilities must be selected from known schemas/contracts. Textual forms such as `${...}` are useful as precise serialized/editor representations, but users should not be required to memorize or manually type identifiers.
+Data references, typed Action inputs and Event outputs must be selected from
+known schemas/contracts. Textual references remain useful authoring forms;
+current canonical persistence uses resolved structured semantics. Users should
+not be required to memorize or manually type identifiers.
 
 The editor should provide direct insertion via selection, search, click, or drag.
 
@@ -297,6 +310,12 @@ Update
 The scene/component behavior implementation should prefer "calculate what should happen" over arbitrary code directly mutating browser/renderer objects.
 
 Effects should remain explicit and host-executed.
+
+Message is **internal runtime vocabulary**. It does not replace public
+Action/Event names, merge their ownership, or make an Event definition contain
+the response to that Event. The update may change private transient state and
+produce effect requests; it cannot directly overwrite semantic Properties or
+authored Attributes. The host owns validation, publication and effects.
 
 ---
 
@@ -452,9 +471,12 @@ engine-neutral execution abstraction
 resource/host capability boundaries
 ```
 
-However, the architectural center should be reviewed before implementing a production QuickJS adapter.
+The editor-only Layer Operation engine is now a separate accepted controlled
+execution path; see [its amended scope](adr-proposal-controlled-layer-methods.md).
+It neither integrates the general script protocol nor supplies portable public
+Action/Event execution. Future runtime execution still requires its own ADR.
 
-The earlier shape:
+The earlier experimental shape (not an authorized portable API):
 
 ```text
 script
@@ -463,7 +485,10 @@ script
   → runtime.actions.invoke(...)
 ```
 
-is highly flexible but risks making imperative script mutation the primary behavior model.
+must not be adopted as the semantic ownership model. In particular the generic
+Property setter does not grant authored components ownership of external
+semantic state. Existing host derived-store commits remain valid; component
+updates produce private state and explicit requests.
 
 The stronger direction to evaluate is:
 
@@ -497,4 +522,30 @@ Before further sandbox-engine implementation, the next architecture pass should 
 8. which existing M6.5 capability APIs remain host internals versus user-script APIs;
 9. whether an advanced script is needed for SCADA v1 at all, and if so whether it is compute/update-oriented rather than imperative.
 
-No QuickJS-specific API should be frozen before these points are reconciled with the accepted component and Visual Runtime architecture.
+These are historical M6.5 checkpoints, not current execution gates. Accepted
+canonical persistence, transition semantics and host effect behavior already
+have M6–M9 evidence. Remaining advanced-execution questions must follow PLAN
+and the input/output ADR rather than restarting this checklist implicitly.
+
+## 13. Later Scene interaction authoring: Trigger → Effect
+
+The first future UI/model baseline is **Behavior = Trigger → Effect**:
+Component Event Trigger names a source instance and occurrence; Invoke
+Component Action Effect names a target instance and typed operation request.
+Keep discriminated `kind` for validated runtime dispatch. The Event definition
+contains neither this target nor the Effect.
+
+This is a roadmap decision, not a new Scene schema or implemented interaction
+panel. The current v6 `behaviors` compatibility path is Event → Component
+Action, with implicit owning-node source and no argument mapping. Canonical
+`scadaSemantics` remains Value derivation, condition/edge → local Component
+Action, and Event → Device/Platform Action. Compiled claims currently suppress
+legacy auto-dispatch for a source node. Later unification must decide an
+explicit canonical extension/migration and retain one execution path, type
+validation and package-scoped standalone parity.
+
+Do not expand this direction into a generic rule engine, arbitrary script,
+timers/retries, unrestricted target/effect variants or Property-assignment
+effects. Nested child Event consumption remains parent-private unless the
+parent explicitly declares a public re-export. Ordinary visual layers never
+become Components because they offer private visual operations.

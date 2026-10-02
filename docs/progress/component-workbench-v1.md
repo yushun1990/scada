@@ -1,5 +1,12 @@
 # Component Workbench v1 Progress
 
+Historical M6 evidence; old entry-gate, mixed Property and 方法 terminology
+below are not current scheduling or contract authority. M9 added Attributes;
+M10-R0 fixed portable execution. The
+[Component input/output amendment](../architecture/adr-component-input-output-composition.md)
+defines the later Action/Event, private Layer Operation and composition rules.
+Accepted historical evidence is retained; current implementation scope is PLAN.
+
 This document records M6 Component Workbench delivery against [`PLAN.md`](../../PLAN.md) and the component architecture in [`docs/architecture/component-system.md`](../architecture/component-system.md).
 
 Every merged M6 implementation slice must update this progress log in the same pull request.

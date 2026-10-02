@@ -1,5 +1,13 @@
 # Component System and Component Workbench Architecture
 
+Public input/output and future composition semantics are amended by
+[Component inputs, outputs and composition](adr-component-input-output-composition.md)
+(`active` architecture review). The accepted
+[Attribute/Property split](component-attributes-properties.md), portable
+execution restrictions and [PLAN](../../PLAN.md) gates remain in force. This
+document distinguishes current capability from later design; examples do not
+authorize a new execution path.
+
 ## 1. Purpose
 
 This document defines the long-term component boundary for SCADA Editor Lab.
@@ -10,7 +18,11 @@ The central product rule is:
 
 A component may be visually simple or internally sophisticated. It may be implemented from SVG assets, raster images, vector primitives, text, nested groups, scripts, or trusted native code. None of those implementation details should leak into normal SCADA scene authoring.
 
-The current `ComponentDefinition` / `ComponentRegistration` / `ComponentRegistry` implementation is the first subset of this model. This document describes the target architecture that later Component Workbench and runtime milestones must converge toward.
+The current `ComponentDefinition` / `ComponentRegistration` / `ComponentRegistry`
+implements a subset of this model. Current portable user execution is
+declarative; trusted registrations can provide typed Action/Event processing.
+Future composition and authored discrete execution need separately authorized
+implementation and acceptance.
 
 ---
 
@@ -31,8 +43,8 @@ Expected capabilities include:
 - create vector primitives;
 - add text and nested groups;
 - compose heterogeneous visual layers;
-- define public and internal properties;
-- define actions and events;
+- define public Attributes and semantic Properties, keeping transient state private;
+- define typed public Actions and Events when an accepted execution capability exists;
 - define visual anchors;
 - configure styles and transforms;
 - define expressions and visual rules;
@@ -53,9 +65,9 @@ A scene author should normally only need to:
 
 - drag a component into the scene;
 - position, resize, rotate, group, show, hide, or lock it;
-- configure the component's deliberately exposed properties;
-- bind exposed bindable properties to runtime data;
-- configure exposed actions and events when needed;
+- configure the component's public Attributes;
+- bind semantic Properties to runtime data;
+- author interactions that consume declared Events and request declared Actions;
 - connect visual anchors;
 - preview or run the scene.
 
@@ -77,6 +89,7 @@ Every component has two architectural sides.
 ```text
 Component
 ├── Public Contract
+│   ├── Attributes
 │   ├── Properties
 │   ├── Actions
 │   ├── Events
@@ -85,7 +98,7 @@ Component
 └── Private Implementation
     ├── Assets
     ├── Visual Layer Tree
-    ├── Internal properties/state
+    ├── Private transient state
     ├── Styles
     ├── Visual rules / expressions
     ├── Animations
@@ -111,12 +124,14 @@ label-text
 
 are implementation details by default.
 
-A SCADA scene author must not directly edit `alarm-light.fill`, `fan.rotation`, or an SVG child path unless the component developer deliberately exposes a public property for that purpose.
+A SCADA scene author must not directly edit `alarm-light.fill`, `fan.rotation`
+or an SVG child path. Deliberately exposed Attributes configure presentation;
+semantic Properties provide runtime inputs that private visual rules consume.
 
 For example, if a component developer wants the alarm color to be configurable, the correct design is:
 
 ```text
-public property: alarmColor
+public Attribute: alarmColor
         ↓
 private visual rule
         ↓
@@ -151,7 +166,8 @@ interface ComponentSceneNode {
   visible: boolean
   locked: boolean
 
-  props: ComponentProps
+  attributes: ComponentAttributeValues
+  propertyFallbacks: ComponentPropertyFallbackValues
   bindings: DataBinding[]
   behaviors: Behavior[]
 }
@@ -171,7 +187,9 @@ visible
 locked
 ```
 
-Component-specific semantic values belong in `props`.
+Component-specific runtime semantic fallback values belong in
+`propertyFallbacks`; effective runtime values belong to the host snapshot.
+Static authored configuration belongs in `attributes`.
 
 Examples:
 
@@ -181,9 +199,9 @@ speed
 level
 temperature
 alarm
-label
-precision
 ```
+
+`label` and `precision`, when authored display configuration, are Attributes.
 
 ---
 
@@ -207,6 +225,7 @@ interface ComponentDefinition {
     minHeight: number
   }
 
+  attributes: Record<string, AttributeDefinition>
   properties: Record<string, PropertyDefinition>
   actions: Record<string, ActionDefinition>
   events: Record<string, EventDefinition>
@@ -226,92 +245,58 @@ It does not answer:
 
 ---
 
-## 6. Properties: public configuration, bindings, and internal state
+## 6. Attributes, Properties and private state
 
-A component developer may define arbitrary semantic properties appropriate to that component.
-
-For example, a pump might expose:
-
-```text
-state
-speed
-alarm
-label
-alarmColor
-```
-
-while internally using values such as:
+The accepted [M9 value authority](component-attributes-properties.md) separates
+authored Attributes such as `label` and `alarmColor` from runtime semantic
+Properties such as `state`, `speed` and `alarm`.
 
 ```text
-fanAngle
-alarmBlinkPhase
-pressed
-hovered
+Attribute default + instance-authored override
+        ↓
+read-only authored configuration
+
+Property default/authored fallback + accepted external/derived runtime values
+        ↓
+one effective host-owned Property snapshot
+        ↓
+component implementation and renderer
 ```
 
-Those internal values do not need to exist in the public contract.
+Value Bindings write only Properties through the accepted runtime authority.
+The `bindable` flag does not grant component code ownership of a Property.
+Runtime telemetry never rewrites Attributes or editor history.
 
-### 6.1 Property visibility
+`fanAngle`, `alarmBlinkPhase`, `pressed` and `hovered` may be component-private
+transient state. They do not require public Property declarations. Actions and
+private operations can update that private state; they cannot directly write
+public semantic Properties, including unbound fallbacks. Accepted Scene DSL
+Property assignment remains declarative host-owned derivation.
 
-The property model should evolve to distinguish whether a value is exposed to the SCADA Workbench.
-
-Target direction:
-
-```ts
-interface PropertyDefinition {
-  title: string
-  kind: PropertyKind
-  defaultValue: ComponentScalarValue
-
-  exposed?: boolean
-  configurable?: boolean
-  bindable?: boolean
-
-  description?: string
-  options?: readonly PropertyOption[]
-}
-```
-
-Exact field names may change during implementation, but the semantic distinction is normative:
-
-- **public configurable property**: visible to a scene author as component configuration;
-- **public bindable property**: may receive a runtime value from a data binding;
-- **internal state**: available only to the component implementation.
-
-### 6.2 Runtime value resolution
-
-A later runtime should conceptually resolve values in this order:
-
-```text
-ComponentDefinition default
-          ↓
-Scene-authored property value
-          ↓
-Runtime binding / runtime override
-          ↓
-Component implementation
-          ↓
-Renderer
-```
-
-Runtime updates must not continuously rewrite authored scene configuration or flood the editor history stack.
+The former “public configurable property” direction is superseded by M9.
+Do not rebuild static configuration with Property flags or flatten values back
+into a mixed `props` namespace.
 
 ---
 
 ## 7. Actions: declaration vs implementation
 
-An action is part of the public contract.
+An Action is a typed discrete input intent / operation request in the public
+contract. Chinese UI calls it **操作**. It is not an object method or permission
+to mutate semantic state.
 
 Examples:
 
 ```text
-start()
-stop()
-resetAlarm()
-setSpeed(speed)
+start
+stop
+resetAlarm
+pulse(severity)
 ```
 
-An `ActionDefinition` describes the callable interface and remains serializable.
+An `ActionDefinition` describes that input and remains serializable. Ordered
+typed parameters match the existing DSL/runtime arguments. It has no public
+return/output schema and carries no executable source.
 
 Conceptually:
 
@@ -319,16 +304,17 @@ Conceptually:
 interface ActionDefinition {
   title: string
   description?: string
-  parameters?: Record<string, ActionParameterDefinition>
-  output?: ValueSchema
+  parameters?: readonly ActionParameterDefinition[]
 }
 ```
 
 The action implementation is separate.
 
-This distinction allows the same action contract to be implemented in several ways without changing how the SCADA Workbench sees the component.
+The host resolves an instance, validates arguments and dispatches the input to
+its implementation. Function-like DSL syntax still lowers to such a request;
+native handler functions remain private host implementation details.
 
-### 7.1 Supported implementation classes
+### 7.1 Current and future execution boundaries
 
 Current execution boundary (M10-R0): trusted native handlers and declarative
 visual rules/animations are implemented. The configuration-step Actions and
@@ -339,40 +325,19 @@ rejected and `implementationDraft` remains inert. Reopening portable execution
 requires a separate accepted ADR, isolation/capability model and standalone
 parity evidence. PLAN governs scheduling.
 
-The target component system should support three implementation levels:
+Future configured updates or controlled implementation logic must follow
+the [input/update/effect decision](adr-component-input-output-composition.md#3-internal-updateeffect-model-and-host-authority).
+This replaces the old `start → set semantic state → emit started` example:
 
 ```text
-Configuration / steps
-Controlled script
-Trusted native handler
+start request → validated input → optional startRequested occurrence
+                             → separately authorized host device effect
+later telemetry → host-owned Property.state = running
 ```
 
-#### Configuration / steps
-
-Suitable for common behavior without code:
-
-```text
-start
-  -> set property state = running
-  -> emit started
-```
-
-#### Controlled script
-
-Suitable for more complex component-local logic authored in the Component Workbench.
-
-Example authoring experience:
-
-```js
-if (props.disabled) {
-  return
-}
-
-setProperty('state', 'running')
-emit('started')
-```
-
-The exact scripting language and sandbox are implementation decisions, but scripts must execute against a deliberately small runtime API.
+An operation request is not proof of device completion. Visual transient state
+can change locally, but semantic input ownership cannot be bypassed by a
+configuration step, sandbox or Action handler.
 
 #### Trusted native handler
 
@@ -385,7 +350,7 @@ interface ComponentRegistration {
   definition: ComponentDefinition
   renderer: ComponentRenderer
   createDefaultProps(): ComponentProps
-  nativeActions?: Record<string, ComponentActionHandler>
+  actions?: Record<string, ComponentActionHandler>
 }
 ```
 
@@ -393,9 +358,11 @@ Native functions belong to runtime registration, never to the serialized definit
 
 ### 7.2 Same contract regardless of implementation
 
-A scene author should not need to know whether `pump.start` is implemented with configuration, script, or native code.
+A scene author consumes the declared input, not its implementation. Available
+execution capabilities must remain explicit; the current portable user path
+cannot claim equivalence with trusted Action execution.
 
-From the SCADA Workbench, it is always simply:
+For a host supporting these declared inputs, the SCADA Workbench shows:
 
 ```text
 Pump
@@ -409,7 +376,10 @@ Actions
 
 ## 8. Events
 
-Events represent occurrences emitted by a component.
+Events represent typed discrete occurrences/outputs emitted by a component.
+The component type owns the definition and payload schema; the implementation
+determines when it occurred; the host validates and routes the instance-scoped
+output. The Event definition says what happened, not what a receiver should do.
 
 Examples:
 
@@ -421,9 +391,13 @@ alarmRaised
 stateChanged
 ```
 
-Events are also public contract elements. The internal implementation decides when to emit them.
+Current payloads are named scalar records with required/optional fields and
+explicit nullability. Unknown fields are rejected; an Event without a payload
+schema accepts no payload. Validated payloads are immutable. Event definition
+data contains no response target, callback or handler source.
 
-Later behavior infrastructure can connect events to actions or property assignments without exposing component internals.
+Separately authored interactions can connect Events to Action requests without
+exposing component internals or creating arbitrary Property-assignment effects.
 
 ```text
 button.clicked
@@ -440,6 +414,11 @@ alarm-banner.show
 ```
 
 Pointer/editor events and semantic component events must remain separate APIs.
+
+Child Event consumption and explicit parent re-export follow
+[the composition rules](adr-component-input-output-composition.md#5-future-reusable-component-as-an-internal-layer).
+Neither ordinary visual layers nor editor `$emit` diagnostics implicitly
+declare public Component Events.
 
 ---
 
@@ -545,7 +524,7 @@ Component Workbench
     -> builds stable visual layers
 
 Runtime
-    -> changes properties, layer state, styles, transforms, and animations
+    -> reads effective Properties and derives private visual state/animations
 ```
 
 Runtime layer creation/removal may be added as an advanced capability later, but ordinary component behavior should not require rebuilding the visual tree on every state change.
@@ -610,7 +589,7 @@ Complex behavior belongs inside the component, but complexity does not imply tha
 The Component Workbench should provide progressively more powerful implementation mechanisms:
 
 ```text
-Direct visual/property configuration
+Direct authored visual/Attribute configuration
         ↓
 Expression
         ↓
@@ -634,10 +613,10 @@ Most data-driven visual behavior should be expressible without imperative code.
 Examples:
 
 ```text
-alarm-light.visible <- props.alarm
-fan.rotation        <- expression based on props.speed
-label.text          <- props.label
-water.scaleY        <- props.level / 100
+alarm-light.visible <- properties.alarm
+fan.rotation        <- expression based on properties.speed
+label.text          <- attributes.label
+water.scaleY        <- properties.level / 100
 ```
 
 The concrete expression syntax is a later design decision.
@@ -658,21 +637,21 @@ Properties or rules can start, stop, or parameterize those animations.
 
 ### 13.4 Controlled scripts
 
-Scripts exist for behavior that is awkward to represent with declarative configuration.
+Controlled execution is an implementation mechanism for behavior that is
+awkward to represent with declarative configuration; it requires the accepted
+capability for its specific execution domain.
 
-Scripts should be able to use controlled component APIs such as, conceptually:
+Any future authored execution reads separate Attribute and effective Property
+snapshots and computes private state plus explicit host effect requests. Public
+Event publication and Action routing require contract validation. The earlier
+generic `setProperty`/`invoke` API sketch is superseded; controlled execution
+alone does not grant semantic Property ownership or arbitrary target access.
 
-```text
-props
-getProperty(name)
-setProperty(name, value)
-emit(event, payload?)
-invoke(target, action, input?)
-visual.*
-log(...)
-```
-
-The final API will be designed with the runtime.
+The existing private Layer Operation editor uses a bounded sandbox facade and
+returned visual requests. Its legacy `methods`/`$self` names are compatibility
+details, not the future public programming model. Exact current capability and
+required corrections are specified in the
+[controlled-layer ADR](adr-proposal-controlled-layer-methods.md).
 
 Scripts must not automatically receive unrestricted access to:
 
@@ -698,13 +677,15 @@ They may use advanced native rendering and runtime code internally.
 However, the SCADA Workbench still sees only the same public contract:
 
 ```text
+Attributes
 Properties
 Actions
 Events
 Anchors
 ```
 
-A Component Workbench-authored pump and a native built-in pump should therefore be interchangeable from the scene author's point of view.
+A Component Workbench-authored pump and a native built-in pump share contract
+vocabulary. Interchangeability also requires the host’s actual accepted capabilities.
 
 The implementation source must not become part of editor orchestration.
 
@@ -718,6 +699,7 @@ The target reusable unit is a component package.
 Component Package
 ├── Metadata
 ├── Definition
+│   ├── Attributes
 │   ├── Properties
 │   ├── Actions
 │   ├── Events
@@ -731,19 +713,22 @@ Component Package
 │   ├── Layer Tree
 │   ├── Styles
 │   ├── Rules / Expressions
-│   └── Animations
-├── Behavior
-│   ├── Configured steps
-│   └── Controlled scripts
+│   ├── Animations
+│   └── Private Layer Operation data (`methods`, editor execution only today)
 └── Native Registration (application/plugin side, when applicable)
 ```
 
-Not every package needs every section.
+Current distributable v2 packages contain
+`definition`, `visual` and inert `implementationDraft`; native registration is
+an explicit host capability, not transported code. There is no accepted
+portable executable Behavior section. Resource closure and versioned migration
+remain governed by PLAN/M8/M9; M10 representation changes keep their own gates.
 
 Examples:
 
 - a simple indicator may need one vector layer and one property;
-- a pump may combine SVG + image/vector layers + animations + actions;
+- a pump may combine SVG + image/vector layers + animations; public Actions
+  additionally require an accepted host implementation capability;
 - a trusted chart component may use a native renderer while exposing the same public schema.
 
 ---
@@ -757,7 +742,11 @@ Public properties
 - state
 - speed
 - alarm
+
+Public Attributes
 - label
+- runningColor
+- alarmColor
 
 Public actions
 - start
@@ -792,7 +781,7 @@ Private rules may contain:
 state == running -> run-light visible
 state == alarm   -> alarm-light visible
 speed            -> fan animation speed
-label            -> label-text content
+Attribute.label  -> label-text content
 ```
 
 The scene author sees only the public contract.
@@ -824,8 +813,11 @@ It should remain contract-driven.
 For a selected pump, the normal component UI should be close to:
 
 ```text
-Properties
+Attributes
   Label       [1# Pump]
+  Alarm color [orange]
+
+Properties
   State       [bind data...]
   Speed       [bind data...]
   Alarm       [bind data...]
@@ -879,19 +871,18 @@ The generated Inspector already consumes `ComponentDefinition.properties` rather
 
 The current built-in pump and status indicator are architecture acceptance components for this generic path.
 
-The following parts of this document are target architecture and are not yet fully implemented:
+Current code also implements M9 Attribute/Property storage and host snapshots,
+editable private Group/SVG/Image/Vector/Text layers, declarative visual rules
+and animations, versioned component/work packages and package-scoped standalone
+semantics. The editor-only private operation sandbox is implemented separately
+from portable execution. Public Action/Event processing exists for trusted
+registrations; portable user declarations remain unavailable for activation.
 
-- exposed vs internal property semantics;
-- Component Package persistence;
-- heterogeneous editable Visual Layer Tree;
-- visual rule/expression model;
-- animation model;
-- controlled component script runtime;
-- configurable/script/native action implementation boundary;
-- Component Workbench debugging and package validation;
-- runtime bindings, values, actions, and events.
-
-These should be implemented incrementally without weakening the public/private boundary.
+Future reusable Component layers, portable authored public Action/Event
+execution and the new Scene Trigger/Effect authoring direction are not
+implemented. The [source audit](../progress/component-input-output-audit.md)
+distinguishes retained safe mechanisms from migration debt. Subsequent work
+must preserve this capability distinction and follow PLAN.
 
 ---
 
@@ -901,15 +892,17 @@ The following rules are normative for future work:
 
 1. **Component Workbench owns complexity; SCADA Workbench consumes only public component contracts.**
 2. **Component internal layers and implementation details are private by default.**
-3. **Properties, Actions, Events, and Anchors form the stable public component vocabulary.**
+3. **Attributes, Properties, Actions, Events, and Anchors form the stable public component vocabulary. Actions are typed discrete input requests; Events are typed occurrences, not reaction definitions.**
 4. **Editor/base geometry is not duplicated as component semantic properties.**
 5. **Component capability does not depend on visual source. SVG, raster images, vector primitives, text, groups, and native rendering may coexist behind one contract.**
-6. **A component may be implemented through configuration, expressions/rules, animations, controlled scripts, trusted native code, or combinations of them.**
+6. **Implementation mechanisms do not grant authority: configured/controlled updates operate on private state and host effects; accepted portable capability remains explicit.**
 7. **User scripts do not receive raw Konva nodes or unrestricted browser/runtime authority.**
 8. **Konva capabilities should be preserved through component visual abstractions rather than exposed as a renderer-specific public API.**
 9. **Runtime data flows into exposed component properties; component-private visual behavior remains encapsulated.**
 10. **Visual anchors remain separate from runtime data/action/event semantics.**
 11. **Native built-ins and Component Workbench-authored components must look equivalent to the SCADA Workbench at the contract level.**
 12. **Increasing Component Workbench power must not increase normal SCADA scene-authoring complexity.**
+13. **Private Layer Operations are not public Component Actions; ordinary visual layers are not Components.**
+14. **Future child Component instances preserve type-owned contracts; parents consume them read-only and explicitly declare any public Event re-export.**
 
 These invariants take precedence over short-term convenience when designing Component Lab, runtime bindings, scripting, actions/events, packaging, or renderer extensions.
