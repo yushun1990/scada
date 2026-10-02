@@ -2,7 +2,8 @@
 
 ## Status
 
-Implemented for review · 2026-09-30 · review revisions applied · 2026-09-30.
+Implemented for review · 2026-09-30 · review revisions applied · 2026-09-30 ·
+saved-row column alignment · 2026-10-01.
 
 Base: `main@d7a5dd3`. Dogfooding polish under the current `PLAN.md`
 product-polish phase. No new numbered milestone, no M10A boundary change.
@@ -141,6 +142,20 @@ Round 6 reordered the saved row and simplified the Property form:
     `definition.properties[key].bindable`, which remains the sole
     authority for SCADA Inspector binding controls (M9A2 unchanged).
 
+Round 7 aligned the saved row into strict columns (2026-10-01):
+
+20. The saved row is a four-column grid
+    (`minmax(80px,120px)` 名称 / `minmax(88px,150px)` 默认值 /
+    `minmax(0,1fr)` 说明 / `auto` 操作) with content-independent tracks,
+    so 标签、默认值、说明、操作 line up vertically across every row:
+    long keys ellipsize inside the name track (full key on the title
+    tooltip) instead of pushing the value control, and a missing
+    description leaves an empty cell rather than shifting the actions.
+21. Each cell is pinned to its grid column explicitly; the 绑定 badge
+    moved inside the name cell (after the key) so badge rows and
+    badge-less tables keep identical column boundaries. The visual row
+    order 名称 → 值控件 → 说明 → 图标操作 is unchanged.
+
 ## Changes
 
 - `src/features/component-library/ComponentContractRowTable.tsx` (new) —
@@ -156,7 +171,12 @@ Round 6 reordered the saved row and simplified the Property form:
 - `src/components/toolbar-icons.tsx` — `PlusIcon` / `MinusIcon` added to
   the shared icon set for per-row insert/delete.
 - `src/features/component-library/component-contract-rows.css` (new) —
-  compact token-based styles for the saved row and the form.
+  compact token-based styles for the saved row and the form. Since round 7
+  the saved row is a four-track grid with explicitly pinned cells
+  (名称 / 默认值 / 说明 / 操作).
+- `scripts/pages-component-contract-rows-smoke.mjs` (new) — deterministic
+  Playwright smoke asserting the saved-row column alignment across mixed
+  rows; registered in `.github/workflows/component-editor-smoke.yml`.
 - `src/features/component-library/ComponentAttributeContractEditor.tsx`
   and `ComponentPropertyContractEditor.tsx` — rewritten as thin wrappers
   over the shared module (the Property wrapper adds `bindable` defaults
@@ -176,6 +196,21 @@ consuming the same `attributes` / `properties` records.
 - `npm run lint` — passes: oxlint 0 errors (27 pre-existing repo-wide
   warnings, 0 in the changed files); UI primitive audit, C1 token
   authority and StudioShell authority checks pass.
+- `SCADA_PAGES_URL=http://localhost:5199 node
+  scripts/pages-component-contract-rows-smoke.mjs` (new, registered in
+  `.github/workflows/component-editor-smoke.yml`) — drives the real UI
+  on `#/components/component-smart-storage-tank` to build mixed rows
+  (long-name color attribute with description, short attribute without
+  description, `level`/`alarmThreshold` badge rows without description,
+  `temperature` badge row with description) and asserts deterministically
+  that within both contract tables the 名称/默认值/操作 column edges are
+  identical across all rows, 操作 right edges are identical, the 说明
+  column starts at the same x wherever present, badge rows keep the same
+  默认值 x as badge-less rows, and long keys ellipsize inside the name
+  track. Passes; full-page capture at
+  `artifacts/component-contract-rows-aligned.png` shows the four aligned
+  columns with no overlap or overflow. The smoke never clicks the header
+  保存, so its test data stays in memory only.
 - Browser proof (local dev server, in-app Chromium,
   `#/components/component-smart-storage-tank`):
   - existing `level` / `alarmThreshold` properties render as saved rows

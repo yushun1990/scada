@@ -21,10 +21,10 @@ import './component-contract-rows.css'
 
 /**
  * Public-contract row shape shared by the Attribute and Property contract
- * editors. Saved entries render like inspector attribute rows
- * (名称 + 说明 + 按类型的值控件 + 图标编辑/删除); adding or editing opens
- * one compact labeled form (名称 / 类型 / 默认值 / 说明 / 枚举选项) committed
- * by 保存.
+ * editors. Saved entries render as aligned columns
+ * (名称[+绑定徽标] + 按类型的值控件 + 说明 + 图标编辑/删除); adding or editing
+ * opens one compact labeled form (名称 / 类型 / 默认值 / 说明 / 枚举选项)
+ * committed by 保存.
  */
 export type ContractRowEntry = {
   title: string
@@ -372,7 +372,12 @@ export function ContractRowTable<T extends ContractRowEntry>({
         return (
           <div className="contract-row-item" key={key}>
             <div className="contract-row-display">
-              <span className="contract-row-name">{key}</span>
+              <div className="contract-row-name" title={key}>
+                <span className="contract-row-name-text">{key}</span>
+                {isBindable?.(entry) && (
+                  <span className="contract-row-badge" title="允许 SCADA 数据绑定">绑定</span>
+                )}
+              </div>
               <div className="contract-row-value">
                 <ContractRowValueEditor
                   entry={entry}
@@ -383,9 +388,6 @@ export function ContractRowTable<T extends ContractRowEntry>({
               </div>
               {entry.description && (
                 <span className="contract-row-description">{entry.description}</span>
-              )}
-              {isBindable?.(entry) && (
-                <span className="contract-row-badge" title="允许 SCADA 数据绑定">绑定</span>
               )}
               {!readOnly && (
                 <span className="contract-row-actions">

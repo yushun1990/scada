@@ -1,5 +1,6 @@
 /* 公共合同（静态属性 / 运行属性）紧凑行：
-   保存后 = 名称 + 说明 + 按类型的值控件 + [绑定] + 图标编辑/删除；
+   保存后 = 名称（含 [绑定] 徽标）+ 按类型的值控件 + 说明 + 图标编辑/删除，
+   各列用与内容无关的固定轨道，跨行严格对齐；
    添加/编辑 = 带标签的紧凑表单（名称/类型/默认值/说明/枚举选项）。 */
 .contract-row-list {
   min-width: 0;
@@ -13,8 +14,12 @@
   border-bottom: 1px solid var(--ui-color-border);
 }
 
+/* 名称 / 默认值 / 说明 / 操作 四列：前两列 minmax 轨道与内容无关，
+   保证每一行的列边界一致；说明吸收剩余宽度，操作列右对齐。
+   每个单元格显式占列，缺说明的行不会把操作列前移。 */
 .contract-row-display {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(80px, 120px) minmax(88px, 150px) minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-height: 32px;
@@ -22,11 +27,11 @@
 }
 
 .contract-row-name {
-  flex: 0 1 auto;
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--ui-color-text);
   font-family: var(--ui-font-mono);
   font-size: var(--ui-font-size-status);
@@ -34,9 +39,16 @@
   line-height: 1.3;
 }
 
+.contract-row-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 说明跟在默认值之后，填充至行尾 */
 .contract-row-description {
-  flex: 1 1 40px;
+  grid-column: 3;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -47,8 +59,8 @@
 }
 
 .contract-row-value {
-  flex: 0 1 150px;
-  min-width: 88px;
+  grid-column: 2;
+  min-width: 0;
   display: flex;
   align-items: center;
 }
@@ -73,7 +85,7 @@
 }
 
 .contract-row-actions {
-  flex: 0 0 auto;
+  grid-column: 4;
   display: inline-flex;
   align-items: center;
   gap: 2px;
