@@ -1,5 +1,14 @@
 # Issue 209: Component Editor SVG Interaction Optimization
 
+Historical revision/evidence log. Later revisions below supersede the early
+declarative-only and “awaiting ADR” statements; current source scope is audited
+at [CIO-ARCH](component-input-output-audit.md). The
+[input/output amendment](../architecture/adr-component-input-output-composition.md)
+and [amended controlled-layer ADR](../architecture/adr-proposal-controlled-layer-methods.md)
+govern future semantics: private Layer Operations, no public Action/Event or
+semantic Property write authority, editor-only execution. Old 行为/函数/方法
+labels are implementation history, not a mutable-object contract requirement.
+
 ## Status
 
 Implemented for review · 2026-09-27 · issue #209, all three sub-items

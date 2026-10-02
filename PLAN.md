@@ -58,9 +58,9 @@ Semantics:
 
 ```text
 Attribute = authored static presentation/configuration
-Property  = runtime semantic value/state and binding target
-Action    = callable component capability
-Event     = discrete occurrence
+Property  = externally/runtime-owned semantic state/input and binding target
+Action    = typed discrete input intent / operation request
+Event     = typed discrete occurrence/output, not its consumer's response
 Anchor    = visual connection geometry
 ```
 
@@ -75,6 +75,15 @@ Internal transient state
 Scripts / implementation details
 Native renderer details
 ```
+
+The [Component input/output and composition ADR](docs/architecture/adr-component-input-output-composition.md)
+is the `active` documentation amendment for this audit. Acceptance freezes
+public Action/Event meaning, private Layer Operation ownership, future child
+contract preservation/read-only consumption and explicit Event re-export.
+It amends the old callable/mutable-object interpretation; Message remains an
+internal runtime concept. Public Chinese Action UI converges to “操作”; private
+operations use “图层操作”. This does not authorize portable public execution,
+nested Component layers or a new Scene interaction implementation.
 
 ### 3.2 Attribute / Property authority split
 
@@ -98,6 +107,9 @@ Normative rules:
 - runtime telemetry must not overwrite authored Attributes.
 - Attribute changes happen through authoring/configuration flows, not runtime propagation.
 - component-private rules read authored Attributes and effective Properties through explicit separate namespaces.
+- Actions, private Layer Operations and configuration steps do not directly
+  write public semantic Properties; private transient/visual state is separate.
+  Accepted host-owned declarative derived writes remain supported.
 - component type identity represents a genuinely different component, not a running/alarm/fault/color combination.
 
 The accepted design authority is:
@@ -342,6 +354,16 @@ Accepted rules:
 - runtime evaluation produces effects; host code executes them.
 
 QuickJS is not the current product center. Existing controlled-runtime experiments remain evidence only unless a later requirement proves general-purpose scripting necessary.
+
+Future Scene Workbench interaction authoring follows **Behavior = Trigger →
+Effect**, initially Component Event Trigger → Invoke Component Action Effect.
+Trigger names the source occurrence; Effect names the target operation request.
+Keep discriminated `kind` for dispatch without inventing additional effect or
+target families. This is roadmap/design only. Current canonical
+Value/Behavior/Interaction semantics, Scene v6 compatibility `behaviors` carried
+by Scene v8, and compiled-route suppression of legacy auto-dispatch remain;
+their migration must be an explicit later PR under the
+[ADR](docs/architecture/adr-component-input-output-composition.md#6-scene-workbench-interaction-direction).
 
 ---
 
@@ -681,6 +703,18 @@ M10A architecture contract + measured spike                    active
 ```
 
 **Current execution gate: M10A architecture contract + measured spike plus already-authorized product-polish defects. M10B and all later 3D gates remain unauthorized until M10A is accepted.**
+
+Selected independent design correction: `CIO-ARCH`, `active` architecture/docs
+review of Component public inputs/outputs, private Layer Operations and future
+composition. [ADR](docs/architecture/adr-component-input-output-composition.md)
+and [source audit](docs/progress/component-input-output-audit.md) define the
+amendment, conflicts, retained safe code and suggested T1–T4 migration order.
+This documentation PR changes no code/schema/UI, accepts no milestone and does
+not start those tranches. The next eligible follow-up for explicit scoping is
+T1 contract/UI vocabulary and read-only consumption; T2 editor-operation
+ownership/atomic preview, T3 Scene routing and T4 nested composition each need
+their own authorization and evidence. Portable authored public execution needs
+a separate accepted execution ADR; M10C registry work keeps its staged gate.
 
 The 2026-09-10 UI review delivers a [source audit](docs/design/ui-audit-2026-09-10.md), a corrected [industrial Designer UI specification](docs/design/industrial-designer-spec.md), and a proposed [rollout plan](docs/design/industrial-designer-rollout.md). The rollout prioritizes editing reliability before shared chrome, navigation and Inspector polish. Its A–F work packages are delivery batches, not new architecture milestones. B1–B3 and C1/C2 are merged; C2 and its deployed regression follow-up are recorded in [the C2 progress note](docs/progress/ui-c2-studio-shell.md) and PRs #194/#195. D1 Scene Navigator and Palette search are implemented for review; see [D1 progress](docs/progress/ui-d1-scene-navigation.md). D2/D3 and E/F remain outstanding. The [2026-09-16 Web editor correction](docs/design/web-editor-simplification.md) supersedes the desktop menu taxonomy and single-document tab: use a document header plus editing toolbar, with one primary entry per command. The subsequent [Component editor redesign](docs/design/component-editor-redesign.md) centers canvas controls, keeps grouping in the toolbar, moves ordering into each layer row, and introduces a compact neutral/teal interface. Shared Shell, navigation, history and persistence stay authoritative. Accepted M6–M9 and UX1 authority boundaries remain unchanged.
 

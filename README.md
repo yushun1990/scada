@@ -145,13 +145,22 @@ Semantics:
 
 ```text
 Attribute = authored static presentation/configuration
-Property  = runtime semantic value/state and binding target
-Action    = callable component capability
-Event     = discrete occurrence
+Property  = externally/runtime-owned semantic state/input and binding target
+Action    = typed discrete input intent / operation request
+Event     = typed discrete occurrence/output
 Anchor    = visual connection geometry
 ```
 
 Runtime telemetry must not overwrite authored Attributes. Value Binding targets Properties only. Component-private visuals/rules may combine resolved Attributes with the effective Property snapshot.
+
+Actions request operations; they do not own semantic Property writes or ambient
+effects. Events describe occurrences; consumer responses live in separately
+authored interactions. Public Chinese Action UI converges to “操作”; private
+Layer Operations use “图层操作”. The
+[input/output and composition ADR](docs/architecture/adr-component-input-output-composition.md)
+records the architecture amendment under review, future child contract
+preservation/explicit Event re-export and Scene Trigger → Effect roadmap. These
+future features are not implemented by this documentation change.
 
 Private implementation includes layered visuals, visual rules, animation and trusted/native implementation details.
 

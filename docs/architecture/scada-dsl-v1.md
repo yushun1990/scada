@@ -8,6 +8,14 @@ The M6.5 parser proved that a small text-first SCADA language can lower into str
 
 The DSL remains an **authoring surface**, not persistence authority and not a general-purpose scripting runtime.
 
+The [Component input/output amendment](adr-component-input-output-composition.md)
+clarifies the meaning of the existing syntax without changing this accepted
+grammar: `$self.reset()` lowers to a typed Action request; `$self.level = ...`
+lowers to a host-owned declarative Value Binding. Neither grants mutable object
+or method authority. An Event `on` block defines a consumer interaction,
+separately from the Event contract. Public Action/Event names remain unchanged;
+Message is internal runtime vocabulary only.
+
 ```text
 SCADA DSL text
     ↓ parse / resolve / type-check / lower
@@ -98,7 +106,7 @@ $self.pressure = $device.pressure
 $self.running = $device.running
 ```
 
-Action call:
+Action request (existing call syntax):
 
 ```text
 $self.reset()
@@ -256,7 +264,7 @@ Attribute
 
 Property
     runtime semantic value
-    readable/writable through accepted DSL/runtime semantics
+    read from one host-owned snapshot; derived writes owned by the host
     Value Binding target
 ```
 
