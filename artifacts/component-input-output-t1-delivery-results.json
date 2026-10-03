@@ -1,0 +1,601 @@
+{
+  "date": "2026-10-04",
+  "status": "implemented",
+  "work_items": [
+    "CIO-T1",
+    "CIO-T1-BROWSER",
+    "CIO-T1-DELIVERY"
+  ],
+  "findings": [
+    "CIO-002",
+    "CIO-BR-001",
+    "CIO-BR-002",
+    "CIO-BR-003",
+    "CIO-DLV-001",
+    "CIO-DLV-002"
+  ],
+  "implementation_base": "b54260612018806a5bef9487672e822bf2f67fd7",
+  "implementation_head": "e5da7159a6718eeceac055ffe682265bbe19108c",
+  "source_snapshot_sha256": "9e15439a4671246d9da5bd7902d6c66ee5ee126bcbc6cd0233ba35223d4b2328",
+  "source_paths": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/component-editor-smoke.yml",
+    ".github/workflows/pages-smoke.yml",
+    "scripts/check-component-capability-consistency.ts",
+    "scripts/check-component-interaction-schema.ts",
+    "scripts/check-component-property-references.ts",
+    "scripts/check-visual-asset-raster-budget.ts",
+    "scripts/fixtures/component-capability-theme.scada-component.json",
+    "scripts/pages-component-capability-consistency-smoke.mjs",
+    "scripts/pages-component-document-history-smoke.mjs",
+    "scripts/pages-component-inspector-scope-smoke.mjs",
+    "scripts/pages-component-interaction-contract-smoke.mjs",
+    "scripts/pages-layer-methods-smoke.mjs",
+    "scripts/pages-managed-svg-author-ref-smoke.mjs",
+    "src/component-system/CompositeComponentVisualRenderer.tsx",
+    "src/component-system/visual-asset-snapshot.ts",
+    "src/components/ComponentInteractionSchema.tsx",
+    "src/components/component-interaction-schema.css",
+    "src/components/component-interaction-schema.ts",
+    "src/features/component-library/ComponentContractEditor.tsx",
+    "src/features/component-library/ComponentContractRowTable.tsx",
+    "src/features/component-library/ComponentEditorPage.tsx",
+    "src/features/component-library/ComponentLayerMethodCodeModal.tsx",
+    "src/features/component-library/ComponentLayerMethodInspector.tsx",
+    "src/features/component-library/ComponentPropertyContractEditor.tsx",
+    "src/features/component-library/component-layer-method-templates.tsx",
+    "src/features/component-library/component-property-references.ts",
+    "src/features/scada-editor/ComponentInteractionsInspector.tsx",
+    "src/features/scada-editor/ScadaEditorPage.tsx"
+  ],
+  "environment": {
+    "node": "22.23.2",
+    "playwright": "1.63.0",
+    "vite": "8.3.0",
+    "typescript": "6.0.3",
+    "react": "19.3.0",
+    "platform": "Linux x86_64",
+    "preview_url": "http://127.0.0.1:4175/"
+  },
+  "build": {
+    "exit_code": 0,
+    "modules": 661,
+    "main_js_kb": 915.39,
+    "main_js_gzip_kb": 298.37,
+    "editor_js_kb": 333.91,
+    "editor_js_gzip_kb": 98.08,
+    "existing_large_chunk_warning": true
+  },
+  "lint": {
+    "exit_code": 0,
+    "existing_warnings": 25,
+    "new_warnings": 0
+  },
+  "execution_notes": [
+    "Model commands follow the CI Runtime model checks step; npx --yes tsx uses the existing cached tsx binary, without a dependency installation.",
+    "The complete component-editor lane ran in Chromium. After adding engine selection to the history script, its final version passed again in Chromium and Firefox.",
+    "Firefox contains five targeted flows. The parity group reruns Chromium history and covers work transfer and standalone.",
+    "Sandbox restrictions initially prevented tsx IPC and Chromium launch; permitted reruns passed.",
+    "No local PostgreSQL/publication-api integration job, remote CI or deployed acceptance is asserted by this local record."
+  ],
+  "suites": {
+    "model": [
+      {
+        "command": "node scripts/check-model-check-registration.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.06
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-create-mode.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.22
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-layer-navigation.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-layer-order.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-line-layer-interaction.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-visual-primitives.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.17
+      },
+      {
+        "command": "npx --yes tsx scripts/check-visual-runtime.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-managed-svg-assets.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.22
+      },
+      {
+        "command": "node scripts/check-managed-svg-parser-authority.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.05
+      },
+      {
+        "command": "npx --yes tsx scripts/check-managed-svg-doctype-compatibility.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-managed-svg-authoring.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.23
+      },
+      {
+        "command": "npx --yes tsx scripts/check-managed-svg-geometry-authoring.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-managed-svg-visual-rules.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.22
+      },
+      {
+        "command": "npx --yes tsx scripts/check-visual-asset-raster-budget.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.2
+      },
+      {
+        "command": "npx --yes tsx scripts/check-managed-svg-portability.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.49
+      },
+      {
+        "command": "npx --yes tsx scripts/check-animation-runtime-adapters.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-animation-model.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.19
+      },
+      {
+        "command": "npx --yes tsx scripts/check-animation-fade-model.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-animation-blink-model.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-controlled-runtime-contract.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.19
+      },
+      {
+        "command": "npx --yes tsx scripts/check-controlled-runtime-session.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.2
+      },
+      {
+        "command": "npx --yes tsx scripts/check-controlled-script-protocol.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.19
+      },
+      {
+        "command": "npx --yes tsx scripts/check-controlled-script-codec.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.19
+      },
+      {
+        "command": "npx --yes tsx scripts/check-controlled-script-engine-contract.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-portable-execution-boundary.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-layer-methods.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 1.43
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-capability-consistency.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.48
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-behavior-contract.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-authority-migration.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.2
+      },
+      {
+        "command": "npx --yes tsx scripts/check-built-in-authority-migration.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.19
+      },
+      {
+        "command": "npx --yes tsx scripts/check-m9a2-authoring-authority.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.17
+      },
+      {
+        "command": "npx --yes tsx scripts/check-m9b1-runtime-authority.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-m9b2-package-scene-e2e.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.5
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-dsl.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-dsl-semantics.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.19
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-dsl-analysis.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-dsl-runtime.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.2
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-dsl-propagation-session.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.19
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-dsl-propagation-rollback.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.2
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-dsl-hardening.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.2
+      },
+      {
+        "command": "npx --yes tsx scripts/check-preview-component-state.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.19
+      },
+      {
+        "command": "npx --yes tsx scripts/check-preview-scada-integration.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-typed-action-event-contract.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-interaction-schema.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.17
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-property-references.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-semantics-persistence.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scoped-scene-validation.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-work-package.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.22
+      },
+      {
+        "command": "npx --yes tsx scripts/check-scada-work-transfer.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-standalone-work-runtime.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.5
+      },
+      {
+        "command": "npx --yes tsx scripts/check-storage-repositories.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.2
+      },
+      {
+        "command": "npx --yes tsx scripts/check-local-storage-migration.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.2
+      },
+      {
+        "command": "npx --yes tsx scripts/check-user-component-activation.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.22
+      },
+      {
+        "command": "npx --yes tsx scripts/check-distributable-component-package.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.2
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-package-transfer.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.19
+      },
+      {
+        "command": "npx --yes tsx scripts/check-runtime-adapter-lifecycle.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.18
+      },
+      {
+        "command": "npx --yes tsx scripts/check-reusable-component-packages.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.44
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-publication-contract.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.21
+      },
+      {
+        "command": "npx --yes tsx scripts/check-remote-component-repository.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.22
+      },
+      {
+        "command": "npx --yes tsx scripts/check-remote-component-installation.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.22
+      },
+      {
+        "command": "npx --yes tsx scripts/check-component-publication-client.ts",
+        "exit_code": 0,
+        "elapsed_seconds": 0.23
+      },
+      {
+        "command": "node scripts/check-server-publication-contract.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04
+      },
+      {
+        "command": "node --check scripts/pages-component-fixture-storage.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.03
+      },
+      {
+        "command": "node --check scripts/pages-component-navigation-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04
+      },
+      {
+        "command": "node --check scripts/pages-managed-svg-authoring-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04
+      },
+      {
+        "command": "node --check scripts/pages-managed-svg-author-ref-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04
+      },
+      {
+        "command": "node --check scripts/pages-layer-methods-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.05
+      },
+      {
+        "command": "node --check scripts/pages-component-interaction-contract-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04
+      },
+      {
+        "command": "node --check scripts/pages-component-capability-consistency-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04
+      },
+      {
+        "command": "node --check scripts/pages-scada-work-package-transfer-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04
+      },
+      {
+        "command": "node --check scripts/pages-standalone-runtime-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04
+      },
+      {
+        "command": "node --check server/src/publication-auth.js",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04
+      },
+      {
+        "command": "node --check server/src/index.js",
+        "exit_code": 0,
+        "elapsed_seconds": 0.04
+      }
+    ],
+    "browser": [
+      {
+        "command": "node scripts/pages-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 15.9
+      },
+      {
+        "command": "node scripts/pages-component-document-history-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 8.77
+      },
+      {
+        "command": "node scripts/pages-component-navigation-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 4.72
+      },
+      {
+        "command": "node scripts/pages-component-inspector-scope-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 3.99
+      },
+      {
+        "command": "node scripts/pages-component-interaction-contract-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 8.85
+      },
+      {
+        "command": "node scripts/pages-component-capability-consistency-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 9.86
+      },
+      {
+        "command": "node scripts/pages-component-primitives-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 2.19
+      },
+      {
+        "command": "node scripts/pages-component-geometry-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 4.32
+      },
+      {
+        "command": "node scripts/pages-component-palette-drop-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 3.84
+      },
+      {
+        "command": "SCADA_BROWSER=chromium node scripts/pages-component-hit-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 6.52
+      },
+      {
+        "command": "node scripts/pages-component-svg-drag-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 2.98
+      },
+      {
+        "command": "node scripts/pages-component-header-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 1.32
+      },
+      {
+        "command": "node scripts/pages-component-design-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 4.63
+      },
+      {
+        "command": "node scripts/pages-component-arrange-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 2.76
+      },
+      {
+        "command": "node scripts/pages-component-group-selection-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 2.77
+      },
+      {
+        "command": "node scripts/pages-component-toolbar-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 6.12
+      },
+      {
+        "command": "node scripts/pages-component-package-transfer-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 4.77
+      },
+      {
+        "command": "node scripts/pages-managed-svg-authoring-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 6.05
+      },
+      {
+        "command": "node scripts/pages-managed-svg-author-ref-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 7.69
+      },
+      {
+        "command": "node scripts/pages-svg-import-compatibility-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 3.08
+      },
+      {
+        "command": "node scripts/pages-layer-methods-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 2.68
+      }
+    ],
+    "firefox": [
+      {
+        "command": "SCADA_BROWSER=firefox node scripts/pages-component-interaction-contract-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 13.3
+      },
+      {
+        "command": "SCADA_BROWSER=firefox node scripts/pages-component-capability-consistency-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 13.05
+      },
+      {
+        "command": "SCADA_BROWSER=firefox node scripts/pages-managed-svg-author-ref-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 9.17
+      },
+      {
+        "command": "SCADA_BROWSER=firefox node scripts/pages-component-hit-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 10.51
+      },
+      {
+        "command": "SCADA_BROWSER=firefox node scripts/pages-component-document-history-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 11.32
+      }
+    ],
+    "parity": [
+      {
+        "command": "node scripts/pages-component-document-history-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 8.8
+      },
+      {
+        "command": "node scripts/pages-scada-work-package-transfer-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 4.92
+      },
+      {
+        "command": "node scripts/pages-standalone-runtime-smoke.mjs",
+        "exit_code": 0,
+        "elapsed_seconds": 1.34
+      }
+    ]
+  }
+}

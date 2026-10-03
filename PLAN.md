@@ -709,12 +709,34 @@ review of Component public inputs/outputs, private Layer Operations and future
 composition. [ADR](docs/architecture/adr-component-input-output-composition.md)
 and [source audit](docs/progress/component-input-output-audit.md) define the
 amendment, conflicts, retained safe code and suggested T1–T4 migration order.
-This documentation PR changes no code/schema/UI, accepts no milestone and does
-not start those tranches. The next eligible follow-up for explicit scoping is
-T1 contract/UI vocabulary and read-only consumption; T2 editor-operation
-ownership/atomic preview, T3 Scene routing and T4 nested composition each need
-their own authorization and evidence. Portable authored public execution needs
-a separate accepted execution ADR; M10C registry work keeps its staged gate.
+CIO-ARCH itself changes no code/schema/UI and accepts no milestone. The
+separately scoped `CIO-T1` compatible product-polish follow-up is `implemented`:
+public 操作 versus private 图层操作 labels, complete read-only Action parameter
+and Event payload display, and explicit existing portable/editor capability
+limits; see [T1 handoff](docs/progress/component-input-output-t1-contract-ui.md).
+It preserves schemas, private `methods` data, runtime and routing; the parent
+architecture PR remains under review and no gate is accepted here. The
+`CIO-T1-BROWSER` follow-up is `implemented`: capability checks use the current
+explicit declarative-package import/configuration path, authorRef checks use
+committed compact Property forms and the marking workbench, and a reproduced
+stale decoded-image/display-raster source mismatch is corrected. Both targeted
+checks and T1 pass locally in Chromium/Firefox; see [browser-fixture handoff](docs/progress/component-input-output-t1-browser-fixtures.md).
+The `CIO-T1-DELIVERY` follow-up is `implemented`: the complete 21-command
+component-editor browser step passes locally, with five targeted Firefox
+flows, work-transfer/standalone regressions and all 73 CI model-step commands.
+The full lane exposed a compact-form Property rename regression: explicit
+editor rename intent now preserves rule conditions, Property value sources and
+animation activation references in one undoable definition command; the history
+fixture follows the current title/compact-form UI. See the
+[delivery handoff](docs/progress/component-input-output-t1-delivery.md).
+These are compatible editor correctness prerequisites, not T2 ownership/apply
+work. This does not prove the removed one-click theme/Rule authoring UI, direct
+draft-to-ready publication or deployment acceptance. Parent review, candidate
+delivery checks and exact deployed evidence remain separate closeout requirements.
+T2 editor-operation
+ownership/atomic preview, T3 Scene routing and T4 nested composition each still
+need their own authorization and evidence. Portable authored public execution
+needs a separate accepted execution ADR; M10C registry work keeps its staged gate.
 
 The 2026-09-10 UI review delivers a [source audit](docs/design/ui-audit-2026-09-10.md), a corrected [industrial Designer UI specification](docs/design/industrial-designer-spec.md), and a proposed [rollout plan](docs/design/industrial-designer-rollout.md). The rollout prioritizes editing reliability before shared chrome, navigation and Inspector polish. Its A–F work packages are delivery batches, not new architecture milestones. B1–B3 and C1/C2 are merged; C2 and its deployed regression follow-up are recorded in [the C2 progress note](docs/progress/ui-c2-studio-shell.md) and PRs #194/#195. D1 Scene Navigator and Palette search are implemented for review; see [D1 progress](docs/progress/ui-d1-scene-navigation.md). D2/D3 and E/F remain outstanding. The [2026-09-16 Web editor correction](docs/design/web-editor-simplification.md) supersedes the desktop menu taxonomy and single-document tab: use a document header plus editing toolbar, with one primary entry per command. The subsequent [Component editor redesign](docs/design/component-editor-redesign.md) centers canvas controls, keeps grouping in the toolbar, moves ordering into each layer row, and introduces a compact neutral/teal interface. Shared Shell, navigation, history and persistence stay authoritative. Accepted M6–M9 and UX1 authority boundaries remain unchanged.
 
