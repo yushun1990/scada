@@ -1,3 +1,4 @@
+import { ComponentInteractionSchema } from '../../components/ComponentInteractionSchema'
 import { builtInComponentRegistry } from '../../component-system/builtins'
 import type { ComponentDefinition } from '../../component-system/definition'
 import {
@@ -97,7 +98,7 @@ export function ComponentInteractionsInspector({
     if (actions.length === 0) {
       return (
         <div className="inspector-placeholder">
-          <strong>无公开方法</strong>
+          <strong>无公开操作</strong>
           <span>该组件没有向组态场景暴露 Action。</span>
         </div>
       )
@@ -106,7 +107,7 @@ export function ComponentInteractionsInspector({
     return (
       <div className="property-section-list">
         <fieldset className="inspector-group">
-          <legend>组件方法</legend>
+          <legend>组件操作</legend>
           {actions.map(([actionName, action]) => {
             const executable = Boolean(registration?.actions?.[actionName])
 
@@ -118,14 +119,15 @@ export function ComponentInteractionsInspector({
                   disabled={!previewActive || !executable}
                   onClick={() => onInvokeAction(actionName)}
                 >
-                  {executable ? '执行' : '未实现'}
+                  {executable ? '请求操作' : '未实现'}
                 </Button>
                 {action.description && <small>{action.description}</small>}
+                <ComponentInteractionSchema kind="action" definition={action} />
               </div>
             )
           })}
           {!previewActive && (
-            <small>进入预览后可执行当前 Runtime 已实现的公开方法。</small>
+            <small>进入预览后可请求当前 Runtime 已实现的公开操作。此入口使用无参数调用，不提供参数编辑。</small>
           )}
         </fieldset>
       </div>
@@ -167,7 +169,7 @@ export function ComponentInteractionsInspector({
               )
             : true
           const options = [
-            { value: '', label: '不触发方法' },
+            { value: '', label: '不请求操作' },
             ...(behavior && !knownTarget
               ? [{
                   value: selectedTarget,
@@ -181,7 +183,7 @@ export function ComponentInteractionsInspector({
           ]
 
           return (
-            <label key={eventName} className="property-field">
+            <div key={eventName} className="property-field">
               <span>{event.title}</span>
               <Select
                 value={selectedTarget}
@@ -193,9 +195,11 @@ export function ComponentInteractionsInspector({
                 }
               />
               {event.description && <small>{event.description}</small>}
-            </label>
+              <ComponentInteractionSchema kind="event" definition={event} />
+            </div>
           )
         })}
+        <small>响应配置独立于事件定义；当前兼容路由使用无参数操作调用，不映射事件载荷。</small>
         {previewActive && <small>返回设计模式后可修改事件行为。</small>}
       </fieldset>
     </div>

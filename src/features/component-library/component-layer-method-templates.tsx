@@ -61,17 +61,17 @@ export function buildMethodCode(
 
   const doc = `/**
  * ${title || methodName}
- * ${description || 'SVG 图层函数'}
+ * ${description || '私有图层操作（仅限编辑器试运行）'}
  * 运行沙箱内置上下文（受控执行，无 DOM/网络/定时器）：
  * - $self: 当前图层驱动接口（$self.layers, $self.setTheme, $self.showOnly 等）
- * - $emit(eventName, payload): 记录一次业务事件
+ * - $emit(eventName, payload): 仅记录编辑器诊断，不发布公开 Event
 ${paramDocs ? `${paramDocs}\n` : ''} */`
 
   const signature = `function ${methodName}(${paramNames.join(', ')})`
 
   let bodyContent = existingBody
   if (!bodyContent || !bodyContent.trim()) {
-    bodyContent = `\n  // TODO: 在此编写函数具体实现逻辑\n  $self.setTheme('running');\n`
+    bodyContent = `\n  // TODO: 在此编写私有视觉操作逻辑\n  $self.setTheme('running');\n`
   }
 
   return `${doc}\n${signature} {${bodyContent}}`
@@ -201,11 +201,11 @@ function ${name}(targetLayerName = 'pump-red') {
   },
   {
     icon: '⚠️',
-    label: '告警闪烁与事件',
-    prompt: '切换为红色告警光影，并向外层系统抛出告警业务事件',
+    label: '告警主题与诊断',
+    prompt: '切换为红色告警主题，并记录编辑器诊断（不发布公开事件）',
     suggestedCode: (name) => `/**
- * 告警触发与业务事件抛送
- * 切换状态并触发业务告警事件通知外部 SCADA 宿主
+ * 告警主题与编辑器诊断
+ * 切换视觉主题并记录诊断，不发布公开事件或通知外部系统
  */
 function ${name}(errorLevel = 'CRITICAL') {
   $self.setTheme('alarm');
@@ -214,7 +214,7 @@ function ${name}(errorLevel = 'CRITICAL') {
     message: '设备检测到异常告警，已切换红色预警态'
   });
 }`,
-    explanation: '已生成 $emit 业务事件逻辑，事件随试运行结果一起展示。',
+    explanation: '已生成主题切换和 $emit 诊断记录；诊断仅存在于运行结果，不发布公开 Event。',
   },
   {
     icon: '⚙️',
@@ -286,7 +286,7 @@ function ${methodName || 'myMethod'}(${paramArgStr || "targetLayerName = 'pump-r
     return {
       code: `/**
  * ${prompt}
- * 告警联动与事件触发逻辑
+ * 告警主题与私有诊断记录（不发布公开事件）
  */
 function ${methodName || 'myMethod'}(${paramArgStr || "errorLevel = 'CRITICAL'"}) {
   $self.setTheme('alarm');
@@ -295,7 +295,7 @@ function ${methodName || 'myMethod'}(${paramArgStr || "errorLevel = 'CRITICAL'"}
     message: ${JSON.stringify(prompt)}
   });
 }`,
-      explanation: `已针对“${prompt}”生成告警主题切换与 $emit 事件代码。`,
+      explanation: `已针对“${prompt}”生成告警主题切换与 $emit 编辑器诊断代码，不发布公开 Event。`,
     }
   }
 
@@ -324,7 +324,7 @@ function ${methodName || 'myMethod'}(${paramArgStr || "state = 'running'"}) {
   const validThemes = ['running', 'alarm', 'warning', 'standby', 'offline', 'default'];
   return $self.setTheme(validThemes.includes(state) ? state : 'default');
 }`,
-    explanation: `已针对“${prompt}”生成主题状态切换代码；沙箱内可用能力：$self.setTheme / $self.layers 显隐 / $emit。`,
+    explanation: `已针对“${prompt}”生成主题状态切换代码；沙箱内可用能力：$self.setTheme / $self.layers 显隐 / $emit（仅记录诊断）。`,
   }
 }
 

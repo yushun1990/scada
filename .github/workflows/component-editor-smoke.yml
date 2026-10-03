@@ -6,6 +6,8 @@ on:
     paths:
       - 'src/**'
       - 'scripts/pages-component-*.mjs'
+      - 'scripts/check-component-capability-consistency.ts'
+      - 'scripts/fixtures/**'
       - 'scripts/pages-smoke.mjs'
       - 'scripts/pages-managed-svg-*.mjs'
       - 'scripts/pages-svg-import-compatibility-smoke.mjs'
@@ -67,6 +69,7 @@ jobs:
             node scripts/pages-component-document-history-smoke.mjs
             node scripts/pages-component-navigation-smoke.mjs
             node scripts/pages-component-inspector-scope-smoke.mjs
+            node scripts/pages-component-interaction-contract-smoke.mjs
             node scripts/pages-component-capability-consistency-smoke.mjs
             node scripts/pages-component-primitives-smoke.mjs
             node scripts/pages-component-geometry-smoke.mjs
@@ -82,7 +85,7 @@ jobs:
             node scripts/pages-managed-svg-authoring-smoke.mjs
             node scripts/pages-managed-svg-author-ref-smoke.mjs
             node scripts/pages-svg-import-compatibility-smoke.mjs
-node scripts/pages-layer-methods-smoke.mjs
+            node scripts/pages-layer-methods-smoke.mjs
           } 2>&1 | tee artifacts/component-browser.log
       - name: Upload interaction captures
         if: always()

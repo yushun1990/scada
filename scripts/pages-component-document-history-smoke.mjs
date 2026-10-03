@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { chromium } from 'playwright'
+import { chromium, firefox } from 'playwright'
 import {
   readPersistedComponent,
   saveAndWait,
@@ -8,7 +8,9 @@ import {
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/')
   .replace(/\/?$/, '/')
-const browser = await chromium.launch({ headless: true })
+const browserName = process.env.SCADA_BROWSER ?? 'chromium'
+assert.ok(['chromium', 'firefox'].includes(browserName))
+const browser = await ({ chromium, firefox })[browserName].launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1200, height: 800 } })
 const pageErrors = []
 
@@ -108,6 +110,7 @@ try {
 
   // Text Ctrl/Cmd+Z remains owned by the focused input rather than jumping
   // across the Component document history stack.
+  await titleDisplay.click()
   await titleField.focus()
   await titleField.press('End')
   await titleField.pressSequentially('X')
@@ -117,9 +120,11 @@ try {
     originalTitle,
     'text undo must not invoke Component document undo',
   )
+  await titleField.pressSequentially(' cancelled')
   await titleField.press('Escape')
+  await titleField.waitFor({ state: 'detached' })
   assert.equal(
-    await titleField.inputValue(),
+    (await page.locator('.component-definition-title-text').textContent()).trim(),
     'History Component',
     'Escape must cancel the staged Component field transaction',
   )
@@ -157,6 +162,15 @@ try {
       value: true,
     },
   ]
+  seeded.visual.animations = [
+    ...seeded.visual.animations,
+    {
+      id: 'history-animation', kind: 'fade', enabled: true, layerId,
+      opacityMultiplier: 0.5,
+      timing: { durationMs: 1000, delayMs: 0, iterations: 1, direction: 'normal', easing: 'linear' },
+      activation: { kind: 'property', propertyKey: 'state', operator: 'equals', compareValue: false },
+    },
+  ]
   await writePersistedComponent(page, seeded)
   await page.reload({ waitUntil: 'load' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
@@ -164,37 +178,32 @@ try {
   await rootInspector.waitFor()
 
   const propertyItemFor = (key) => rootInspector
-    .locator('.component-root-public-properties .property-contract-item')
-    .filter({ has: page.locator('code', { hasText: new RegExp(`^${key}$`) }) })
+    .locator('.component-root-public-properties .contract-row-item')
+    .filter({ has: page.locator('.contract-row-name', { hasText: new RegExp(`^${key}$`) }) })
     .first()
 
   let propertyItem = propertyItemFor('state')
-  await propertyItem.locator('.property-contract-summary').click()
-  let keyInput = propertyItem
-    .locator('.contract-grid label')
-    .filter({ has: page.locator('span', { hasText: /^Key$/ }) })
-    .locator('input')
-    .first()
+  await propertyItem.getByRole('button', { name: '编辑 state', exact: true }).click()
+  const propertyForm = rootInspector.locator('.contract-row-form')
+  const keyInput = propertyForm.getByLabel('Property 名称', { exact: true })
   await keyInput.waitFor()
   assert.equal(await keyInput.inputValue(), 'state')
 
-  // ContractKeyInput writes on blur. Escape must still cancel that pending
-  // blur writer rather than accidentally committing it after the parent
-  // transaction boundary has already finalized.
+  // The compact form stages its key until explicit Save. Neither Escape/blur
+  // nor Cancel may commit that draft or create a document-history entry.
   await keyInput.fill('cancelledState')
   await keyInput.press('Escape')
+  await propertyForm.getByRole('button', { name: '取消', exact: true }).click()
+  await propertyForm.waitFor({ state: 'detached' })
   propertyItem = propertyItemFor('state')
   await propertyItem.waitFor()
   assert.equal(await propertyItemFor('cancelledState').count(), 0)
+  assert.equal(await page.getByRole('button', { name: '保存', exact: true }).isDisabled(), true,
+    'canceling a staged contract edit must leave the persisted document clean')
 
-  await propertyItem.locator('.property-contract-summary').click()
-  keyInput = propertyItem
-    .locator('.contract-grid label')
-    .filter({ has: page.locator('span', { hasText: /^Key$/ }) })
-    .locator('input')
-    .first()
+  await propertyItem.getByRole('button', { name: '编辑 state', exact: true }).click()
   await keyInput.fill('renamedState')
-  await keyInput.press('Enter')
+  await propertyForm.getByRole('button', { name: '保存', exact: true }).click()
   await propertyItemFor('renamedState').waitFor()
 
   // The seeded visual rule references the contract key. Renaming the key must
@@ -219,9 +228,19 @@ try {
     'renamedState',
     'Property-key redo must preserve reconciled Visual Rule references',
   )
+  assert.deepEqual(
+    persistedRenamed.visual.animations.find((candidate) => candidate.id === 'history-animation')?.activation,
+    { kind: 'property', propertyKey: 'renamedState', operator: 'equals', compareValue: false },
+    'the same rename command must preserve the animation activation reference',
+  )
+  await page.reload({ waitUntil: 'load' })
+  await openDefinitionPage()
+  await propertyItemFor('renamedState').waitFor()
+  assert.deepEqual((await readPersistedComponent(page)).document, persistedRenamed,
+    'save/reopen must retain the complete redone contract, rules and animations')
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
-  console.log('Component document history smoke passed: visual, definition and contract-reference edits share one ordered undo/redo authority; text shortcuts and Escape remain field-local; save preserves the redone document.')
+  console.log(`Component document history smoke passed (${browserName}): visual, definition and contract-reference edits share one ordered undo/redo authority; text shortcuts and Escape remain field-local; save/reopen preserves redone rules and animations.`)
 } finally {
   await browser.close()
 }

@@ -89,8 +89,8 @@ try {
     'SVG layers must not render a standalone resource group',
   )
 
-  // 行为 tab: built-in theme functions appear with edit and run actions.
-  await page.getByRole('tab', { name: '行为', exact: true }).click()
+  // Private Layer Operations: built-in themes retain editor edit/test actions.
+  await page.getByRole('tab', { name: '图层操作', exact: true }).click()
   const methodsInspector = page.locator('.component-layer-methods-inspector')
   await methodsInspector.waitFor()
   const setRunningRow = methodsInspector.locator('.component-method-item', { hasText: 'setRunning' })
@@ -116,8 +116,8 @@ try {
   await methodsInspector.getByRole('button', { name: '+ 新增', exact: true }).click()
   const modal = page.locator('.component-method-implementation-modal')
   await modal.waitFor()
-  await modal.getByLabel('函数标识名').fill('applyLevel')
-  await modal.getByLabel('函数简介说明').fill('应用等级')
+  await modal.getByLabel('图层操作标识名').fill('applyLevel')
+  await modal.getByLabel('图层操作简介说明').fill('应用等级')
   await modal.getByRole('button', { name: '⚙️ 多态切换 (运行/待机)' }).click()
   const codeArea = modal.locator('.component-method-code-textarea')
   await codeArea.waitFor()
@@ -176,7 +176,7 @@ function applyLevel(state = 'running') {
   await page.goto(savedUrl, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
   await page.locator('.component-layer-row', { hasText: 'theme-lamp' }).click()
-  await page.getByRole('tab', { name: '行为', exact: true }).click()
+  await page.getByRole('tab', { name: '图层操作', exact: true }).click()
   const reloadedRow = page.locator('.component-method-item', { hasText: 'applyLevel' })
   await reloadedRow.getByLabel('applyLevel 运行预览').click()
   const runDialogReloaded = page.locator('.component-method-run-dialog')

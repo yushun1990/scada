@@ -42,6 +42,7 @@ jobs:
           node scripts/pages-scene-navigation-smoke.mjs
           node scripts/pages-component-arrange-smoke.mjs
           node scripts/pages-component-navigation-smoke.mjs
+          node scripts/pages-component-interaction-contract-smoke.mjs
           node scripts/pages-component-capability-consistency-smoke.mjs
           node scripts/pages-component-geometry-smoke.mjs
           node scripts/pages-animation-move-smoke.mjs
@@ -57,7 +58,7 @@ jobs:
           node scripts/pages-managed-svg-authoring-smoke.mjs
           node scripts/pages-managed-svg-author-ref-smoke.mjs
           node scripts/pages-svg-import-compatibility-smoke.mjs
-node scripts/pages-layer-methods-smoke.mjs
+          node scripts/pages-layer-methods-smoke.mjs
           node scripts/pages-component-package-transfer-smoke.mjs
           node scripts/pages-scada-work-package-transfer-smoke.mjs
           node scripts/pages-standalone-runtime-smoke.mjs
@@ -74,6 +75,8 @@ node scripts/pages-layer-methods-smoke.mjs
             artifacts/component-toolbar-1200.png
             artifacts/component-toolbar-1000.png
             artifacts/component-navigation-1000.png
+            artifacts/component-interaction-*.png
+            artifacts/component-capability-*.png
             artifacts/scada-toolbar-1200.png
             artifacts/scada-toolbar-1000.png
             artifacts/scada-add-component-toast-1400.png
