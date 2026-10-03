@@ -1,4 +1,5 @@
 import type { ComponentDefinition } from '../../component-system/definition'
+import type { ContractKeyRename } from './component-property-references'
 import {
   ContractRowTable,
   createContractRowEntry,
@@ -7,7 +8,7 @@ import {
 type ComponentPropertyContractEditorProps = {
   definition: ComponentDefinition
   readOnly: boolean
-  onChange: (definition: ComponentDefinition) => void
+  onChange: (definition: ComponentDefinition, rename?: ContractKeyRename) => void
 }
 
 export function ComponentPropertyContractEditor({
@@ -25,7 +26,7 @@ export function ComponentPropertyContractEditor({
       emptyLabel="尚未添加运行属性"
       createEntry={(key) => ({ ...createContractRowEntry(key), bindable: true })}
       isBindable={(property) => Boolean(property.bindable)}
-      onEntriesChange={(properties) => onChange({ ...definition, properties })}
+      onEntriesChange={(properties, rename) => onChange({ ...definition, properties }, rename)}
     />
   )
 }

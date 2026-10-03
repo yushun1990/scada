@@ -1,75 +1,91 @@
-# ADR：受控 SVG 图层函数（Layer Methods）执行
+# ADR：受控 private Layer Operation 编辑器执行
 
-状态：**ACCEPTED（按提案推荐项落地）· 2026-09-27 · issue #209 方向裁决**。
-落地范围：编辑器内的函数编写与 ▶ 试运行（`src/runtime/controlled-layer-method-engine.ts`，
-懒加载 QuickJS-WASM 沙箱 + 结构化宿主桥）；函数作为 SVG 图层私有数据持久化
-（`SvgVisualLayer.methods`，校验 fail-closed），不进入公开 Action/Event 契约；
-可移植运行时执行仍保持声明式（如需运行时执行图层函数，另启决策）。
-提出背景：issue #209 第 3 条（行为看板中管理 SVG 函数，可编辑、可运行预览）。
+状态：`accepted`（2026-09-27 issue #209 的受控编辑器执行决策）；本文的语义与
+范围修正随 [Component input/output ADR](adr-component-input-output-composition.md)
+审阅（`active`，2026-10-03）。接受该修正后，以下正文取代旧提案的能力面和运行域
+描述；原有隔离、限额、私有数据与便携执行边界保持。
 
-## 背景
+文件名、`methods` 字段及 `LayerMethod` API 名保留兼容性，不代表对象方法模型。
+公共 Component **Action（操作）** 与 private **Layer Operation（图层操作）**
+是不同边界；内部 Message 不替代公共 Action/Event vocabulary。
 
-issue #209 要求恢复 PR #198 时代的图层函数能力：行为看板列出为 SVG
-定义的函数，每个函数可 `<>` 编辑、`▶` 运行预览，智能重构可生成函数。
+## 原决策背景与保留范围
 
-PR #198 分支（`codex/component-authoring-followup`，未合并）的参考实现：
+issue #209 要求在图层看板列出、编写、编辑与 `▶` 试运行 SVG 函数。
+PR #198 未合并参考实现曾将作者源码放入公开
+`definition.actions[name].implementation`，通过页面 realm 的 `new Function`
+执行。该路径违反仓库不可协商的执行规则；M10-R0/PR #200 已移除公开 Action
+源码执行。恢复它不是本决策的目标。
 
-- 函数体存储在 `definition.actions[name].implementation`（作者 JavaScript 源码）；
-- 运行通过 `new Function('$self', 'layers', '$emit', ...)` 直接执行，`$self`
-  代理提供 `setTheme / showLayer / hideLayer / emit` 等实时变更能力。
+接受的替代是 **编辑器内显式调用的私有视觉操作**：
 
-## 冲突
+- `src/runtime/controlled-layer-method-engine.ts` 独立实现懒加载 QuickJS-WASM
+  执行；它不是通用 `ControlledScriptEngine.load/invoke` 的已接线适配器。
+- 内存、栈、时间有界；沙箱不获得宿主 DOM/React/Konva/Three、网络和计时器。
+- 作者只能产生结构化的 allowlisted 宿主请求，宿主验证并应用结果。
+- `SvgVisualLayer.methods`（现已在 `VisualLayerBase` 支持普通视觉图层）是私有
+  实现数据，持久化/包转移不使它成为公开 Action/Event 或便携执行入口。
+- 便携用户 runtime 仍只执行已接受的声明式视觉规则/动画；公开 Actions/Events
+  的 ready/export/activation 限制、`implementationDraft` inert 与资源闭包不变。
 
-该实现与两条已接受的权威正面冲突：
+后续非 SVG 支持的历史实现记录见
+[issue #209 progress](../progress/issue-209-svg-interaction-optimization.md)。
+普通 SVG/Image/Vector/Text/Group 不因此获得完整 Component contract。
 
-1. `AGENTS.md` 不可协商规则：authored definitions 不得执行 unrestricted
-   JavaScript（禁止 `eval` / `new Function`）。`new Function` 在页面 realm
-   执行，具备完整全局能力。
-2. R0 修正（PR #200，`d591f34`）已从模型中移除 portable Action source
-   execution；`ComponentActionDefinition` 已无 `implementation` 字段，
-   图层检查器声明 `data-portable-action-execution="disabled"`。
+## 能力面：以当前实现为准的审计
 
-按仓库契约，需求与规则冲突时应提 ADR 并等待接受，不得默默绕过。
+当前 `runLayerMethod` 接受视觉图层快照，返回 `ops`。宿主桥只支持：
 
-## 现状盘点（与本提案相关、已存在的资产）
+| 请求 | 当前消费方式与边界 |
+| --- | --- |
+| `setTheme` | 校验主题状态；检查器对选中的 managed SVG 使用纯文档变换。非 SVG 当前不应用，需后续补齐 kind rejection。 |
+| `setLayerVisible` | 校验目标在传入快照的 ID 集合内；检查器写回私有 authored visual。快照成员资格不是任意 sibling 的 ownership 授权。 |
+| `emit` | 收集事件名及 payload 到运行结果；检查器不转交 `PreviewRuntime.emitEvent`，不校验公开 Event schema。只是 inert 编辑器结果数据。 |
+| `log` | 收集有长度上限的日志到运行结果；不是设备或网络 effect。 |
 
-- `src/runtime/controlled-script-engine.ts`：`ControlledScriptEngine` 契约
-  （`load(source, bridge, limits)` → `invoke({init|propertyChanged|action})`），
-  带默认限额（50ms / 16 MiB / 512 KiB 栈），CI 有契约检查。
-- `src/runtime/controlled-script-protocol.ts`：结构化宿主桥协议
-  （property.get/set、event.emit、action.invoke、visual.set/clear/contribute、
-  diagnostic.log），值域受控、深度/节点数有界。
-- `package.json` 已含 `quickjs-emscripten-core` 与
-  `@jitl/quickjs-wasmfile-release-sync`，但 `src/` 中尚无具体引擎适配
-  （未接线、未打包进任何产物）。
-- 声明式替代已上线：`ComponentSvgLayerBehaviorEditor` 提供主题状态函数列表
-  （每行 `▶` 运行预览，纯数据变换，不执行脚本）与一键 Property/规则绑定。
+旧能力清单中的 `property.set/get` **撤销**：当前图层引擎没有该桥，图层操作
+不得获得 semantic Property 写权限。通用 controlled-script protocol 中的
+Property setter 是未接入此路径的实验接口，不构成可复用的公共状态 authority。
 
-## 提案（待决策的推荐项）
+`$self`、`setVisible`、`$self.layers[i].show = ...` 是沙箱内记录请求的兼容 facade，
+没有宿主图层/renderer 对象引用。它们的对象式外观不能成为未来 API 设计依据。
+新操作设计以稳定目标、类型化输入、显式 scope 和宿主校验为中心；组件内跨图层
+编排如有需要应由明确的组件私有 owner 授权，不能从快照自动推导权限。
 
-**受控图层函数**：允许作者为 SVG 图层编写函数，但执行必须走受控引擎：
+## 校验与失败语义
 
-1. **引擎**：新建懒加载的 QuickJS-WASM 适配器实现
-   `ControlledScriptEngine`（动态 `import()`，独立 chunk，附 before/after
-   bundle 报告——满足“重依赖需已接受的设计决策 + 懒加载证明”）。
-2. **能力面**：函数内只能通过宿主桥发起结构化调用。图层函数桥接
-   `svg.theme.set(state)`、`layer.visibility.set(id, bool)`、
-   `property.set/get`、`diagnostic.log`；不提供 DOM/React/Konva/Three 访问。
-3. **持久化**：函数源码作为组件私有视觉实现存储（Visual 层，非公开
-   Action/Event 契约），包导入时按 fail-closed 校验（大小上限、禁止实体、
-   语法白名单解析）。
-4. **运行域**：编辑器 `▶` 预览与运行时求值都只经过同一引擎与限额；
-   超限/超时 fail-closed 并给出诊断。
-5. **回滚**：不迁移历史数据；本提案不接受则维持现状（声明式主题行为）。
+当前数据校验覆盖名称、重复项、元数据/源码长度、数量与参数结构；源码语法错误
+在 QuickJS 试运行时诊断。旧提案“源码语法白名单解析”的描述不成立：
+`assertSvgLayerMethods` 不解析或证明源码安全。执行隔离和宿主请求校验才是当前
+运行边界；静态 SVG 禁止可执行内容的安全规则仍独立存在。
 
-## 备选
+宿主仅在 `result.ok` 时应用当前运行结果。未来修正须先验证完整请求集合的 scope、
+target kind 和值域，再一次性应用；失败、失效目标或过时的异步结果不得部分提交。
+这些提交与 ownership 缺口记录在 [CIO 审计](../progress/component-input-output-audit.md)，
+本次文档 PR 没有修正 UI/runtime，也不声称现有沙箱测试证明了完整的提交原子性。
 
-- **B1 维持现状**：行为看板保持声明式（本仓库已按此交付 issue #209 的
-  合规部分）。
-- **B2 DSL 化**：不引入 JS 引擎，把函数表达能力做成受限 DSL/规则组合。
-  表达力弱但零执行面。
+## 编辑器试运行与运行时的区分
 
-## 需要的决策
+当前 `▶` 会通过 `onUpdateLayer` / `onUpdateVisual` 改写 authored visual，
+并非仅 transient runtime preview。后续纠偏应使测试预览不持久化；用户明确应用
+视觉结果时，由宿主以 **一个原子、可撤销命令** 提交。失败与取消保留原文档。
+运行时私有视觉 overlay 不得写包、Attribute、semantic Property 或编辑器历史。
 
-接受本提案（或 B1/B2），并确认：QuickJS 懒加载适配器是否授权实现；
-图层函数是否随组件包持久化导出。
+旧“编辑器与 runtime 都经过同一引擎”建议 **不再有效**。共享引擎不能代表已经
+接受了 runtime 执行：当前只授权编辑器测试，不在 Preview composite registration
+或 standalone 接线，也不自动执行导入包里的源码。
+
+要开放便携 authored public Action/Event 或运行时私有操作，必须另有 accepted ADR、
+能力/隔离与生命周期模型、版本化解析/迁移/失败恢复、Preview/standalone parity
+和所需浏览器证据。仅改名或使用同一 QuickJS 引擎不能越过这个门。
+
+## 兼容与非目标
+
+- 保留现有私有 `methods` 源码数据、旧 facade 与 pure theme/rule/animation 实现；
+  不为术语批量改写历史源码或升级 schema。
+- 不将 private operation 自动加入 `ComponentDefinition.actions`；`$emit` 不接到
+  public Event，不发明所有视觉类型的假 Component contract。
+- 不实现 nested Component Layer、父子 Event forwarding、Scene Trigger/Effect
+  authoring、通用方法注册、任意 Property mutation、设备协议或 unrestricted JS。
+- 原决策的替代方案（保持声明式、以后评估受限 DSL）仍可用于后续需求评审，
+  不重新打开已接受的 M6–M10 gate。迁移顺序以 CIO ADR/PLAN 为准。

@@ -14,7 +14,6 @@ import {
   type ComponentProps,
 } from '../../component-system/definition'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
-import type { VisualRuleOperator } from '../../component-system/visualRules'
 import { isTextEditingTarget, shouldIgnoreEditorShortcut } from '../../editor/keyboard'
 import { commitStudioNavigation } from '../../editor/editor-navigation'
 import { EditorLeaveDialog } from '../../editor/EditorLeaveDialog'
@@ -39,6 +38,10 @@ import { ComponentGroupCommand } from './ComponentLayerCommands'
 import { ComponentGeometryToolbarGroup } from './ComponentGeometryToolbarGroup'
 import { ComponentPreviewValues } from './ComponentPreviewValues'
 import { ComponentPropertyContractEditor } from './ComponentPropertyContractEditor'
+import {
+  reconcileVisualPropertyReferences,
+  type ContractKeyRename,
+} from './component-property-references'
 import {
   inspectPortableUserComponentCapability,
 } from './portable-user-component-capability'
@@ -79,18 +82,18 @@ type ComponentWorkPage = 'canvas' | 'definition'
 
 const LAYER_INSPECTOR_TABS: Array<StudioTabItem<LayerInspectorTab>> = [
   { value: 'properties', label: '属性' },
-  { value: 'behaviors', label: '行为' },
+  { value: 'behaviors', label: '图层操作' },
 ]
 
 const TRUSTED_INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
   { value: 'properties', label: '属性' },
-  { value: 'actions', label: '方法' },
+  { value: 'actions', label: '操作' },
   { value: 'events', label: '事件' },
 ]
 
 const PORTABLE_INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
   { value: 'properties', label: '属性' },
-  { value: 'actions', label: '方法（未开放）' },
+  { value: 'actions', label: '操作（未开放）' },
   { value: 'events', label: '事件（未开放）' },
 ]
 
@@ -103,13 +106,6 @@ const WORK_PAGE_ITEMS: Array<SegmentedControlItem<ComponentWorkPage>> = [
   { value: 'canvas', label: '图形化设计', icon: <DesignNibIcon /> },
   { value: 'definition', label: 'Coding 开发', icon: <SettingsHorizontalIcon /> },
 ]
-
-const NUMERIC_RULE_OPERATORS = new Set<VisualRuleOperator>([
-  'greaterThan',
-  'greaterOrEqual',
-  'lessThan',
-  'lessOrEqual',
-])
 
 function normalizePreviewProps(
   definition: ComponentDefinition,
@@ -125,97 +121,6 @@ function normalizePreviewProps(
   }
 
   return next
-}
-
-function resolveReconciledProperty(
-  previousDefinition: ComponentDefinition,
-  nextDefinition: ComponentDefinition,
-  propertyKey: string,
-) {
-  const direct = nextDefinition.properties[propertyKey]
-  if (direct) {
-    return { propertyKey, property: direct }
-  }
-
-  const previousProperty = previousDefinition.properties[propertyKey]
-  const renamed = previousProperty
-    ? Object.entries(nextDefinition.properties).find(
-        ([key, candidate]) => key !== propertyKey && candidate === previousProperty,
-      )
-    : undefined
-
-  return renamed
-    ? { propertyKey: renamed[0], property: renamed[1] }
-    : null
-}
-
-function reconcileVisualPropertyReferences(
-  previousDefinition: ComponentDefinition,
-  nextDefinition: ComponentDefinition,
-  visual: ComponentVisualDefinition,
-): ComponentVisualDefinition {
-  const rules = (visual.rules ?? []).flatMap((rule) => {
-    const resolved = resolveReconciledProperty(
-      previousDefinition,
-      nextDefinition,
-      rule.propertyKey,
-    )
-
-    if (!resolved) return []
-
-    const compareValueValid = isComponentPropertyValue(
-      resolved.property,
-      rule.compareValue,
-    )
-    const operatorValid =
-      !NUMERIC_RULE_OPERATORS.has(rule.operator) ||
-      resolved.property.kind === 'number'
-
-    return [{
-      ...rule,
-      propertyKey: resolved.propertyKey,
-      operator: operatorValid ? rule.operator : 'equals' as const,
-      compareValue: compareValueValid && operatorValid
-        ? rule.compareValue
-        : resolved.property.defaultValue,
-    }]
-  })
-
-  const animations = visual.animations.flatMap((animation) => {
-    if (animation.activation.kind === 'always') {
-      return [animation]
-    }
-
-    const resolved = resolveReconciledProperty(
-      previousDefinition,
-      nextDefinition,
-      animation.activation.propertyKey,
-    )
-
-    if (!resolved) return []
-
-    const compareValueValid = isComponentPropertyValue(
-      resolved.property,
-      animation.activation.compareValue,
-    )
-    const operatorValid =
-      !NUMERIC_RULE_OPERATORS.has(animation.activation.operator) ||
-      resolved.property.kind === 'number'
-
-    return [{
-      ...animation,
-      activation: {
-        ...animation.activation,
-        propertyKey: resolved.propertyKey,
-        operator: operatorValid ? animation.activation.operator : 'equals' as const,
-        compareValue: compareValueValid && operatorValid
-          ? animation.activation.compareValue
-          : resolved.property.defaultValue,
-      },
-    }]
-  })
-
-  return { ...visual, rules, animations }
 }
 
 function reconcileVisualLayerReferences(
@@ -527,7 +432,7 @@ export function ComponentEditorPage({
     setMessage('')
   }
 
-  function updateDefinition(nextDefinition: ComponentDefinition) {
+  function updateDefinition(nextDefinition: ComponentDefinition, rename?: ContractKeyRename) {
     mutateComponent((current) => ({
       ...current,
       definition: nextDefinition,
@@ -535,6 +440,7 @@ export function ComponentEditorPage({
         current.definition,
         nextDefinition,
         current.visual,
+        rename,
       ),
     }))
     setMessage('')
@@ -912,7 +818,7 @@ export function ComponentEditorPage({
 
             {!builtInReadOnly && !portableCapability.activatable && (
               <p className="component-inspector-help" role="status">
-                当前含有旧 Action/Event 声明，不能激活、导出或发布。请在“方法（未开放）”或“事件（未开放）”页删除这些声明。
+                当前含有旧 Action/Event 声明，不能激活、导出或发布。请在“操作（未开放）”或“事件（未开放）”页删除这些声明。
               </p>
             )}
           </header>

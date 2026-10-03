@@ -4,6 +4,11 @@ Status: **accepted**. M9 migration and package/standalone acceptance closed on 2
 
 This note refines the component public-contract model defined in `component-system.md` and the scene binding model defined in `scada-binding-behavior.md`.
 
+Discrete input/output, private operations and future nested composition follow
+the [Component input/output amendment](adr-component-input-output-composition.md)
+(`active` architecture review). It clarifies ownership without reopening M9
+schema, migration or acceptance.
+
 The key correction is:
 
 > **Component authoring configuration and runtime semantic data are different concepts and must not share one undifferentiated Property namespace.**
@@ -121,7 +126,8 @@ There is no runtime telemetry layer in this resolution chain.
 
 ## 3. Property semantics
 
-A **Property** is a runtime semantic value exposed by the component.
+A **Property** is an externally/runtime-owned semantic state/input exposed by
+the component, not a mutable member owned by its implementation.
 
 Typical examples:
 
@@ -144,6 +150,11 @@ Normative rules:
 4. Renderer and Component Action handlers observe one deterministic effective Property snapshot.
 5. Runtime Property updates do not rewrite authored Attribute configuration or flood editor history.
 6. A Property may have a definition default or authored preview/fallback value, but that does not make it an Attribute; its semantic role remains runtime-capable state.
+7. Component Actions, private Layer Operations and configuration steps may
+   read the effective Property snapshot; they cannot directly write semantic
+   Properties, including unbound fallbacks. Accepted declarative derived
+   values are committed by the host. Private transient/visual state stays
+   outside the public Property namespace.
 
 Conceptually:
 
@@ -325,7 +336,7 @@ Component Events already exist as first-class contract elements and remain disti
 ```text
 Property  = current runtime semantic value/state
 Event     = discrete occurrence
-Action    = callable component capability
+Action    = typed discrete input intent / operation request
 Attribute = authored static configuration
 Anchor    = visual connection geometry
 ```
@@ -401,9 +412,9 @@ The migration slice must include at least:
 
 ## 11. Historical scheduling rule — superseded
 
-The following records the pre-M9 sequencing decision. M8 and M9 are now
-accepted; this paragraph does not make M8B1 active again. PLAN currently
-authorizes M10-R0 readiness remediation.
+The following records the pre-M9 sequencing decision. M8, M9 and M10-R0 are
+accepted; this paragraph does not make M8B1 or R0 active again. Current
+scheduling belongs exclusively to PLAN.
 
 The current M8 standalone portability work should not be destabilized by a mid-milestone schema rewrite.
 

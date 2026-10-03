@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import type { ComponentDefinition } from '../src/component-system/definition'
 import {
   generateComponentSvgThemeBindings,
@@ -316,6 +317,30 @@ assert.equal(
   (globalThis as Record<string, unknown>)[draftSentinel],
   undefined,
   'implementationDraft remains inert across activation/package/work/standalone',
+)
+
+// The browser consumes a frozen production-generated artifact, not a copied
+// implementation or direct IndexedDB injection. Regenerate its Property/rules
+// through the production export so fixture drift fails in the existing CI lane.
+const browserFixtureText = readFileSync(new URL('./fixtures/component-capability-theme.scada-component.json', import.meta.url), 'utf8')
+const browserFixture = parseDistributableComponentPackageDocument(browserFixtureText)
+assert.ok(browserFixture)
+const browserLayer = browserFixture.visual.layers[0]
+assert.ok(browserLayer?.kind === 'svg' && browserLayer.document)
+const regeneratedBrowserFixture = generateComponentSvgThemeBindings(
+  browserLayer.id,
+  { ...browserFixture.definition, properties: {} },
+  { ...browserFixture.visual, rules: [] },
+)
+assert.equal(inspectPortableUserComponentCapability(regeneratedBrowserFixture.definition).activatable, true)
+assert.equal(
+  serializeDistributableComponentPackage({
+    ...browserFixture,
+    definition: regeneratedBrowserFixture.definition,
+    visual: regeneratedBrowserFixture.visual,
+  }) + '\n',
+  browserFixtureText,
+  'browser fixture must exactly match production-generated canonical theme bindings',
 )
 
 console.log(

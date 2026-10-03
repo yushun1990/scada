@@ -2,6 +2,11 @@
 
 日期：2026-09-16。状态：按小批次提交与验证，见 [后续批次记录](../progress/component-editor-followup-2026-09-16.md)。接续 [Web 编辑器简化修正](web-editor-simplification.md)，以浏览器中的组件创作任务组织界面。
 
+本记录保留布局职责；公共契约与私有操作语义以
+[Component input/output ADR](../architecture/adr-component-input-output-composition.md)
+的修正为准。Action 的中文规范为“操作”；图层 private Layer Operation 使用
+“图层操作”，不能被解释为公开 Action。词汇/UI 迁移是后续批次，本 PR 未改界面。
+
 ## 操作位置
 
 | 区域 | 修正后的职责 |
@@ -28,7 +33,7 @@
 - 基础图元使用同一套 SVG 线性图标，20px 图形置于足够的点击区域内。常态没有大方框；悬停与选中用浅色底反馈，保留名称提示、双击居中和拖拽创建。
 - 图层类型采用对应小图标，释放名称宽度，避免“矢量图形”等类型文本被截成无意义的省略号。
 - 属性面板使用平面分区、32px 分组标题、28px 常规字段。清除旧样式叠加的字段外边距，尺寸与几何保持并排输入。
-- 当前界面以中央“图形化设计／Coding 开发”切换画布与组件工作页；右侧固定检查所选内部图层，空选择显示选择提示。切换工作页保留画布选择及各自页签。组件区编辑 Attributes、Properties 和 Anchors；可移植用户组件的方法／事件标为“未开放”，旧声明仅供查看与显式删除，不提供新增、实现编辑或执行。可信内置组件仍可由宿主提供 Actions/Events。图层区提供属性、声明式行为（视觉规则、动画）；SVG 状态绑定生成 Property 和私有规则。这替代早期“同一检查器切换组件／图层”的布局描述，不改变当前执行能力边界。
+- 当前界面以中央“图形化设计／Coding 开发”切换画布与组件工作页；右侧固定检查所选内部图层，空选择显示选择提示。切换工作页保留画布选择及各自页签。组件区编辑 Attributes、Properties 和 Anchors；可移植用户组件的 Action／Event 仍显示旧“方法／事件（未开放）”名称，旧声明仅供查看与显式删除，不提供新增、实现编辑或执行。可信内置组件仍由宿主提供 Actions/Events。最新 `main` 的图层“行为”页管理私有函数，只有编辑器内显式 QuickJS 试运行；旧规则/动画 authoring 控件已移除，声明式 runtime 与 SVG Property/规则生成器仍在。详见 [issue #209](../progress/issue-209-svg-interaction-optimization.md) 与 [受控图层 ADR](../architecture/adr-proposal-controlled-layer-methods.md)。后续图层“操作”职责与 public Action 契约必须分开，不能把这个页面当成可移植公共行为实现。
 - 静态配置、运行属性、连接点使用任务语言；远端发布详情移至常用配置之后。删除纯实现说明，不更改契约模型。
 
 主题只在组件编辑器挂载时生效，并覆盖 Portal 菜单；退出组件路由后恢复共享默认主题。组态编辑器继续采用第一阶段的精简页头与全宽工具栏。
