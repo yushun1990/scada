@@ -155,6 +155,12 @@ Normative rules:
    Properties, including unbound fallbacks. Accepted declarative derived
    values are committed by the host. Private transient/visual state stays
    outside the public Property namespace.
+8. Effective values can come from default/authored fallback and do not
+   inherently confirm external equipment state. A contract claiming confirmed
+   state or choosing equipment requests must explicitly distinguish unknown
+   or unusable observations for the current binding. State and any separate
+   validity input remain host-owned; see the
+   [JA-001 contract](adr-component-input-output-composition.md#effective-values-and-confirmed-equipment-state--ja-001).
 
 Conceptually:
 
@@ -169,6 +175,11 @@ component implementation
 ```
 
 The exact persistence field names and layering remain an implementation decision, but the Attribute/Property authority boundary is normative.
+
+Equal effective values can conceal first confirmation or input loss. The
+host/integration must supply the declared unknown/usable distinction; a
+Property-change callback cannot reconstruct it. This preserves accepted
+fallback semantics and does not add a generic telemetry-quality subsystem.
 
 ---
 
@@ -187,6 +198,10 @@ private component rule
         ↓
 body.fill = running ? runningColor : stoppedColor
 ```
+
+This rule maps an effective value to a color. It does not, by itself, certify
+equipment state. A presentation claiming live confirmation must also consume
+the explicit unknown/usable input contract above.
 
 For a fault state:
 
