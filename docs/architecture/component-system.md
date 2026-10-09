@@ -267,6 +267,13 @@ Value Bindings write only Properties through the accepted runtime authority.
 The `bindable` flag does not grant component code ownership of a Property.
 Runtime telemetry never rewrites Attributes or editor history.
 
+The effective snapshot may contain fallback values. A component claiming
+confirmed equipment state or selecting equipment requests must consume an
+explicit unknown/usable distinction for the current binding, including startup,
+loss and rebind. Same-valued telemetry and loss need not change the snapshot;
+see [JA-001](adr-component-input-output-composition.md#effective-values-and-confirmed-equipment-state--ja-001).
+This adds no component-owned Property writer or generic quality subsystem.
+
 `fanAngle`, `alarmBlinkPhase`, `pressed` and `hovered` may be component-private
 transient state. They do not require public Property declarations. Actions and
 private operations can update that private state; they cannot directly write
@@ -332,12 +339,20 @@ This replaces the old `start → set semantic state → emit started` example:
 ```text
 start request → validated input → optional startRequested occurrence
                              → separately authorized host device effect
-later telemetry → host-owned Property.state = running
+later usable telemetry → host-owned equipment input confirms running
 ```
 
 An operation request is not proof of device completion. Visual transient state
 can change locally, but semantic input ownership cannot be bypassed by a
 configuration step, sandbox or Action handler.
+
+An effective `state=running` may instead be fallback. A public request Event can
+have zero, one or multiple consumers and has no implicit outcome route into the
+component. Dispatch acceptance, command failure, device acknowledgement and
+confirmed equipment state have separate meanings under the
+[JA-002 response boundary](adr-component-input-output-composition.md#event-consumers-and-feedback-to-the-origin--ja-002).
+Failure-sensitive feedback requires separately declared public input and
+explicit Scene/Host routing; native return values are not that contract.
 
 #### Trusted native handler
 

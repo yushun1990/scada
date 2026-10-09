@@ -5,6 +5,7 @@
 - Date: 2026-10-03
 - Work item: `CIO-ARCH` — component contract semantic audit and authority correction
 - Evidence: [source audit and handoff](../progress/component-input-output-audit.md)
+- Joint review correction: [JA-001 / JA-002 and remaining decisions](../governance/component-contract-review-correction.md)
 - Execution gate: [PLAN](../../PLAN.md), M10A plus authorized product polish.
 
 This is a design decision, not an executable-component, nested-layer or Scene
@@ -38,6 +39,10 @@ contracts remain unchanged.
 | `scada-binding-behavior.md`: exploratory Message/Update and imperative scripting discussion | Clarify Message as internal and host effects as normative; accepted M6–M9 Value/Behavior/Interaction semantics remain. Add the later Scene Trigger/Effect direction without changing persistence. |
 | Superseded private-node workspace proposal and old progress terminology | Historical evidence only; “object + methods” is not a future architecture requirement. |
 | M9, M10-R0, 3D architecture/governance/acceptance | Preserve Attribute/Property ownership, portable capability restrictions, one semantic runtime, renderer separation, resource closure and staged gates. |
+
+The joint review correction below distinguishes effective values from equipment
+confirmation and public Event publication from consumer outcomes. It adds no
+Property layer, telemetry-quality subsystem or result-channel capability.
 
 This is one amendment chain, not a second competing contract. The component
 system document supplies the overall boundary; the Attribute/Property document
@@ -75,6 +80,38 @@ Property writer role, it needs an explicit ownership/ordering decision and
 versioned contract; it is not implied by this ADR. Existing host Property-store
 commit APIs and declarative derived layers remain valid internal mechanisms.
 
+### Effective values and confirmed equipment state — JA-001
+
+An effective Property is the result of the accepted host resolution layers. It
+is **not inherently a confirmed external equipment observation**. A default or
+authored fallback can equal the next telemetry value; invalidation can reveal
+that same fallback. The scalar and even the frozen snapshot identity can remain
+unchanged through first confirmation and source loss. Property-change
+notifications therefore do not by themselves establish availability, freshness
+or confirmation. One Property authority guarantees consistency of values, not
+their external provenance.
+
+If a component presents a value as confirmed equipment state or uses it to
+choose an equipment request, its public input contract must distinguish unknown
+or unusable input from a usable observation for the **current binding**. A
+declared unknown/null state with an unknown fallback, or a separately declared
+validity/availability Property with a false fallback, can satisfy this. In the
+latter case the host must deliver state and validity as one settled input;
+validity must not remain true when the state falls back. The distinction must
+survive startup, absent/invalid telemetry, source loss and rebind, including
+same-valued confirmation/loss. A preview value alone cannot confirm equipment.
+
+The component consumes this distinction through the existing host-owned
+Property authority; it neither writes validity nor diagnoses transport state
+from unchanged values or silence. The Scene/Host integration must explicitly
+map usable observations and invalidate them on the loss/rebind conditions it
+claims to handle. Existing adapters may retain last values after disconnect;
+neither disconnect invalidation nor a freshness deadline follows automatically
+from the current scalar store. Exact representation and lifecycle delivery
+need the later execution/integration decision and evidence. This requirement
+does not change existing defaults/fallback layering or mandate generic quality
+metadata for every Property.
+
 ### Action semantics
 
 An Action declaration describes intent, name and typed arguments. It contains
@@ -83,9 +120,11 @@ does not imply physical device completion or change in telemetry truth.
 
 For example, `Pump.start` requests a start operation. The current trusted pump
 emits `startRequested`; the host may route that occurrence to an authorized
-device effect. Only subsequent runtime input establishes `Property.state =
-running`. A transient `pulse` Action can instead update a private animation
-epoch without a device effect. `started` would describe an observed completed
+device effect. A later usable external observation may establish confirmed
+running under the component's explicit input contract. An effective
+`Property.state = running` alone may still be fallback (the current trusted
+pump even defaults to `running`). A transient `pulse` Action can update a
+private animation epoch without a device effect. `started` describes an observed completed
 occurrence, not merely receipt of `start`.
 
 Current Action arguments remain ordered scalar values with declared kinds,
@@ -122,6 +161,42 @@ Action result contract.
    declared semantic occurrence. A layer diagnostic named `emit` is not public
    Event emission authority.
 
+### Event consumers and feedback to the origin — JA-002
+
+A public Event can have zero, one or multiple independently authored consumers.
+Publishing `startRequested` establishes the occurrence only. It establishes
+neither that a consumer exists nor that a device command was accepted. A Scene
+consumer's Effect is owned by that interaction and the Host; it is not an
+Effect request made by the originating component's private Update.
+
+| Observation | Meaning | Does not establish |
+| --- | --- | --- |
+| Event publication | Host validates and publishes the declared occurrence | Existence or success of a consumer |
+| Dispatch acceptance | Acceptance at an explicitly named host routing/queue boundary | Device acknowledgement, command completion or equipment state |
+| Command rejection / failure | An explicit report at the host, transport or device boundary that identifies its stage | A change in equipment state; timeout/silence alone also cannot establish whether a device acted |
+| Device acknowledgement | Whatever receipt/acceptance/completion the actual device protocol explicitly promises | Confirmed running/stopped unless a separately specified observation contract supplies that evidence |
+| Confirmed equipment state | A usable external observation under the current binding's declared input contract | Which prior request caused the state, or completion of every Event consumer |
+
+There is **no implicit result channel** from any consumer into the originating
+component's private state. Action handler returns/Promises, host diagnostics
+and any future internal effect-completion message do not provide that channel.
+Local gesture feedback and separately observed equipment state can be offered
+without it. Command rejection, slow response and no response remain
+indistinguishable to the component unless explicit inputs distinguish them.
+
+If a later component offers pending/maintained feedback that changes on a
+consumer's outcome, it must separately declare a typed public outcome input
+(for example, an Action for discrete outcomes or a Property for declared status)
+and an explicitly authored, authorized Scene/Host route to it. The consumer
+cannot target private Model or Update addresses. Before offering per-request
+feedback, CAR-1 must decide occurrence and origin-instance correlation,
+runtime activation and binding generations, stale/superseded responses,
+cancellation/rebind/disposal, and zero/multiple-consumer policy. No particular
+input name, payload, correlation token or package schema is frozen here. A
+result input must never overwrite equipment Properties or confer device
+authority. Routing the same device command privately as well as through the
+Scene to obtain feedback is not a solution.
+
 ## 3. Internal update/effect model and host authority
 
 The conceptual flow is:
@@ -153,6 +228,13 @@ Device/platform effects still use explicit host capabilities such as
 `ScadaDeviceActionDispatcher`; missing required capabilities fail closed.
 Trusted application handlers/adapters remain implementation mechanisms and
 do not grant their ambient privileges to portable content.
+
+Host scheduling and completion of an explicitly admitted component Effect
+need their own lifecycle contract. They do not cause an independent Event
+consumer's result to become an internal message. Local state/Event validation
+can precede a commit, but an external dispatch cannot be undone by rolling back
+private visual state. Exact commit, ordering and failure behavior remain
+execution-design obligations, not capabilities established by this diagram.
 
 ## 4. Public Component Action versus private Layer Operation
 
@@ -337,6 +419,14 @@ requiring isolation, permitted effect capabilities, type validation and
 Preview/standalone parity. It is not authorized by T1–T4 or the existence of
 editor QuickJS. M10C registry separation remains in its accepted M10 sequence;
 this ADR does not start that refactor early.
+
+The joint review corrections establish public semantic obligations only.
+CAR-1 must independently close unknown/usable input delivery, private-state
+and presentation ownership, ordering/rollback, lifecycle fencing, any optional
+outcome route, capability/isolation budgets and versioned executable admission
+before authored runtime work. The [correction handoff](../governance/component-contract-review-correction.md)
+records production evidence and the remaining review boundary. T3 Scene
+routing/migration and T4 composition remain separately scoped dependencies.
 
 Architecture-safe mechanisms need no terminology-only rewrite: typed serializable
 definitions/normalizers, trusted handler registration, `invokeAction`/`emitEvent`
