@@ -201,6 +201,14 @@ A connection endpoint is resolved from node world transform plus its port defini
 
 ## 10. Component capability model
 
+This section is a historical pre-M9 schema sketch, superseded for Component
+contracts by [component-system](component-system.md), the accepted
+[Attribute/Property split](component-attributes-properties.md) and the
+[input/output amendment](adr-component-input-output-composition.md). Do not
+implement its mixed Property flags, `output`, `ports` or embedded `render` as
+current Component contract fields. Renderer-independent validation and M10
+presentation separation remain governed by PLAN and the 3D architecture.
+
 The project borrows WoT's separation into Property, Action, and Event, but these are local front-end component affordances.
 
 ```ts

@@ -2,6 +2,14 @@
 
 日期：2026-09-17。状态：`superseded`（2026-09-26 R0.3 权威清理）。
 
+2026-10-03 语义审计补注：以下“内部对象 + 类型方法/事件”的通用模型不再是
+设计目标。普通视觉图层是私有实现元素，有限 Layer Operations 不等于 Component
+public Actions；未来 reusable Component Layer 保留子类型契约且仅供父实例消费，
+Event 对外转发必须显式定义。以
+[Component input/output ADR](../architecture/adr-component-input-output-composition.md)
+为后续 authority。后来的编辑器内受控 private operation 已有独立 ADR，不能用
+本文历史提案扩展成任意对象能力或便携执行。
+
 本文保留早期交互探索的历史记录，不作为待执行计划。当前界面以 [组件编辑器修正](component-editor-redesign.md) 为准；当前能力与阶段以 [PLAN](../../PLAN.md) 和 [M10 治理](../governance/m10-3d-delivery-governance.md) 为准。以下“方法实现编辑器”“私有节点方法”“受控调用创作”等建议均未获准实现。
 
 当前可移植用户组件只激活声明式视觉、规则与动画；任何公开 Actions/Events 声明都会阻止 ready 激活。`implementationDraft` 是不可执行草稿，现有受控运行实验不构成可移植执行协议。若未来重启本文的执行能力建议，必须先接受独立 ADR、能力与隔离模型以及 standalone 一致性验收。
