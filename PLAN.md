@@ -85,6 +85,15 @@ internal runtime concept. Public Chinese Action UI converges to “操作”; pr
 operations use “图层操作”. This does not authorize portable public execution,
 nested Component layers or a new Scene interaction implementation.
 
+The [Component-authored private Update runtime ADR](docs/architecture/adr-component-authored-update-runtime.md)
+records the **proposed** authoring/runtime direction: a fixed host, component-owned
+private Model/Update logic authored in Component Workbench, standardized internal
+messages and bounded results, and an eventually portable implementation asset.
+Update is private component implementation, **not** a public Action; author-authored
+scripts are **not yet admitted** to portable execution. Exact runtime protocol,
+source format, capability model and package schema require a separately accepted
+execution ADR. This design note changes no current product capability or gate.
+
 ### 3.2 Attribute / Property authority split
 
 A generic component may combine static authored configuration and dynamic runtime state:
@@ -715,6 +724,17 @@ T1 contract/UI vocabulary and read-only consumption; T2 editor-operation
 ownership/atomic preview, T3 Scene routing and T4 nested composition each need
 their own authorization and evidence. Portable authored public execution needs
 a separate accepted execution ADR; M10C registry work keeps its staged gate.
+
+Additional architecture review item: **CAR-ARCH** (Component Authoring Runtime),
+proposed as a dependency of any new portable component-level Update execution.
+[ADR](docs/architecture/adr-component-authored-update-runtime.md) records the
+three-role model, private Model/Update versus public Action/Event, input-message
+normalization, Component Workbench logic authoring/AI assistance and component
+asset portability. **CAR-1** must first decide sandbox/ABI/effects/state,
+capability admission, package versioning and Preview/standalone parity; only
+then may independently authorized runtime, editor and distribution tranches
+proceed. This is not a replacement for CIO T1–T4, nor an acceptance of
+portable authored execution or M10B+.
 
 The 2026-09-10 UI review delivers a [source audit](docs/design/ui-audit-2026-09-10.md), a corrected [industrial Designer UI specification](docs/design/industrial-designer-spec.md), and a proposed [rollout plan](docs/design/industrial-designer-rollout.md). The rollout prioritizes editing reliability before shared chrome, navigation and Inspector polish. Its A–F work packages are delivery batches, not new architecture milestones. B1–B3 and C1/C2 are merged; C2 and its deployed regression follow-up are recorded in [the C2 progress note](docs/progress/ui-c2-studio-shell.md) and PRs #194/#195. D1 Scene Navigator and Palette search are implemented for review; see [D1 progress](docs/progress/ui-d1-scene-navigation.md). D2/D3 and E/F remain outstanding. The [2026-09-16 Web editor correction](docs/design/web-editor-simplification.md) supersedes the desktop menu taxonomy and single-document tab: use a document header plus editing toolbar, with one primary entry per command. The subsequent [Component editor redesign](docs/design/component-editor-redesign.md) centers canvas controls, keeps grouping in the toolbar, moves ordering into each layer row, and introduces a compact neutral/teal interface. Shared Shell, navigation, history and persistence stay authoritative. Accepted M6–M9 and UX1 authority boundaries remain unchanged.
 
