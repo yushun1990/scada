@@ -1,0 +1,192 @@
+{
+  "packageVersion": 2,
+  "definition": {
+    "type": "custom.browser.capability-theme",
+    "title": "Declarative SVG capability fixture",
+    "category": "Acceptance fixture",
+    "description": "Production-generated declarative theme; browser import/configuration proof, not removed binding UI proof.",
+    "size": {
+      "defaultWidth": 120,
+      "defaultHeight": 80,
+      "minWidth": 40,
+      "minHeight": 24
+    },
+    "attributes": {},
+    "properties": {
+      "state": {
+        "title": "运行状态",
+        "kind": "select",
+        "defaultValue": "default",
+        "description": "驱动水泵/设备矢量图层的语义运行状态高保真光影",
+        "bindable": true,
+        "options": [
+          {
+            "label": "默认原色",
+            "value": "default"
+          },
+          {
+            "label": "运行态",
+            "value": "running"
+          },
+          {
+            "label": "报警态",
+            "value": "alarm"
+          },
+          {
+            "label": "预警态",
+            "value": "warning"
+          },
+          {
+            "label": "待机态",
+            "value": "standby"
+          },
+          {
+            "label": "离线态",
+            "value": "offline"
+          }
+        ]
+      }
+    },
+    "actions": {},
+    "events": {},
+    "anchors": []
+  },
+  "visual": {
+    "version": 4,
+    "mode": "composite",
+    "designSize": {
+      "width": 120,
+      "height": 80
+    },
+    "layers": [
+      {
+        "id": "managed-theme-svg",
+        "name": "Managed theme SVG",
+        "kind": "svg",
+        "parentId": null,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "width": 120,
+          "height": 80,
+          "rotation": 0,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "visible": true,
+        "opacity": 1,
+        "document": {
+          "version": 1,
+          "root": {
+            "kind": "element",
+            "tagName": "svg",
+            "tagId": "svg-tag-000001",
+            "attributes": [
+              {
+                "name": "viewBox",
+                "value": "0 0 120 80"
+              }
+            ],
+            "children": [
+              {
+                "kind": "element",
+                "tagName": "rect",
+                "tagId": "svg-tag-000002",
+                "authorRef": "body",
+                "attributes": [
+                  {
+                    "name": "class",
+                    "value": "scada-theme-base"
+                  },
+                  {
+                    "name": "fill",
+                    "value": "#6b7280"
+                  },
+                  {
+                    "name": "height",
+                    "value": "60"
+                  },
+                  {
+                    "name": "id",
+                    "value": "body"
+                  },
+                  {
+                    "name": "width",
+                    "value": "100"
+                  },
+                  {
+                    "name": "x",
+                    "value": "10"
+                  },
+                  {
+                    "name": "y",
+                    "value": "10"
+                  }
+                ],
+                "children": []
+              }
+            ]
+          }
+        },
+        "assetRef": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20data-scada-tag%3D%22svg-tag-000001%22%20viewBox%3D%220%200%20120%2080%22%3E%3Crect%20data-scada-tag%3D%22svg-tag-000002%22%20class%3D%22scada-theme-base%22%20fill%3D%22%236b7280%22%20height%3D%2260%22%20id%3D%22body%22%20width%3D%22100%22%20x%3D%2210%22%20y%3D%2210%22%2F%3E%3C%2Fsvg%3E",
+        "style": {
+          "fit": "contain"
+        }
+      }
+    ],
+    "rules": [
+      {
+        "id": "rule_theme_running_1",
+        "enabled": true,
+        "propertyKey": "state",
+        "operator": "equals",
+        "compareValue": "running",
+        "layerId": "managed-theme-svg",
+        "target": "svg.themeState",
+        "value": "running"
+      },
+      {
+        "id": "rule_theme_alarm_2",
+        "enabled": true,
+        "propertyKey": "state",
+        "operator": "equals",
+        "compareValue": "alarm",
+        "layerId": "managed-theme-svg",
+        "target": "svg.themeState",
+        "value": "alarm"
+      },
+      {
+        "id": "rule_theme_warning_3",
+        "enabled": true,
+        "propertyKey": "state",
+        "operator": "equals",
+        "compareValue": "warning",
+        "layerId": "managed-theme-svg",
+        "target": "svg.themeState",
+        "value": "warning"
+      },
+      {
+        "id": "rule_theme_standby_4",
+        "enabled": true,
+        "propertyKey": "state",
+        "operator": "equals",
+        "compareValue": "standby",
+        "layerId": "managed-theme-svg",
+        "target": "svg.themeState",
+        "value": "standby"
+      },
+      {
+        "id": "rule_theme_offline_5",
+        "enabled": true,
+        "propertyKey": "state",
+        "operator": "equals",
+        "compareValue": "offline",
+        "layerId": "managed-theme-svg",
+        "target": "svg.themeState",
+        "value": "offline"
+      }
+    ],
+    "animations": []
+  },
+  "implementationDraft": "globalThis.__scadaBrowserCapabilityDraftExecuted = true"
+}

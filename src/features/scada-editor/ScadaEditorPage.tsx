@@ -130,7 +130,7 @@ const LEFT_DOCK_TABS: Array<StudioTabItem<LeftDockTab>> = [
 
 const INSPECTOR_TABS: Array<StudioTabItem<InspectorTab>> = [
   { value: 'properties', label: '属性' },
-  { value: 'actions', label: '方法' },
+  { value: 'actions', label: '操作' },
   { value: 'events', label: '事件' },
 ]
 
@@ -653,10 +653,10 @@ export function ScadaEditorPage({
     try {
       const result = previewRuntime.invokeAction(primaryNode.id, actionName)
       void Promise.resolve(result).catch((error: unknown) => {
-        setMessage(error instanceof Error ? error.message : '方法执行失败')
+        setMessage(error instanceof Error ? error.message : '操作请求失败')
       })
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '方法执行失败')
+      setMessage(error instanceof Error ? error.message : '操作请求失败')
     }
   }
 
@@ -681,7 +681,7 @@ export function ScadaEditorPage({
           : null
 
       if (!targetRegistration?.definition.actions[target.action]) {
-        setMessage('目标组件方法不存在')
+        setMessage('目标组件操作不存在')
         return
       }
     }
@@ -1402,7 +1402,7 @@ export function ScadaEditorPage({
                 !primaryComponentRegistration) && (
                 <div className="inspector-placeholder">
                   <strong>请选择一个组件</strong>
-                  <span>方法和事件只针对单个组件的公开契约。</span>
+                  <span>操作和事件只针对单个组件的公开契约。</span>
                 </div>
               )}
           </section>
