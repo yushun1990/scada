@@ -374,6 +374,11 @@ by Scene v8, and compiled-route suppression of legacy auto-dispatch remain;
 their migration must be an explicit later PR under the
 [ADR](docs/architecture/adr-component-input-output-composition.md#6-scene-workbench-interaction-direction).
 
+Proposed authoring review (not an accepted extension): [text-first Scene DSL, flat
+explicit device aliases, and typed Event argument mapping](docs/architecture/adr-scene-dsl-text-first-authoring.md).
+It examines restoration of the M6.5 capability-assisted authoring intent without
+changing the DSL v1 grammar, the persisted Scene semantic authority, or the T3/CAR/M10 gates.
+
 ---
 
 ## 6. M7 closeout — accepted · 2026-08-31
