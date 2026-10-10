@@ -3,7 +3,10 @@ import {
   type ComponentDefinition,
 } from '../../component-system/definition'
 import type { ComponentVisualDefinition } from '../../component-system/visual'
-import type { VisualRuleOperator } from '../../component-system/visualRules'
+import {
+  visualRuleTargetAcceptsValue,
+  type VisualRuleOperator,
+} from '../../component-system/visualRules'
 
 /** Explicit editor intent; never persisted into the public contract or package. */
 export type ContractKeyRename = Readonly<{ previousKey: string; nextKey: string }>
@@ -38,6 +41,7 @@ export function reconcileVisualPropertyReferences(
       : null
   }
 
+  const layersById = new Map(visual.layers.map((layer) => [layer.id, layer]))
   const rules = (visual.rules ?? []).flatMap((rule) => {
     const resolved = resolveProperty(rule.propertyKey)
     if (!resolved) return []
@@ -46,6 +50,15 @@ export function reconcileVisualPropertyReferences(
     if (valueSource?.namespace === 'property') {
       const source = resolveProperty(valueSource.key)
       if (!source) return []
+      const layer = layersById.get(rule.layerId)
+      // Keep the persistence validator's source/target contract after kind or
+      // default edits. Remove incompatible reads in the same undoable edit;
+      // retaining the old literal would silently change the rule's semantics.
+      if (
+        !layer ||
+        !isComponentPropertyValue(source.property, source.property.defaultValue) ||
+        !visualRuleTargetAcceptsValue(layer, rule.target, source.property.defaultValue, rule.svgTagId)
+      ) return []
       valueSource = { ...valueSource, key: source.propertyKey }
     }
 
