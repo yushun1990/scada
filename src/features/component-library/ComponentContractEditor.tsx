@@ -1,3 +1,4 @@
+import { ComponentInteractionSchema } from '../../components/ComponentInteractionSchema'
 import type {
   ComponentDefinition,
   ComponentPropertyDefinition,
@@ -15,16 +16,16 @@ import {
   Textarea,
 } from '../../ui'
 import { ColorPickerInput } from './ColorPickerInput'
+import type { ContractKeyRename } from './component-property-references'
 
 export type ComponentContractTab = 'properties' | 'actions' | 'events' | 'anchors'
-type InteractionDefinition = { title: string; description?: string }
 
 type ComponentContractEditorProps = {
   definition: ComponentDefinition
   readOnly: boolean
   portableUser: boolean
   tab: ComponentContractTab
-  onChange: (definition: ComponentDefinition) => void
+  onChange: (definition: ComponentDefinition, rename?: ContractKeyRename) => void
 }
 
 const PROPERTY_KIND_LABELS: Array<[ComponentPropertyKind, string]> = [
@@ -54,13 +55,13 @@ const TAB_META: Record<ComponentContractTab, { eyebrow: string; title: string; d
   },
   actions: {
     eyebrow: 'PUBLIC CONTRACT / ACTIONS',
-    title: '公开方法',
-    description: '可信内置组件可声明由宿主实现的方法；当前可移植用户组件尚无已接受的 Action 执行契约。',
+    title: '公开操作',
+    description: 'Action 是组件声明的类型化操作请求，参数契约只读；声明不代表已有可执行实现。',
   },
   events: {
     eyebrow: 'PUBLIC CONTRACT / EVENTS',
     title: '公开事件',
-    description: '可信内置组件可声明由宿主产生的事件；当前可移植用户组件尚无已接受的 Event 发射契约。',
+    description: 'Event 描述组件发生的事件及载荷，契约只读；响应在独立交互中配置，不属于事件定义。',
   },
   anchors: {
     eyebrow: 'PUBLIC CONTRACT / ANCHORS',
@@ -253,26 +254,30 @@ function PropertyDefaultEditor({
 }
 
 function InteractionContractView({
-  label,
+  kind,
   emptyLabel,
-  items,
+  definition,
   readOnly,
   portableUser,
   onRemove,
 }: {
-  label: string
+  kind: 'action' | 'event'
   emptyLabel: string
-  items: Readonly<Record<string, InteractionDefinition>>
+  definition: ComponentDefinition
   readOnly: boolean
   portableUser: boolean
   onRemove: (key: string) => void
 }) {
+  const items = kind === 'action' ? definition.actions : definition.events
+  const label = kind === 'action' ? '操作（Action）' : '事件（Event）'
+
   return (
     <div className="contract-list">
       {portableUser && (
         <div className="component-methods-status-banner" role="status">
-          当前可移植用户组件仅支持 Property 驱动的声明式视觉规则与动画，不提供公开 {label}
-          的新增或编辑能力。旧声明可在此删除；清理后组件才能标记为“可用”并进入运行时。
+          当前可移植用户组件仅支持 Attribute / Property 驱动的声明式视觉规则与动画，
+          不提供公开{label}的新增、编辑或执行能力。旧声明仅供只读查看或删除；
+          需清理全部 Action/Event 声明后才符合激活、导出与发布的能力边界。
         </div>
       )}
       {Object.entries(items).map(([key, item]) => (
@@ -288,11 +293,16 @@ function InteractionContractView({
           <div className="contract-method-action-row">
             <code className="contract-method-signature">{key}</code>
             <span className="component-methods-count-hint">
-              {portableUser ? '旧声明 · 不可激活' : '可信内置契约'}
+              {portableUser ? '旧声明 · 不可激活' : '可信内置契约 · 只读'}
             </span>
           </div>
           {item.description && (
             <p className="contract-method-description">{item.description}</p>
+          )}
+          {kind === 'action' ? (
+            <ComponentInteractionSchema kind="action" definition={definition.actions[key]} />
+          ) : (
+            <ComponentInteractionSchema kind="event" definition={definition.events[key]} />
           )}
         </article>
       ))}
@@ -324,10 +334,13 @@ export function ComponentContractEditor({
   }
 
   function renameProperty(oldKey: string, nextKey: string) {
+    const properties = replaceRecordKey(definition.properties, oldKey, nextKey)
+    const normalized = nextKey.trim()
+    if (properties === definition.properties || normalized === oldKey) return
     onChange({
       ...definition,
-      properties: replaceRecordKey(definition.properties, oldKey, nextKey),
-    })
+      properties,
+    }, { previousKey: oldKey, nextKey: normalized })
   }
 
   function addProperty() {
@@ -508,9 +521,9 @@ export function ComponentContractEditor({
 
       {tab === 'actions' && (
         <InteractionContractView
-          label="Action"
-          emptyLabel={portableUser ? '未声明公开 Action；当前组件符合可移植激活边界。' : '尚未定义公开 Action。'}
-          items={definition.actions}
+          kind="action"
+          emptyLabel="未声明公开操作（Action）。"
+          definition={definition}
           readOnly={readOnly}
           portableUser={portableUser}
           onRemove={removeAction}
@@ -519,9 +532,9 @@ export function ComponentContractEditor({
 
       {tab === 'events' && (
         <InteractionContractView
-          label="Event"
-          emptyLabel={portableUser ? '未声明公开 Event；当前组件符合可移植激活边界。' : '尚未定义公开 Event。'}
-          items={definition.events}
+          kind="event"
+          emptyLabel="未声明公开事件（Event）。"
+          definition={definition}
           readOnly={readOnly}
           portableUser={portableUser}
           onRemove={removeEvent}

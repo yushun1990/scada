@@ -17,6 +17,7 @@ import {
 } from '../../ui'
 import { EditIcon, MinusIcon, PlusIcon, TrashIcon } from '../../components/toolbar-icons'
 import { ColorPickerInput } from './ColorPickerInput'
+import type { ContractKeyRename } from './component-property-references'
 import './component-contract-rows.css'
 
 /**
@@ -266,7 +267,7 @@ type ContractRowTableProps<T extends ContractRowEntry> = {
   entries: Readonly<Record<string, T>>
   readOnly: boolean
   createEntry: (key: string) => T
-  onEntriesChange: (entries: Record<string, T>) => void
+  onEntriesChange: (entries: Record<string, T>, rename?: ContractKeyRename) => void
   addLabel: string
   emptyLabel?: string
   /** 运行属性保存行的“绑定”徽标;表单不再提供 bindable 编辑 */
@@ -346,7 +347,10 @@ export function ContractRowTable<T extends ContractRowEntry>({
     if (draft.originalKey === null || draft.originalKey === key) {
       onEntriesChange({ ...entries, [key]: entry })
     } else {
-      onEntriesChange(renameContractRecord(entries, draft.originalKey, key, entry))
+      onEntriesChange(
+        renameContractRecord(entries, draft.originalKey, key, entry),
+        { previousKey: draft.originalKey, nextKey: key },
+      )
     }
 
     setDraft(null)

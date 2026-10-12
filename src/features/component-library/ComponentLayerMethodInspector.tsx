@@ -48,8 +48,8 @@ type MethodRow = {
 }
 
 /**
- * The behaviors tab per the issue #209 / PR #198 functional design: SVG layer
- * functions only — listed, authorable (`<>` edit) and runnable (`▶` preview).
+ * Private Layer Operations (legacy behaviors tab and methods storage): listed,
+ * authorable (`<>` edit) and explicitly testable in the editor (`▶`).
  * Execution goes exclusively through the controlled QuickJS sandbox engine;
  * authored source never runs as unrestricted page JavaScript and never
  * becomes a public Action/Event contract.
@@ -146,7 +146,7 @@ export function ComponentLayerMethodInspector({
         data-portable-action-execution="disabled"
       >
         <div className="component-methods-empty">
-          请选择图层以管理函数。
+          请选择图层以管理图层操作。
         </div>
       </div>
     )
@@ -214,8 +214,8 @@ export function ComponentLayerMethodInspector({
     setEditState(null)
     setStatusMessage(
       state.isBuiltin
-        ? `已将内置函数 ${state.methodName} 另存为自定义实现`
-        : `函数 ${state.methodName} 已保存（▶ 试运行可用）`,
+        ? `已将内置图层操作 ${state.methodName} 另存为自定义实现`
+        : `图层操作 ${state.methodName} 已保存（▶ 编辑器试运行可用）`,
     )
     setTimeout(() => setStatusMessage(null), 4000)
   }
@@ -281,9 +281,9 @@ export function ComponentLayerMethodInspector({
           })
         }
 
-        showToast(`✓ 函数 "${row.title || row.name}" 运行成功`, 'success')
+        showToast(`✓ 图层操作 "${row.title || row.name}" 运行成功`, 'success')
       } else {
-        showToast(`✕ 函数 "${row.title || row.name}" 运行失败：${result.message}`, 'error')
+        showToast(`✕ 图层操作 "${row.title || row.name}" 运行失败：${result.message}`, 'error')
       }
       return result
     } finally {
@@ -324,9 +324,13 @@ export function ComponentLayerMethodInspector({
       className="component-layer-methods-inspector"
       data-layer-method-execution="controlled-sandbox"
     >
+      <div className="component-methods-status-banner" role="note">
+        图层操作属于组件的私有视觉实现，仅在编辑器中显式试运行，不是公开 Action。
+        试运行会应用到当前画布，可用撤销恢复；不在便携运行时执行，$emit 仅记录诊断，不发布公开 Event。
+      </div>
       <div className="component-methods-header-bar">
         <span className="component-methods-count-hint">
-          共 {methodRows.length} 个函数
+          共 {methodRows.length} 个图层操作
         </span>
         <Button
           size="small"
@@ -353,12 +357,12 @@ export function ComponentLayerMethodInspector({
         <div className="component-methods-empty">
           {selfLayer.kind === 'svg' ? (
             <>
-              暂无函数。导入的 SVG 标注 <code>scada-theme-*</code> 语义类名后，会自动提供主题函数；
-              也可以点击右上角“新增”定义函数。
+              暂无图层操作。导入的 SVG 标注 <code>scada-theme-*</code> 语义类名后，会自动提供主题操作；
+              也可以点击右上角“新增”定义图层操作。
             </>
           ) : (
             <>
-              暂无函数。可点击右上角“新增”定义图层函数。
+              暂无图层操作。可点击右上角“新增”定义图层操作。
             </>
           )}
         </div>
@@ -378,7 +382,7 @@ export function ComponentLayerMethodInspector({
                     variant="ghost"
                     disabled={readOnly}
                     aria-label={`${row.name} 编辑源码`}
-                    title="编辑函数源码"
+                    title="编辑图层操作源码"
                     onClick={() => openEdit(row)}
                   >
                     <CodeIcon />
@@ -423,7 +427,7 @@ export function ComponentLayerMethodInspector({
               运行参数设置
             </DialogTitle>
             <DialogDescription className="component-method-run-dialog-subtitle">
-              函数 <code>{paramModalMethod?.name}</code>（{paramModalMethod?.title}）需要输入参数：
+              图层操作 <code>{paramModalMethod?.name}</code>（{paramModalMethod?.title}）需要输入参数：
             </DialogDescription>
           </div>
 
@@ -497,7 +501,7 @@ export function ComponentLayerMethodInspector({
           return (
             result ?? {
               ok: false,
-              message: '已有函数正在运行，请稍后再试',
+              message: '已有图层操作正在运行，请稍后再试',
               elapsedMs: 0,
               ops: [],
             }

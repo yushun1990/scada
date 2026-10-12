@@ -1,0 +1,48 @@
+.interaction-contract-schema {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 8px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-compact);
+  overflow-wrap: anywhere;
+}
+
+.interaction-contract-schema-heading {
+  color: var(--ui-color-text);
+  font-weight: 600;
+}
+
+.interaction-contract-schema-fields {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.interaction-contract-schema-field {
+  padding: 6px;
+  border-left: 2px solid var(--ui-color-border);
+}
+
+.interaction-contract-schema-field-head,
+.interaction-contract-schema-constraints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.interaction-contract-schema code {
+  font-family: var(--ui-font-mono);
+  color: var(--ui-color-text);
+}
+
+.interaction-contract-schema-options {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
+
+.interaction-contract-schema-note {
+  margin: 0;
+  line-height: 1.5;
+}

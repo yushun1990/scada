@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
-import { chromium } from 'playwright'
+import { chromium, firefox } from 'playwright'
 import {
   readPersistedComponent,
   saveAndWait,
@@ -8,7 +8,9 @@ import {
 
 const baseUrl = (process.env.SCADA_PAGES_URL ?? 'https://yushun1990.github.io/scada/')
   .replace(/\/?$/, '/')
-const browser = await chromium.launch({ headless: true })
+const browserName = process.env.SCADA_BROWSER ?? 'chromium'
+assert.ok(['chromium', 'firefox'].includes(browserName))
+const browser = await ({ chromium, firefox })[browserName].launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
 const pageErrors = []
 page.on('pageerror', (error) => pageErrors.push(error.message))
@@ -44,30 +46,6 @@ function findManagedTag(document, tagId) {
   return visit(document.root)
 }
 
-async function waitForDenseCanvasColor(currentPage, matcher) {
-  await currentPage.waitForFunction((expected) => {
-    const canvases = [...document.querySelectorAll('canvas')]
-    return canvases.some((canvas) => {
-      const context = canvas.getContext('2d')
-      if (!context || canvas.width <= 0 || canvas.height <= 0) return false
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
-      for (let index = 0; index < pixels.length; index += 4) {
-        const red = pixels[index]
-        const green = pixels[index + 1]
-        const blue = pixels[index + 2]
-        const alpha = pixels[index + 3]
-        if (
-          alpha >= expected.alphaMin &&
-          red >= expected.redMin && red <= expected.redMax &&
-          green >= expected.greenMin && green <= expected.greenMax &&
-          blue >= expected.blueMin && blue <= expected.blueMax
-        ) return true
-      }
-      return false
-    })
-  }, matcher)
-}
-
 // The managed-SVG inner element editor is retired; authorRef authoring now
 // goes through the SVG source marking workbench (id tags carry authorRef).
 async function authorTagViaMarkingWorkbench(currentPage, tagId, name) {
@@ -87,7 +65,7 @@ async function authorTagViaMarkingWorkbench(currentPage, tagId, name) {
 }
 
 try {
-  console.log(`Verifying managed SVG author refs and UX1.5 rule-target convergence: ${baseUrl}#/components/new`)
+  console.log(`Verifying current Property form and managed SVG author refs (${browserName}): ${baseUrl}#/components/new`)
   await page.goto(`${baseUrl}#/components/new`, { waitUntil: 'networkidle' })
   await page.locator('.studio-shell.component-studio-shell').waitFor()
 
@@ -96,7 +74,19 @@ try {
   const publicProperties = page.locator('.component-root-public-properties')
   await publicProperties.waitFor()
   await publicProperties.getByRole('button', { name: '+ 添加属性', exact: true }).click()
-  await publicProperties.locator('.property-contract-item').waitFor()
+  const propertyForm = publicProperties.locator('.contract-row-form')
+  await propertyForm.getByLabel('Property 名称', { exact: true }).fill('property1')
+  await propertyForm.getByLabel('Property 类型', { exact: true }).click()
+  await page.getByRole('option', { name: '数字', exact: true }).click()
+  await propertyForm.getByLabel('默认值', { exact: true }).fill('7')
+  await propertyForm.getByLabel('说明', { exact: true }).fill('authorRef smoke input')
+  await propertyForm.getByRole('button', { name: '保存', exact: true }).click()
+  await propertyForm.waitFor({ state: 'detached' })
+  const savedPropertyRow = publicProperties.locator('.contract-row-item').filter({
+    has: page.locator('.contract-row-name', { hasText: /^property1$/ }),
+  })
+  await savedPropertyRow.waitFor()
+  assert.equal(await savedPropertyRow.locator('.contract-row-badge').textContent(), '绑定')
   await page.getByRole('button', { name: '图形化设计', exact: true }).click()
 
   const importControl = globalAssetImportControl(page)
@@ -128,10 +118,10 @@ try {
   await saveAndWait(page)
   const savedUrl = page.url()
   const persisted = await readPersistedComponent(page)
-  assert.ok(
-    persisted.document.definition.properties.property1,
-    'the real root Property authoring flow persists a Rule-driving Property',
-  )
+  assert.deepEqual(persisted.document.definition.properties.property1, {
+    title: 'property1', kind: 'number', defaultValue: 7,
+    description: 'authorRef smoke input', bindable: true,
+  }, 'the compact root Property form must commit and persist its complete contract')
   const svgLayer = findVisualLayer(persisted.document, 'svg', 'ux1.3-author-ref')
   assert.ok(svgLayer?.document)
   const persistedRect = findManagedTag(svgLayer.document, 'svg-tag-000003')
@@ -156,24 +146,40 @@ try {
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
   await page.locator('.component-svg-tag-card', { hasText: authorRef }).waitFor()
 
-  // Visual Rule authoring left the behaviors tab with the issue #209 redesign;
-  // alias authority is proven through the marking workbench and persistence.
-
-  await page.getByLabel('预览', { exact: true }).click()
-  await page.locator('.status-mode', { hasText: '预览' }).waitFor()
+  // Rename through the real workbench, retaining canonical tag identity. This
+  // does not claim the removed visual-rule target authoring/convergence UI.
+  await authorTagViaMarkingWorkbench(page, 'svg-tag-000003', renamedAuthorRef)
+  await page.locator('.component-svg-tag-card', { hasText: renamedAuthorRef }).waitFor()
+  await page.getByRole('button', { name: '撤销', exact: true }).click()
+  await page.locator('.component-svg-tag-card', { hasText: authorRef }).waitFor()
+  await page.getByRole('button', { name: '重做', exact: true }).click()
+  await page.locator('.component-svg-tag-card', { hasText: renamedAuthorRef }).waitFor()
+  await saveAndWait(page)
+  const renamed = (await readPersistedComponent(page)).document
+  const renamedSvg = findVisualLayer(renamed, 'svg', 'ux1.3-author-ref')
+  assert.equal(findManagedTag(renamedSvg.document, 'svg-tag-000003').authorRef, renamedAuthorRef)
+  assert.equal(findManagedTag(renamedSvg.document, 'svg-tag-000003').tagId, persistedRect.tagId)
+  assert.ok(renamedSvg.assetRef.includes(`id%3D%22${renamedAuthorRef}%22`))
+  assert.ok(renamedSvg.assetRef.includes('data-scada-tag%3D%22svg-tag-000003%22'))
+  assert.deepEqual(renamed.definition.properties, persisted.document.definition.properties)
+  await page.reload({ waitUntil: 'networkidle' })
   await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
-  await page.getByRole('tab', { name: '行为', exact: true }).click()
+  await page.locator('.component-svg-tag-card', { hasText: renamedAuthorRef }).waitFor()
+
+  await page.getByRole('button', { name: '预览', exact: true }).click()
+  await page.locator('.component-layer-row', { hasText: 'ux1.3-author-ref' }).click()
+  await page.getByRole('tab', { name: '图层操作', exact: true }).click()
   assert.equal(
     await page.getByRole('button', { name: '+ 新增', exact: true }).isDisabled(),
     true,
     'Preview keeps SVG layer function authoring read-only',
   )
   await mkdir('artifacts', { recursive: true })
-  await page.screenshot({ path: 'artifacts/managed-svg-rules-preview.png' })
+  await page.screenshot({ path: `artifacts/managed-svg-author-ref-${browserName}.png` })
 
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`)
   console.log(
-    'Managed SVG author-reference browser proof passed: the marking workbench authors authorRef ids; alias-only edits keep svgTagId identity; save/reopen preserves the alias authority; and Preview keeps SVG layer function authoring read-only.',
+    `Managed SVG author-reference browser proof passed (${browserName}): compact Property form commit/persistence, marking-workbench alias/rename + undo/redo, canonical svgTagId and authored id byte round-trip, save/reopen and Preview private-operation read-only. No removed rule-editor convergence is claimed.`,
   )
 } finally {
   await browser.close()

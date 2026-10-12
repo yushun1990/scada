@@ -59,7 +59,7 @@ type ComponentLayerMethodCodeModalProps = {
 }
 
 /**
- * SVG layer function editor per the PR #198 design: metadata bar, form-driven
+ * Private Layer Operation editor (legacy LayerMethod API): metadata bar, form-driven
  * parameter table, code editor with line numbers and syntax highlight, local
  * code assistant, live visual preview and an in-modal test-run panel. Runs go
  * through the controlled sandbox engine only.
@@ -263,7 +263,7 @@ export function ComponentLayerMethodCodeModal({
           <div className="component-method-dialog-title-row">
             <div className="component-method-dialog-title-wrap">
               <DialogTitle className="component-method-dialog-title">
-                {method.isNew ? '新建函数实现' : '函数实现编辑器'}
+                {method.isNew ? '新建图层操作' : '图层操作编辑器'}
               </DialogTitle>
             </div>
             <Button
@@ -278,14 +278,19 @@ export function ComponentLayerMethodCodeModal({
           </div>
         </div>
 
+        <p className="component-methods-status-banner">
+          组件私有图层操作 · 仅限受控编辑器试运行。$emit 仅记录诊断，不发布公开事件。
+          当前试运行会应用到画布，不是临时预览。
+        </p>
+
         {/* Metadata Bar */}
         <div className="component-method-metadata-bar">
           <Input
             className="component-method-meta-name-input"
             value={method.methodName}
             placeholder="setRunState"
-            title="函数标识名 (如 setRunState)"
-            aria-label="函数标识名"
+            title="图层操作标识名 (如 setRunState)"
+            aria-label="图层操作标识名"
             disabled={readOnly}
             onChange={(e) => handleMethodNameChange(e.target.value)}
           />
@@ -293,8 +298,8 @@ export function ComponentLayerMethodCodeModal({
             className="component-method-meta-desc-input"
             value={method.title}
             placeholder="设置运行状态"
-            title="函数简介说明 (如 设置运行状态)"
-            aria-label="函数简介说明"
+            title="图层操作简介说明 (如 设置运行状态)"
+            aria-label="图层操作简介说明"
             disabled={readOnly}
             onChange={(e) => setCurrent((prev) => (prev ? { ...prev, title: e.target.value } : prev))}
           />
@@ -306,7 +311,7 @@ export function ComponentLayerMethodCodeModal({
             <div className="component-method-params-section">
               <div className="component-method-params-header">
                 <div className="component-method-params-title-wrap">
-                  <span className="component-method-params-title">📋 形参列表 (Form 驱动契约)</span>
+                  <span className="component-method-params-title">📋 图层操作参数（私有）</span>
                   <span className="component-method-params-count">
                     共 {method.parameters.length} 个自定义入参
                   </span>
@@ -316,7 +321,7 @@ export function ComponentLayerMethodCodeModal({
                     variant="secondary"
                     size="small"
                     onClick={handleAddParameter}
-                    title="向当前函数添加新形参"
+                    title="向当前图层操作添加新形参"
                   >
                     + 添加形参
                   </Button>
@@ -494,7 +499,7 @@ export function ComponentLayerMethodCodeModal({
               <div className="component-method-ai-input-row">
                 <Textarea
                   className="component-method-ai-prompt-textarea"
-                  placeholder="输入修改提示词（如：当 speed > 80 时切换为 alarm 告警光影并抛出事件，按 Ctrl + Enter 发送）..."
+                  placeholder="输入修改提示词（如：切换为 alarm 告警主题并记录诊断，按 Ctrl + Enter 发送）..."
                   value={aiPrompt}
                   disabled={isAiGenerating || readOnly}
                   rows={2}
@@ -611,7 +616,7 @@ export function ComponentLayerMethodCodeModal({
                   })
                 ) : (
                   <div className="component-method-test-no-params">
-                    <span>当前函数无自定义形参，直接以内置 <code>$self</code> 图层驱动上下文执行。</span>
+                    <span>当前图层操作无自定义形参，直接以内置 <code>$self</code> 图层驱动上下文执行。</span>
                   </div>
                 )}
               </div>

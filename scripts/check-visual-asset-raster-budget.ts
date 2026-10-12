@@ -6,6 +6,7 @@ import {
   SVG_CANVAS_RASTER_TARGET_DIMENSION,
   type ManagedSvgDocument,
 } from '../src/component-system/managedSvg'
+import { readVisualAssetSnapshot } from '../src/component-system/visual-asset-snapshot'
 import { resolveComponentVisualRules, type VisualRule } from '../src/component-system/visualRules'
 import {
   COMPONENT_VISUAL_VERSION,
@@ -201,4 +202,15 @@ const stopped = resolveComponentVisualRules(visual, {
 assert.equal(stopped.layers[0], visual.layers[0])
 assert.equal(stopped.layers[1], visual.layers[1])
 
-console.log('check-visual-asset-raster-budget: all assertions passed')
+// A completed asset from the previous source must never be rasterized under
+// the new source's cache key, including a delayed completion after a switch.
+const grayImage = Object.freeze({ color: 'gray' })
+const greenImage = Object.freeze({ color: 'green' })
+const graySnapshot = Object.freeze({ source: 'svg:gray', image: grayImage })
+assert.equal(readVisualAssetSnapshot('svg:gray', graySnapshot), grayImage)
+assert.equal(readVisualAssetSnapshot('svg:green', graySnapshot), null, 'pending source change must not expose the old decoded image')
+assert.equal(readVisualAssetSnapshot('svg:green', { source: 'svg:green', image: greenImage }), greenImage)
+assert.equal(readVisualAssetSnapshot('svg:green', graySnapshot), null, 'late old-source completion must remain invisible to the current source')
+assert.equal(readVisualAssetSnapshot('svg:green', { source: 'svg:green', image: null }), null, 'pending/failed decode must not fabricate an image')
+
+console.log('check-visual-asset-raster-budget: all assertions passed, including source-matched decoded snapshots')

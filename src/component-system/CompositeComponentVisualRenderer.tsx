@@ -15,6 +15,7 @@ import {
   Text,
 } from 'react-konva'
 import { computeSvgCanvasRasterScale, serializeManagedSvgCanvasDataUrl } from './managedSvg'
+import { readVisualAssetSnapshot, type VisualAssetSnapshot } from './visual-asset-snapshot'
 import {
   resolveVisualAssetStyle,
   resolveVisualLineDashArray,
@@ -290,39 +291,41 @@ function acquireDisplayRaster(
 }
 
 function useVisualAsset(assetRef: string) {
-  const [image, setImage] = useState<HTMLImageElement | null>(() =>
-    assetRef.trim() ? peekLoadedVisualAssetImage(assetRef) : null,
-  )
+  const source = assetRef.trim()
+  const [snapshot, setSnapshot] = useState<VisualAssetSnapshot<HTMLImageElement>>(() => ({
+    source,
+    image: source ? peekLoadedVisualAssetImage(source) : null,
+  }))
 
   useEffect(() => {
-    const source = assetRef.trim()
-
     if (!source) {
-      setImage(null)
+      setSnapshot({ source, image: null })
       return
     }
 
     const entry = acquireVisualAssetImage(source)
 
     if (entry.ready) {
-      setImage(entry.image)
+      setSnapshot({ source, image: entry.image })
       return
     }
 
     if (entry.failed) {
-      setImage(null)
+      setSnapshot({ source, image: null })
       return
     }
 
-    const notify = () => setImage(entry.ready ? entry.image : null)
+    const notify = () => setSnapshot({ source, image: entry.ready ? entry.image : null })
     entry.listeners.add(notify)
 
     return () => {
       entry.listeners.delete(notify)
     }
-  }, [assetRef])
+  }, [source])
 
-  return image
+  // A source switch renders before the new image has decoded. Never pass the
+  // previous image to acquireDisplayRaster with the new source's cache key.
+  return readVisualAssetSnapshot(source, snapshot) ?? peekLoadedVisualAssetImage(source)
 }
 
 function VisualAssetLayer({
