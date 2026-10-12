@@ -2,7 +2,7 @@
 
 - **Status:** `active` — architecture proposal under review; not an accepted DSL, Scene or runtime contract.
 - **Work item:** **DSL-AUTH-ARCH** (Scene DSL authoring architecture). Handoffs and follow-ups cite this ID.
-- **Date:** 2026-10-10; revised 2026-10-12 for review findings DSLA-R1–R8 against `main` `370981c`.
+- **Date:** 2026-10-10; revised 2026-10-12 for review findings DSLA-R1–R10 against `main` `370981c`.
 - **Scope:** source baseline, authoring direction and candidate semantic extensions. Not implementation approval.
 - **Authority:** [DSL v1](scada-dsl-v1.md) remains authoritative. If this proposal is accepted, it would amend `scada-dsl-v1.md` §1, §7, §9 and §10 and the [M9A1.4](../progress/m9a1.4-dsl-symbol-contract.md) root-rejection acceptance. That amendment needs its own accepted ADR. Until then, DSL v1 stays as it is.
 - **Related:** [original M6.5 text-first intent](../progress/m6.5.4-scada-dsl-surface.md), [binding/behavior direction](scada-binding-behavior.md), [component I/O and T3](adr-component-input-output-composition.md), [private Update proposal (CAR-ARCH)](adr-component-authored-update-runtime.md), [PLAN §11](../../PLAN.md#11-immediate-execution-sequence).
@@ -32,8 +32,8 @@ Different devices may perform the same industrial function through incompatible 
 
 ## 3. Proposed order of work
 
-1. **Prerequisite (separate authorization, T3-adjacent):** wire the **existing** DSL v1 (`$self` / `$device`) into Scene authoring, persistence (`scadaSemantics`), editor Preview and undo. One committed edit must produce one undoable command. This step must also decide how the primary device is selected in the editor and in standalone deployment. If that selection is persisted, it is itself a versioned Scene change. It must also decide how source text relates to the persisted canonical semantics (§7). This step is not authorized by this proposal.
-2. **Observation:** after step 1 ships, record real authoring friction with `$self` / `$device` only, using the scenarios in §8.
+1. **Prerequisite (separate authorization, T3-adjacent):** wire the **existing** DSL v1 (`$self` / `$device`) into Scene authoring, persistence (`scadaSemantics`), editor Preview and undo. One committed edit must produce one undoable command. This step must also decide how the primary device is selected in the editor and in standalone deployment. If that selection is persisted, it is itself a versioned Scene change. In that case, design the device-binding field so that later named device slots (§4) can extend it without another Scene version. It must also decide how source text relates to the persisted canonical semantics (§7). This step is not authorized by this proposal.
+2. **Observation:** after step 1 ships, record real authoring friction with `$self` / `$device` only, using the scenarios in §9 Q2.
 3. **Extensions:** consider multi-device references (§4) and typed Event payload access (§5) only if step 2 justifies them. Each one needs its own accepted ADR amendment to DSL v1.
 
 ## 4. Multi-device references (DSLA-R2, DSLA-R3)
@@ -72,8 +72,8 @@ on $self.startRequested {
 
 Required if adopted:
 
-- a **Scene v9** schema change carrying per-instance slot bindings, plus **semantics v2** carrying the `device-slot` reference;
-- migration fixtures (v8 → v9, `primary-device` → default slot), malformed-input fixtures, and rollback/failure behavior;
+- a **versioned Scene change** carrying per-instance slot bindings, plus a **versioned semantics change** carrying the `device-slot` reference. Version numbers are assigned when the migration is authorized. If §3 step 1 already introduced a persisted device-binding field, slots extend that field instead of requiring a second Scene version;
+- migration fixtures (current Scene version → slot-capable version, `primary-device` → default slot), malformed-input fixtures, and rollback/failure behavior;
 - explicit policies for slot creation and rename, copy and import remapping, missing devices, standalone deployment mapping, editor Preview data supply and resource closure;
 - `external` stays compatibility-only. It must not become a second device-truth authority.
 
@@ -91,11 +91,11 @@ on $self.valueChanged {
 
 **Finding (answers former Q2): the current canonical Interaction plan cannot represent `$event`.** Minimum required changes:
 
-1. **Semantics v2.** `PersistedScadaExpression` has only `component-property` and `source-property` references, and the parser rejects anything else under strict `SCADA_SEMANTICS_VERSION = 1` ([`scada-semantics-persistence.ts`](../../src/scene/scada-semantics-persistence.ts) L11–L15, L358–L391). An `event-payload` reference kind needs a versioned codec with migration and malformed-input fixtures.
-2. **Context-sensitive validation.** `parseExpression` is context-free. Value Bindings, Behavior conditions and arguments, and Interaction arguments all share it. v2 must reject `event-payload` references everywhere except Interaction arguments. Otherwise a malformed document could feed event data into a Value Binding.
+1. **Versioned semantics change.** `PersistedScadaExpression` has only `component-property` and `source-property` references, and the parser rejects anything else under strict `SCADA_SEMANTICS_VERSION = 1` ([`scada-semantics-persistence.ts`](../../src/scene/scada-semantics-persistence.ts) L11–L15, L358–L391). An `event-payload` reference kind needs a new semantics version with a versioned codec, migration and malformed-input fixtures. If device slots (§4) are also adopted, both should share one semantics version.
+2. **Context-sensitive validation.** `parseExpression` is context-free. Value Bindings, Behavior conditions and arguments, and Interaction arguments all share it. The new version must reject `event-payload` references everywhere except Interaction arguments. Otherwise a malformed document could feed event data into a Value Binding.
 3. **Session and runtime API.** The attach path drops the validated payload: [`preview-scada-semantics.ts`](../../src/runtime/preview-scada-semantics.ts) L220 calls `session.componentEvent(event.eventName)`, and the session signature is `componentEvent(event: string)` ([`scada-dsl-propagation-session.ts`](../../src/scene/scada-dsl-propagation-session.ts) L57). The session, `evaluateScadaDslComponentEvent` ([`scada-dsl-runtime.ts`](../../src/scene/scada-dsl-runtime.ts) L442) and `ScadaDslDependency` (exhaustive switches in [`scada-dsl-analysis.ts`](../../src/scene/scada-dsl-analysis.ts)) need a payload-aware evaluation context.
 4. **Dependency isolation.** `$event` must never enter `readDependencies` or `triggerDependencies`.
-5. **Rejected workaround.** Having the component write the payload into a Property and then passing `$self.x` violates §6. It turns event data into a persistent Property and races derived-commit ordering.
+5. **Rejected workaround.** Having the component write the payload into a Property and then passing `$self.x` violates §7. It turns event data into a persistent Property and races derived-commit ordering.
 
 Type information already exists. `ScadaDslCapabilityItem.event` carries `ComponentEventDefinition.payload`, and after `normalizeComponentEventPayload` optional fields are absent rather than `null`. The compiler can type-check `$event.<field>` against Action parameters without new contract data.
 
