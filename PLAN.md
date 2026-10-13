@@ -758,6 +758,16 @@ then may independently authorized runtime, editor and distribution tranches
 proceed. This is not a replacement for CIO T1–T4, nor an acceptance of
 portable authored execution or M10B+.
 
+Additional architecture review item: **DSL-AUTH-ARCH** (Scene DSL authoring),
+`active` documentation-only proposal: [ADR](docs/architecture/adr-scene-dsl-text-first-authoring.md).
+It records that DSL v1 is a tested domain pipeline with no production Scene
+authoring, persistence or Preview consumer. It proposes wiring the existing
+`$self`/`$device` DSL into Scene authoring first, under its own T3-adjacent
+authorization, before considering any extension. If accepted, its device-slot
+and typed `$event` extensions would amend DSL v1 and the M9A1.4 root
+rejection, and would require versioned Scene and semantics changes.
+It changes no gate and authorizes no implementation, T3, CAR-1 or M10B+.
+
 The 2026-09-10 UI review delivers a [source audit](docs/design/ui-audit-2026-09-10.md), a corrected [industrial Designer UI specification](docs/design/industrial-designer-spec.md), and a proposed [rollout plan](docs/design/industrial-designer-rollout.md). The rollout prioritizes editing reliability before shared chrome, navigation and Inspector polish. Its A–F work packages are delivery batches, not new architecture milestones. B1–B3 and C1/C2 are merged; C2 and its deployed regression follow-up are recorded in [the C2 progress note](docs/progress/ui-c2-studio-shell.md) and PRs #194/#195. D1 Scene Navigator and Palette search are implemented for review; see [D1 progress](docs/progress/ui-d1-scene-navigation.md). D2/D3 and E/F remain outstanding. The [2026-09-16 Web editor correction](docs/design/web-editor-simplification.md) supersedes the desktop menu taxonomy and single-document tab: use a document header plus editing toolbar, with one primary entry per command. The subsequent [Component editor redesign](docs/design/component-editor-redesign.md) centers canvas controls, keeps grouping in the toolbar, moves ordering into each layer row, and introduces a compact neutral/teal interface. Shared Shell, navigation, history and persistence stay authoritative. Accepted M6–M9 and UX1 authority boundaries remain unchanged.
 
 The current product phase is hands-on use and polishing of the editor, components and interactions. Component design does not require real-system data integration, and the product is not yet being advanced into speculative protocol/backend/real-device work merely because the runtime foundations exist.
