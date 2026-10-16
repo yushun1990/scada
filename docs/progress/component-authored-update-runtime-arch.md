@@ -1,17 +1,17 @@
 # Component-authored Update runtime architecture handoff — CAR-ARCH
 
-- Status: **proposed**, awaiting independent architectural review and acceptance.
+- Status: `accepted` — `CAR-ARCH` / `CAR-0` architecture direction and review-correction baseline merged in [PR #223](https://github.com/yushun1990/scada/pull/223) at `main` `fade11782b8dc8a3c36b4f869a2197d3e91a7fd1` (`2026-10-09`); `CAR-1`–`CAR-4` remain `not-started` (see [CIO-T1 & architecture closeout](component-input-output-t1-closeout.md)).
 - Date: 2026-10-09.
-- Work item: CAR-ARCH, documentation-only prerequisite; no new execution gate accepted.
-- Parent dependency: PR #221 (Component public input/output and composition amendment), branch docs/component-contract-intent-authority at b54260612018806a5bef9487672e822bf2f67fd7.
-- Audited main: f8a060dc4255b6695ddecffa60493ade5d761c74; no claim of subsequent main merges.
+- Work item: CAR-ARCH (`CAR-0`), documentation-only prerequisite; no new execution gate accepted.
+- Parent dependency: PR #221 (Component public input/output and composition amendment), branch `docs/component-contract-intent-authority`, merged to `main` at `5791cdc107db7fec9d243bc747f13e455a99954b`.
+- Audited main: `f8a060dc4255b6695ddecffa60493ade5d761c74` at initial handoff; subsequently merged to `main` at `fade11782b8dc8a3c36b4f869a2197d3e91a7fd1`.
 - Design authority proposed here: [Component-authored Update runtime ADR](../architecture/adr-component-authored-update-runtime.md).
 - Execution scheduling link: [PLAN](../../PLAN.md).
 
 ## Repository evidence used
 
 - PLAN §3.1/§3.11 and §11: five-part public contract, separate host-owned Property truth, portable user Action/Event execution not yet admitted, M10A active.
-- Pending PR #221: public Action input intent, Event output occurrence, private Layer Operation, explicit Scene routing and future nested-component contract preservation. Its acceptance cannot be presumed.
+- PR #221 (`accepted` at `main@5791cdc`): public Action input intent, Event output occurrence, private Layer Operation, explicit Scene routing and future nested-component contract preservation.
 - src/component-system/definition.ts: typed declarations/argument and payload schema with no executable Action source.
 - src/component-system/registration.ts and src/runtime/preview-runtime.ts: trusted native handler registration and typed Action/Event host dispatch.
 - src/runtime/controlled-script-engine.ts: isolated script invocation only for init/propertyChanged/action concepts, **not** generic trusted presentation interactions or an admitted authored-component Update implementation.

@@ -6,7 +6,7 @@ This note refines the component public-contract model defined in `component-syst
 
 Discrete input/output, private operations and future nested composition follow
 the [Component input/output amendment](adr-component-input-output-composition.md)
-(`active` architecture review). It clarifies ownership without reopening M9
+(`accepted` architecture amendment; `CIO-T1` `accepted`, `CIO-T2`–`T4` `not-started`). It clarifies ownership without reopening M9
 schema, migration or acceptance.
 
 The key correction is:

@@ -1,9 +1,10 @@
 # ADR：受控 private Layer Operation 编辑器执行
 
-状态：`accepted`（2026-09-27 issue #209 的受控编辑器执行决策）；本文的语义与
-范围修正随 [Component input/output ADR](adr-component-input-output-composition.md)
-审阅（`active`，2026-10-03）。接受该修正后，以下正文取代旧提案的能力面和运行域
-描述；原有隔离、限额、私有数据与便携执行边界保持。
+状态：`accepted`（2026-09-27 issue #209 的受控编辑器执行决策；本文的语义与
+范围修正已随 [Component input/output ADR](adr-component-input-output-composition.md)
+在 PR #221 `main@5791cdc` 接受，并在 PR #222 `main@370981c` 完成 `CIO-T1` 术语与契约展示落地，详见
+[CIO-T1 收口记录](../progress/component-input-output-t1-closeout.md)）。以下正文取代旧提案的能力面和运行域
+描述；原有隔离、限额、私有数据与便携执行边界保持，后续 `CIO-T2` 图层操作作用域/原子应用纠偏仍为 `not-started`。
 
 文件名、`methods` 字段及 `LayerMethod` API 名保留兼容性，不代表对象方法模型。
 公共 Component **Action（操作）** 与 private **Layer Operation（图层操作）**

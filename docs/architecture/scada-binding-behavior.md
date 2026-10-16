@@ -5,7 +5,7 @@ Value/Behavior/Interaction and DSL contracts belong to [PLAN](../../PLAN.md) and
 [SCADA DSL v1](scada-dsl-v1.md); their implementation and M6–M9 acceptance are
 not reopened by the remaining exploratory sections below. Public discrete
 input/output and the later Scene authoring direction are refined by the
-`active` [Component input/output amendment](adr-component-input-output-composition.md).
+`accepted` [Component input/output amendment](adr-component-input-output-composition.md) (`CIO-T1` `accepted`, `CIO-T2`–`T4` `not-started`).
 Old scheduling/checkpoints here cannot authorize new runtime or scripting work.
 
 The key correction is:

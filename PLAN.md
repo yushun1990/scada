@@ -77,22 +77,24 @@ Native renderer details
 ```
 
 The [Component input/output and composition ADR](docs/architecture/adr-component-input-output-composition.md)
-is the `active` documentation amendment for this audit. Acceptance freezes
-public Action/Event meaning, private Layer Operation ownership, future child
-contract preservation/read-only consumption and explicit Event re-export.
-It amends the old callable/mutable-object interpretation; Message remains an
-internal runtime concept. Public Chinese Action UI converges to “操作”; private
-operations use “图层操作”. This does not authorize portable public execution,
-nested Component layers or a new Scene interaction implementation.
+(`accepted` · PR #221 → `main@5791cdc`) freezes public Action/Event meaning,
+private Layer Operation ownership, JA-001/JA-002 public input and response
+boundaries, future child contract preservation/read-only consumption and
+explicit Event re-export. It amends the old callable/mutable-object
+interpretation; Message remains an internal runtime concept. Public Chinese
+Action UI converges to “操作”; private operations use “图层操作” (`CIO-T1`,
+`accepted` · PR #222 → `main@370981c`). This does not authorize portable public
+execution, nested Component layers or a new Scene interaction implementation.
 
 The [Component-authored private Update runtime ADR](docs/architecture/adr-component-authored-update-runtime.md)
-records the **proposed** authoring/runtime direction: a fixed host, component-owned
+(`accepted` architectural direction baseline · PR #223 → `main@fade117`) records
+the three-role authoring/runtime direction: a fixed host, component-owned
 private Model/Update logic authored in Component Workbench, standardized internal
 messages and bounded results, and an eventually portable implementation asset.
 Update is private component implementation, **not** a public Action; author-authored
 scripts are **not yet admitted** to portable execution. Exact runtime protocol,
-source format, capability model and package schema require a separately accepted
-execution ADR. This design note changes no current product capability or gate.
+source format, capability model and package schema require the separately
+accepted `CAR-1` execution ADR before any `CAR-2`–`CAR-4` work.
 
 ### 3.2 Attribute / Property authority split
 
@@ -711,72 +713,60 @@ M10-R0 readiness remediation                                   accepted · 2026-
 M10A architecture contract + measured spike                    active
 ```
 
-**Current execution gate: M10A architecture contract + measured spike plus already-authorized product-polish defects. M10B and all later 3D gates remain unauthorized until M10A is accepted.**
+**Current execution gate: M10A architecture contract + measured spike plus already-authorized product-polish and governance tranches. M10B and all later 3D gates remain `not-started` until M10A is accepted.**
 
-Selected independent design correction: `CIO-ARCH`, `active` architecture/docs
-review of Component public inputs/outputs, private Layer Operations and future
-composition. [ADR](docs/architecture/adr-component-input-output-composition.md)
-and [source audit](docs/progress/component-input-output-audit.md) define the
-amendment, conflicts, retained safe code and suggested T1–T4 migration order.
-CIO-ARCH itself changes no code/schema/UI and accepts no milestone. The
-separately scoped `CIO-T1` compatible product-polish follow-up is `implemented`:
-public 操作 versus private 图层操作 labels, complete read-only Action parameter
-and Event payload display, and explicit existing portable/editor capability
-limits; see [T1 handoff](docs/progress/component-input-output-t1-contract-ui.md).
-It preserves schemas, private `methods` data, runtime and routing; the parent
-architecture PR remains under review and no gate is accepted here. The
-`CIO-T1-BROWSER` follow-up is `implemented`: capability checks use the current
-explicit declarative-package import/configuration path, authorRef checks use
-committed compact Property forms and the marking workbench, and a reproduced
-stale decoded-image/display-raster source mismatch is corrected. Both targeted
-checks and T1 pass locally in Chromium/Firefox; see [browser-fixture handoff](docs/progress/component-input-output-t1-browser-fixtures.md).
-The `CIO-T1-DELIVERY` follow-up is `implemented`: the complete 21-command
-component-editor browser step passes locally, with five targeted Firefox
-flows, work-transfer/standalone regressions and all 73 CI model-step commands.
-The full lane exposed a compact-form Property rename regression: explicit
-editor rename intent now preserves rule conditions, Property value sources and
-animation activation references in one undoable definition command; the history
-fixture follows the current title/compact-form UI. See the
-[delivery handoff](docs/progress/component-input-output-t1-delivery.md).
-These are compatible editor correctness prerequisites, not T2 ownership/apply
-work. This does not prove the removed one-click theme/Rule authoring UI, direct
-draft-to-ready publication or deployment acceptance. Parent review, candidate
-delivery checks and exact deployed evidence remain separate closeout requirements.
-T2 editor-operation
-ownership/atomic preview, T3 Scene routing and T4 nested composition each still
-need their own authorization and evidence. Portable authored public execution
-needs a separate accepted execution ADR; M10C registry work keeps its staged gate.
+Post-PR #221–#224 governance reconciliation and exact-main evidence are recorded in
+[`docs/progress/component-input-output-t1-closeout.md`](docs/progress/component-input-output-t1-closeout.md).
 
-Additional architecture review item: **CAR-ARCH** (Component Authoring Runtime),
-proposed as a dependency of any new portable component-level Update execution.
-[ADR](docs/architecture/adr-component-authored-update-runtime.md) records the
-three-role model, private Model/Update versus public Action/Event, input-message
-normalization, Component Workbench logic authoring/AI assistance and component
-asset portability. **CAR-1** must first decide sandbox/ABI/effects/state,
-capability admission, package versioning and Preview/standalone parity; only
-then may independently authorized runtime, editor and distribution tranches
-proceed. This is not a replacement for CIO T1–T4, nor an acceptance of
-portable authored execution or M10B+.
+### 11.1 Component I/O, Layer Operations, and Composition (`CIO` program)
 
-Additional architecture review item: **DSL-AUTH-ARCH** (Scene DSL authoring),
-`active` documentation-only proposal: [ADR](docs/architecture/adr-scene-dsl-text-first-authoring.md).
-It records that DSL v1 is a tested domain pipeline with no production Scene
-authoring, persistence or Preview consumer. It proposes wiring the existing
-`$self`/`$device` DSL into Scene authoring first, under its own T3-adjacent
-authorization, before considering any extension. If accepted, its device-slot
-and typed `$event` extensions would amend DSL v1 and the M9A1.4 root
-rejection, and would require versioned Scene and semantics changes.
-It changes no gate and authorizes no implementation, T3, CAR-1 or M10B+.
+Authority: [Component inputs, outputs and composition ADR](docs/architecture/adr-component-input-output-composition.md) and [source audit](docs/progress/component-input-output-audit.md).
 
-The 2026-09-10 UI review delivers a [source audit](docs/design/ui-audit-2026-09-10.md), a corrected [industrial Designer UI specification](docs/design/industrial-designer-spec.md), and a proposed [rollout plan](docs/design/industrial-designer-rollout.md). The rollout prioritizes editing reliability before shared chrome, navigation and Inspector polish. Its A–F work packages are delivery batches, not new architecture milestones. B1–B3 and C1/C2 are merged; C2 and its deployed regression follow-up are recorded in [the C2 progress note](docs/progress/ui-c2-studio-shell.md) and PRs #194/#195. D1 Scene Navigator and Palette search are implemented for review; see [D1 progress](docs/progress/ui-d1-scene-navigation.md). D2/D3 and E/F remain outstanding. The [2026-09-16 Web editor correction](docs/design/web-editor-simplification.md) supersedes the desktop menu taxonomy and single-document tab: use a document header plus editing toolbar, with one primary entry per command. The subsequent [Component editor redesign](docs/design/component-editor-redesign.md) centers canvas controls, keeps grouping in the toolbar, moves ordering into each layer row, and introduces a compact neutral/teal interface. Shared Shell, navigation, history and persistence stay authoritative. Accepted M6–M9 and UX1 authority boundaries remain unchanged.
+| Work item | Status | Evidence and boundary |
+| --- | --- | --- |
+| `CIO-ARCH` (`CIO-001`, `CIO-003`, `CIO-008`, `JA-001`, `JA-002`) | `accepted` | PR #221 merged at `main@5791cdc107db7fec9d243bc747f13e455a99954b`; [review correction](docs/governance/component-contract-review-correction.md). Freezes public 操作/事件 vs private 图层操作, host Property ownership, JA-001/JA-002 boundaries, and future child-contract preservation/explicit Event re-export. |
+| `CIO-T1` (incl. `CIO-T1-BROWSER`, `CIO-T1-DELIVERY`, `PR222-R1`) | `accepted` | PR #222 merged at `main@370981cadb0089cb3b27e8bcec6b245fa119d36b` (PR CI #1234, Component Editor Browser Checks #187; exact-main CI #1235, Deploy #354, Pages Browser Smoke #345). Aligns public 操作 vs private 图层操作 UI, read-only Action/Event schema display, source-matched raster decoding, and atomic Property reference reconciliation ([T1 handoff](docs/progress/component-input-output-t1-contract-ui.md), [browser fixtures](docs/progress/component-input-output-t1-browser-fixtures.md), [delivery](docs/progress/component-input-output-t1-delivery.md), [review fix](docs/progress/component-input-output-t1-review-fix.md), [closeout](docs/progress/component-input-output-t1-closeout.md)). |
+| `CIO-T2` (`CIO-004`, `CIO-005`) | `not-started` | Editor Layer Operation owner/scope/kind/input validation, transient test preview overlay, stale-run cancellation fence, and explicit one-command atomic apply. Requires separate authorization and evidence under [ADR §7](docs/architecture/adr-component-input-output-composition.md#7-migration-order-and-acceptance-boundary). |
+| `CIO-T3` (`CIO-006`, `CIO-007`) | `not-started` | Narrow Scene `Behavior = Trigger -> Effect` authoring, canonical/compatibility single-route migration, and typed payload-to-argument mapping. Coordinates with `DSL-AUTH-ARCH` §3 step 1. |
+| `CIO-T4` (`CIO-008` composition) | `not-started` | Nested reusable Component Layer, read-only child contract consumption, parent-private child Event triggers, and explicit parent Event re-export. |
 
-The current product phase is hands-on use and polishing of the editor, components and interactions. Component design does not require real-system data integration, and the product is not yet being advanced into speculative protocol/backend/real-device work merely because the runtime foundations exist.
+### 11.2 Component Authoring Runtime (`CAR` program)
 
-Preserve accepted M6–M9 and M6.3P1 boundaries while fixing defects exposed by dogfooding. In particular, do not reopen flattened `props`, Attribute binding, hidden package installation, standalone authoring state, a second renderer/runtime authority or broad media-library scope through incidental polish work.
+Authority: [Component-authored private Update runtime ADR](docs/architecture/adr-component-authored-update-runtime.md) and [review correction](docs/governance/component-authored-update-review-correction.md).
 
-Current component-editor polish: searchable/collapsible layer navigation, explicit selection/component-settings entry points, and Preview history locking. Implementation and verification are tracked in `docs/progress/product-polish-component-navigation.md`; this does not open a new architecture milestone. Follow-up polish defects are tracked separately: unified toolbar disabled-state rendering (one gray for unavailable commands across the native-`:disabled` and Base UI `data-disabled` families, no hover highlight) in `docs/progress/product-polish-toolbar-disabled-state.md`, and canvas selection pass-through (a selected layer's loose transform bounds must not block clicks on lower layers) in `docs/progress/product-polish-canvas-selection-pass-through.md`, and the inspector fill/stroke group split (fill and stroke configure in two independent vector-layer style groups) in `docs/progress/product-polish-inspector-fill-stroke-split.md`, and the line endpoint style group (line cap joins start/end markers under one 端点样式 group) in `docs/progress/product-polish-line-endpoint-style-group.md`, and SVG layer inspector simplification (the asset 样式 and managed SVG 内部元素 groups are retired; authorRef authoring moves to the source marking workbench, which now persists aliases) in `docs/progress/product-polish-svg-inspector-simplify.md`, and issue #209 SVG interaction optimization (SVG layers lose the standalone 资源 group entirely, the SVG group lists auto-detected ids/classes, and the behavior tab manages SVG layer functions per the PR198 functional design — authored through a code modal, executed only in a lazily-loaded QuickJS controlled sandbox with structured $self operations, persisted as private layer data; see the accepted ADR `docs/architecture/adr-proposal-controlled-layer-methods.md`) in `docs/progress/issue-209-svg-interaction-optimization.md`, and the Attribute / Property contract compact row editing (saved entries render as inspector-style name + typed value rows with inline 编辑/删除; adding or editing happens in one compact labeled form) in `docs/progress/product-polish-contract-compact-rows.md`.
+| Stage | Status | Evidence and boundary |
+| --- | --- | --- |
+| `CAR-ARCH` / `CAR-0` | `accepted` | PR #223 merged at `main@fade11782b8dc8a3c36b4f869a2197d3e91a7fd1` after PR #221 (`5791cdc`); [handoff](docs/progress/component-authored-update-runtime-arch.md). Freezes the three-role direction (fixed Engine, Component Workbench private Model/Update authoring, public-contract Scene consumption) and JA-001/JA-002 PumpSwitch obligations. Approves no executable schema or runtime capability. |
+| `CAR-1` | `not-started` | Independent Portable Component Execution ADR required before any runtime/editor/package work: unknown/usable input delivery and lifecycle, one Model/commit boundary, presentation composition ordering, generation fencing, optional public outcome route, sandbox/ABI/capability budgets, and versioned admission. |
+| `CAR-2`–`CAR-4` | `not-started` | Narrow production-runtime prototype (`CAR-2`), Component Workbench Logic authoring (`CAR-3`), and portable component/work/standalone parity (`CAR-4`) remain gated behind `CAR-1` acceptance. |
 
-The R0 correction gate is accepted with exact-revision evidence ([closeout record](docs/progress/m10-r0-closeout.md)). Product-polish work must not bypass M10A boundaries or introduce M10B+ contracts incidentally.
+### 11.3 Scene DSL Text-First Authoring (`DSL-AUTH` program)
+
+Authority: [Scene DSL text-first authoring proposal ADR](docs/architecture/adr-scene-dsl-text-first-authoring.md) and [SCADA DSL v1](docs/architecture/scada-dsl-v1.md).
+
+| Stage | Status | Evidence and boundary |
+| --- | --- | --- |
+| `DSL-AUTH-ARCH` (`DSLA-R1`–`R10`) | `accepted` | PR #224 merged at `main@1c7e4f604ea666b4cf2a67370cfe5dfde18c6f16` (exact-main CI #1238, Deploy #355, Pages Browser Smoke #346). Establishes the verified source baseline (`src/scene/scada-dsl*.ts` has no production UI/persistence/editor-Preview consumer) and freezes the staged work order without amending DSL v1 or M9A1.4. |
+| `DSL-AUTH` §3 step 1 | `not-started` | Separately authorized (`CIO-T3`-adjacent) prerequisite: wire existing DSL v1 (`$self` / `$device`) into Scene authoring, `scadaSemantics` persistence, editor Preview, primary-device selection, and one-command undo. |
+| `DSL-AUTH` §4 / §5 extensions | `not-started` | Named device slots (`$pump1`) and typed Event payload references (`$event.<field>`) remain candidate extensions requiring §3 step 1 observation plus a separate accepted ADR and versioned Scene/semantics migration. |
+
+### 11.4 UI rollout and product-polish status
+
+The 2026-09-10 UI review delivers a [source audit](docs/design/ui-audit-2026-09-10.md), a corrected [industrial Designer UI specification](docs/design/industrial-designer-spec.md), and a [rollout plan](docs/design/industrial-designer-rollout.md). Its A–F work packages are delivery batches, not new architecture milestones:
+
+- `B1`–`B3` (transactions, save/leave, mode/selection scope), `C1`/`C2` (tokens/primitives, shared [StudioShell](docs/progress/ui-c2-studio-shell.md) in PRs #194/#195), and `D1` ([Scene Navigator and Palette search](docs/progress/ui-d1-scene-navigation.md) in PRs #196/#197) are merged on `main`.
+- The [Web editor simplification](docs/design/web-editor-simplification.md) and [Component editor redesign](docs/design/component-editor-redesign.md) are merged on `main`, followed by targeted dogfooding polish batches:
+  - [searchable/collapsible layer navigation and Preview history lock](docs/progress/product-polish-component-navigation.md)
+  - [toolbar disabled-state unification](docs/progress/product-polish-toolbar-disabled-state.md)
+  - [canvas selection pass-through](docs/progress/product-polish-canvas-selection-pass-through.md)
+  - [inspector fill/stroke group split](docs/progress/product-polish-inspector-fill-stroke-split.md)
+  - [line endpoint style group](docs/progress/product-polish-line-endpoint-style-group.md)
+  - [SVG layer inspector simplification](docs/progress/product-polish-svg-inspector-simplify.md)
+  - [issue #209 SVG interaction optimization and controlled private Layer Operations](docs/progress/issue-209-svg-interaction-optimization.md) ([ADR](docs/architecture/adr-proposal-controlled-layer-methods.md))
+  - [Attribute / Property contract compact row editing](docs/progress/product-polish-contract-compact-rows.md)
+- `D2`/`D3` and `E`/`F` remain outstanding.
+
+The current product phase is hands-on use and polishing of the editor, components and interactions alongside `M10A`. Preserve accepted M6–M9, M6.3P1, and M10-R0 ([closeout record](docs/progress/m10-r0-closeout.md)) boundaries: do not reopen flattened `props`, Attribute binding, hidden package installation, standalone authoring state, a second renderer/runtime authority, or M10B+ contracts through incidental polish work.
 
 ---
 

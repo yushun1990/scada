@@ -2,17 +2,15 @@
 
 ## Gate and authority
 
-- Status: `active` — CAR-ARCH documentation correction awaiting independent review.
+- Status: `accepted` — CAR-ARCH / `CAR-0` documentation correction merged in [PR #223](https://github.com/yushun1990/scada/pull/223) at `main` `fade11782b8dc8a3c36b4f869a2197d3e91a7fd1` (`2026-10-09`); `CAR-1`–`CAR-4` remain `not-started` (see [CIO-T1 & architecture closeout](../progress/component-input-output-t1-closeout.md)).
 - Gate: M10A plus authorized product polish; no execution capability/gate accepted.
 - Work item / findings: CAR-ARCH; JA-001 (P1), JA-002 (P2), jointly with CIO-ARCH.
 - Audited production base: `f8a060dc4255b6695ddecffa60493ade5d761c74`.
 - Reviewed PR #223 head: `2c548f916618420b4cb16ebe81470f1d3eec347f`.
 - Corrected parent #221: `da633112082a27eafbf352ef9cd757ab3dd8c2fa`, branch
-  `docs/component-contract-intent-authority`. It is an ancestor of this branch;
-  a history-preserving branch merge retains the original review revisions.
-- Verified architecture head: `2f195575fb43f49ffe0e12d6659a4df0e3ef7fb4`.
-  The handoff commit adds this evidence record only; the exact delivery head
-  is published in the PR #223 comment.
+  `docs/component-contract-intent-authority`, merged to `main` at `5791cdc107db7fec9d243bc747f13e455a99954b`.
+- Verified architecture head: `2f195575fb43f49ffe0e12d6659a4df0e3ef7fb4`;
+  delivered PR #223 head: `7c10b758dd451205c413e6c3597a32817d2dc4c0`, merged to `main` at `fade11782b8dc8a3c36b4f869a2197d3e91a7fd1`.
 - Architecture: [private Model/Update ADR §2–3, §5–8](../architecture/adr-component-authored-update-runtime.md)
   and [corrected public contract](../architecture/adr-component-input-output-composition.md).
 - Published review: [JA-001](https://github.com/yushun1990/scada/pull/223#discussion_r4226703954),

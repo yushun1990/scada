@@ -1,18 +1,18 @@
 # ADR: Component inputs, outputs and composition
 
-- Status: `active` — architecture amendment under review; acceptance of this
-  documentation PR freezes the decisions below for subsequent implementation.
-- Date: 2026-10-03
+- Status: `accepted` — architecture amendment merged in PR #221 (`main@5791cdc`,
+  2026-10-09); `CIO-T1` accepted in PR #222 (`main@370981c`, 2026-10-10);
+  `CIO-T2`–`T4` remain `not-started`.
+- Date: 2026-10-03; closeout reconciled 2026-10-16
 - Work item: `CIO-ARCH` — component contract semantic audit and authority correction
-- Evidence: [source audit and handoff](../progress/component-input-output-audit.md)
+- Evidence: [source audit and handoff](../progress/component-input-output-audit.md); [post-merge closeout](../progress/component-input-output-t1-closeout.md)
 - Joint review correction: [JA-001 / JA-002 and remaining decisions](../governance/component-contract-review-correction.md)
 - Execution gate: [PLAN](../../PLAN.md), M10A plus authorized product polish.
 
 This is a design decision, not an executable-component, nested-layer or Scene
-interaction implementation. It does not close or reopen M6–M10 gates. Pending
-acceptance, it must not be used to bypass the currently accepted execution
-boundaries. Later implementation requires its own scoped authorization and
-evidence.
+interaction implementation. It does not close or reopen M6–M10 gates. Later
+implementation tranches (`CIO-T2`–`T4`) require their own scoped authorization
+and evidence.
 
 ## 1. Decision and authority
 
@@ -404,15 +404,15 @@ new speculative effect variants for this first UI baseline.
 ## 7. Migration order and acceptance boundary
 
 The [audit](../progress/component-input-output-audit.md) records findings
-`CIO-001`–`CIO-008`, safe existing mechanisms and exact verification. Suggested
-implementation tranches, **not started or automatically authorized here**:
+`CIO-001`–`CIO-008`, safe existing mechanisms and exact verification. Tranche
+status after the [PR #221–#224 governance closeout](../progress/component-input-output-t1-closeout.md):
 
-| Order | Independently reviewable tranche | Required evidence |
-| --- | --- | --- |
-| T1 | Align public 操作 versus private 图层操作 UI; make schema read-only consumption and unavailable portable capability explicit. Preserve existing storage/API names. | Targeted model checks plus browser evidence for the changed labels, contract scope, typed schema display and read-only/cleanup behavior. |
-| T2 | Correct editor Layer Operation scope/kind/input validation, transient test result, atomic explicit apply and inert diagnostic outputs. Preserve bounded sandbox and compatibility facade until migration is chosen. | Production-export tests for unsupported targets, same-scope requests, malformed/coerced arguments, partial failure/no commit, stale run cancellation, one command/undo, package round-trip; browser save/reopen/test/apply evidence. |
-| T3 | Design then implement narrow Scene Trigger/Effect authoring and routing migration inside the existing semantic runtime. | Versioned codec/malformed-input/rollback fixtures if persistence changes; typed request/payload mapping, no duplicate dispatch, M9 parity, Preview/standalone and browser interaction proof. |
-| T4 | Separate nested component-layer design and implementation after type/version/dependency and execution prerequisites are accepted. | Contract-preservation/read-only fixtures; private child triggers and explicit public re-export; identity/cycle/dependency closure, fail-closed capability, undo and packaged standalone parity. |
+| Order | Status | Independently reviewable tranche | Required evidence |
+| --- | --- | --- | --- |
+| T1 | `accepted` (`main@370981c`) | Align public 操作 versus private 图层操作 UI; make schema read-only consumption and unavailable portable capability explicit. Preserve existing storage/API names. | Targeted model checks plus browser/deployed evidence in PR #222 ([closeout](../progress/component-input-output-t1-closeout.md)). |
+| T2 | `not-started` | Correct editor Layer Operation scope/kind/input validation, transient test result, atomic explicit apply and inert diagnostic outputs. Preserve bounded sandbox and compatibility facade until migration is chosen. | Production-export tests for unsupported targets, same-scope requests, malformed/coerced arguments, partial failure/no commit, stale run cancellation, one command/undo, package round-trip; browser save/reopen/test/apply evidence. |
+| T3 | `not-started` | Design then implement narrow Scene Trigger/Effect authoring and routing migration inside the existing semantic runtime. | Versioned codec/malformed-input/rollback fixtures if persistence changes; typed request/payload mapping, no duplicate dispatch, M9 parity, Preview/standalone and browser interaction proof. |
+| T4 | `not-started` | Separate nested component-layer design and implementation after type/version/dependency and execution prerequisites are accepted. | Contract-preservation/read-only fixtures; private child triggers and explicit public re-export; identity/cycle/dependency closure, fail-closed capability, undo and packaged standalone parity. |
 
 Portable public Action/Event implementation remains a **separate ADR gate**
 requiring isolation, permitted effect capabilities, type validation and

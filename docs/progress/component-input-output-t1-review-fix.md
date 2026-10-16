@@ -2,8 +2,12 @@
 
 ## Gate and authority
 
-- Date: 2026-10-10. Work item: `CIO-T1-DELIVERY` review correction; status:
-  `implemented`.
+- Date: 2026-10-10. Work item: `CIO-T1-DELIVERY` review correction (`PR222-R1`);
+  status: `accepted` on `main` `370981cadb0089cb3b27e8bcec6b245fa119d36b` (PR #222
+  head `aad102ad2af6612ab71ad24f3e9f652cc7d4d1d2`, merged `2026-10-10`; see
+  [CIO-T1 & architecture closeout](component-input-output-t1-closeout.md) for
+  exact remote CI, browser workflow, Pages deploy, and Pages Browser Smoke runs;
+  `implemented` at initial pre-merge handoff).
 - Gate: [PLAN](../../PLAN.md), M10A plus authorized compatible product polish.
 - Finding: [PR222-R1](https://github.com/yushun1990/scada/pull/222#discussion_r4236887391),
   the incompatible Property value source retained by the `CIO-DLV-002` repair.

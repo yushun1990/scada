@@ -1,11 +1,13 @@
 # CIO-T1 browser-fixture and source-matched raster follow-up
 
 This records the original 2026-10-03 browser-fixture snapshot. See the
-[2026-10-04 delivery handoff](component-input-output-t1-delivery.md) for its
-committed candidate, complete browser step and Property-reference prerequisite.
+[2026-10-04 delivery handoff](component-input-output-t1-delivery.md), the
+[PR222-R1 review correction](component-input-output-t1-review-fix.md), and the
+post-merge [`CIO-T1` closeout](component-input-output-t1-closeout.md) (`accepted` on `main` `370981cadb0089cb3b27e8bcec6b245fa119d36b`) for its
+committed candidate, complete browser step, Property-reference prerequisite, and exact-main acceptance.
 
 - Date: 2026-10-03
-- Work item: `CIO-T1-BROWSER`; status: `implemented`, **not `accepted`**.
+- Work item: `CIO-T1-BROWSER`; historical snapshot status at handoff: `implemented` (subsequently `accepted` on `main` `370981c`; see [closeout](component-input-output-t1-closeout.md)).
 - Gate: M10A plus explicitly authorized product polish. No later M10 gate or
   component execution/composition amendment is activated.
 - Branch: `polish/cio-t1-contract-consumption`.

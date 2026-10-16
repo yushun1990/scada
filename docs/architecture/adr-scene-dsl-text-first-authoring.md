@@ -1,11 +1,11 @@
 # Proposal: text-first Scene DSL authoring, device slots, and Event argument mapping
 
-- **Status:** `active` — architecture proposal under review; not an accepted DSL, Scene or runtime contract.
+- **Status:** `accepted` — architecture review and staged-ordering baseline (`DSL-AUTH-ARCH`, PR #224 merged at `main` `1c7e4f6`; see [closeout](../progress/component-input-output-t1-closeout.md)). Not an accepted DSL v1 amendment, Scene schema migration, or runtime implementation contract: §3 step 1 integration and §4/§5 extensions remain `not-started`.
 - **Work item:** **DSL-AUTH-ARCH** (Scene DSL authoring architecture). Handoffs and follow-ups cite this ID.
-- **Date:** 2026-10-10; revised 2026-10-12 for review findings DSLA-R1–R10 against `main` `370981c`.
+- **Date:** 2026-10-10; revised 2026-10-12 for review findings DSLA-R1–R10 against `main` `370981c`; accepted as architecture review baseline on 2026-10-13 (`main` `1c7e4f6`).
 - **Scope:** source baseline, authoring direction and candidate semantic extensions. Not implementation approval.
-- **Authority:** [DSL v1](scada-dsl-v1.md) remains authoritative. If this proposal is accepted, it would amend `scada-dsl-v1.md` §1, §7, §9 and §10 and the [M9A1.4](../progress/m9a1.4-dsl-symbol-contract.md) root-rejection acceptance. That amendment needs its own accepted ADR. Until then, DSL v1 stays as it is.
-- **Related:** [original M6.5 text-first intent](../progress/m6.5.4-scada-dsl-surface.md), [binding/behavior direction](scada-binding-behavior.md), [component I/O and T3](adr-component-input-output-composition.md), [private Update proposal (CAR-ARCH)](adr-component-authored-update-runtime.md), [PLAN §11](../../PLAN.md#11-immediate-execution-sequence).
+- **Authority:** [DSL v1](scada-dsl-v1.md) remains authoritative. Any later adoption of §4 or §5 would amend `scada-dsl-v1.md` §1, §7, §9 and §10 and the [M9A1.4](../progress/m9a1.4-dsl-symbol-contract.md) root-rejection acceptance via its own accepted ADR. Until then, DSL v1 stays as it is.
+- **Related:** [original M6.5 text-first intent](../progress/m6.5.4-scada-dsl-surface.md), [binding/behavior direction](scada-binding-behavior.md), [component I/O and T3](adr-component-input-output-composition.md), [private Update proposal (CAR-ARCH)](adr-component-authored-update-runtime.md), [PLAN §11](../../PLAN.md#11-immediate-execution-sequence), [CIO-T1 & architecture closeout](../progress/component-input-output-t1-closeout.md).
 
 ## 1. Source baseline (DSLA-R1, DSLA-R5)
 
