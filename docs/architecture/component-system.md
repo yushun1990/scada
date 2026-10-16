@@ -2,7 +2,7 @@
 
 Public input/output and future composition semantics are amended by
 [Component inputs, outputs and composition](adr-component-input-output-composition.md)
-(`active` architecture review). The accepted
+(`accepted` architecture amendment; `CIO-T1` `accepted`, `CIO-T2`–`T4` `not-started`). The accepted
 [Attribute/Property split](component-attributes-properties.md), portable
 execution restrictions and [PLAN](../../PLAN.md) gates remain in force. This
 document distinguishes current capability from later design; examples do not

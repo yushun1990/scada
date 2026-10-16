@@ -2,12 +2,14 @@
 
 This records the original 2026-10-03 local T1 snapshot. The committed candidate,
 complete component-browser step and newly discovered Property-reference
-correction are recorded in the [2026-10-04 delivery handoff](component-input-output-t1-delivery.md).
+correction are recorded in the [2026-10-04 delivery handoff](component-input-output-t1-delivery.md),
+the [PR222-R1 review correction](component-input-output-t1-review-fix.md), and
+the post-merge [`CIO-T1` closeout](component-input-output-t1-closeout.md) (`accepted` on `main` `370981cadb0089cb3b27e8bcec6b245fa119d36b`).
 The initial failures below remain diagnostic history.
 
 ## Gate and authority
 
-- Date: 2026-10-03. Work item: `CIO-T1`. Status: `implemented`, not `accepted`.
+- Date: 2026-10-03. Work item: `CIO-T1`. Historical snapshot status at handoff: `implemented` (subsequently `accepted` on `main` `370981c`; see [closeout](component-input-output-t1-closeout.md)).
 - Gate: compatible product polish alongside M10A; no M10 gate promotion.
 - Finding IDs: `CIO-002` UI vocabulary/typed contract display; presentation-only
   clarification for `CIO-004`/`CIO-006`. Their runtime/ownership/routing debts

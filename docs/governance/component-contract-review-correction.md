@@ -2,17 +2,15 @@
 
 ## Gate and authority
 
-- Status: `active` — documentation correction awaiting independent review.
+- Status: `accepted` — documentation correction merged in [PR #221](https://github.com/yushun1990/scada/pull/221) at `main` `5791cdc107db7fec9d243bc747f13e455a99954b` (`2026-10-09`); see [CIO-T1 & architecture closeout](../progress/component-input-output-t1-closeout.md).
 - Gate: M10A plus authorized product polish; independently scoped CIO-ARCH
   architecture prerequisite. No M6–M10 gate is advanced.
 - Work item / findings: CIO-ARCH; JA-001 (P1), JA-002 (P2), jointly with PR #223.
 - Audited production base: `f8a060dc4255b6695ddecffa60493ade5d761c74`.
 - Reviewed PR #221 head: `b54260612018806a5bef9487672e822bf2f67fd7`.
 - Reviewed dependent PR #223 head: `2c548f916618420b4cb16ebe81470f1d3eec347f`.
-- Verified architecture head: `3d2594b2a0eb521647896a6e850a2d61b8ee898e`.
-  The handoff commit adds this evidence record only; the exact delivery head is
-  published in the PR #221 comment. The dependent branch must incorporate the
-  delivery head before its own delivery.
+- Verified architecture head: `3d2594b2a0eb521647896a6e850a2d61b8ee898e`;
+  delivered PR #221 head: `da633112082a27eafbf352ef9cd757ab3dd8c2fa`, merged to `main` at `5791cdc107db7fec9d243bc747f13e455a99954b`.
 - Architecture: [public contract ADR §2–3 and §7](../architecture/adr-component-input-output-composition.md),
   [M9 Property authority §3–4](../architecture/component-attributes-properties.md),
   [Component system §6–7](../architecture/component-system.md).

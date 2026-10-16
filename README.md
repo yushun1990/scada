@@ -155,12 +155,12 @@ Runtime telemetry must not overwrite authored Attributes. Value Binding targets 
 
 Actions request operations; they do not own semantic Property writes or ambient
 effects. Events describe occurrences; consumer responses live in separately
-authored interactions. Public Chinese Action UI converges to “操作”; private
-Layer Operations use “图层操作”. The
+authored interactions. Public Chinese Action UI uses “操作”; private
+Layer Operations use “图层操作” (`CIO-T1`, `accepted`). The accepted
 [input/output and composition ADR](docs/architecture/adr-component-input-output-composition.md)
-records the architecture amendment under review, future child contract
-preservation/explicit Event re-export and Scene Trigger → Effect roadmap. These
-future features are not implemented by this documentation change.
+freezes public/private contract ownership, future child contract
+preservation/explicit Event re-export and the Scene Trigger → Effect roadmap.
+Later tranches (`CIO-T2`–`T4`) require separate authorization.
 
 Private implementation includes layered visuals, visual rules, animation and trusted/native implementation details.
 
@@ -376,4 +376,4 @@ Unless an explicit later gate reopens them:
 - collaborative editing
 - broad component marketplace/catalog expansion without a concrete product requirement
 
-The current priority is M10-R0 readiness remediation plus already-authorized editor polish, preserving the accepted M6–M9 package/runtime/standalone boundaries. M10A and later 3D implementation gates remain `not-started` until their prerequisites are accepted in `PLAN.md`.
+The current priority is `M10A` (3D architecture contract and measured spike) plus already-authorized editor polish and governance tranches, preserving the accepted M6–M9 and M10-R0 package/runtime/standalone boundaries. `M10B` and later 3D implementation gates remain `not-started` until their prerequisites are accepted in `PLAN.md`.

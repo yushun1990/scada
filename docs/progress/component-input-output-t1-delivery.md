@@ -2,11 +2,16 @@
 
 ## Gate and authority
 
-- Date: 2026-10-04. Work item: `CIO-T1-DELIVERY`; status: `implemented`, not
-  `accepted`. This delivers the preserved `CIO-T1` / `CIO-T1-BROWSER` candidate
-  and repairs the correctness prerequisite exposed by its complete browser step.
+- Date: 2026-10-04. Work item: `CIO-T1-DELIVERY`; status: `accepted` on `main`
+  `370981cadb0089cb3b27e8bcec6b245fa119d36b` (PR #222 merged `2026-10-10` after
+  the [PR222-R1 review correction](component-input-output-t1-review-fix.md);
+  see [CIO-T1 & architecture closeout](component-input-output-t1-closeout.md) for
+  exact remote CI, browser workflow, Pages deploy, and Pages Browser Smoke runs).
+  At initial 2026-10-04 local handoff this record was `implemented`, delivering
+  the preserved `CIO-T1` / `CIO-T1-BROWSER` candidate and repairing the
+  correctness prerequisite exposed by its complete browser step.
 - Gate: [PLAN](../../PLAN.md), M10A plus already-authorized product polish.
-  M10B–M10G remain `not-started`; no architecture acceptance is advanced.
+  M10B–M10G remain `not-started`; `CIO-ARCH` and `CIO-T1` are now `accepted`, while `CIO-T2`–`T4` remain `not-started`.
 - Finding IDs: `CIO-002`; prior `CIO-BR-001`–`CIO-BR-003`; new `CIO-DLV-001`
   (stale history fixture) and `CIO-DLV-002` (Property rename loses references).
 - Architecture: [Component inputs/outputs §§2, 4, 7](../architecture/adr-component-input-output-composition.md),

@@ -1,11 +1,11 @@
 # ADR proposal: Component-authored private Update runtime as portable component asset
 
-- Status: `active` — architecture proposal under review, not an accepted executable-content capability.
-- Date: 2026-10-09.
+- Status: `accepted` architectural direction baseline (`CAR-0` merged in PR #223 at `main@fade117`, 2026-10-09); **not** an accepted executable-content capability (`CAR-1`–`CAR-4` remain `not-started`).
+- Date: 2026-10-09; closeout reconciled 2026-10-16.
 - Work item: **CAR-ARCH** (Component Authoring Runtime architecture).
-- Base authority: [Component input/output and composition ADR](adr-component-input-output-composition.md) (PR #221, pending review); [Component system](component-system.md); [M9 Attribute/Property authority](component-attributes-properties.md); [PLAN](../../PLAN.md).
+- Base authority: [Component input/output and composition ADR](adr-component-input-output-composition.md) (`accepted`, PR #221 → `main@5791cdc`); [Component system](component-system.md); [M9 Attribute/Property authority](component-attributes-properties.md); [PLAN](../../PLAN.md).
 - Scope: Component Workbench authoring model, portable implementation ownership, internal message/update boundary, host effect authority, execution prerequisites and rollout gates.
-- Joint review correction: [JA-001 / JA-002 handoff and CAR-1 obligations](../governance/component-authored-update-review-correction.md).
+- Joint review correction: [JA-001 / JA-002 handoff and CAR-1 obligations](../governance/component-authored-update-review-correction.md); [post-merge closeout](../progress/component-input-output-t1-closeout.md).
 - Does **not** approve a new persisted schema, arbitrary JavaScript execution, new package capability, user-facing implementation, nested components, Scene interaction migration or M10B+ work.
 
 ## 1. Product decision: three roles, one reusable component asset
@@ -289,19 +289,19 @@ A subsequent accepted **Portable Component Execution ADR** must settle the isola
 
 ## 7. Relationships, migration order and acceptance evidence
 
-This ADR extends the **private execution side** of PR #221's public input/output authority; it does not replace that ADR's Action/Event/Property ownership or authorize PR #222's work to bypass its dependency. Both remain subject to review and merge acceptance.
+This ADR extends the **private execution side** of PR #221's accepted public input/output authority (`main@5791cdc`); it does not replace that ADR's Action/Event/Property ownership or bypass `CIO-T2`–`T4` dependencies.
 
-**Product direction to record now:** fixed Engine + Component Workbench-authored private behavior + portable component-owned executable asset + simple SCADA consumption. **Execution mechanism not authorized yet.**
+**Product direction recorded (`CAR-0` accepted at `main@fade117`):** fixed Engine + Component Workbench-authored private behavior + portable component-owned executable asset + simple SCADA consumption. **Execution mechanism not authorized yet.**
 
-Suggested separate follow-ups, not automatically started:
+Staged follow-ups (only `CAR-0` is accepted; `CAR-1`–`CAR-4` are `not-started`):
 
-| Stage | Scope | Required evidence |
-| --- | --- | --- |
-| CAR-0 | Independently review the JA-001/JA-002 corrections, then accept public-contract PR #221 before this dependent proposal; reconcile ownership with M10 gates. | Explicit decisions, consistent public/private examples and no conflicting live architecture authorities; review threads are not resolved by implementation alone. |
-| CAR-1 | Independent execution ADR: unknown/usable input delivery and lifecycle; Model/presentation/commit/ordering; normalized interactions and generation fencing; optional explicit outcome routing; capabilities/ABI, sandbox and versioned admission. | Threat model, compatibility matrix, adversarial traces below, migration/rejection plan and a decision on whether per-request feedback is offered. |
-| CAR-2 | Narrow production-runtime prototype using production exports, with no new authoring/UI claims. | Typed messages, one effective Property truth, controlled state/effect commit, malformed/admission/budget/cancellation tests. |
-| CAR-3 | Component Workbench Logic authoring plus simulated preview/debug/AI API hints as optional tooling. | One-gesture/one-history-command, reset/stale-run tests, authored save/reopen and scoped browser evidence. |
-| CAR-4 | Portable component / work / standalone parity only after explicit capability and schema acceptance. | Exact-package dependency closure, versioned migration, import/export, sandbox failure, Preview/standalone behavior equality and deployed browser evidence where required. |
+| Stage | Status | Scope | Required evidence |
+| --- | --- | --- | --- |
+| CAR-0 | `accepted` (`main@fade117`) | Independently review the JA-001/JA-002 corrections, accept public-contract PR #221 (`main@5791cdc`) before this dependent proposal, and reconcile ownership with M10 gates. | Explicit decisions, consistent public/private examples and no conflicting live architecture authorities ([closeout](../progress/component-input-output-t1-closeout.md)). |
+| CAR-1 | `not-started` | Independent execution ADR: unknown/usable input delivery and lifecycle; Model/presentation/commit/ordering; normalized interactions and generation fencing; optional explicit outcome routing; capabilities/ABI, sandbox and versioned admission. | Threat model, compatibility matrix, adversarial traces below, migration/rejection plan and a decision on whether per-request feedback is offered. |
+| CAR-2 | `not-started` | Narrow production-runtime prototype using production exports, with no new authoring/UI claims. | Typed messages, one effective Property truth, controlled state/effect commit, malformed/admission/budget/cancellation tests. |
+| CAR-3 | `not-started` | Component Workbench Logic authoring plus simulated preview/debug/AI API hints as optional tooling. | One-gesture/one-history-command, reset/stale-run tests, authored save/reopen and scoped browser evidence. |
+| CAR-4 | `not-started` | Portable component / work / standalone parity only after explicit capability and schema acceptance. | Exact-package dependency closure, versioned migration, import/export, sandbox failure, Preview/standalone behavior equality and deployed browser evidence where required. |
 
 Do not merge stages just to reach runnable scripts quickly. Nothing here supersedes currently accepted M6–M9, M10-R0 restrictions, the ongoing M10A gate or existing Scene semantics. Scene Trigger -> Effect interaction authoring and nested Component Layer remain their own later decisions. A future runtime can share canonical component/message dispatch without inventing a second SCADA semantic engine.
 

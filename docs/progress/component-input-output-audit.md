@@ -2,7 +2,7 @@
 
 ## Gate and authority
 
-- Status: `active` architecture/docs review, 2026-10-03.
+- Status: `accepted` (`CIO-ARCH` merged in [PR #221](https://github.com/yushun1990/scada/pull/221) at `main` `5791cdc107db7fec9d243bc747f13e455a99954b` on `2026-10-09`; `CIO-T1` merged in [PR #222](https://github.com/yushun1990/scada/pull/222) at `main` `370981cadb0089cb3b27e8bcec6b245fa119d36b` on `2026-10-10`; `CIO-T2`–`T4` remain `not-started` — see [CIO-T1 & architecture closeout](component-input-output-t1-closeout.md)).
 - Gate: M10A plus already-authorized product polish; independent documentation
   correction requested by the repository owner, not M10 implementation.
 - Base and audited production head:
@@ -10,9 +10,7 @@
   `git pull --ff-only origin main` returned `Already up to date` after fetch.
   The starting worktree was clean; the previous local branch was left intact.
 - Architecture/documentation head:
-  `b2a473aa16313d5aade6c6db2c87e0d516d74026`. This follow-up adds the revision and
-  final link-count evidence only; the exact PR delivery head is recorded in its
-  description. No production code differs from the audited head.
+  `b2a473aa16313d5aade6c6db2c87e0d516d74026` (initial audit); delivered PR #221 head `da633112082a27eafbf352ef9cd757ab3dd8c2fa`, merged to `main` at `5791cdc107db7fec9d243bc747f13e455a99954b`. No production code differed from the audited head in PR #221.
 - Work item: `CIO-ARCH`; findings: `CIO-001`–`CIO-008` below.
 - Architecture sections: [ADR §§1–7](../architecture/adr-component-input-output-composition.md),
   [Component system](../architecture/component-system.md),
