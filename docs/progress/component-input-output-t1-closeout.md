@@ -22,7 +22,9 @@
 
 ## Why this governance reconciliation existed
 
-Under the repository execution contract (`AGENTS.md` and `docs/governance/m10-3d-delivery-governance.md`), candidate implementation and architecture PRs must not self-promote their status to `accepted` before merge and exact-main verification evidence exist. Between 2026-10-09 and 2026-10-13, four stacked governance, architecture, and product-polish PRs (#221, #223, #222, #224) were reviewed, merged into `main`, and verified by exact-main CI, GitHub Pages deployment, and Pages Browser Smoke runs. Because each PR preserved its pre-merge `active` or `implemented` status header at commit time, `PLAN.md`, `README.md`, `docs/architecture/`, `docs/governance/`, and `docs/progress/` retained pre-merge statements claiming that PR #221 was still open/under review and that PR #222 lacked remote/deployed evidence.
+Under the repository execution contract (`AGENTS.md` and `docs/governance/m10-3d-delivery-governance.md`), candidate implementation and architecture PRs must not self-promote their status to `accepted` before merge and exact-main verification evidence exist. Between 2026-10-09 and 2026-10-13, four stacked governance, architecture, and product-polish PRs (#221, #223, #222, #224) were reviewed and merged into `main`. PRs #221 and #223 establish architecture-only acceptance from their corrected documents and reviews; they do not establish successful browser verification at their merge revisions. At #223's merge, CI and GitHub Pages deployment passed, but malformed browser workflow YAML prevented browser jobs from executing. The later PR #222 final head supplies the successful Component Editor browser baseline, and the #222/#224 merge revisions have successful exact-main CI, deployment, and the deployed Pages smoke scenarios listed below.
+
+Because each PR preserved its pre-merge `active` or `implemented` status header at commit time, `PLAN.md`, `README.md`, `docs/architecture/`, `docs/governance/`, and `docs/progress/` retained pre-merge statements claiming that PR #221 was still open/under review and that PR #222 lacked remote/deployed evidence.
 
 This closeout reconciles all repository authority layers with the verified `main` ledger without starting any next implementation tranche implicitly.
 
@@ -31,9 +33,15 @@ This closeout reconciles all repository authority layers with the verified `main
 | PR | Work item | Branch head | Merge commit on `main` | Merge date (UTC) | Exact verification evidence | Final status |
 | --- | --- | --- | --- | --- | --- | --- |
 | [#221](https://github.com/yushun1990/scada/pull/221) | `CIO-ARCH` (`CIO-001`, `CIO-003`, `CIO-008`, `JA-001`, `JA-002`) | `da633112082a27eafbf352ef9cd757ab3dd8c2fa` | `5791cdc107db7fec9d243bc747f13e455a99954b` | 2026-10-09 | Markdown/link/anchor audit and deterministic production-export probes in [contract review correction](../governance/component-contract-review-correction.md). | `accepted` (architecture amendment) |
-| [#223](https://github.com/yushun1990/scada/pull/223) | `CAR-ARCH` / `CAR-0` (`JA-001`, `JA-002`) | `7c10b758dd451205c413e6c3597a32817d2dc4c0` | `fade11782b8dc8a3c36b4f869a2197d3e91a7fd1` | 2026-10-09 | `main` CI #1232 (`37894906142`) PASS; Deploy GitHub Pages #353 (`37894906101`) PASS. (Browser smoke runs #341/#342/#184 on `fade117` hit the pre-#222 stale browser fixtures repaired in PR #222.) | `accepted` (architecture direction baseline; execution `not-started`) |
+| [#223](https://github.com/yushun1990/scada/pull/223) | `CAR-ARCH` / `CAR-0` (`JA-001`, `JA-002`) | `7c10b758dd451205c413e6c3597a32817d2dc4c0` | `fade11782b8dc8a3c36b4f869a2197d3e91a7fd1` | 2026-10-09 | `main` CI #1232 (`37894906142`) PASS; Deploy GitHub Pages #353 (`37894906101`) PASS. Pages #341/#342 and Component Editor #184 failed workflow validation before browser execution at `fade117`; browser coverage at this revision is unverified (details below). | `accepted` (architecture direction baseline; execution `not-started`) |
 | [#222](https://github.com/yushun1990/scada/pull/222) | `CIO-T1`, `CIO-T1-BROWSER`, `CIO-T1-DELIVERY`, `PR222-R1` | `aad102ad2af6612ab71ad24f3e9f652cc7d4d1d2` | `370981cadb0089cb3b27e8bcec6b245fa119d36b` | 2026-10-10 | PR head `aad102a`: CI #1234 (`38035719020`), Component Editor Browser Checks #187 (`38035719019`), Editor Transaction #89 (`38035719018`), Editor Save Leave #116 (`38035719052`), Editor Mode Selection #76 (`38035719029`), Studio Shell #73 (`38035719060`), Scene Navigation #46 (`38035719013`) — all PASS. Exact-main `370981c`: CI #1235 (`38037219651`) PASS, Deploy GitHub Pages #354 (`38037219672`) PASS, Pages Browser Smoke #345 (`38037261061`) PASS. | `accepted` |
 | [#224](https://github.com/yushun1990/scada/pull/224) | `DSL-AUTH-ARCH` (`DSLA-R1`–`R10`) | `86464a36446f0181fa3b5d68358b27e355dab4a6` | `1c7e4f604ea666b4cf2a67370cfe5dfde18c6f16` | 2026-10-13 | Exact-main `1c7e4f6`: CI #1238 (`38334529972`) PASS, Deploy GitHub Pages #355 (`38334529923`) PASS, Pages Browser Smoke #346 (`38334581275`) PASS. | `accepted` (architecture review baseline; implementation `not-started`) |
+
+### Browser evidence scope — PR225-R1 / PR225-R2
+
+At `fade117`, [Pages #341](https://github.com/yushun1990/scada/actions/runs/37894904997) has zero check runs; [Pages #342](https://github.com/yushun1990/scada/actions/runs/38034569588) and [Component Editor #184](https://github.com/yushun1990/scada/actions/runs/38034570145) have zero jobs. The exact-revision [Pages workflow line 60](https://github.com/yushun1990/scada/blob/fade11782b8dc8a3c36b4f869a2197d3e91a7fd1/.github/workflows/pages-smoke.yml#L60) and [Component Editor workflow line 85](https://github.com/yushun1990/scada/blob/fade11782b8dc8a3c36b4f869a2197d3e91a7fd1/.github/workflows/component-editor-smoke.yml#L85) contain an unindented shell command outside the YAML `run` block. These are workflow-validation failures with no executed browser tests, not failures of stale browser fixtures. The separately documented fixture defects in the [browser-fixture record](component-input-output-t1-browser-fixtures.md) and [delivery record](component-input-output-t1-delivery.md) came from executed local checks and remain separate historical evidence.
+
+The PR222-R1 combined Property rename/type change, atomic undo/redo, and complete Save/reopen scenario passed in Chromium in [Component Editor #187](https://github.com/yushun1990/scada/actions/runs/38035719019), at PR head `aad102ad2af6612ab71ad24f3e9f652cc7d4d1d2`. Its [workflow](https://github.com/yushun1990/scada/blob/aad102ad2af6612ab71ad24f3e9f652cc7d4d1d2/.github/workflows/component-editor-smoke.yml#L46) runs `pages-component-document-history-smoke.mjs` against the built revision at `http://127.0.0.1:4173/`. The [review-fix record](component-input-output-t1-review-fix.md) also retains the separate local Chromium/Firefox runs. [Pages Smoke #345](https://github.com/yushun1990/scada/actions/runs/38037261061), at merge `370981cadb0089cb3b27e8bcec6b245fa119d36b`, passed deployed contract/capability and visual-asset smoke; its [command list](https://github.com/yushun1990/scada/blob/370981cadb0089cb3b27e8bcec6b245fa119d36b/.github/workflows/pages-smoke.yml#L39) omits the document-history fixture. No separately identified deployed run proves the combined Property edit/history/Save/reopen regression. This closeout retains the passing build-preview and local regression evidence without claiming deployed coverage for that scenario.
 
 ## Finding and tranche dispositions
 
@@ -42,7 +50,7 @@ This closeout reconciles all repository authority layers with the verified `main
 | Item | Finding IDs | Status | Disposition and remaining boundary |
 | --- | --- | --- | --- |
 | `CIO-ARCH` | `CIO-001`, `CIO-003`, `CIO-008`, `JA-001`, `JA-002` | `accepted` | Merged in PR #221 (`5791cdc`). Freezes public Action (`操作`) vs Event (`事件`) vs private Layer Operation (`图层操作`), host-owned semantic Property truth, JA-001 unknown/usable equipment input obligations, JA-002 consumer-feedback isolation, and future child-contract preservation/explicit Event re-export invariants. |
-| `CIO-T1` (incl. `CIO-T1-BROWSER`, `CIO-T1-DELIVERY`, `PR222-R1`) | `CIO-002`, `CIO-BR-001`–`003`, `CIO-DLV-001`–`002` | `accepted` | Merged in PR #222 (`370981c`) with full PR browser lanes (#187) and exact-main deployed Pages Browser Smoke (#345). Public `操作` / private `图层操作` labels, complete read-only Action parameter and Event payload schemas, source-matched visual-asset decoding, and atomic Property rename/type reference reconciliation are verified in production and deployed browsers. |
+| `CIO-T1` (incl. `CIO-T1-BROWSER`, `CIO-T1-DELIVERY`, `PR222-R1`) | `CIO-002`, `CIO-BR-001`–`003`, `CIO-DLV-001`–`002` | `accepted` | Merged in PR #222 (`370981c`). Public `操作` / private `图层操作` labels, read-only Action/Event schemas and source-matched visual-asset decoding have deployed Pages smoke evidence (#345). Atomic Property rename/type reference reconciliation, undo/redo and complete Save/reopen have Chromium build-preview evidence (#187) plus the separately recorded local Chromium/Firefox runs; deployed coverage of that regression is unverified. See the evidence scope above. |
 | `CIO-T2` | `CIO-004`, `CIO-005` | `not-started` | Editor Layer Operation owner/scope/kind/argument validation, transient test preview overlay, stale-run cancellation fence, and explicit one-command atomic apply require separate authorization and evidence under [ADR §7](../architecture/adr-component-input-output-composition.md#7-migration-order-and-acceptance-boundary). |
 | `CIO-T3` | `CIO-006`, `CIO-007` | `not-started` | Narrow Scene `Behavior = Trigger -> Effect` authoring, canonical/compatibility single-route migration, and typed payload-to-argument mapping remain unstarted and coordinate with `DSL-AUTH-ARCH` §3 step 1. |
 | `CIO-T4` | `CIO-008` (composition) | `not-started` | Nested reusable Component Layer, read-only child contract consumption, parent-private child Event triggers, and explicit parent Event re-export remain unstarted. |
@@ -83,6 +91,10 @@ Scene v8, Component Package v2, SCADA Work Package v1, `SCADA_SEMANTICS_VERSION 
 
 ## Verification
 
+The initial reconciliation at `fb1f99026e992ca746b70da1359d328f7337080d`
+recorded the following local results. Its Markdown link count predates the
+PR225-R1/R2 evidence links added above.
+
 | Command | Exact outcome |
 | --- | --- |
 | `npm run build` | PASS, exit 0 — `tsc -b && vite build`, 661 modules transformed; `dist/assets/index-CUXv6Wp0.js` `915.44 kB` (`298.39 kB` gzip), `dist/assets/EditorStorageGate-CWHEwH7C.js` `334.02 kB` (`98.14 kB` gzip); existing `>500 kB` chunk warning unchanged. |
@@ -95,6 +107,30 @@ Scene v8, Component Package v2, SCADA Work Package v1, `SCADA_SEMANTICS_VERSION 
 | Markdown link/anchor/fence verification across all 19 touched `.md` files | PASS, exit 0 — 19 Markdown files, 208 relative links and anchors resolved, balanced code fences, no replacement characters. |
 | `git diff origin/main -- src scripts package.json package-lock.json .github` | PASS, exit 0 — empty diff; production code, tests, dependencies, and workflows untouched. |
 | `git diff --check` | PASS, exit 0 — no whitespace errors. |
+
+### PR225-R1 / PR225-R2 correction verification — 2026-10-16
+
+Correction base / reviewed head: `fb1f99026e992ca746b70da1359d328f7337080d`.
+Work item: `CIO-T1-CLOSEOUT`; findings: `PR225-R1`, `PR225-R2`.
+Changed file: this closeout record only. Contracts and gate statuses are
+unchanged; the correction head and remote check results belong to PR #225's
+delivery metadata.
+
+| Command / evidence | Exact outcome |
+| --- | --- |
+| `gh api` for Pages #342 / Component Editor #184 jobs and Pages #341 check runs | PASS, exit 0 — each returned zero jobs/check runs at `fade117`. |
+| `git show` exact historical workflows + Python/PyYAML parse | PASS, exit 0 — both `fade117` browser workflows reject malformed YAML; the #222 final-head Component Editor workflow and merge-revision Pages workflow parse successfully. |
+| `gh run view 38035719019 --log` and `gh run view 38037261061 --log` | PASS, exit 0 — #187 checks out `aad102a`, uses `http://127.0.0.1:4173/`, and logs the Chromium combined-edit/history/Save/reopen pass; #345 checks out `370981c`, uses deployed Pages, and logs contract/capability passes. The exact #345 workflow omits document history. |
+| `npm run build` | PASS, exit 0 — 661 modules; main 915.44 kB / 298.39 kB gzip; editor chunk 334.02 kB / 98.14 kB gzip. Existing large-chunk warning remains. |
+| `npm run lint` | PASS, exit 0 — 25 existing warnings, no errors; primitive/token/StudioShell checks pass. |
+| `node scripts/check-model-check-registration.mjs` | PASS, exit 0 — 66 registered checks. |
+| Python read-only Markdown link/anchor/fence/encoding audit across the PR diff | PASS, exit 0 — 19 Markdown files, 211 relative links/anchors, balanced fences and valid UTF-8. |
+| `git diff 1c7e4f604ea666b4cf2a67370cfe5dfde18c6f16 -- src scripts package.json package-lock.json .github` | PASS, exit 0 — empty diff. |
+| `git diff --check` | PASS, exit 0 — no whitespace errors. |
+
+No fresh browser run or deployment was performed for this documentation
+correction. Historical workflow-validation failures and the missing deployed
+history scenario remain explicit evidence limits.
 
 ## Risks and follow-up
 
