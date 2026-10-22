@@ -1,0 +1,85 @@
+{
+  "scope": "Fixed self-authored M10A spike fixtures only; not production admission or security acceptance.",
+  "reproducible": true,
+  "fixtureCount": 3,
+  "fixtures": [
+    {
+      "id": "triangle",
+      "byteLength": 1140,
+      "sha256": "65b7d7be579ede8f57eff280512f382423adaabc41b38ee8874fb6d4faeee1b8",
+      "counts": {
+        "nodes": 2,
+        "meshInstances": 1,
+        "meshes": 1,
+        "primitives": 1,
+        "materials": 1,
+        "textures": 0,
+        "images": 0,
+        "clips": 0,
+        "triangles": 1
+      },
+      "logicalId": "fixture-triangle",
+      "primaryNodeId": "triangle-primary",
+      "conformance": {
+        "validator": "gltf-validator@2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0,
+        "messages": [],
+        "externalResourceAttempts": 0
+      }
+    },
+    {
+      "id": "textured",
+      "byteLength": 2856,
+      "sha256": "1e0cec9a6a136afa3e650bc102b552311c30ced7d0a1ba7be0dd2e6c54c96f5e",
+      "counts": {
+        "nodes": 2,
+        "meshInstances": 1,
+        "meshes": 1,
+        "primitives": 1,
+        "materials": 1,
+        "textures": 1,
+        "images": 1,
+        "clips": 1,
+        "triangles": 12
+      },
+      "logicalId": "fixture-textured",
+      "primaryNodeId": "cube-primary",
+      "conformance": {
+        "validator": "gltf-validator@2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0,
+        "messages": [],
+        "externalResourceAttempts": 0
+      }
+    },
+    {
+      "id": "reference",
+      "byteLength": 28004,
+      "sha256": "26dd63a73f92a2d0c3978b589c065ee66a555daa71276979b79094a271c7a44b",
+      "counts": {
+        "nodes": 201,
+        "meshInstances": 200,
+        "meshes": 1,
+        "primitives": 1,
+        "materials": 1,
+        "textures": 0,
+        "images": 0,
+        "clips": 0,
+        "triangles": 2400
+      },
+      "logicalId": "fixture-reference",
+      "primaryNodeId": "grid-cube-110",
+      "conformance": {
+        "validator": "gltf-validator@2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0,
+        "messages": [],
+        "externalResourceAttempts": 0
+      }
+    }
+  ]
+}
