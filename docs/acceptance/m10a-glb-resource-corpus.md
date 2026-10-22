@@ -81,7 +81,7 @@ Stages: **1** envelope/reservation; **2** identity/closure; **3** container/synt
 | N14 | Accessor out of bounds, invalid stride/alignment/component type, mismatched attribute counts, index beyond vertex count, non-finite attribute/sample | 4 · `GLTF_ACCESSOR_INVALID` |
 | N15 | Sparse accessor, skin, morph target, non-triangle primitive, embedded camera | 4 · `GLTF_FEATURE_UNSUPPORTED` |
 | N16 | Unknown/known optional/required extension, undeclared nested extension, Draco/Meshopt/KTX2 payload | 4 · `GLTF_EXTENSION_FORBIDDEN` |
-| N17 | Image URI plus bufferView; missing image MIME; unsupported image type; MIME/signature mismatch | 4 · `GLTF_IMAGE_INVALID` (URI variant: `GLTF_URI_FORBIDDEN`) |
+| N17 | Image URI plus bufferView; missing image MIME; unsupported image type; MIME/signature mismatch; APNG with valid `image/png` MIME/signature/dimensions but animation chunks | 4 · `GLTF_IMAGE_INVALID` (URI variant: `GLTF_URI_FORBIDDEN`) |
 | N18 | Huge PNG/JPEG dimensions in tiny encoded input; encoded image above ceiling; aggregate decoded image or texture-variant estimates above ceiling | 4 · `GLTF_IMAGE_LIMIT` |
 | N19 | Node/primitive/accessor/material/texture/clip/channel count or expanded geometry/keyframe budget exceeded; include unused and aliased entries | 4 · `GLTF_MODEL_LIMIT`; reject before large value scans/materialization |
 | N20 | Hierarchy cycle, multiple parents, missing child/scene root, excessive depth, non-finite transform or invalid animation target/time sequence | 4 · `GLTF_GRAPH_INVALID` / `GLTF_ANIMATION_INVALID` |
