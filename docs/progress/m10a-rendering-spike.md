@@ -9,7 +9,7 @@
 - Architecture sections: [3D Scene Editor](../architecture/3d-scene-editor.md), renderer/runtime separation, resource authority, editor interaction, performance and “Decisions to close in M10A”; [M10A governance](../governance/m10-3d-delivery-governance.md#m10a--architecture-contract-and-technical-spike).
 - Acceptance: [M10A rendering spike and measured baselines](../acceptance/m10-3d-acceptance-matrix.md#rendering-spike).
 - Base: `docs/m10a-glb-resource-threat-model@e98eebd80f8839cf918bad504e4f77d239e66612` ([PR #227](https://github.com/yushun1990/scada/pull/227)), on `main@9b483b5962c1ca6fcdabda3628b96eee7cfd7aa0`. PR #227 is a resource-profile proposal, not accepted production admission.
-- Tested implementation head: `ed4e4a779085784dd2b74dd038814d0af2bb96e7`, clean worktree at final browser/bundle capture. The subsequent evidence commit adds this record, raw artifacts and the PLAN pointer only; the PR records its final head.
+- Tested implementation head: `ed4e4a779085784dd2b74dd038814d0af2bb96e7`, clean worktree at final local browser/bundle capture. Subsequent commits retain evidence/PLAN and correct the CI display environment; application, fixture and harness source remains unchanged. The PR records its final head and remote results.
 - Branch: `spike/m10a-rendering-capabilities`; stacked on PR #227 to keep its review delta separate.
 
 ## Implemented
@@ -70,6 +70,16 @@ Local tools: Node `v22.23.2`, npm `12.0.1`; Linux
 | Built preview plus `node spikes/m10a-rendering/scripts/browser.mjs --base-url http://127.0.0.1:4175 --output-dir /tmp/scada-m10a-browser-final` | PASS, exit 0 — Chromium 20/20 and Firefox 20/20; 0 failed or missing required capability checks. [Exact-head raw report and relative screenshot paths](m10a-rendering-spike-evidence/browser/report.json). |
 | `git diff --cached --check` before implementation commit | PASS, exit 0. |
 | Handoff file-target/artifact digest check | PASS, exit 0 — 16 relative file targets exist; all 24 retained artifacts match the manifest byte lengths and SHA-256 hashes. |
+
+The initial [CI run at `682fe73`](https://github.com/yushun1990/scada/actions/runs/39812354119)
+passed install, fixture/model/build/bundle checks and Chromium 20/20, but exited
+2 because Firefox reported `WEBGL2_UNSUPPORTED` without an X display. Its
+report retains 24 passed checks and 1 required capability `not-verified`; it is
+not a browser pass. The workflow now keeps Chromium headless and runs Firefox
+headed under Xvfb, as an explicit separate environment following
+[Playwright's Linux CI guidance](https://playwright.dev/docs/ci#running-headed).
+Both lanes retain separate reports and still fail on missing native capability.
+This changes no assertion or application behavior; the PR records rerun status.
 
 The baseline capture had only untracked `spikes/` in its worktree; tracked
 product source and dependencies were unchanged from base. The final report

@@ -53,7 +53,11 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:4175/ >/dev/null
-          npm --prefix spikes/m10a-rendering run check:browser -- --base-url http://127.0.0.1:4175/ --output-dir artifacts/browser
+          npm --prefix spikes/m10a-rendering run check:browser -- --browser chromium --base-url http://127.0.0.1:4175/ --output-dir artifacts/browser/chromium
+          # Firefox needs an X display for WebGL on this runner. This is an
+          # explicitly headed virtual-display lane, not physical-GPU evidence.
+          # https://playwright.dev/docs/ci#running-headed
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npm --prefix spikes/m10a-rendering run check:browser -- --browser firefox --headed --base-url http://127.0.0.1:4175/ --output-dir artifacts/browser/firefox
       - name: Retain experiment results
         if: always()
         uses: actions/upload-artifact@v4
