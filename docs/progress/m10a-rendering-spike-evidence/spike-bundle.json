@@ -1,0 +1,109 @@
+{
+  "format": 1,
+  "capturedAt": "2026-10-22T16:03:27.345Z",
+  "revision": "ed4e4a779085784dd2b74dd038814d0af2bb96e7",
+  "worktreeStatus": "",
+  "node": "v22.23.2",
+  "directory": "spikes/m10a-rendering/dist",
+  "bytes": 1220152,
+  "files": [
+    {
+      "file": "assets/index-BFroZwbG.css",
+      "bytes": 2125,
+      "gzipBytes": 973,
+      "sha256": "49721b3cccb4a3c80bef93b1c58585424fa01de4c39926fdb5707bd7a7b0c573"
+    },
+    {
+      "file": "assets/index-DQI4vTF6.js",
+      "bytes": 201446,
+      "gzipBytes": 63141,
+      "sha256": "d2f6f64e6300797b53154d2a088ded2be2e38f0b9ed0e84861080788c3c20a66"
+    },
+    {
+      "file": "assets/ThreeAdapter-MQUr2hgW.js",
+      "bytes": 1016201,
+      "gzipBytes": 267179,
+      "sha256": "e25a065417530e529dbf96f0ede73a895f7fe605a67956380f0d444abad4ad7e"
+    },
+    {
+      "file": "index.html",
+      "bytes": 380,
+      "gzipBytes": 277,
+      "sha256": "7eb685a195080b384c8002e1da80adab436c2f00882dc05023e832b91b87bd84"
+    }
+  ],
+  "initialJs": [
+    "assets/index-DQI4vTF6.js"
+  ],
+  "lazyJs": [
+    "assets/ThreeAdapter-MQUr2hgW.js"
+  ],
+  "initialJsBytes": 201446,
+  "lazyJsBytes": 1016201,
+  "chunks": [
+    {
+      "file": "assets/index-DQI4vTF6.js",
+      "isEntry": true,
+      "imports": [],
+      "dynamicImports": [
+        "assets/ThreeAdapter-MQUr2hgW.js"
+      ],
+      "modules": [
+        "\u0000rolldown/runtime.js",
+        "\u0000vite/modulepreload-polyfill.js",
+        "\u0000vite/preload-helper.js",
+        "<repo>/src/component-system/definition.ts",
+        "<repo>/src/runtime/effective-component-props.ts",
+        "<repo>/src/runtime/runtime-value-store.ts",
+        "<spike>/index.html",
+        "<spike>/node_modules/react-dom/cjs/react-dom-client.production.js",
+        "<spike>/node_modules/react-dom/cjs/react-dom.production.js",
+        "<spike>/node_modules/react-dom/client.js",
+        "<spike>/node_modules/react-dom/index.js",
+        "<spike>/node_modules/react-dom/node_modules/scheduler/cjs/scheduler.production.js",
+        "<spike>/node_modules/react-dom/node_modules/scheduler/index.js",
+        "<spike>/node_modules/react/cjs/react-jsx-runtime.production.js",
+        "<spike>/node_modules/react/cjs/react.production.js",
+        "<spike>/node_modules/react/index.js",
+        "<spike>/node_modules/react/jsx-runtime.js",
+        "<spike>/src/main.tsx",
+        "<spike>/src/semanticSnapshot.ts",
+        "<spike>/src/styles.css",
+        "<spike>/src/types.ts"
+      ]
+    },
+    {
+      "file": "assets/ThreeAdapter-MQUr2hgW.js",
+      "isEntry": false,
+      "imports": [
+        "assets/index-DQI4vTF6.js"
+      ],
+      "dynamicImports": [],
+      "modules": [
+        "<spike>/node_modules/@react-three/fiber/dist/events-e51d7528.esm.js",
+        "<spike>/node_modules/@react-three/fiber/dist/react-three-fiber.esm.js",
+        "<spike>/node_modules/its-fine/dist/index.js",
+        "<spike>/node_modules/react-use-measure/dist/index.js",
+        "<spike>/node_modules/scheduler/cjs/scheduler.production.js",
+        "<spike>/node_modules/scheduler/index.js",
+        "<spike>/node_modules/suspend-react/index.js",
+        "<spike>/node_modules/three/build/three.core.js",
+        "<spike>/node_modules/three/build/three.module.js",
+        "<spike>/node_modules/three/examples/jsm/controls/OrbitControls.js",
+        "<spike>/node_modules/three/examples/jsm/controls/TransformControls.js",
+        "<spike>/node_modules/three/examples/jsm/loaders/GLTFLoader.js",
+        "<spike>/node_modules/three/examples/jsm/utils/BufferGeometryUtils.js",
+        "<spike>/node_modules/three/examples/jsm/utils/SkeletonUtils.js",
+        "<spike>/node_modules/use-sync-external-store/cjs/use-sync-external-store-shim.production.js",
+        "<spike>/node_modules/use-sync-external-store/cjs/use-sync-external-store-shim/with-selector.production.js",
+        "<spike>/node_modules/use-sync-external-store/shim/index.js",
+        "<spike>/node_modules/use-sync-external-store/shim/with-selector.js",
+        "<spike>/node_modules/zustand/esm/traditional.mjs",
+        "<spike>/node_modules/zustand/esm/vanilla.mjs",
+        "<spike>/src/ThreeAdapter.tsx",
+        "<spike>/src/experimentModel.ts",
+        "<spike>/src/fixtures.generated.json"
+      ]
+    }
+  ]
+}
