@@ -4,7 +4,8 @@ import * as THREE from 'three'
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { TransformControls } from 'three/addons/controls/TransformControls.js'
-import fixtures from './fixtures.generated.json'
+import { fixtures } from './fixtureCatalog'
+import { observeModelResources } from './resourceObservation'
 import { finishGesture, verifyFixtureBytes } from './experimentModel'
 import { emptySnapshot, type AdapterBridge, type AdapterProps, type FixtureName, type Metrics, type Mode, type Sample, type Transform } from './types'
 
@@ -61,7 +62,7 @@ function SceneController({ effective, onBridge, onSnapshot }: AdapterProps) {
     scene.add(ambient, light)
     const context = gl.getContext() as WebGL2RenderingContext
     const debug = context.getExtension('WEBGL_debug_renderer_info')
-    state.capability = { webgl2: context instanceof WebGL2RenderingContext, version: context.getParameter(context.VERSION), renderer: context.getParameter(context.RENDERER), vendor: context.getParameter(context.VENDOR), unmaskedRenderer: debug ? context.getParameter(debug.UNMASKED_RENDERER_WEBGL) : null, unmaskedVendor: debug ? context.getParameter(debug.UNMASKED_VENDOR_WEBGL) : null, contextAttributes: context.getContextAttributes(), userAgent: navigator.userAgent, dpr: gl.getPixelRatio() }
+    state.capability = { webgl2: context instanceof WebGL2RenderingContext, version: context.getParameter(context.VERSION), renderer: context.getParameter(context.RENDERER), vendor: context.getParameter(context.VENDOR), unmaskedRenderer: debug ? context.getParameter(debug.UNMASKED_RENDERER_WEBGL) : null, unmaskedVendor: debug ? context.getParameter(debug.UNMASKED_VENDOR_WEBGL) : null, maxTextureSize: gl.capabilities.maxTextureSize, maxRenderbufferSize: context.getParameter(context.MAX_RENDERBUFFER_SIZE), contextAttributes: context.getContextAttributes(), userAgent: navigator.userAgent, dpr: gl.getPixelRatio() }
     const event = (kind: string, details: Record<string, unknown> = {}) => { state.telemetry.events.push({ kind, at: performance.now(), ...details }); if (state.telemetry.events.length > 200) state.telemetry.events.shift() }
     const screen = (point: THREE.Vector3) => { const rect = gl.domElement.getBoundingClientRect(); point.project(camera); return { x: rect.left + (point.x + 1) * rect.width / 2, y: rect.top + (1 - point.y) * rect.height / 2 } }
     function snapshot() {
@@ -149,6 +150,9 @@ function SceneController({ effective, onBridge, onSnapshot }: AdapterProps) {
       if (!Object.hasOwn(fixtures, name)) throw new Error('UNKNOWN_INTERNAL_FIXTURE')
       if (context.isContextLost() || state.status === 'context-lost') { state.status = 'context-lost'; state.error = 'WEBGL_CONTEXT_LOST_RELOAD_REQUIRED'; publish(); return }
       unload(); const ticket = generation; const fixture = fixtures[name]
+      if ('imageWidth' in fixture.expected && (fixture.expected.imageWidth > gl.capabilities.maxTextureSize || fixture.expected.imageHeight > gl.capabilities.maxTextureSize)) {
+        state.status = 'unsupported'; state.error = 'FIXTURE_TEXTURE_EXCEEDS_DEVICE_CAPABILITY'; publish(); return
+      }
       const request = new AbortController(); abort = request; state.status = 'loading'; publish()
       const started = performance.now(); let loaded: GLTF | null = null
       const sessionURLs = new Set<string>()
@@ -177,12 +181,18 @@ function SceneController({ effective, onBridge, onSnapshot }: AdapterProps) {
         orbit.target.copy(sphere.center); orbit.update()
         mixer = new THREE.AnimationMixer(model.scene); model.animations.forEach((clip) => mixer!.clipAction(clip).play())
         state.fixture = name; state.status = 'ready'; state.error = null
-        apply(); gl.render(scene, camera); const firstRendered = performance.now()
-        state.telemetry.loads.push({ fixture: name, sha256: digest, hashVerified: true, byteLength: bytes.byteLength, fetchMs: fetched - started, hashMs: verified - fetched, parseMs: parsed - verified, firstRenderMs: firstRendered - parsed, totalMs: firstRendered - started, heapUsed: heapUsed() })
+        apply(); gl.render(scene, camera)
+        const firstRenderError = context.getError()
+        if (firstRenderError !== context.NO_ERROR) throw new Error(`WEBGL_FIRST_RENDER_ERROR_${firstRenderError}`)
+        const firstRendered = performance.now()
+        state.telemetry.loads.push({ fixture: name, sha256: digest, hashVerified: true, byteLength: bytes.byteLength, fetchMs: fetched - started, hashMs: verified - fetched, parseMs: parsed - verified, firstRenderMs: firstRendered - parsed, totalMs: firstRendered - started, firstRenderMeaning: 'CPU setup/render submission and error check; no GPU completion fence', heapUsed: heapUsed(), resourceObservation: observeModelResources(model.scene) })
         invalidate(); publish()
       } catch (error) {
         if (loaded) releaseModel(loaded)
         if (!alive || ticket !== generation || request.signal.aborted) { state.telemetry.staleDiscards++; return }
+        // Failure after attaching the parsed scene must not retain a partial
+        // model. Preserve the failure after clearing all owned live resources.
+        if (model || group) unload()
         state.status = 'error'; state.error = error instanceof Error ? error.message : String(error); event('load-error', { error: state.error }); publish()
       } finally {
         sessionURLs.forEach((url) => { URL.revokeObjectURL(url); objectURLs.delete(url) }); sessionURLs.clear()

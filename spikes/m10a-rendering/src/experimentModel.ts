@@ -1,4 +1,4 @@
-import fixtures from './fixtures.generated.json'
+import { fixtures } from './fixtureCatalog'
 import type { FixtureName, Transform } from './types'
 
 export function finishGesture(before: Transform, after: Transform) {
