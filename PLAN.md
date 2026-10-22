@@ -692,6 +692,12 @@ R0 work-item tracking (final):
 
 Only M10A work is currently authorized: isolated schema drafts (WorkContent envelope, Scene3D v1, Component Package v3), the GLB/resource threat-model decision record, a disposable rendering spike, and measured 2D/3D baselines that set M10D–M10G budgets. M10A must not create user-facing 3D work, canonical Scene3D persistence, or promote spike code into the product editor.
 
+M10A evidence and remaining decisions:
+
+- Schema/projection drafts: PR #226 merged at `main@9b483b5962c1ca6fcdabda3628b96eee7cfd7aa0`; [implementation evidence](docs/progress/m10a-scene3d-contract-drafts.md). This merge does not close M10A.
+- `M10A-RESOURCE`: [GLB/resource profile proposal](docs/architecture/adr-m10a-glb-resource-profile.md) and [corpus contract](docs/acceptance/m10a-glb-resource-corpus.md), `active` for review. Candidate limits await measured evidence; production admission and the executable negative corpus are not implemented by these documents.
+- Rendering/capability spike and measured 2D/3D baselines remain within M10A. The accepted closeout must resolve the resource profile, container, decoder versions and quantitative budgets before M10B may begin.
+
 Each later gate becomes active only through an accepted closeout of its prerequisites. A branch, mock, spike, dependency installation or local build does not advance the gate.
 
 ---
