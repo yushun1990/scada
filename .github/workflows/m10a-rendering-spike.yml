@@ -1,0 +1,63 @@
+name: M10A Isolated Rendering Spike
+
+on:
+  pull_request:
+    paths:
+      - 'spikes/m10a-rendering/**'
+      - 'src/runtime/effective-component-props.ts'
+      - 'src/runtime/runtime-value-store.ts'
+      - 'src/component-system/definition.ts'
+      - 'src/component-system/validation.ts'
+      - '.github/workflows/m10a-rendering-spike.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m10a-spike-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spike:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install isolated and existing host dependencies
+        run: |
+          npm ci
+          npm ci --prefix spikes/m10a-rendering
+      - name: Deterministic fixture and actual host checks
+        run: |
+          npm --prefix spikes/m10a-rendering run check:fixtures
+          npm --prefix spikes/m10a-rendering run check:model
+          npm --prefix spikes/m10a-rendering run build
+          npm --prefix spikes/m10a-rendering run report:bundle -- --out artifacts/bundle.json
+      - name: Install pinned browser engines
+        working-directory: spikes/m10a-rendering
+        run: npx --no-install playwright install --with-deps chromium firefox
+      - name: Browser capability and flow evidence
+        run: |
+          set -euo pipefail
+          npm --prefix spikes/m10a-rendering run preview > /tmp/m10a-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4175/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4175/ >/dev/null
+          npm --prefix spikes/m10a-rendering run check:browser -- --base-url http://127.0.0.1:4175/ --output-dir artifacts/browser
+      - name: Retain experiment results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m10a-spike-${{ github.sha }}
+          path: spikes/m10a-rendering/artifacts/
+          if-no-files-found: warn

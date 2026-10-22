@@ -1,0 +1,79 @@
+{
+  "triangle": {
+    "id": "triangle",
+    "file": "triangle.glb",
+    "url": "/fixtures/triangle.glb",
+    "sha256": "65b7d7be579ede8f57eff280512f382423adaabc41b38ee8874fb6d4faeee1b8",
+    "byteLength": 1140,
+    "logicalId": "fixture-triangle",
+    "generator": "m10a-self-authored-glb/1",
+    "provenance": "Self-authored geometry, animation and checker pixels; no external source asset.",
+    "expected": {
+      "nodes": 2,
+      "meshInstances": 1,
+      "meshes": 1,
+      "primitives": 1,
+      "materials": 1,
+      "textures": 0,
+      "images": 0,
+      "clips": 0,
+      "clipNames": [],
+      "triangles": 1,
+      "primaryNodeId": "triangle-primary",
+      "primaryMaterialId": "triangle-material"
+    }
+  },
+  "textured": {
+    "id": "textured",
+    "file": "textured.glb",
+    "url": "/fixtures/textured.glb",
+    "sha256": "1e0cec9a6a136afa3e650bc102b552311c30ced7d0a1ba7be0dd2e6c54c96f5e",
+    "byteLength": 2856,
+    "logicalId": "fixture-textured",
+    "generator": "m10a-self-authored-glb/1",
+    "provenance": "Self-authored geometry, animation and checker pixels; no external source asset.",
+    "expected": {
+      "nodes": 2,
+      "meshInstances": 1,
+      "meshes": 1,
+      "primitives": 1,
+      "materials": 1,
+      "textures": 1,
+      "images": 1,
+      "clips": 1,
+      "clipNames": [
+        "idle-spin"
+      ],
+      "triangles": 12,
+      "primaryNodeId": "cube-primary",
+      "primaryMaterialId": "cube-material",
+      "imageWidth": 2,
+      "imageHeight": 2,
+      "animationSeconds": 2
+    }
+  },
+  "reference": {
+    "id": "reference",
+    "file": "reference.glb",
+    "url": "/fixtures/reference.glb",
+    "sha256": "26dd63a73f92a2d0c3978b589c065ee66a555daa71276979b79094a271c7a44b",
+    "byteLength": 28004,
+    "logicalId": "fixture-reference",
+    "generator": "m10a-self-authored-glb/1",
+    "provenance": "Self-authored geometry, animation and checker pixels; no external source asset.",
+    "expected": {
+      "nodes": 201,
+      "meshInstances": 200,
+      "meshes": 1,
+      "primitives": 1,
+      "materials": 1,
+      "textures": 0,
+      "images": 0,
+      "clips": 0,
+      "clipNames": [],
+      "triangles": 2400,
+      "primaryNodeId": "grid-cube-110",
+      "primaryMaterialId": "grid-material"
+    }
+  }
+}
