@@ -6,7 +6,7 @@ import {
 } from '../src/semanticSnapshot'
 import { finishGesture, verifyFixtureBytes } from '../src/experimentModel'
 import type { FixtureName, Transform } from '../src/types'
-import fixtures from '../src/fixtures.generated.json'
+import { fixtures } from '../src/fixtureCatalog'
 
 // Import the actual spike host, which itself imports the production resolver
 // and RuntimeValueStore. No renderer, registry substitute or copied algorithm.
@@ -58,7 +58,7 @@ for (const invalid of [
 console.log('PASS: actual gesture helper emits one copied command, no command for no-op, and rejects invalid transforms.')
 
 for (const name of Object.keys(fixtures) as FixtureName[]) {
-  const bytes = new Uint8Array(await readFile(new URL(`../public/fixtures/${fixtures[name].file}`, import.meta.url)))
+  const bytes = new Uint8Array(await readFile(new URL(`../public${fixtures[name].url}`, import.meta.url)))
   assert.equal((await verifyFixtureBytes(name, bytes.buffer)).digest, fixtures[name].sha256)
   const callerOwned = bytes.slice()
   const inFlight = verifyFixtureBytes(name, callerOwned.buffer)
@@ -72,4 +72,4 @@ for (const name of Object.keys(fixtures) as FixtureName[]) {
   await assert.rejects(verifyFixtureBytes(name, bytes.slice(1).buffer), /FIXTURE_DIGEST_MISMATCH/)
 }
 await assert.rejects(verifyFixtureBytes('toString' as FixtureName, new ArrayBuffer(0)), /UNKNOWN_INTERNAL_FIXTURE/)
-console.log('PASS: actual fixed-fixture guard admits all three exact byte sequences and rejects corruption, truncation and unknown identities before loading.')
+console.log(`PASS: actual fixed-fixture guard admits all ${Object.keys(fixtures).length} exact byte sequences and rejects corruption, truncation and unknown identities before loading.`)

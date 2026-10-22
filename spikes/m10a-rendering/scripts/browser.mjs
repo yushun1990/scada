@@ -498,6 +498,74 @@ async function runBrowser(name) {
         await screenshot(page, result, 'texture-decode-failure')
         return { input: 'createImageBitmap deterministic rejection injected before loading the trusted fixed fixture', state }
       })
+      stage = 'texture-capability-boundary'
+      await resultCheck(result, 'oversized-for-device-fixture-rejected-before-fetch', async () => {
+        await page.addInitScript(() => {
+          if (new URLSearchParams(location.search).get('textureLimit') !== '1') return
+          const prototype = WebGL2RenderingContext.prototype
+          const getParameter = prototype.getParameter
+          prototype.getParameter = function (parameter) {
+            return parameter === this.MAX_TEXTURE_SIZE ? 2048 : getParameter.call(this, parameter)
+          }
+        })
+        const url = new URL(baseURL)
+        url.searchParams.set('textureLimit', '1')
+        await page.goto(url.href, { waitUntil: 'networkidle' })
+        await page.getByTestId('enter-3d').click()
+        await ready(page)
+        const requestsBefore = result.requests.length
+        await page.evaluate(() => window.__m10a.loadFixture('texture-4096'))
+        const state = await snapshot(page)
+        assert.equal(state.status, 'unsupported')
+        assert.equal(state.error, 'FIXTURE_TEXTURE_EXCEEDS_DEVICE_CAPABILITY')
+        assert.equal(state.capability.maxTextureSize, 2048)
+        assert.equal(state.fixture, null)
+        assert.equal(state.renderer.geometries, 0)
+        assert.equal(state.renderer.textures, 0)
+        assert.equal(state.renderer.programs, 0)
+        assert.equal(state.telemetry.ownedObjectURLs, 0)
+        assert(!result.requests.slice(requestsBefore).some((request) => request.url.includes('/boundary-fixtures/')), 'Unsupported dimensions must be rejected before fetching target bytes')
+        return { input: 'MAX_TEXTURE_SIZE report injected as 2048; actual device limit remains separately recorded', state }
+      })
+      stage = 'first-render-allocation-failure'
+      await resultCheck(result, 'first-render-failure-releases-attached-model', async () => {
+        await page.addInitScript(() => {
+          if (new URLSearchParams(location.search).get('renderFailure') !== '1') return
+          const probe = { drew: false, injected: false }
+          window.__m10aRenderProbe = probe
+          const prototype = WebGL2RenderingContext.prototype
+          const drawElements = prototype.drawElements
+          const getError = prototype.getError
+          prototype.drawElements = function (...parameters) {
+            const value = drawElements.apply(this, parameters)
+            probe.drew = true
+            return value
+          }
+          prototype.getError = function () {
+            if (probe.drew && !probe.injected) { probe.injected = true; return this.OUT_OF_MEMORY }
+            return getError.call(this)
+          }
+        })
+        const url = new URL(baseURL)
+        url.searchParams.set('renderFailure', '1')
+        await page.goto(url.href, { waitUntil: 'networkidle' })
+        await page.getByTestId('enter-3d').click()
+        const state = await waitSettled(page)
+        assert.equal(state.status, 'error')
+        assert.equal(state.error, 'WEBGL_FIRST_RENDER_ERROR_1285')
+        assert.equal(state.fixture, null)
+        assert.equal(state.renderer.geometries, 0)
+        assert.equal(state.renderer.textures, 0)
+        assert.equal(state.renderer.programs, 0)
+        assert.equal(state.telemetry.ownedObjectURLs, 0)
+        assert.equal(state.telemetry.loads.length, 0, 'A failed first submission must not publish successful load telemetry')
+        const disposal = state.telemetry.disposals.at(-1)
+        assert.equal(disposal.released.imagesClosed, 1)
+        const probe = await page.evaluate(() => window.__m10aRenderProbe)
+        assert.equal(probe.injected, true)
+        await screenshot(page, result, 'first-render-failure')
+        return { input: 'OUT_OF_MEMORY return injected once after a real indexed draw; not an actual memory-exhaustion test', probe, state }
+      })
     } else {
       notVerified(result, 'native-rendering-and-interaction', `Native renderer did not become ready: ${JSON.stringify(entered)}`)
       await resultCheck(result, 'native-unavailable-is-explicit-ui', async () => {

@@ -1,0 +1,230 @@
+{
+  "testedImplementationHead": "f2ad3374ada769c24d93f7c81118a93496f89102",
+  "scope": "Retained unmodified raw reports/screenshots plus explicitly derived summary; no gate acceptance.",
+  "files": {
+    "fixtures.json": {
+      "bytes": 5148,
+      "sha256": "7ea06affc554118aa62e11d92e1983ee1b698d3fc40f0e6f5f6f600440bd2530"
+    },
+    "matrix/chromium-nodes-1000-1.png": {
+      "bytes": 115496,
+      "sha256": "e42a3ef5c4131442ac870ba5ce4c210396bba8e966321bbae33ddb66d0cb7d14"
+    },
+    "matrix/chromium-nodes-1000-2.png": {
+      "bytes": 115496,
+      "sha256": "e42a3ef5c4131442ac870ba5ce4c210396bba8e966321bbae33ddb66d0cb7d14"
+    },
+    "matrix/chromium-nodes-1000-3.png": {
+      "bytes": 115496,
+      "sha256": "e42a3ef5c4131442ac870ba5ce4c210396bba8e966321bbae33ddb66d0cb7d14"
+    },
+    "matrix/chromium-nodes-4096-1.png": {
+      "bytes": 123392,
+      "sha256": "043d134f651bb9273460b734656ca09e66e6e1fc454004711aee2b4ef3472fd6"
+    },
+    "matrix/chromium-nodes-4096-2.png": {
+      "bytes": 123392,
+      "sha256": "043d134f651bb9273460b734656ca09e66e6e1fc454004711aee2b4ef3472fd6"
+    },
+    "matrix/chromium-nodes-4096-3.png": {
+      "bytes": 123392,
+      "sha256": "043d134f651bb9273460b734656ca09e66e6e1fc454004711aee2b4ef3472fd6"
+    },
+    "matrix/chromium-texture-1024-1.png": {
+      "bytes": 150081,
+      "sha256": "199a097b3817036480c20b97d46eafc607ff416cf7e09996bd338b812233f96d"
+    },
+    "matrix/chromium-texture-1024-2.png": {
+      "bytes": 150081,
+      "sha256": "199a097b3817036480c20b97d46eafc607ff416cf7e09996bd338b812233f96d"
+    },
+    "matrix/chromium-texture-1024-3.png": {
+      "bytes": 150081,
+      "sha256": "199a097b3817036480c20b97d46eafc607ff416cf7e09996bd338b812233f96d"
+    },
+    "matrix/chromium-texture-2048-1.png": {
+      "bytes": 184012,
+      "sha256": "a9156f038e4820df814753464c3a43a177e0b26c19ebbea3653ed4d5d2cdb6e7"
+    },
+    "matrix/chromium-texture-2048-2.png": {
+      "bytes": 184012,
+      "sha256": "a9156f038e4820df814753464c3a43a177e0b26c19ebbea3653ed4d5d2cdb6e7"
+    },
+    "matrix/chromium-texture-2048-3.png": {
+      "bytes": 184012,
+      "sha256": "a9156f038e4820df814753464c3a43a177e0b26c19ebbea3653ed4d5d2cdb6e7"
+    },
+    "matrix/chromium-texture-4096-1.png": {
+      "bytes": 239616,
+      "sha256": "ef2c14b4453ea9b69d73f72114c16e1872e82d1e117704408ab4aab819f116d8"
+    },
+    "matrix/chromium-texture-4096-2.png": {
+      "bytes": 239616,
+      "sha256": "ef2c14b4453ea9b69d73f72114c16e1872e82d1e117704408ab4aab819f116d8"
+    },
+    "matrix/chromium-texture-4096-3.png": {
+      "bytes": 239616,
+      "sha256": "ef2c14b4453ea9b69d73f72114c16e1872e82d1e117704408ab4aab819f116d8"
+    },
+    "matrix/firefox-nodes-1000-1.png": {
+      "bytes": 136124,
+      "sha256": "7b15921a9f3f2f9ef0c40e714e610d8f825a3a97a444e2cd420d072780c4df39"
+    },
+    "matrix/firefox-nodes-1000-2.png": {
+      "bytes": 136124,
+      "sha256": "7b15921a9f3f2f9ef0c40e714e610d8f825a3a97a444e2cd420d072780c4df39"
+    },
+    "matrix/firefox-nodes-1000-3.png": {
+      "bytes": 136124,
+      "sha256": "7b15921a9f3f2f9ef0c40e714e610d8f825a3a97a444e2cd420d072780c4df39"
+    },
+    "matrix/firefox-nodes-4096-1.png": {
+      "bytes": 141990,
+      "sha256": "b59d691758cb04a66dcfb1ce016737dd2e76cb6f8acf44bdc2983dc6a47e9cf6"
+    },
+    "matrix/firefox-nodes-4096-2.png": {
+      "bytes": 141990,
+      "sha256": "b59d691758cb04a66dcfb1ce016737dd2e76cb6f8acf44bdc2983dc6a47e9cf6"
+    },
+    "matrix/firefox-nodes-4096-3.png": {
+      "bytes": 141990,
+      "sha256": "b59d691758cb04a66dcfb1ce016737dd2e76cb6f8acf44bdc2983dc6a47e9cf6"
+    },
+    "matrix/firefox-texture-1024-1.png": {
+      "bytes": 201282,
+      "sha256": "243d19155cdb9f122eb840f8f5bde4926befbc9233767925169853cd265baef2"
+    },
+    "matrix/firefox-texture-1024-2.png": {
+      "bytes": 201282,
+      "sha256": "243d19155cdb9f122eb840f8f5bde4926befbc9233767925169853cd265baef2"
+    },
+    "matrix/firefox-texture-1024-3.png": {
+      "bytes": 201282,
+      "sha256": "243d19155cdb9f122eb840f8f5bde4926befbc9233767925169853cd265baef2"
+    },
+    "matrix/firefox-texture-2048-1.png": {
+      "bytes": 249925,
+      "sha256": "8faed3f3e51239739ed1d9ccd4a0e31785544724091a0e97c85b7b3020351cde"
+    },
+    "matrix/firefox-texture-2048-2.png": {
+      "bytes": 249925,
+      "sha256": "8faed3f3e51239739ed1d9ccd4a0e31785544724091a0e97c85b7b3020351cde"
+    },
+    "matrix/firefox-texture-2048-3.png": {
+      "bytes": 249925,
+      "sha256": "8faed3f3e51239739ed1d9ccd4a0e31785544724091a0e97c85b7b3020351cde"
+    },
+    "matrix/firefox-texture-4096-1.png": {
+      "bytes": 314134,
+      "sha256": "4a38b6690579a59701364722eba05be7c1316b4cdae34e645883afd8ee259ff6"
+    },
+    "matrix/firefox-texture-4096-2.png": {
+      "bytes": 314134,
+      "sha256": "4a38b6690579a59701364722eba05be7c1316b4cdae34e645883afd8ee259ff6"
+    },
+    "matrix/firefox-texture-4096-3.png": {
+      "bytes": 314134,
+      "sha256": "4a38b6690579a59701364722eba05be7c1316b4cdae34e645883afd8ee259ff6"
+    },
+    "matrix/report.json": {
+      "bytes": 558366,
+      "sha256": "8855919f45c471f31b5f6aeef2b47dbe4d14290ecb31a64ceb1c57b05b8ced21"
+    },
+    "original-fixtures.json": {
+      "bytes": 2197,
+      "sha256": "034ae3594840ac962278eeadc54ef4e0a8ba0387a16784059996fb1f782196b9"
+    },
+    "regression/chromium-context-loss.png": {
+      "bytes": 98327,
+      "sha256": "979e7ad7b9ccffc92aa5295c10295be41305479cff263eb5ce160a2de0a1797a"
+    },
+    "regression/chromium-digest-rejection.png": {
+      "bytes": 93386,
+      "sha256": "ef54d4ea7eb46aea57ac110e3b27f9fe28144b1bcf3c3d54fa72b16b369756cb"
+    },
+    "regression/chromium-first-render-failure.png": {
+      "bytes": 94789,
+      "sha256": "41c4fc1f9b66251ace6b4f1bd670710fdcd5c4c478d361e00116cb49d34e720d"
+    },
+    "regression/chromium-injected-unsupported.png": {
+      "bytes": 103241,
+      "sha256": "ca0fd6c40b4261973181a29bb3c527e43354728c6887b6baed4a79817264a89a"
+    },
+    "regression/chromium-native-ready.png": {
+      "bytes": 91523,
+      "sha256": "0e0413f21a2c3b432878ff6a06ef5da63abb9d6a5307f0d089848ade8d23fd1d"
+    },
+    "regression/chromium-properties-hidden.png": {
+      "bytes": 85845,
+      "sha256": "18c397160b7841cc70402bca218e1e2d49947c6a4f700f371d4da51f6d2826f1"
+    },
+    "regression/chromium-reference-scene.png": {
+      "bytes": 103190,
+      "sha256": "ade882e258379e146bbff98aae786ace58b9d59b807ec3d19d85d4015bb84ab2"
+    },
+    "regression/chromium-shell.png": {
+      "bytes": 92710,
+      "sha256": "3fe12dc637b78cd6cf35ab1fe2fe2ba9ecc1dd6bb656674222b59ca8a966fb8d"
+    },
+    "regression/chromium-texture-decode-failure.png": {
+      "bytes": 94443,
+      "sha256": "f58087dfec56f21c8603f5dc494a86a7433fcfca0d0989aba3d1cac9edf91a20"
+    },
+    "regression/firefox-context-loss.png": {
+      "bytes": 119655,
+      "sha256": "595ff8150a66c855d803a2df71d162086f29adc502d89babcfcdada7bf4c0a44"
+    },
+    "regression/firefox-digest-rejection.png": {
+      "bytes": 113935,
+      "sha256": "b1bf8e09609ff13832347006c4e5df50e7b08dd495fd6b692b5685e96038df54"
+    },
+    "regression/firefox-first-render-failure.png": {
+      "bytes": 115563,
+      "sha256": "85998a978923ffe8b957d1b04e3ff5670ff71f6b8c517a3bc428e48f2d1b3d14"
+    },
+    "regression/firefox-injected-unsupported.png": {
+      "bytes": 124745,
+      "sha256": "5279e5a1c46c75929d5baf352d95bb3bfb23a4830f049bcbacdaaa645d2cfd92"
+    },
+    "regression/firefox-native-ready.png": {
+      "bytes": 114948,
+      "sha256": "8e07c07b87498ad8a914cd154b16df2b92611e151b7a3b1ec615ae307ff0382f"
+    },
+    "regression/firefox-properties-hidden.png": {
+      "bytes": 104337,
+      "sha256": "17afa01c2878a0d1708a7813566cc5bcc0874548e348e7ddb9e9560c780ce400"
+    },
+    "regression/firefox-reference-scene.png": {
+      "bytes": 123587,
+      "sha256": "156ea61da4ddf7bff0081c87873319153cc84c69816c813d42b49d67792590da"
+    },
+    "regression/firefox-shell.png": {
+      "bytes": 111763,
+      "sha256": "caca99dc2d2635dcab4cc6ec20bb1a5191143203ecacf111d73b6f6bd03d79fa"
+    },
+    "regression/firefox-texture-decode-failure.png": {
+      "bytes": 115890,
+      "sha256": "d08d8f36d3d238bde3faef130e5682b1bc728fec96d5659420a9a567487ec12d"
+    },
+    "regression/report.json": {
+      "bytes": 1350303,
+      "sha256": "f9f21c543cddcd809fe797410de2e0848d5ee97f636760e12780a0d3c6e95c52"
+    },
+    "root-after.json": {
+      "bytes": 4166,
+      "sha256": "06ff48877708bf7d3d6faafe94086fd852c7be8204e41838ecdeefc6bf5d064a"
+    },
+    "root-before.json": {
+      "bytes": 4815,
+      "sha256": "675ab05cfc20d5d78a6c84f1beadcf1496f6a857f455e27746f21e01a7261589"
+    },
+    "spike-bundle.json": {
+      "bytes": 4398,
+      "sha256": "9b341f976d8fe587e0ca653943b49d57d8bc74627f8a98ec23820c02a1df22a7"
+    },
+    "summary.json": {
+      "bytes": 7730,
+      "sha256": "97ee1ad8ec6dd8036b59350bcecf782f5c4ca37617191e435f7bbf8a836fb609"
+    }
+  }
+}

@@ -8,9 +8,12 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4175 --strictPort",
     "fixtures": "node scripts/fixtures.mjs",
+    "fixtures:boundaries": "node scripts/boundary-fixtures.mjs",
     "check:fixtures": "node scripts/check-fixtures.mjs",
-    "check:model": "tsx scripts/check-model.ts",
+    "check:boundaries": "node scripts/check-boundary-fixtures.mjs",
+    "check:model": "tsx scripts/check-model.ts && tsx scripts/check-resource-observation.ts",
     "check:browser": "node scripts/browser.mjs",
+    "measure:boundaries": "node scripts/measure-boundaries.mjs",
     "report:bundle": "node scripts/bundle-report.mjs"
   },
   "dependencies": {

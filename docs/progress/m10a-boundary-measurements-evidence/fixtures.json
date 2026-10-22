@@ -1,0 +1,183 @@
+{
+  "scope": "Five fixed authored M10A boundary inputs; no production admission, hostile corpus, native memory, hardware budget or gate acceptance.",
+  "reproducible": true,
+  "fixtureCount": 5,
+  "sourceHashes": {
+    "./boundary-fixtures.mjs": "da3de4fc7ebd44fc65a25bbc07a89358cbf395b811fc9652df5e4d66ce0c6cf3",
+    "./check-boundary-fixtures.mjs": "2cde75e13ab2db7c0cb9f8b92de7b0daf267f5813a6b3d13d34209fd3a8abfbe",
+    "../src/boundary-fixtures.generated.json": "45b96a0c1336eb6a10e5a9ff41f829396646332cb35362249b0de656e06c9ced"
+  },
+  "fixtures": [
+    {
+      "id": "nodes-1000",
+      "byteLength": 151064,
+      "sha256": "92979fb49e35976fd0231a04be22df2c529745fb1ff49eab0b5e87d54f6134af",
+      "jsonChunkBytes": 150388,
+      "counts": {
+        "nodes": 1000,
+        "meshInstances": 999,
+        "uniqueMeshes": 1,
+        "uniqueMaterials": 1,
+        "triangles": 11988,
+        "textures": 0,
+        "images": 0
+      },
+      "image": null,
+      "estimates": {
+        "decodedImageRgba8Bytes": 0,
+        "textureBaseLevelRgba8Bytes": 0,
+        "textureMipChainRgba8Bytes": 0,
+        "geometryAttributeAndIndexBytes": 648
+      },
+      "conformance": {
+        "validator": "gltf-validator@2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0,
+        "messages": [],
+        "externalResourceAttempts": 0
+      }
+    },
+    {
+      "id": "nodes-4096",
+      "byteLength": 629368,
+      "sha256": "17877791424605eba1e0622c9b305a28b362c1821b37df5673e593519e2750ca",
+      "jsonChunkBytes": 628692,
+      "counts": {
+        "nodes": 4096,
+        "meshInstances": 4095,
+        "uniqueMeshes": 1,
+        "uniqueMaterials": 1,
+        "triangles": 49140,
+        "textures": 0,
+        "images": 0
+      },
+      "image": null,
+      "estimates": {
+        "decodedImageRgba8Bytes": 0,
+        "textureBaseLevelRgba8Bytes": 0,
+        "textureMipChainRgba8Bytes": 0,
+        "geometryAttributeAndIndexBytes": 648
+      },
+      "conformance": {
+        "validator": "gltf-validator@2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0,
+        "messages": [],
+        "externalResourceAttempts": 0
+      }
+    },
+    {
+      "id": "texture-1024",
+      "byteLength": 134564,
+      "sha256": "11c011111adbe849fca7f5fc2bc528ca15ad01855b44595ed9d9df9118547331",
+      "jsonChunkBytes": 1516,
+      "counts": {
+        "nodes": 2,
+        "meshInstances": 1,
+        "uniqueMeshes": 1,
+        "uniqueMaterials": 1,
+        "triangles": 12,
+        "textures": 1,
+        "images": 1
+      },
+      "image": {
+        "width": 1024,
+        "height": 1024,
+        "bitDepth": 1,
+        "colorType": 0,
+        "encodedBytes": 132179,
+        "mipLevels": 11
+      },
+      "estimates": {
+        "decodedImageRgba8Bytes": 4194304,
+        "textureBaseLevelRgba8Bytes": 4194304,
+        "textureMipChainRgba8Bytes": 5592404,
+        "geometryAttributeAndIndexBytes": 840
+      },
+      "conformance": {
+        "validator": "gltf-validator@2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0,
+        "messages": [],
+        "externalResourceAttempts": 0
+      }
+    },
+    {
+      "id": "texture-2048",
+      "byteLength": 528864,
+      "sha256": "7a8707b3be5cfc2906c7995f7562148ee0d7c0aedfd22ee39537dde4b1fc9d8a",
+      "jsonChunkBytes": 1516,
+      "counts": {
+        "nodes": 2,
+        "meshInstances": 1,
+        "uniqueMeshes": 1,
+        "uniqueMaterials": 1,
+        "triangles": 12,
+        "textures": 1,
+        "images": 1
+      },
+      "image": {
+        "width": 2048,
+        "height": 2048,
+        "bitDepth": 1,
+        "colorType": 0,
+        "encodedBytes": 526479,
+        "mipLevels": 12
+      },
+      "estimates": {
+        "decodedImageRgba8Bytes": 16777216,
+        "textureBaseLevelRgba8Bytes": 16777216,
+        "textureMipChainRgba8Bytes": 22369620,
+        "geometryAttributeAndIndexBytes": 840
+      },
+      "conformance": {
+        "validator": "gltf-validator@2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0,
+        "messages": [],
+        "externalResourceAttempts": 0
+      }
+    },
+    {
+      "id": "texture-4096",
+      "byteLength": 2104020,
+      "sha256": "8f6391b0d076430f7b72f8fc02d31aa5fd564a7e4b8b3fa05b7233de08788925",
+      "jsonChunkBytes": 1520,
+      "counts": {
+        "nodes": 2,
+        "meshInstances": 1,
+        "uniqueMeshes": 1,
+        "uniqueMaterials": 1,
+        "triangles": 12,
+        "textures": 1,
+        "images": 1
+      },
+      "image": {
+        "width": 4096,
+        "height": 4096,
+        "bitDepth": 1,
+        "colorType": 0,
+        "encodedBytes": 2101631,
+        "mipLevels": 13
+      },
+      "estimates": {
+        "decodedImageRgba8Bytes": 67108864,
+        "textureBaseLevelRgba8Bytes": 67108864,
+        "textureMipChainRgba8Bytes": 89478484,
+        "geometryAttributeAndIndexBytes": 840
+      },
+      "conformance": {
+        "validator": "gltf-validator@2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0,
+        "messages": [],
+        "externalResourceAttempts": 0
+      }
+    }
+  ]
+}

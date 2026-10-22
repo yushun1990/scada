@@ -36,6 +36,8 @@ jobs:
       - name: Deterministic fixture and actual host checks
         run: |
           npm --prefix spikes/m10a-rendering run check:fixtures
+          npm --prefix spikes/m10a-rendering run fixtures:boundaries
+          npm --prefix spikes/m10a-rendering run check:boundaries
           npm --prefix spikes/m10a-rendering run check:model
           npm --prefix spikes/m10a-rendering run build
           npm --prefix spikes/m10a-rendering run report:bundle -- --out artifacts/bundle.json
@@ -58,6 +60,8 @@ jobs:
           # explicitly headed virtual-display lane, not physical-GPU evidence.
           # https://playwright.dev/docs/ci#running-headed
           xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npm --prefix spikes/m10a-rendering run check:browser -- --browser firefox --headed --base-url http://127.0.0.1:4175/ --output-dir artifacts/browser/firefox
+          npm --prefix spikes/m10a-rendering run measure:boundaries -- --browser chromium --fixtures nodes-1000,texture-1024 --repeats 1 --frames 30 --base-url http://127.0.0.1:4175/ --output-dir artifacts/boundaries/chromium
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npm --prefix spikes/m10a-rendering run measure:boundaries -- --browser firefox --headed --fixtures nodes-1000,texture-1024 --repeats 1 --frames 30 --base-url http://127.0.0.1:4175/ --output-dir artifacts/boundaries/firefox
       - name: Retain experiment results
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,0 +1,338 @@
+{
+  "source": "matrix/report.json",
+  "sourceSha256": "8855919f45c471f31b5f6aeef2b47dbe4d14290ecb31a64ceb1c57b05b8ced21",
+  "derivation": "Each row groups three repetitions. Report median/min/max of model totalMs and of each attempt p95 rAF interval; percentiles are not pooled across attempts.",
+  "budgetVerdict": "not evaluated",
+  "rows": [
+    {
+      "browser": "chromium",
+      "fixture": "nodes-1000",
+      "repeats": 3,
+      "firstTargetTotalMs": {
+        "median": 74,
+        "min": 73,
+        "max": 149
+      },
+      "repeatedTargetTotalMs": {
+        "median": 63.19999999925494,
+        "min": 55.40000000037253,
+        "max": 108.10000000149012
+      },
+      "perAttemptP95Ms": {
+        "idle": {
+          "median": 17,
+          "min": 16.800000000745058,
+          "max": 17
+        },
+        "orbit": {
+          "median": 47.90000000037253,
+          "min": 34.5,
+          "max": 74.69999999925494
+        },
+        "transform": {
+          "median": 41,
+          "min": 38.90000000037253,
+          "max": 62.70000000111759
+        }
+      },
+      "allUnloadCountersZero": true
+    },
+    {
+      "browser": "chromium",
+      "fixture": "nodes-4096",
+      "repeats": 3,
+      "firstTargetTotalMs": {
+        "median": 313.19999999925494,
+        "min": 285.40000000037253,
+        "max": 316.2000000011176
+      },
+      "repeatedTargetTotalMs": {
+        "median": 281.90000000037253,
+        "min": 259.5,
+        "max": 384.69999999925494
+      },
+      "perAttemptP95Ms": {
+        "idle": {
+          "median": 16.90000000037253,
+          "min": 16.90000000037253,
+          "max": 16.90000000037253
+        },
+        "orbit": {
+          "median": 326.80000000074506,
+          "min": 303,
+          "max": 407.90000000037253
+        },
+        "transform": {
+          "median": 250,
+          "min": 197.59999999962747,
+          "max": 689
+        }
+      },
+      "allUnloadCountersZero": true
+    },
+    {
+      "browser": "chromium",
+      "fixture": "texture-1024",
+      "repeats": 3,
+      "firstTargetTotalMs": {
+        "median": 72.19999999925494,
+        "min": 61,
+        "max": 81.80000000074506
+      },
+      "repeatedTargetTotalMs": {
+        "median": 56.70000000111759,
+        "min": 47.30000000074506,
+        "max": 72.69999999925494
+      },
+      "perAttemptP95Ms": {
+        "idle": {
+          "median": 16.800000000745058,
+          "min": 16.799999998882413,
+          "max": 17
+        },
+        "orbit": {
+          "median": 24.09999999962747,
+          "min": 23.699999999254942,
+          "max": 73.39999999850988
+        },
+        "transform": {
+          "median": 23,
+          "min": 21.899999998509884,
+          "max": 113.5
+        }
+      },
+      "allUnloadCountersZero": true
+    },
+    {
+      "browser": "chromium",
+      "fixture": "texture-2048",
+      "repeats": 3,
+      "firstTargetTotalMs": {
+        "median": 316,
+        "min": 224.39999999850988,
+        "max": 842.9000000003725
+      },
+      "repeatedTargetTotalMs": {
+        "median": 225.90000000037253,
+        "min": 109.90000000037253,
+        "max": 746.5999999996275
+      },
+      "perAttemptP95Ms": {
+        "idle": {
+          "median": 16.90000000037253,
+          "min": 16.800000000745058,
+          "max": 17
+        },
+        "orbit": {
+          "median": 22.799999998882413,
+          "min": 21.600000001490116,
+          "max": 134.7999999988824
+        },
+        "transform": {
+          "median": 29.699999999254942,
+          "min": 22,
+          "max": 314.09999999962747
+        }
+      },
+      "allUnloadCountersZero": true
+    },
+    {
+      "browser": "chromium",
+      "fixture": "texture-4096",
+      "repeats": 3,
+      "firstTargetTotalMs": {
+        "median": 489.5,
+        "min": 382.40000000037253,
+        "max": 514.9000000003725
+      },
+      "repeatedTargetTotalMs": {
+        "median": 445.1000000014901,
+        "min": 319,
+        "max": 455
+      },
+      "perAttemptP95Ms": {
+        "idle": {
+          "median": 16.90000000037253,
+          "min": 16.899999998509884,
+          "max": 17
+        },
+        "orbit": {
+          "median": 33.09999999962747,
+          "min": 32.59999999962747,
+          "max": 33.40000000037253
+        },
+        "transform": {
+          "median": 32.90000000037253,
+          "min": 25.800000000745058,
+          "max": 33.20000000111759
+        }
+      },
+      "allUnloadCountersZero": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "nodes-1000",
+      "repeats": 3,
+      "firstTargetTotalMs": {
+        "median": 606,
+        "min": 287,
+        "max": 823
+      },
+      "repeatedTargetTotalMs": {
+        "median": 410,
+        "min": 186,
+        "max": 504
+      },
+      "perAttemptP95Ms": {
+        "idle": {
+          "median": 18,
+          "min": 18,
+          "max": 22
+        },
+        "orbit": {
+          "median": 23,
+          "min": 18,
+          "max": 62
+        },
+        "transform": {
+          "median": 26,
+          "min": 19,
+          "max": 56
+        }
+      },
+      "allUnloadCountersZero": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "nodes-4096",
+      "repeats": 3,
+      "firstTargetTotalMs": {
+        "median": 627,
+        "min": 354,
+        "max": 1212
+      },
+      "repeatedTargetTotalMs": {
+        "median": 528,
+        "min": 388,
+        "max": 1058
+      },
+      "perAttemptP95Ms": {
+        "idle": {
+          "median": 18,
+          "min": 18,
+          "max": 19
+        },
+        "orbit": {
+          "median": 34,
+          "min": 32,
+          "max": 41
+        },
+        "transform": {
+          "median": 40,
+          "min": 33,
+          "max": 59
+        }
+      },
+      "allUnloadCountersZero": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "texture-1024",
+      "repeats": 3,
+      "firstTargetTotalMs": {
+        "median": 59,
+        "min": 52,
+        "max": 87
+      },
+      "repeatedTargetTotalMs": {
+        "median": 59,
+        "min": 52,
+        "max": 60
+      },
+      "perAttemptP95Ms": {
+        "idle": {
+          "median": 18,
+          "min": 18,
+          "max": 18
+        },
+        "orbit": {
+          "median": 18,
+          "min": 18,
+          "max": 19
+        },
+        "transform": {
+          "median": 18,
+          "min": 18,
+          "max": 19
+        }
+      },
+      "allUnloadCountersZero": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "texture-2048",
+      "repeats": 3,
+      "firstTargetTotalMs": {
+        "median": 159,
+        "min": 158,
+        "max": 177
+      },
+      "repeatedTargetTotalMs": {
+        "median": 144,
+        "min": 139,
+        "max": 144
+      },
+      "perAttemptP95Ms": {
+        "idle": {
+          "median": 18,
+          "min": 18,
+          "max": 18
+        },
+        "orbit": {
+          "median": 18,
+          "min": 18,
+          "max": 18
+        },
+        "transform": {
+          "median": 18,
+          "min": 18,
+          "max": 18
+        }
+      },
+      "allUnloadCountersZero": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "texture-4096",
+      "repeats": 3,
+      "firstTargetTotalMs": {
+        "median": 258,
+        "min": 253,
+        "max": 311
+      },
+      "repeatedTargetTotalMs": {
+        "median": 244,
+        "min": 244,
+        "max": 310
+      },
+      "perAttemptP95Ms": {
+        "idle": {
+          "median": 18,
+          "min": 18,
+          "max": 18
+        },
+        "orbit": {
+          "median": 18,
+          "min": 18,
+          "max": 18
+        },
+        "transform": {
+          "median": 18,
+          "min": 18,
+          "max": 18
+        }
+      },
+      "allUnloadCountersZero": true
+    }
+  ]
+}

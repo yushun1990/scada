@@ -1,0 +1,238 @@
+{
+  "nodes-1000": {
+    "id": "nodes-1000",
+    "file": "nodes-1000.glb",
+    "url": "/boundary-fixtures/nodes-1000.glb",
+    "sha256": "92979fb49e35976fd0231a04be22df2c529745fb1ff49eab0b5e87d54f6134af",
+    "byteLength": 151064,
+    "logicalId": "fixture-nodes-1000",
+    "generator": "m10a-self-authored-boundary-glb/1",
+    "provenance": "Self-authored project geometry and checker pixels, derived from the original fixed spike recipe; no external source asset.",
+    "sourceFixture": {
+      "id": "reference",
+      "sha256": "26dd63a73f92a2d0c3978b589c065ee66a555daa71276979b79094a271c7a44b"
+    },
+    "expected": {
+      "nodes": 1000,
+      "meshInstances": 999,
+      "meshes": 1,
+      "primitives": 1,
+      "materials": 1,
+      "textures": 0,
+      "images": 0,
+      "clips": 0,
+      "clipNames": [],
+      "triangles": 11988,
+      "primaryNodeId": "nodes-1000-cube-528",
+      "primaryMaterialId": "nodes-1000-material"
+    },
+    "measurement": {
+      "axis": "nodes",
+      "level": 1000,
+      "atCandidateCeiling": false,
+      "recipe": "1000 total nodes including one root; 999 direct mesh children reference one cube mesh, one material and one shared geometry allocation.",
+      "estimates": {
+        "decodedImageRgba8Bytes": 0,
+        "textureBaseLevelRgba8Bytes": 0,
+        "textureMipChainRgba8Bytes": 0,
+        "geometryAttributeAndIndexBytes": 648
+      },
+      "scope": "candidate-input-measurement-only",
+      "candidateProfile": "docs/architecture/adr-m10a-glb-resource-profile.md",
+      "estimateNote": "Analytical RGBA8 image/mip estimates and shared source geometry bytes only; not measured native/GPU memory or a complete session accounting policy. Geometry is shared, not counted once per node."
+    }
+  },
+  "nodes-4096": {
+    "id": "nodes-4096",
+    "file": "nodes-4096.glb",
+    "url": "/boundary-fixtures/nodes-4096.glb",
+    "sha256": "17877791424605eba1e0622c9b305a28b362c1821b37df5673e593519e2750ca",
+    "byteLength": 629368,
+    "logicalId": "fixture-nodes-4096",
+    "generator": "m10a-self-authored-boundary-glb/1",
+    "provenance": "Self-authored project geometry and checker pixels, derived from the original fixed spike recipe; no external source asset.",
+    "sourceFixture": {
+      "id": "reference",
+      "sha256": "26dd63a73f92a2d0c3978b589c065ee66a555daa71276979b79094a271c7a44b"
+    },
+    "expected": {
+      "nodes": 4096,
+      "meshInstances": 4095,
+      "meshes": 1,
+      "primitives": 1,
+      "materials": 1,
+      "textures": 0,
+      "images": 0,
+      "clips": 0,
+      "clipNames": [],
+      "triangles": 49140,
+      "primaryNodeId": "nodes-4096-cube-2080",
+      "primaryMaterialId": "nodes-4096-material"
+    },
+    "measurement": {
+      "axis": "nodes",
+      "level": 4096,
+      "atCandidateCeiling": true,
+      "recipe": "4096 total nodes including one root; 4095 direct mesh children reference one cube mesh, one material and one shared geometry allocation.",
+      "estimates": {
+        "decodedImageRgba8Bytes": 0,
+        "textureBaseLevelRgba8Bytes": 0,
+        "textureMipChainRgba8Bytes": 0,
+        "geometryAttributeAndIndexBytes": 648
+      },
+      "scope": "candidate-input-measurement-only",
+      "candidateProfile": "docs/architecture/adr-m10a-glb-resource-profile.md",
+      "estimateNote": "Analytical RGBA8 image/mip estimates and shared source geometry bytes only; not measured native/GPU memory or a complete session accounting policy. Geometry is shared, not counted once per node."
+    }
+  },
+  "texture-1024": {
+    "id": "texture-1024",
+    "file": "texture-1024.glb",
+    "url": "/boundary-fixtures/texture-1024.glb",
+    "sha256": "11c011111adbe849fca7f5fc2bc528ca15ad01855b44595ed9d9df9118547331",
+    "byteLength": 134564,
+    "logicalId": "fixture-texture-1024",
+    "generator": "m10a-self-authored-boundary-glb/1",
+    "provenance": "Self-authored project geometry and checker pixels, derived from the original fixed spike recipe; no external source asset.",
+    "sourceFixture": {
+      "id": "textured",
+      "sha256": "1e0cec9a6a136afa3e650bc102b552311c30ced7d0a1ba7be0dd2e6c54c96f5e"
+    },
+    "expected": {
+      "nodes": 2,
+      "meshInstances": 1,
+      "meshes": 1,
+      "primitives": 1,
+      "materials": 1,
+      "textures": 1,
+      "images": 1,
+      "clips": 0,
+      "clipNames": [],
+      "triangles": 12,
+      "primaryNodeId": "texture-1024-cube",
+      "primaryMaterialId": "texture-1024-material",
+      "imageWidth": 1024,
+      "imageHeight": 1024,
+      "imageBitDepth": 1,
+      "imageColorType": 0,
+      "mipLevels": 11,
+      "generateMipmaps": true
+    },
+    "measurement": {
+      "axis": "image-dimension",
+      "level": 1024,
+      "atCandidateCeiling": false,
+      "recipe": "1024 x 1024 original 1-bit grayscale checker PNG, non-interlaced, filter zero, stored DEFLATE; one fixed cube; LINEAR_MIPMAP_LINEAR and full mip chain.",
+      "encodedImageBytes": 132179,
+      "estimates": {
+        "decodedImageRgba8Bytes": 4194304,
+        "textureBaseLevelRgba8Bytes": 4194304,
+        "textureMipChainRgba8Bytes": 5592404,
+        "geometryAttributeAndIndexBytes": 840
+      },
+      "scope": "candidate-input-measurement-only",
+      "candidateProfile": "docs/architecture/adr-m10a-glb-resource-profile.md",
+      "estimateNote": "Analytical RGBA8 image/mip estimates and shared source geometry bytes only; not measured native/GPU memory or a complete session accounting policy. Geometry is shared, not counted once per node."
+    }
+  },
+  "texture-2048": {
+    "id": "texture-2048",
+    "file": "texture-2048.glb",
+    "url": "/boundary-fixtures/texture-2048.glb",
+    "sha256": "7a8707b3be5cfc2906c7995f7562148ee0d7c0aedfd22ee39537dde4b1fc9d8a",
+    "byteLength": 528864,
+    "logicalId": "fixture-texture-2048",
+    "generator": "m10a-self-authored-boundary-glb/1",
+    "provenance": "Self-authored project geometry and checker pixels, derived from the original fixed spike recipe; no external source asset.",
+    "sourceFixture": {
+      "id": "textured",
+      "sha256": "1e0cec9a6a136afa3e650bc102b552311c30ced7d0a1ba7be0dd2e6c54c96f5e"
+    },
+    "expected": {
+      "nodes": 2,
+      "meshInstances": 1,
+      "meshes": 1,
+      "primitives": 1,
+      "materials": 1,
+      "textures": 1,
+      "images": 1,
+      "clips": 0,
+      "clipNames": [],
+      "triangles": 12,
+      "primaryNodeId": "texture-2048-cube",
+      "primaryMaterialId": "texture-2048-material",
+      "imageWidth": 2048,
+      "imageHeight": 2048,
+      "imageBitDepth": 1,
+      "imageColorType": 0,
+      "mipLevels": 12,
+      "generateMipmaps": true
+    },
+    "measurement": {
+      "axis": "image-dimension",
+      "level": 2048,
+      "atCandidateCeiling": false,
+      "recipe": "2048 x 2048 original 1-bit grayscale checker PNG, non-interlaced, filter zero, stored DEFLATE; one fixed cube; LINEAR_MIPMAP_LINEAR and full mip chain.",
+      "encodedImageBytes": 526479,
+      "estimates": {
+        "decodedImageRgba8Bytes": 16777216,
+        "textureBaseLevelRgba8Bytes": 16777216,
+        "textureMipChainRgba8Bytes": 22369620,
+        "geometryAttributeAndIndexBytes": 840
+      },
+      "scope": "candidate-input-measurement-only",
+      "candidateProfile": "docs/architecture/adr-m10a-glb-resource-profile.md",
+      "estimateNote": "Analytical RGBA8 image/mip estimates and shared source geometry bytes only; not measured native/GPU memory or a complete session accounting policy. Geometry is shared, not counted once per node."
+    }
+  },
+  "texture-4096": {
+    "id": "texture-4096",
+    "file": "texture-4096.glb",
+    "url": "/boundary-fixtures/texture-4096.glb",
+    "sha256": "8f6391b0d076430f7b72f8fc02d31aa5fd564a7e4b8b3fa05b7233de08788925",
+    "byteLength": 2104020,
+    "logicalId": "fixture-texture-4096",
+    "generator": "m10a-self-authored-boundary-glb/1",
+    "provenance": "Self-authored project geometry and checker pixels, derived from the original fixed spike recipe; no external source asset.",
+    "sourceFixture": {
+      "id": "textured",
+      "sha256": "1e0cec9a6a136afa3e650bc102b552311c30ced7d0a1ba7be0dd2e6c54c96f5e"
+    },
+    "expected": {
+      "nodes": 2,
+      "meshInstances": 1,
+      "meshes": 1,
+      "primitives": 1,
+      "materials": 1,
+      "textures": 1,
+      "images": 1,
+      "clips": 0,
+      "clipNames": [],
+      "triangles": 12,
+      "primaryNodeId": "texture-4096-cube",
+      "primaryMaterialId": "texture-4096-material",
+      "imageWidth": 4096,
+      "imageHeight": 4096,
+      "imageBitDepth": 1,
+      "imageColorType": 0,
+      "mipLevels": 13,
+      "generateMipmaps": true
+    },
+    "measurement": {
+      "axis": "image-dimension",
+      "level": 4096,
+      "atCandidateCeiling": true,
+      "recipe": "4096 x 4096 original 1-bit grayscale checker PNG, non-interlaced, filter zero, stored DEFLATE; one fixed cube; LINEAR_MIPMAP_LINEAR and full mip chain.",
+      "encodedImageBytes": 2101631,
+      "estimates": {
+        "decodedImageRgba8Bytes": 67108864,
+        "textureBaseLevelRgba8Bytes": 67108864,
+        "textureMipChainRgba8Bytes": 89478484,
+        "geometryAttributeAndIndexBytes": 840
+      },
+      "scope": "candidate-input-measurement-only",
+      "candidateProfile": "docs/architecture/adr-m10a-glb-resource-profile.md",
+      "estimateNote": "Analytical RGBA8 image/mip estimates and shared source geometry bytes only; not measured native/GPU memory or a complete session accounting policy. Geometry is shared, not counted once per node."
+    }
+  }
+}

@@ -695,8 +695,9 @@ Only M10A work is currently authorized: isolated schema drafts (WorkContent enve
 M10A evidence and remaining decisions:
 
 - Schema/projection drafts: PR #226 merged at `main@9b483b5962c1ca6fcdabda3628b96eee7cfd7aa0`; [implementation evidence](docs/progress/m10a-scene3d-contract-drafts.md). This merge does not close M10A.
-- `M10A-RESOURCE`: [GLB/resource profile proposal](docs/architecture/adr-m10a-glb-resource-profile.md) and [corpus contract](docs/acceptance/m10a-glb-resource-corpus.md), `active` for review. Candidate limits await measured evidence; production admission and the executable negative corpus are not implemented by these documents.
-- `M10A-RENDER-SPIKE`: isolated rendering/capability harness `implemented`; [handoff and retained measurements](docs/progress/m10a-rendering-spike.md). Chromium/Firefox local capability checks and production bundle byte comparison are recorded. Target-hardware/boundary measurements and quantitative budgets remain incomplete; these results do not accept M10A.
+- `M10A-RESOURCE`: [GLB/resource profile proposal](docs/architecture/adr-m10a-glb-resource-profile.md) and [corpus contract](docs/acceptance/m10a-glb-resource-corpus.md), merged in PR #227 and still `active` for decision review. Candidate limits await accepted measurements; production admission and the executable negative corpus are not implemented by these documents.
+- `M10A-RENDER-SPIKE`: isolated rendering/capability harness `implemented`, merged in PR #228 at `main@77b588a715082d5e5ad3b175897dca36b224f118`; [handoff and retained measurements](docs/progress/m10a-rendering-spike.md). This does not accept M10A.
+- `M10A-BOUNDARY-MEASURE`: fixed node/image scale matrix and repeatable development-machine observations `implemented`; [handoff and raw evidence](docs/progress/m10a-boundary-measurements.md). Covers selected node and single-image ceilings only. Target-device qualification, remaining limits and quantitative budgets remain incomplete.
 - The accepted M10A closeout must resolve the resource profile, container, decoder versions and quantitative budgets before M10B may begin.
 
 Each later gate becomes active only through an accepted closeout of its prerequisites. A branch, mock, spike, dependency installation or local build does not advance the gate.

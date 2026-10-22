@@ -1,6 +1,7 @@
 import type { ComponentProps } from '../../../src/component-system/definition'
 
-export type FixtureName = 'triangle' | 'textured' | 'reference'
+export type { FixtureName } from './fixtureCatalog'
+import type { FixtureName } from './fixtureCatalog'
 export type Mode = 'translate' | 'rotate' | 'scale'
 export type Transform = { position: number[]; quaternion: number[]; scale: number[] }
 export type Metrics = { geometries: number; textures: number; programs: number; calls: number; triangles: number }
