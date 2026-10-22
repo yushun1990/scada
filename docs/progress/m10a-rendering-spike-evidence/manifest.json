@@ -1,0 +1,102 @@
+{
+  "scope": "Immutable copies of local M10A evidence; hashes cover artifacts, not gate acceptance.",
+  "testedCodeRevision": "ed4e4a779085784dd2b74dd038814d0af2bb96e7",
+  "files": {
+    "browser/chromium-context-loss.png": {
+      "bytes": 98327,
+      "sha256": "979e7ad7b9ccffc92aa5295c10295be41305479cff263eb5ce160a2de0a1797a"
+    },
+    "browser/chromium-digest-rejection.png": {
+      "bytes": 93386,
+      "sha256": "ef54d4ea7eb46aea57ac110e3b27f9fe28144b1bcf3c3d54fa72b16b369756cb"
+    },
+    "browser/chromium-injected-unsupported.png": {
+      "bytes": 103241,
+      "sha256": "ca0fd6c40b4261973181a29bb3c527e43354728c6887b6baed4a79817264a89a"
+    },
+    "browser/chromium-native-ready.png": {
+      "bytes": 91523,
+      "sha256": "0e0413f21a2c3b432878ff6a06ef5da63abb9d6a5307f0d089848ade8d23fd1d"
+    },
+    "browser/chromium-properties-hidden.png": {
+      "bytes": 85845,
+      "sha256": "18c397160b7841cc70402bca218e1e2d49947c6a4f700f371d4da51f6d2826f1"
+    },
+    "browser/chromium-reference-scene.png": {
+      "bytes": 103190,
+      "sha256": "ade882e258379e146bbff98aae786ace58b9d59b807ec3d19d85d4015bb84ab2"
+    },
+    "browser/chromium-shell.png": {
+      "bytes": 92710,
+      "sha256": "3fe12dc637b78cd6cf35ab1fe2fe2ba9ecc1dd6bb656674222b59ca8a966fb8d"
+    },
+    "browser/chromium-texture-decode-failure.png": {
+      "bytes": 94443,
+      "sha256": "f58087dfec56f21c8603f5dc494a86a7433fcfca0d0989aba3d1cac9edf91a20"
+    },
+    "browser/firefox-context-loss.png": {
+      "bytes": 119655,
+      "sha256": "595ff8150a66c855d803a2df71d162086f29adc502d89babcfcdada7bf4c0a44"
+    },
+    "browser/firefox-digest-rejection.png": {
+      "bytes": 113935,
+      "sha256": "b1bf8e09609ff13832347006c4e5df50e7b08dd495fd6b692b5685e96038df54"
+    },
+    "browser/firefox-injected-unsupported.png": {
+      "bytes": 124745,
+      "sha256": "5279e5a1c46c75929d5baf352d95bb3bfb23a4830f049bcbacdaaa645d2cfd92"
+    },
+    "browser/firefox-native-ready.png": {
+      "bytes": 114948,
+      "sha256": "8e07c07b87498ad8a914cd154b16df2b92611e151b7a3b1ec615ae307ff0382f"
+    },
+    "browser/firefox-properties-hidden.png": {
+      "bytes": 104337,
+      "sha256": "17afa01c2878a0d1708a7813566cc5bcc0874548e348e7ddb9e9560c780ce400"
+    },
+    "browser/firefox-reference-scene.png": {
+      "bytes": 123587,
+      "sha256": "156ea61da4ddf7bff0081c87873319153cc84c69816c813d42b49d67792590da"
+    },
+    "browser/firefox-shell.png": {
+      "bytes": 111763,
+      "sha256": "caca99dc2d2635dcab4cc6ec20bb1a5191143203ecacf111d73b6f6bd03d79fa"
+    },
+    "browser/firefox-texture-decode-failure.png": {
+      "bytes": 115890,
+      "sha256": "d08d8f36d3d238bde3faef130e5682b1bc728fec96d5659420a9a567487ec12d"
+    },
+    "browser/report.json": {
+      "bytes": 1114926,
+      "sha256": "fcc8474f5200c491c2549c1c4289c17a6df10bed503110acf3b7829eeaeb484d"
+    },
+    "dependency-audit.json": {
+      "bytes": 363,
+      "sha256": "c4cbe99bec8a48156f9fbc5d89b640cde6f053f455c9b6ffe4b330814a4bf2fe"
+    },
+    "fixtures.json": {
+      "bytes": 2197,
+      "sha256": "034ae3594840ac962278eeadc54ef4e0a8ba0387a16784059996fb1f782196b9"
+    },
+    "product-build.log": {
+      "bytes": 2415,
+      "sha256": "b626f208ac482c19f705b617f29623e47eb4e3e77591436863b8b399dd8039ff"
+    },
+    "product-lint.log": {
+      "bytes": 5126,
+      "sha256": "10524abad116476accdc49464218fcd51c92d8b7e0167dec7eb927ac6188bbcf"
+    },
+    "root-after.json": {
+      "bytes": 4166,
+      "sha256": "9afc38be4256f0a83b93e9fa7223f944305476c25ea4f0f0ec9f9357585e2338"
+    },
+    "root-before.json": {
+      "bytes": 4072,
+      "sha256": "d161492a7cf4932083aa00c2887e7663b5c7017ef51632ddfa47f3e9e2fbc91a"
+    },
+    "spike-bundle.json": {
+      "bytes": 4255,
+      "sha256": "ff0f4eaf5a556c2efd01cbc7e05db08d925d842bb94cd673d80b416fc7272fd9"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+npm notice run scada@0.1.0 build
+npm notice run tsc -b && vite build
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 661 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                0.58 kB │ gzip:   0.35 kB
+dist/assets/emscripten-module-uFzwHH0Y.wasm                  503.13 kB │ gzip: 235.94 kB
+dist/assets/UiStatesPage-BugoqlGP.css                          3.09 kB │ gzip:   0.82 kB
+dist/assets/WorkspacePage-NrfdXOUA.css                         5.54 kB │ gzip:   1.66 kB
+dist/assets/index-1yLW2UEg.css                                45.15 kB │ gzip:   7.61 kB
+dist/assets/EditorStorageGate-Batej6W_.css                   126.24 kB │ gzip:  18.65 kB
+dist/assets/module-asyncify-2EFITU5U-AFJLZurk.js               0.09 kB │ gzip:   0.09 kB
+dist/assets/module-ES6BEMUI-BHgfj-ob.js                        0.19 kB │ gzip:   0.16 kB
+dist/assets/dist-Baw5oGhS.js                                   0.25 kB │ gzip:   0.20 kB
+dist/assets/browser-component-publication-state-B2izQqZb.js    0.36 kB │ gzip:   0.25 kB
+dist/assets/UiStatesPage-eM190kvI.js                           6.05 kB │ gzip:   1.90 kB
+dist/assets/ffi-4V2b7xu3.js                                    6.32 kB │ gzip:   0.99 kB
+dist/assets/dist-BCrJnWc6.js                                   7.91 kB │ gzip:   2.87 kB
+dist/assets/emscripten-module.browser-BdAREQyj.js              9.17 kB │ gzip:   4.17 kB
+dist/assets/WorkspacePage-BM09eUO1.js                         11.35 kB │ gzip:   3.74 kB
+dist/assets/jsx-runtime-D-N9mkeo.js                           12.70 kB │ gzip:   4.46 kB
+dist/assets/storage-BY2e4CGL.js                               27.55 kB │ gzip:   8.70 kB
+dist/assets/chunk-V2S4ZYJR-DoCX5wAz.js                        34.77 kB │ gzip:   9.08 kB
+dist/assets/EditorStorageGate-CWHEwH7C.js                    334.02 kB │ gzip:  98.14 kB
+dist/assets/index-CUXv6Wp0.js                                915.44 kB │ gzip: 298.39 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 572ms

@@ -1,0 +1,30 @@
+npm notice run scada@0.1.0 lint
+npm notice run oxlint . && node scripts/check-ui-primitives.mjs && node scripts/check-ui-token-authority.mjs && node scripts/check-studio-shell-authority.mjs
+src/runtime/managed-runtime-adapter.ts:538:29: warning unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily. help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.
+src/runtime/managed-runtime-adapter.ts:544:29: warning unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily. help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.
+src/component-system/managedSvgImportCompatibility.ts:89:16: warning eslint(no-useless-escape): Unnecessary escape character '[' help: Replace `\[` with `[`.
+src/component-system/managedSvgImportCompatibility.ts:272:26: warning unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily. help: `Array.from` returns a new array. Spreading it into an array expression to create a new array is redundant.
+src/runtime/component-property-store.ts:106:7: warning unicorn(no-useless-fallback-in-spread): Empty fallbacks in spreads are unnecessary help: Spreading falsy values in object literals won't add any unexpected properties, so it's unnecessary to add an empty object as fallback.
+src/runtime/component-property-store.ts:182:27: warning unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily. help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.
+src/runtime/component-property-store.ts:208:7: warning unicorn(no-useless-fallback-in-spread): Empty fallbacks in spreads are unnecessary help: Spreading falsy values in object literals won't add any unexpected properties, so it's unnecessary to add an empty object as fallback.
+src/runtime/component-attribute-store.ts:85:27: warning unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily. help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.
+scripts/pages-animation-blink-smoke.mjs:5:3: warning eslint(no-unused-vars): Identifier 'saveAndWait' is imported but never used. help: Consider removing this import.
+scripts/pages-animation-blink-smoke.mjs:18:16: warning eslint(no-unused-vars): Function 'chooseSelectOption' is declared but never used. help: Consider removing this declaration.
+src/runtime/preview-runtime.ts:205:29: warning unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily. help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.
+scripts/check-managed-svg-portability.ts:180:41: warning eslint(no-useless-escape): Unnecessary escape character '"' help: Replace `\"` with `"`.
+scripts/check-managed-svg-portability.ts:180:51: warning eslint(no-useless-escape): Unnecessary escape character '"' help: Replace `\"` with `"`.
+scripts/check-managed-svg-portability.ts:180:60: warning eslint(no-useless-escape): Unnecessary escape character '"' help: Replace `\"` with `"`.
+scripts/check-managed-svg-portability.ts:250:36: warning eslint(no-useless-escape): Unnecessary escape character '"' help: Replace `\"` with `"`.
+scripts/check-managed-svg-portability.ts:250:46: warning eslint(no-useless-escape): Unnecessary escape character '"' help: Replace `\"` with `"`.
+scripts/check-managed-svg-portability.ts:250:55: warning eslint(no-useless-escape): Unnecessary escape character '"' help: Replace `\"` with `"`.
+src/features/component-library/ComponentPreviewValues.tsx:22:16: warning eslint(no-extra-boolean-cast): Redundant Boolean call help: Remove the Boolean call as it will already be coerced to a boolean
+scripts/pages-animation-fade-smoke.mjs:5:3: warning eslint(no-unused-vars): Identifier 'saveAndWait' is imported but never used. help: Consider removing this import.
+scripts/pages-animation-fade-smoke.mjs:18:16: warning eslint(no-unused-vars): Function 'chooseSelectOption' is declared but never used. help: Consider removing this declaration.
+scripts/pages-animation-scale-smoke.mjs:5:3: warning eslint(no-unused-vars): Identifier 'saveAndWait' is imported but never used. help: Consider removing this import.
+scripts/pages-animation-scale-smoke.mjs:18:16: warning eslint(no-unused-vars): Function 'chooseSelectOption' is declared but never used. help: Consider removing this declaration.
+scripts/pages-animation-move-smoke.mjs:5:3: warning eslint(no-unused-vars): Identifier 'saveAndWait' is imported but never used. help: Consider removing this import.
+scripts/pages-animation-move-smoke.mjs:23:16: warning eslint(no-unused-vars): Function 'chooseSelectOption' is declared but never used. help: Consider removing this declaration.
+scripts/pages-smoke.mjs:249:16: warning eslint(no-unused-vars): Function 'chooseSelectOption' is declared but never used. help: Consider removing this declaration.
+UI primitive audit passed: no raw business-layer button/select/input/textarea controls found.
+Studio C1 token authority check passed.
+StudioShell authority audit passed.
